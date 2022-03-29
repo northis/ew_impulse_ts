@@ -1,2 +1,2 @@
-# ew_impulse_ts
-Elliott Wave trading system
+# Elliott Wave Impulse Trading System
+Yes
