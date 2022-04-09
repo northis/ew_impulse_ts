@@ -27,7 +27,6 @@ namespace cAlgo
             m_ExtremumIndex = index;
             m_ExtremumPrice = price;
             Value[m_ExtremumIndex] = m_ExtremumPrice;
-            m_IsUpDirection = !m_IsUpDirection;
         }
 
         private double DeviationPrice
@@ -53,6 +52,7 @@ namespace cAlgo
             if (useSet)
             {
                 SetExtremum(index, low);
+                m_IsUpDirection = !m_IsUpDirection;
             }
         }
 
