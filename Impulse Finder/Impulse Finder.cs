@@ -37,21 +37,6 @@ namespace cAlgo
             }
         }
 
-        private void UpdateExtremum(int index, double high, double low)
-        {
-            if (m_IsUpDirection ? high >= m_ExtremumPrice : low <= m_ExtremumPrice)
-            {
-                MoveExtremum(index, m_IsUpDirection ? high : low);
-                return;
-            }
-
-            if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
-            {
-                SetExtremum(index, m_IsUpDirection ? low : high);
-                m_IsUpDirection = !m_IsUpDirection;
-            }
-        }
-
         public override void Calculate(int index)
         {
             double low = Bars.LowPrices[index];
@@ -66,7 +51,17 @@ namespace cAlgo
                 return;
             }
 
-            UpdateExtremum(index, high, low);
+            if (m_IsUpDirection ? high >= m_ExtremumPrice : low <= m_ExtremumPrice)
+            {
+                MoveExtremum(index, m_IsUpDirection ? high : low);
+                return;
+            }
+
+            if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
+            {
+                SetExtremum(index, m_IsUpDirection ? low : high);
+                m_IsUpDirection = !m_IsUpDirection;
+            }
         }
     }
 }
