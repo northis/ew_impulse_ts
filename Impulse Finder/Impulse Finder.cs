@@ -14,6 +14,7 @@ namespace cAlgo
         private bool m_IsUpDirection;
         private double m_ExtremumPrice;
         private int m_ExtremumIndex;
+        private string m_LastArrowName;
 
         private void MoveExtremum(int index, double price)
         {
@@ -39,7 +40,7 @@ namespace cAlgo
 
         private void CheckImpulse()
         {
-            Chart.DrawIcon("Extremum" + Bars.OpenTimes.Last(1),
+            Chart.DrawIcon(m_LastArrowName,
                 m_IsUpDirection 
                     ? ChartIconType.DownTriangle 
                     : ChartIconType.UpTriangle, 
@@ -65,11 +66,13 @@ namespace cAlgo
             if (m_IsUpDirection ? high >= m_ExtremumPrice : low <= m_ExtremumPrice)
             {
                 MoveExtremum(index, m_IsUpDirection ? high : low);
+                CheckImpulse();
                 return;
             }
 
             if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
             {
+                m_LastArrowName = "Extremum" + Bars.OpenTimes.Last(1);
                 SetExtremum(index, m_IsUpDirection ? low : high);
                 m_IsUpDirection = !m_IsUpDirection;
                 CheckImpulse();
