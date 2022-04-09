@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using cAlgo.API;
+﻿using cAlgo.API;
 
 namespace cAlgo
 {
@@ -40,18 +39,15 @@ namespace cAlgo
 
         private void UpdateExtremum(int index, double high, double low)
         {
-            bool useMove = m_IsUpDirection ? high >= m_ExtremumPrice : low <= m_ExtremumPrice;
-            bool useSet = m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice;
-
-            if (useMove)
+            if (m_IsUpDirection ? high >= m_ExtremumPrice : low <= m_ExtremumPrice)
             {
-                MoveExtremum(index, high);
+                MoveExtremum(index, m_IsUpDirection ? high : low);
                 return;
             }
 
-            if (useSet)
+            if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
             {
-                SetExtremum(index, low);
+                SetExtremum(index, m_IsUpDirection ? low : high);
                 m_IsUpDirection = !m_IsUpDirection;
             }
         }
