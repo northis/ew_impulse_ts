@@ -37,6 +37,17 @@ namespace cAlgo
             }
         }
 
+        private void CheckImpulse()
+        {
+            Chart.DrawIcon("Extremum" + Bars.OpenTimes.Last(1),
+                m_IsUpDirection 
+                    ? ChartIconType.DownTriangle 
+                    : ChartIconType.UpTriangle, 
+                m_ExtremumIndex,
+                m_ExtremumPrice, 
+                Color.White);
+        }
+
         public override void Calculate(int index)
         {
             double low = Bars.LowPrices[index];
@@ -61,6 +72,7 @@ namespace cAlgo
             {
                 SetExtremum(index, m_IsUpDirection ? low : high);
                 m_IsUpDirection = !m_IsUpDirection;
+                CheckImpulse();
             }
         }
     }
