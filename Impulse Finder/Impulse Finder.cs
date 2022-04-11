@@ -1,4 +1,7 @@
-﻿using cAlgo.API;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using cAlgo.API;
 
 namespace cAlgo
 {
@@ -11,14 +14,21 @@ namespace cAlgo
         [Output("Out", Color = Colors.LightGray, Thickness = 1, PlotType = PlotType.Line)]
         public IndicatorDataSeries Value { get; set; }
 
+        private readonly SortedDictionary<int, double> m_Extrema = 
+            new SortedDictionary<int, double>();
         private bool m_IsUpDirection;
+        private bool m_IsInSetup;
+        private int m_SetupStartIndex;
+        private int m_SetupEndIndex;
         private double m_ExtremumPrice;
         private int m_ExtremumIndex;
-        private string m_LastArrowName;
+
+        private const double TRIGGER_LEVEL_RATIO = 0.5;
 
         private void MoveExtremum(int index, double price)
         {
             Value[m_ExtremumIndex] = double.NaN;
+            m_Extrema.Remove(m_ExtremumIndex);
             SetExtremum(index, price);
         }
 
@@ -27,6 +37,7 @@ namespace cAlgo
             m_ExtremumIndex = index;
             m_ExtremumPrice = price;
             Value[m_ExtremumIndex] = m_ExtremumPrice;
+            m_Extrema[m_ExtremumIndex] = m_ExtremumPrice;
         }
 
         private double DeviationPrice
@@ -38,15 +49,83 @@ namespace cAlgo
             }
         }
 
-        private void CheckImpulse()
+        private string EnterChartName
         {
-            Chart.DrawIcon(m_LastArrowName,
-                m_IsUpDirection 
-                    ? ChartIconType.DownTriangle 
-                    : ChartIconType.UpTriangle, 
-                m_ExtremumIndex,
-                m_ExtremumPrice, 
-                Color.White);
+            get { return "Enter" + Bars.OpenTimes.Last(1); }
+        }
+
+        private string StopChartName
+        {
+            get { return "SL" + Bars.OpenTimes.Last(1); }
+        }
+
+        private string ProfitChartName
+        {
+            get { return "TP" + Bars.OpenTimes.Last(1); }
+        }
+
+        private void CheckSetup(int index)
+        {
+            int count = m_Extrema.Count;
+            if (count < 3)
+            {
+                return;
+            }
+
+            KeyValuePair<int, double> startItem = m_Extrema.ElementAt(count - 3);
+            KeyValuePair<int, double> endItem = m_Extrema.ElementAt(count - 2);
+
+            double startValue = startItem.Value;
+            double endValue = endItem.Value;
+
+            bool isLocalCorrectionUp = endValue > startValue;
+
+            double low = Bars.LowPrices[index];
+            double high = Bars.HighPrices[index];
+
+            if (!m_IsInSetup)
+            {
+                double triggerSize = Math.Abs(endValue - startValue) * TRIGGER_LEVEL_RATIO;
+                double triggerLevel;
+                bool gotSetup = isLocalCorrectionUp
+                    ? high >= (triggerLevel = startValue + triggerSize)
+                    : low <= (triggerLevel = endValue - triggerSize);
+
+                if (gotSetup && m_SetupEndIndex != endItem.Key)
+                {
+                    m_SetupStartIndex = startItem.Key;
+                    m_SetupEndIndex = endItem.Key;
+                    m_IsInSetup = true;
+                    Chart.DrawIcon(EnterChartName, ChartIconType.Star, index, triggerLevel, Color.White);
+                }
+            }
+
+            if (!m_IsInSetup)
+            {
+                return;
+            }
+
+            // Re-define the setup-related start and end values
+            startValue = m_Extrema[m_SetupStartIndex];
+            endValue = m_Extrema[m_SetupEndIndex];
+            isLocalCorrectionUp = endValue > startValue;
+
+            bool isProfitHit = isLocalCorrectionUp && low <= startValue ||
+                               !isLocalCorrectionUp && high >= startValue;
+
+            if (isProfitHit)
+            {
+                Chart.DrawIcon(ProfitChartName, ChartIconType.Star, index, startValue, Color.Green);
+                m_IsInSetup = false;
+            }
+
+            bool isStopHit = isLocalCorrectionUp && high >= endValue ||
+                             !isLocalCorrectionUp && low <= endValue;//add allowance
+            if (isStopHit)
+            {
+                Chart.DrawIcon(StopChartName, ChartIconType.Star, index, endValue, Color.Red);
+                m_IsInSetup = false;
+            }
         }
 
         public override void Calculate(int index)
@@ -66,17 +145,14 @@ namespace cAlgo
             if (m_IsUpDirection ? high >= m_ExtremumPrice : low <= m_ExtremumPrice)
             {
                 MoveExtremum(index, m_IsUpDirection ? high : low);
-                CheckImpulse();
-                return;
             }
-
-            if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
+            else if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
             {
-                m_LastArrowName = "Extremum" + Bars.OpenTimes.Last(1);
                 SetExtremum(index, m_IsUpDirection ? low : high);
                 m_IsUpDirection = !m_IsUpDirection;
-                CheckImpulse();
             }
+
+            CheckSetup(index);
         }
     }
 }
