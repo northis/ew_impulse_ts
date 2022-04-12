@@ -10,12 +10,8 @@ namespace cAlgo
     {
         [Parameter("DeviationPercent", DefaultValue = 0.05, MinValue = 0.01)]
         public double DeviationPercent { get; set; }
-
-        [Output("Out", Color = Colors.LightGray, Thickness = 1, PlotType = PlotType.Line)]
-        public IndicatorDataSeries Value { get; set; }
-
-        private readonly SortedDictionary<int, double> m_Extrema = 
-            new SortedDictionary<int, double>();
+        
+        private readonly SortedDictionary<int, double> m_Extrema = new SortedDictionary<int, double>();
         private bool m_IsUpDirection;
         private bool m_IsInSetup;
         private int m_SetupStartIndex;
@@ -27,7 +23,6 @@ namespace cAlgo
 
         private void MoveExtremum(int index, double price)
         {
-            Value[m_ExtremumIndex] = double.NaN;
             m_Extrema.Remove(m_ExtremumIndex);
             SetExtremum(index, price);
         }
@@ -36,7 +31,6 @@ namespace cAlgo
         {
             m_ExtremumIndex = index;
             m_ExtremumPrice = price;
-            Value[m_ExtremumIndex] = m_ExtremumPrice;
             m_Extrema[m_ExtremumIndex] = m_ExtremumPrice;
         }
 
@@ -47,6 +41,16 @@ namespace cAlgo
                 double percentRate = m_IsUpDirection ? -0.01 : 0.01;
                 return m_ExtremumPrice * (1.0 + DeviationPercent * percentRate);
             }
+        }
+
+        private string StartSetupLineChartName
+        {
+            get { return "StartSetupLine" + Bars.OpenTimes.Last(1); }
+        }
+
+        private string EndSetupLineChartName
+        {
+            get { return "EndSetupLine" + Bars.OpenTimes.Last(1); }
         }
 
         private string EnterChartName
@@ -87,8 +91,8 @@ namespace cAlgo
             {
                 double triggerSize = Math.Abs(endValue - startValue) * TRIGGER_LEVEL_RATIO;
                 double triggerLevel;
-                bool gotSetup = isLocalCorrectionUp
-                    ? high >= (triggerLevel = startValue + triggerSize)
+                bool gotSetup = isLocalCorrectionUp 
+                    ? high >= (triggerLevel = startValue + triggerSize) 
                     : low <= (triggerLevel = endValue - triggerSize);
 
                 if (gotSetup && m_SetupEndIndex != endItem.Key)
@@ -96,7 +100,12 @@ namespace cAlgo
                     m_SetupStartIndex = startItem.Key;
                     m_SetupEndIndex = endItem.Key;
                     m_IsInSetup = true;
+                    Chart.DrawTrendLine(StartSetupLineChartName, m_SetupStartIndex, startValue, index, triggerLevel,
+                        Color.Gray);
+                    Chart.DrawTrendLine(EndSetupLineChartName, m_SetupEndIndex, endValue, index, triggerLevel,
+                        Color.Gray);
                     Chart.DrawIcon(EnterChartName, ChartIconType.Star, index, triggerLevel, Color.White);
+                    return;
                 }
             }
 
@@ -110,20 +119,21 @@ namespace cAlgo
             endValue = m_Extrema[m_SetupEndIndex];
             isLocalCorrectionUp = endValue > startValue;
 
-            bool isProfitHit = isLocalCorrectionUp && low <= startValue ||
-                               !isLocalCorrectionUp && high >= startValue;
+            bool isProfitHit = isLocalCorrectionUp && high >= endValue || !isLocalCorrectionUp && low <= endValue;
 
             if (isProfitHit)
             {
-                Chart.DrawIcon(ProfitChartName, ChartIconType.Star, index, startValue, Color.Green);
+                Chart.DrawIcon(
+                    ProfitChartName, ChartIconType.Star, index, endValue, Color.Green);
                 m_IsInSetup = false;
             }
 
-            bool isStopHit = isLocalCorrectionUp && high >= endValue ||
-                             !isLocalCorrectionUp && low <= endValue;//add allowance
+            bool isStopHit = isLocalCorrectionUp && low <= startValue || !isLocalCorrectionUp && high >= startValue;
+            //add allowance
             if (isStopHit)
             {
-                Chart.DrawIcon(StopChartName, ChartIconType.Star, index, endValue, Color.Red);
+                Chart.DrawIcon(
+                    StopChartName, ChartIconType.Star, index, startValue, Color.Red);
                 m_IsInSetup = false;
             }
         }
