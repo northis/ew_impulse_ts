@@ -81,9 +81,8 @@ namespace cAlgo
 
             double startValue = startItem.Value;
             double endValue = endItem.Value;
-
-            bool isLocalCorrectionUp = endValue > startValue;
-
+            
+            bool isImpulseUp = endValue > startValue;
             double low = Bars.LowPrices[index];
             double high = Bars.HighPrices[index];
 
@@ -91,15 +90,16 @@ namespace cAlgo
             {
                 double triggerSize = Math.Abs(endValue - startValue) * TRIGGER_LEVEL_RATIO;
                 double triggerLevel;
-                bool gotSetup = isLocalCorrectionUp 
-                    ? high >= (triggerLevel = startValue + triggerSize) 
-                    : low <= (triggerLevel = endValue - triggerSize);
+                bool gotSetup = isImpulseUp
+                    ? low <= (triggerLevel = endValue - triggerSize) && low > startValue
+                    : high >= (triggerLevel = startValue + triggerSize) && high < endValue;
 
-                if (gotSetup && m_SetupEndIndex != endItem.Key)
+                if (gotSetup)
                 {
                     m_SetupStartIndex = startItem.Key;
                     m_SetupEndIndex = endItem.Key;
                     m_IsInSetup = true;
+
                     Chart.DrawTrendLine(StartSetupLineChartName, m_SetupStartIndex, startValue, index, triggerLevel,
                         Color.Gray);
                     Chart.DrawTrendLine(EndSetupLineChartName, m_SetupEndIndex, endValue, index, triggerLevel,
@@ -117,9 +117,9 @@ namespace cAlgo
             // Re-define the setup-related start and end values
             startValue = m_Extrema[m_SetupStartIndex];
             endValue = m_Extrema[m_SetupEndIndex];
-            isLocalCorrectionUp = endValue > startValue;
+            isImpulseUp = endValue > startValue;
 
-            bool isProfitHit = isLocalCorrectionUp && high >= endValue || !isLocalCorrectionUp && low <= endValue;
+            bool isProfitHit = isImpulseUp && high >= endValue || !isImpulseUp && low <= endValue;
 
             if (isProfitHit)
             {
@@ -128,8 +128,8 @@ namespace cAlgo
                 m_IsInSetup = false;
             }
 
-            bool isStopHit = isLocalCorrectionUp && low <= startValue || !isLocalCorrectionUp && high >= startValue;
-            //add allowance
+            bool isStopHit = isImpulseUp && low <= startValue || 
+                             !isImpulseUp && high >= startValue; //add allowance
             if (isStopHit)
             {
                 Chart.DrawIcon(
