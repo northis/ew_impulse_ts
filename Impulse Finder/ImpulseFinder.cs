@@ -5,9 +5,16 @@ using cAlgo.API;
 
 namespace cAlgo
 {
+    /// <summary>
+    /// Indicator can find possible setups based on initial impulses (wave 1 or A)
+    /// </summary>
+    /// <seealso cref="cAlgo.API.Indicator" />
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.None)]
     public class ImpulseFinder : Indicator
     {
+        /// <summary>
+        /// Gets or sets the allowance to impulse recognition in percents.
+        /// </summary>
         [Parameter("DeviationPercent", DefaultValue = 0.05, MinValue = 0.01)]
         public double DeviationPercent { get; set; }
         
@@ -17,10 +24,23 @@ namespace cAlgo
         private ExtremumFinder m_ExtremumFinder;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
 
+        /// <summary>
+        /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
+        /// </summary>
         protected override void Initialize()
         {
             base.Initialize();
             m_ExtremumFinder = new ExtremumFinder(DeviationPercent);
+        }
+
+        /// <summary>
+        /// Calculate the value(s) of indicator for the given index.
+        /// </summary>
+        /// <param name="index">The index of calculated value.</param>
+        public override void Calculate(int index)
+        {
+            m_ExtremumFinder.Calculate(index, Bars);
+            CheckSetup(index);
         }
 
         private string StartSetupLineChartName
@@ -48,6 +68,10 @@ namespace cAlgo
             get { return "TP" + Bars.OpenTimes.Last(1); }
         }
 
+        /// <summary>
+        /// Checks the conditions of possible setup for <see cref="index"/>.
+        /// </summary>
+        /// <param name="index">The index of bar (candle) to calculate.</param>
         private void CheckSetup(int index)
         {
             SortedDictionary<int, double> extrema = m_ExtremumFinder.Extrema;
@@ -131,12 +155,6 @@ namespace cAlgo
                     StopChartName, ChartIconType.Star, index, startValue, Color.Red);
                 m_IsInSetup = false;
             }
-        }
-
-        public override void Calculate(int index)
-        {
-            m_ExtremumFinder.Calculate(index, Bars);
-            CheckSetup(index);
         }
     }
 }
