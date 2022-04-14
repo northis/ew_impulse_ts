@@ -24,6 +24,16 @@ namespace cAlgo
         private ExtremumFinder m_ExtremumFinder;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
 
+        private const int CORRECTION_EXTREMUM_NUMBER = 1;
+        private const int IMPULSE_END_NUMBER = 2;
+        private const int IMPULSE_START_NUMBER = 3;
+        // We want to collect at lease this amount of extrema
+        // 1. Extremum of a correction.
+        // 2. End of the impulse
+        // 3. Start of the impulse
+        // 4. The previous extremum (to find out, weather this impulse is an initial one or not).
+        private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 4;
+
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
@@ -68,6 +78,76 @@ namespace cAlgo
             get { return "TP" + Bars.OpenTimes.Last(1); }
         }
 
+        private int GetExtremumCount(int startIndex, int endIndex)
+        {
+            DateTime impulseStart = Bars.OpenTimes[startIndex];
+            // We want to cover the entire candle on minor time frame, so we
+            // add +1 to the end index.
+            DateTime impulseEnd = Bars.OpenTimes[endIndex + 1];
+            var minorExtremumFinder = new ExtremumFinder(DeviationPercent);
+
+            TimeFrame minorTimeFrame;
+            if (!TimeFrameHelper.MajorMinorMap.TryGetValue(
+                TimeFrame, out minorTimeFrame))
+            {
+                minorTimeFrame = TimeFrame;
+            }
+
+            Bars minorBars = MarketData.GetBars(minorTimeFrame);
+            minorExtremumFinder.Calculate(impulseStart, impulseEnd, minorBars);
+            int impulseExtremaCount = minorExtremumFinder.Extrema.Count;
+            return impulseExtremaCount;
+        }
+
+        /// <summary>
+        /// Determines whether the movement from <see cref="startValue"/> to <see cref="endValue"/> is initial. We use current bar position and <see cref="IMPULSE_START_NUMBER"/> to rewind the bars to the past.
+        /// </summary>
+        /// <param name="startValue">The start value.</param>
+        /// <param name="endValue">The end value.</param>
+        /// <returns>
+        ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
+        /// </returns>
+        private bool IsInitialMovement(double startValue, double endValue)
+        {
+            int count = m_ExtremumFinder.Extrema.Count;
+            // We want to rewind the bars to be sure this impulse candidate is really an initial one
+            bool isInitialMove = false;
+            bool isImpulseUp = endValue > startValue;
+            for (int curIndex = count - IMPULSE_START_NUMBER-1;
+                curIndex >= 0; curIndex--)
+            {
+                double curValue = m_ExtremumFinder.Extrema.ElementAt(curIndex).Value;
+                if (isImpulseUp)
+                {
+                    if (curValue <= startValue)
+                    {
+                        break;
+                    }
+
+                    if (curValue > endValue)
+                    {
+                        isInitialMove = true;
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if (curValue >= startValue)
+                {
+                    break;
+                }
+
+                if (curValue < endValue)
+                {
+                    isInitialMove = true;
+                    break;
+                }
+            }
+
+            return isInitialMove;
+        }
+
         /// <summary>
         /// Checks the conditions of possible setup for <see cref="index"/>.
         /// </summary>
@@ -76,14 +156,17 @@ namespace cAlgo
         {
             SortedDictionary<int, double> extrema = m_ExtremumFinder.Extrema;
             int count = extrema.Count;
-            if (count < 3)
+            if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
                 return;
             }
 
-            KeyValuePair<int, double> startItem = extrema.ElementAt(count - 3);
-            KeyValuePair<int, double> endItem = extrema.ElementAt(count - 2);
-            KeyValuePair<int, double> lastItem = extrema.ElementAt(count - 1);
+            KeyValuePair<int, double> startItem = extrema.ElementAt(
+                count - IMPULSE_START_NUMBER);
+            KeyValuePair<int, double> endItem = extrema.ElementAt(
+                count - IMPULSE_END_NUMBER);
+            KeyValuePair<int, double> lastItem = extrema.ElementAt(
+                count - CORRECTION_EXTREMUM_NUMBER);
 
             double startValue = startItem.Value;
             double endValue = endItem.Value;
@@ -91,7 +174,7 @@ namespace cAlgo
             bool isImpulseUp = endValue > startValue;
             double low = Bars.LowPrices[index];
             double high = Bars.HighPrices[index];
-
+            
             if (!m_IsInSetup)
             {
                 double lastValue = lastItem.Value;
@@ -101,6 +184,16 @@ namespace cAlgo
                     return; // The setup is no longer valid, TP or SL is already hit.
                 }
 
+                bool isInitialMove = IsInitialMovement(startValue, endValue);
+                if (!isInitialMove)
+                {
+                    // The move (impulse candidate) is no longer initial.
+                    return;
+                }
+
+                // TODO Find out why it says 3 when it's 2
+                int impulseExtremaCount = GetExtremumCount(
+                    startItem.Key, endItem.Key);
                 double triggerSize = Math.Abs(endValue - startValue) * TRIGGER_LEVEL_RATIO;
 
                 double triggerLevel;
@@ -130,6 +223,8 @@ namespace cAlgo
                 Chart.DrawTrendLine(EndSetupLineChartName, m_SetupEndIndex, endValue, index, triggerLevel,
                     Color.Gray);
                 Chart.DrawIcon(EnterChartName, ChartIconType.Star, index, triggerLevel, Color.White);
+                Chart.DrawText(StartSetupLineChartName + "text", impulseExtremaCount.ToString(), index, triggerLevel,
+                    Color.White);
                 return;
             }
             
