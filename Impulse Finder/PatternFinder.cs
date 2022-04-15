@@ -91,22 +91,5 @@ namespace cAlgo
 
             return false;
         }
-
-        private static List<KeyValuePair<int, double>> GetIntervals(
-            SortedDictionary<int, double> extrema)
-        {
-            var intervals = new List<KeyValuePair<int, double>>();
-
-            KeyValuePair<int, double> currentItem = extrema.First();
-            foreach (KeyValuePair<int, double> extremum in extrema.Skip(1))
-            {
-                intervals.Add(new KeyValuePair<int, double>(
-                    extremum.Key - currentItem.Key,
-                    extremum.Value - currentItem.Value));
-                currentItem = extremum;
-            }
-
-            return intervals;
-        }
     }
 }
