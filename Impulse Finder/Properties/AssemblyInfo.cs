@@ -3,10 +3,10 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("Impulse Finder")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Impulse Finder Indicator for cTrader")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyProduct("Impulse Finder")]
-[assembly: AssemblyTrademark("")]
+[assembly: AssemblyTrademark("Mikhail Berdnikov (C) 2022")]
 [assembly: AssemblyCulture("")]
 
 [assembly: ComVisible(false)]

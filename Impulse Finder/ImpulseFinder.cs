@@ -13,11 +13,17 @@ namespace cAlgo
     public class ImpulseFinder : Indicator
     {
         /// <summary>
-        /// Gets or sets the allowance to impulse recognition in percents.
+        /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
-        [Parameter("DeviationPercent", DefaultValue = 0.05, MinValue = 0.01)]
-        public double DeviationPercent { get; set; }
-        
+        [Parameter("DeviationPercentMajor", DefaultValue = 0.1, MinValue = 0.01)]
+        public double DeviationPercentMajor { get; set; }
+
+        /// <summary>
+        /// Gets or sets the allowance to impulse recognition in percents (minor).
+        /// </summary>
+        [Parameter("DeviationPercentMinor", DefaultValue = 0.05, MinValue = 0.01)]
+        public double DeviationPercentMinor { get; set; }
+
         private bool m_IsInSetup;
         private int m_SetupStartIndex;
         private int m_SetupEndIndex;
@@ -40,7 +46,7 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            m_ExtremumFinder = new ExtremumFinder(DeviationPercent);
+            m_ExtremumFinder = new ExtremumFinder(DeviationPercentMajor);
         }
 
         /// <summary>
@@ -80,21 +86,8 @@ namespace cAlgo
 
         private int GetExtremumCount(int startIndex, int endIndex)
         {
-            DateTime impulseStart = Bars.OpenTimes[startIndex];
-            // We want to cover the entire candle on minor time frame, so we
-            // add +1 to the end index.
-            DateTime impulseEnd = Bars.OpenTimes[endIndex + 1];
-            var minorExtremumFinder = new ExtremumFinder(DeviationPercent);
-
-            TimeFrame minorTimeFrame;
-            if (!TimeFrameHelper.MajorMinorMap.TryGetValue(
-                TimeFrame, out minorTimeFrame))
-            {
-                minorTimeFrame = TimeFrame;
-            }
-
-            Bars minorBars = MarketData.GetBars(minorTimeFrame);
-            minorExtremumFinder.Calculate(impulseStart, impulseEnd, minorBars);
+            var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
+            minorExtremumFinder.Calculate(startIndex, endIndex, Bars);
             int impulseExtremaCount = minorExtremumFinder.Extrema.Count;
             return impulseExtremaCount;
         }
@@ -113,8 +106,7 @@ namespace cAlgo
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
-            for (int curIndex = count - IMPULSE_START_NUMBER-1;
-                curIndex >= 0; curIndex--)
+            for (int curIndex = count - IMPULSE_START_NUMBER - 1; curIndex >= 0; curIndex--)
             {
                 double curValue = m_ExtremumFinder.Extrema.ElementAt(curIndex).Value;
                 if (isImpulseUp)
@@ -161,27 +153,24 @@ namespace cAlgo
                 return;
             }
 
-            KeyValuePair<int, double> startItem = extrema.ElementAt(
-                count - IMPULSE_START_NUMBER);
-            KeyValuePair<int, double> endItem = extrema.ElementAt(
-                count - IMPULSE_END_NUMBER);
-            KeyValuePair<int, double> lastItem = extrema.ElementAt(
-                count - CORRECTION_EXTREMUM_NUMBER);
+            KeyValuePair<int, double> startItem = extrema.ElementAt(count - IMPULSE_START_NUMBER);
+            KeyValuePair<int, double> endItem = extrema.ElementAt(count - IMPULSE_END_NUMBER);
+            KeyValuePair<int, double> lastItem = extrema.ElementAt(count - CORRECTION_EXTREMUM_NUMBER);
 
             double startValue = startItem.Value;
             double endValue = endItem.Value;
-            
+
             bool isImpulseUp = endValue > startValue;
             double low = Bars.LowPrices[index];
             double high = Bars.HighPrices[index];
-            
+
             if (!m_IsInSetup)
             {
                 double lastValue = lastItem.Value;
-                if (lastValue >= Math.Max(startValue, endValue)
-                    || lastValue <= Math.Min(startValue, endValue))
+                if (lastValue >= Math.Max(startValue, endValue) || lastValue <= Math.Min(startValue, endValue))
                 {
-                    return; // The setup is no longer valid, TP or SL is already hit.
+                    return;
+                    // The setup is no longer valid, TP or SL is already hit.
                 }
 
                 bool isInitialMove = IsInitialMovement(startValue, endValue);
@@ -192,8 +181,7 @@ namespace cAlgo
                 }
 
                 // TODO Find out why it says 3 when it's 2
-                int impulseExtremaCount = GetExtremumCount(
-                    startItem.Key, endItem.Key);
+                int impulseExtremaCount = GetExtremumCount(startItem.Key, endItem.Key);
                 double triggerSize = Math.Abs(endValue - startValue) * TRIGGER_LEVEL_RATIO;
 
                 double triggerLevel;
@@ -218,36 +206,30 @@ namespace cAlgo
                 m_SetupEndIndex = endItem.Key;
                 m_IsInSetup = true;
 
-                Chart.DrawTrendLine(StartSetupLineChartName, m_SetupStartIndex, startValue, index, triggerLevel,
-                    Color.Gray);
-                Chart.DrawTrendLine(EndSetupLineChartName, m_SetupEndIndex, endValue, index, triggerLevel,
-                    Color.Gray);
+                Chart.DrawTrendLine(StartSetupLineChartName, m_SetupStartIndex, startValue, index, triggerLevel, Color.Gray);
+                Chart.DrawTrendLine(EndSetupLineChartName, m_SetupEndIndex, endValue, index, triggerLevel, Color.Gray);
                 Chart.DrawIcon(EnterChartName, ChartIconType.Star, index, triggerLevel, Color.White);
-                Chart.DrawText(StartSetupLineChartName + "text", impulseExtremaCount.ToString(), index, triggerLevel,
-                    Color.White);
+                Chart.DrawText(StartSetupLineChartName + "text", impulseExtremaCount.ToString(), index, triggerLevel, Color.White);
                 return;
             }
-            
+
             // Re-define the setup-related start and end values
             startValue = extrema[m_SetupStartIndex];
             endValue = extrema[m_SetupEndIndex];
             isImpulseUp = endValue > startValue;
 
-            bool isProfitHit = isImpulseUp && high >= endValue || 
-                               !isImpulseUp && low <= endValue;
+            bool isProfitHit = isImpulseUp && high >= endValue || !isImpulseUp && low <= endValue;
             if (isProfitHit)
             {
-                Chart.DrawIcon(
-                    ProfitChartName, ChartIconType.Star, index, endValue, Color.Green);
+                Chart.DrawIcon(ProfitChartName, ChartIconType.Star, index, endValue, Color.Green);
                 m_IsInSetup = false;
             }
 
-            bool isStopHit = isImpulseUp && low <= startValue || 
-                             !isImpulseUp && high >= startValue; //add allowance
+            bool isStopHit = isImpulseUp && low <= startValue || !isImpulseUp && high >= startValue;
+            //add allowance
             if (isStopHit)
             {
-                Chart.DrawIcon(
-                    StopChartName, ChartIconType.Star, index, startValue, Color.Red);
+                Chart.DrawIcon(StopChartName, ChartIconType.Star, index, startValue, Color.Red);
                 m_IsInSetup = false;
             }
         }
