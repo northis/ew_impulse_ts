@@ -215,6 +215,8 @@ namespace cAlgo
                 Chart.DrawTrendLine(StartSetupLineChartName, m_SetupStartIndex, startValue, index, triggerLevel, Color.Gray);
                 Chart.DrawTrendLine(EndSetupLineChartName, m_SetupEndIndex, endValue, index, triggerLevel, Color.Gray);
                 Chart.DrawIcon(EnterChartName, ChartIconType.Star, index, triggerLevel, Color.White);
+
+                // Here we should give a trade signal.
                 return;
             }
 

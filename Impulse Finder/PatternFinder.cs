@@ -51,10 +51,9 @@ namespace cAlgo
                 }
 
                 // Check harmony between 2nd and 4th waves 
-                double correctionRatioPercent = 
-                    100 * (double)fourthWaveDuration / secondWaveDuration;
-                if (correctionRatioPercent > correctionAllowancePercent ||
-                    correctionRatioPercent < 100 / correctionRatioPercent)
+                double correctionRatio = (double)fourthWaveDuration / secondWaveDuration;
+                if (correctionRatio * 100 > correctionAllowancePercent ||
+                    correctionRatio < 100d / correctionAllowancePercent)
                 {
                     return false;
                 }
