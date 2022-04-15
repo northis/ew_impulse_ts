@@ -3,6 +3,9 @@ using System.Linq;
 
 namespace cAlgo
 {
+    /// <summary>
+    /// Contains pattern-finding logic for the Elliott Waves structures.
+    /// </summary>
     public static class PatternFinder
     {
         /// <summary>
@@ -30,7 +33,7 @@ namespace cAlgo
 
             KeyValuePair<int, double> firstItem = extrema.First();
             KeyValuePair<int, double> lastItem = extrema.Last();
-            bool isUp = firstItem.Value > lastItem.Value;
+            bool isUp = lastItem.Value > firstItem.Value;
 
             if (count == 6) // support 10, 14, 18 as well with a recursive call maybe
             {
@@ -64,7 +67,7 @@ namespace cAlgo
                 }
 
                 double firstWaveLength = (isUp ? 1 : -1) *
-                                         (firstItem.Value - firstWaveEnd.Value);
+                                         (firstWaveEnd.Value - firstItem.Value);
 
                 double thirdWaveLength = (isUp ? 1 : -1) * 
                                          (thirdWaveEnd.Value - secondWaveEnd.Value);

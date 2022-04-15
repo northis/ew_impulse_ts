@@ -24,6 +24,12 @@ namespace cAlgo
         [Parameter("DeviationPercentMinor", DefaultValue = 0.05, MinValue = 0.01)]
         public double DeviationPercentMinor { get; set; }
 
+        /// <summary>
+        /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
+        /// </summary>
+        [Parameter("DeviationPercentCorrection", DefaultValue = 250, MinValue = 1)]
+        public int DeviationPercentCorrection { get; set; }
+
         private bool m_IsInSetup;
         private int m_SetupStartIndex;
         private int m_SetupEndIndex;
@@ -83,15 +89,7 @@ namespace cAlgo
         {
             get { return "TP" + Bars.OpenTimes.Last(1); }
         }
-
-        private int GetExtremumCount(int startIndex, int endIndex)
-        {
-            var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
-            minorExtremumFinder.Calculate(startIndex, endIndex, Bars);
-            int impulseExtremaCount = minorExtremumFinder.Extrema.Count;
-            return impulseExtremaCount;
-        }
-
+        
         /// <summary>
         /// Determines whether the movement from <see cref="startValue"/> to <see cref="endValue"/> is initial. We use current bar position and <see cref="IMPULSE_START_NUMBER"/> to rewind the bars to the past.
         /// </summary>
@@ -180,8 +178,6 @@ namespace cAlgo
                     return;
                 }
 
-                // TODO Find out why it says 3 when it's 2
-                int impulseExtremaCount = GetExtremumCount(startItem.Key, endItem.Key);
                 double triggerSize = Math.Abs(endValue - startValue) * TRIGGER_LEVEL_RATIO;
 
                 double triggerLevel;
@@ -202,6 +198,16 @@ namespace cAlgo
                     return;
                 }
 
+                var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
+                minorExtremumFinder.Calculate(startItem.Key, endItem.Key, Bars);
+                bool isImpulse = PatternFinder.IsImpulse(
+                    minorExtremumFinder.Extrema, DeviationPercentCorrection);
+                if (!isImpulse)
+                {
+                    // The move is not an impulse.
+                    return;
+                }
+
                 m_SetupStartIndex = startItem.Key;
                 m_SetupEndIndex = endItem.Key;
                 m_IsInSetup = true;
@@ -209,7 +215,6 @@ namespace cAlgo
                 Chart.DrawTrendLine(StartSetupLineChartName, m_SetupStartIndex, startValue, index, triggerLevel, Color.Gray);
                 Chart.DrawTrendLine(EndSetupLineChartName, m_SetupEndIndex, endValue, index, triggerLevel, Color.Gray);
                 Chart.DrawIcon(EnterChartName, ChartIconType.Star, index, triggerLevel, Color.White);
-                Chart.DrawText(StartSetupLineChartName + "text", impulseExtremaCount.ToString(), index, triggerLevel, Color.White);
                 return;
             }
 
