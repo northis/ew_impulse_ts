@@ -82,6 +82,23 @@ namespace cAlgo
                 return false;
             }
 
+            if (minorExtrema == null)
+            {
+                return true;
+            }
+
+            Dictionary<int, Extremum> firstMinorWave = minorExtrema
+                .SkipWhile(a => a.Value.OpenTime < firstItem.Value.OpenTime)
+                .TakeWhile(a => a.Value.OpenTime <= firstWaveEnd.Value.OpenTime)
+                .ToDictionary(a => a.Key, a => a.Value);
+            bool isFirstWaveImpulse = IsSimpleImpulse(
+                new SortedDictionary<int, Extremum>(firstMinorWave), correctionAllowancePercent);
+            if (!isFirstWaveImpulse)
+            {
+                return false;
+            }
+            // TODO for the 3rd and the 5th
+
             return true;
         }
 
