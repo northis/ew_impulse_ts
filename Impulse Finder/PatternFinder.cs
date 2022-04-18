@@ -14,11 +14,12 @@ namespace cAlgo
         /// </summary>
         /// <param name="extrema">The extrema collection.</param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
+        /// <param name="minorExtrema">The extrema collection - minor for inner structures.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
         public static bool IsSimpleImpulse(
-            SortedDictionary<int, double> extrema, int correctionAllowancePercent)
+            SortedDictionary<int, Extremum> extrema, int correctionAllowancePercent, SortedDictionary<int, Extremum> minorExtrema = null)
         {
             int count = extrema.Count;
             if (count != 6)// support 10, 14, 18 as well with a recursive call maybe
@@ -26,15 +27,15 @@ namespace cAlgo
                 return false;
             }
 
-            KeyValuePair<int, double> firstItem = extrema.First();
-            KeyValuePair<int, double> lastItem = extrema.Last();
-            bool isUp = lastItem.Value > firstItem.Value;
+            KeyValuePair<int, Extremum> firstItem = extrema.First();
+            KeyValuePair<int, Extremum> lastItem = extrema.Last();
+            bool isUp = lastItem.Value.Value > firstItem.Value.Value;
             
-            KeyValuePair<int, double> firstWaveEnd = extrema.ElementAt(1);
-            KeyValuePair<int, double> secondWaveEnd = extrema.ElementAt(2);
-            KeyValuePair<int, double> thirdWaveEnd = extrema.ElementAt(3);
-            KeyValuePair<int, double> fourthWaveEnd = extrema.ElementAt(4);
-            KeyValuePair<int, double> fifthWaveEnd = extrema.ElementAt(5);
+            KeyValuePair<int, Extremum> firstWaveEnd = extrema.ElementAt(1);
+            KeyValuePair<int, Extremum> secondWaveEnd = extrema.ElementAt(2);
+            KeyValuePair<int, Extremum> thirdWaveEnd = extrema.ElementAt(3);
+            KeyValuePair<int, Extremum> fourthWaveEnd = extrema.ElementAt(4);
+            KeyValuePair<int, Extremum> fifthWaveEnd = extrema.ElementAt(5);
 
             int secondWaveDuration = secondWaveEnd.Key - firstWaveEnd.Key;
             int fourthWaveDuration = fourthWaveEnd.Key - thirdWaveEnd.Key;
@@ -52,20 +53,20 @@ namespace cAlgo
             }
 
             // Check the overlap rule
-            if (isUp && firstWaveEnd.Value >= fourthWaveEnd.Value ||
-                !isUp && firstWaveEnd.Value <= fourthWaveEnd.Value)
+            if (isUp && firstWaveEnd.Value.Value >= fourthWaveEnd.Value.Value ||
+                !isUp && firstWaveEnd.Value.Value <= fourthWaveEnd.Value.Value)
             {
                 return false;
             }
 
             double firstWaveLength = (isUp ? 1 : -1) *
-                                     (firstWaveEnd.Value - firstItem.Value);
+                                     (firstWaveEnd.Value.Value - firstItem.Value.Value);
 
             double thirdWaveLength = (isUp ? 1 : -1) *
-                                     (thirdWaveEnd.Value - secondWaveEnd.Value);
+                                     (thirdWaveEnd.Value.Value - secondWaveEnd.Value.Value);
 
             double fifthWaveLength = (isUp ? 1 : -1) *
-                                     (fifthWaveEnd.Value - fourthWaveEnd.Value);
+                                     (fifthWaveEnd.Value.Value - fourthWaveEnd.Value.Value);
 
             if (firstWaveLength <= 0 ||
                 thirdWaveLength <= 0 ||
@@ -94,7 +95,7 @@ namespace cAlgo
         ///   <c>true</c> if the specified extrema is impulse; otherwise, <c>false</c>.
         /// </returns>
         public static bool IsImpulse(
-            SortedDictionary<int, double> mainExtrema, int correctionAllowancePercent, SortedDictionary<int, double> minorExtrema)
+            SortedDictionary<int, Extremum> mainExtrema, int correctionAllowancePercent, SortedDictionary<int, Extremum> minorExtrema)
         {
             if (mainExtrema == null)
             {
@@ -109,7 +110,7 @@ namespace cAlgo
             }
 
             bool isSimpleImpulse = IsSimpleImpulse(
-                mainExtrema, correctionAllowancePercent);
+                mainExtrema, correctionAllowancePercent, minorExtrema);
 
             return isSimpleImpulse;
         }

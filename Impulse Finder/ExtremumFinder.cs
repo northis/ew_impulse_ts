@@ -9,7 +9,7 @@ namespace cAlgo
     /// </summary>
     public class ExtremumFinder
     {
-        private double m_ExtremumPrice;
+        private Extremum m_Extremum;
         private int m_ExtremumIndex;
         private readonly double m_DeviationPercent;
         private bool m_IsUpDirection;
@@ -22,7 +22,7 @@ namespace cAlgo
             get
             {
                 double percentRate = m_IsUpDirection ? -0.01 : 0.01;
-                return m_ExtremumPrice * (1.0 + m_DeviationPercent * percentRate);
+                return m_Extremum.Value * (1.0 + m_DeviationPercent * percentRate);
             }
         }
 
@@ -30,29 +30,29 @@ namespace cAlgo
         /// Moves the extremum to the (index, price) point.
         /// </summary>
         /// <param name="index">The index.</param>
-        /// <param name="price">The price.</param>
-        private void MoveExtremum(int index, double price)
+        /// <param name="extremum">The extremum object - the price and the timestamp.</param>
+        private void MoveExtremum(int index, Extremum extremum)
         {
             Extrema.Remove(m_ExtremumIndex);
-            SetExtremum(index, price);
+            SetExtremum(index, extremum);
         }
 
         /// <summary>
         /// Sets the extremum to the (index, price) point.
         /// </summary>
         /// <param name="index">The index.</param>
-        /// <param name="price">The price.</param>
-        private void SetExtremum(int index, double price)
+        /// <param name="extremum">The extremum object - the price and the timestamp.</param>
+        private void SetExtremum(int index, Extremum extremum)
         {
             m_ExtremumIndex = index;
-            m_ExtremumPrice = price;
-            Extrema[m_ExtremumIndex] = m_ExtremumPrice;
+            m_Extremum = extremum;
+            Extrema[m_ExtremumIndex] = m_Extremum;
         }
 
         /// <summary>
         /// Gets the collection of extrema found.
         /// </summary>
-        public SortedDictionary<int, double> Extrema { get; private set; }
+        public SortedDictionary<int, Extremum> Extrema { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
@@ -61,7 +61,7 @@ namespace cAlgo
         public ExtremumFinder(double deviationPercent)
         {
             m_DeviationPercent = deviationPercent;
-            Extrema = new SortedDictionary<int, double>();
+            Extrema = new SortedDictionary<int, Extremum>();
         }
 
         /// <summary>
@@ -89,7 +89,9 @@ namespace cAlgo
             int startIndex = bars.OpenTimes.GetIndexByTime(startDate);
 
             // We want to cover the latest bar
-            int endIndex = bars.OpenTimes.GetIndexByTime(endDate) + 1;
+            var useAddToEndIndex = bars.LastBar.OpenTime > endDate;
+            int endIndex = bars.OpenTimes.GetIndexByTime(endDate) +
+                           (useAddToEndIndex ? 1 : 0);
             Calculate(startIndex, endIndex, bars);
         }
 
@@ -102,9 +104,9 @@ namespace cAlgo
         {
             double low = bars.LowPrices[index];
             double high = bars.HighPrices[index];
-            if (m_ExtremumPrice == 0.0)
+            if (m_Extremum.Value == 0.0)
             {
-                m_ExtremumPrice = high;
+                m_Extremum.Value = high;
             }
 
             if (bars.ClosePrices.Count < 2)
@@ -112,15 +114,25 @@ namespace cAlgo
                 return;
             }
 
-            if (m_IsUpDirection ? high >= m_ExtremumPrice : low <= m_ExtremumPrice)
+            if (m_IsUpDirection ? high >= m_Extremum.Value : low <= m_Extremum.Value)
             {
-                MoveExtremum(index, m_IsUpDirection ? high : low);
+                var newExtremum = new Extremum
+                {
+                    OpenTime = bars[index].OpenTime,
+                    Value = m_IsUpDirection ? high : low
+                };
+                MoveExtremum(index, newExtremum);
                 return;
             }
 
             if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
             {
-                SetExtremum(index, m_IsUpDirection ? low : high);
+                var extremum = new Extremum
+                {
+                    OpenTime = bars[index].OpenTime,
+                    Value = m_IsUpDirection ? low : high
+                };
+                SetExtremum(index, extremum);
                 m_IsUpDirection = !m_IsUpDirection;
             }
         }

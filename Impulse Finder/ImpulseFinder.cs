@@ -106,7 +106,9 @@ namespace cAlgo
             bool isImpulseUp = endValue > startValue;
             for (int curIndex = count - IMPULSE_START_NUMBER - 1; curIndex >= 0; curIndex--)
             {
-                double curValue = m_ExtremumFinder.Extrema.ElementAt(curIndex).Value;
+                double curValue = m_ExtremumFinder
+                    .Extrema
+                    .ElementAt(curIndex).Value.Value;
                 if (isImpulseUp)
                 {
                     if (curValue <= startValue)
@@ -144,19 +146,19 @@ namespace cAlgo
         /// <param name="index">The index of bar (candle) to calculate.</param>
         private void CheckSetup(int index)
         {
-            SortedDictionary<int, double> extrema = m_ExtremumFinder.Extrema;
+            SortedDictionary<int, Extremum> extrema = m_ExtremumFinder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
                 return;
             }
 
-            KeyValuePair<int, double> startItem = extrema.ElementAt(count - IMPULSE_START_NUMBER);
-            KeyValuePair<int, double> endItem = extrema.ElementAt(count - IMPULSE_END_NUMBER);
-            KeyValuePair<int, double> lastItem = extrema.ElementAt(count - CORRECTION_EXTREMUM_NUMBER);
+            KeyValuePair<int, Extremum> startItem = extrema.ElementAt(count - IMPULSE_START_NUMBER);
+            KeyValuePair<int, Extremum> endItem = extrema.ElementAt(count - IMPULSE_END_NUMBER);
+            KeyValuePair<int, Extremum> lastItem = extrema.ElementAt(count - CORRECTION_EXTREMUM_NUMBER);
 
-            double startValue = startItem.Value;
-            double endValue = endItem.Value;
+            double startValue = startItem.Value.Value;
+            double endValue = endItem.Value.Value;
 
             bool isImpulseUp = endValue > startValue;
             double low = Bars.LowPrices[index];
@@ -164,7 +166,7 @@ namespace cAlgo
 
             if (!m_IsInSetup)
             {
-                double lastValue = lastItem.Value;
+                double lastValue = lastItem.Value.Value;
                 if (lastValue >= Math.Max(startValue, endValue) || lastValue <= Math.Min(startValue, endValue))
                 {
                     return;
@@ -200,15 +202,14 @@ namespace cAlgo
 
                 TimeFrame minorTimeFrame = 
                     TimeFrameHelper.GetMinorTimeFrame(TimeFrame);
-                SortedDictionary<int, double> minorExtrema = null;
+                SortedDictionary<int, Extremum> minorExtrema = null;
                 if (minorTimeFrame != TimeFrame)
                 {
                     Bars bars = MarketData.GetBars(minorTimeFrame);
                     var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
-                    DateTime startDate = Bars[startItem.Key].OpenTime;
-                    DateTime endDate = Bars[endItem.Key].OpenTime;
 
-                    minorExtremumFinder.Calculate(startDate, endDate, bars);
+                    minorExtremumFinder.Calculate(
+                        startItem.Value.OpenTime, endItem.Value.OpenTime, bars);
                     minorExtrema = minorExtremumFinder.Extrema;
                 }
                 
@@ -235,8 +236,8 @@ namespace cAlgo
             }
 
             // Re-define the setup-related start and end values
-            startValue = extrema[m_SetupStartIndex];
-            endValue = extrema[m_SetupEndIndex];
+            startValue = extrema[m_SetupStartIndex].Value;
+            endValue = extrema[m_SetupEndIndex].Value;
             isImpulseUp = endValue > startValue;
 
             bool isProfitHit = isImpulseUp && high >= endValue || !isImpulseUp && low <= endValue;

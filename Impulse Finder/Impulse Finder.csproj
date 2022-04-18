@@ -51,6 +51,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ExtremumFinder.cs" />
+    <Compile Include="Extremum.cs" />
     <Compile Include="ImpulseFinder.cs" />
     <Compile Include="PatternFinder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
