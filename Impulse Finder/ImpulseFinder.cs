@@ -198,10 +198,24 @@ namespace cAlgo
                     return;
                 }
 
-                var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
-                minorExtremumFinder.Calculate(startItem.Key, endItem.Key, Bars);
+                TimeFrame minorTimeFrame = 
+                    TimeFrameHelper.GetMinorTimeFrame(TimeFrame);
+                SortedDictionary<int, double> minorExtrema = null;
+                if (minorTimeFrame != TimeFrame)
+                {
+                    Bars bars = MarketData.GetBars(minorTimeFrame);
+                    var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
+                    DateTime startDate = Bars[startItem.Key].OpenTime;
+                    DateTime endDate = Bars[endItem.Key].OpenTime;
+
+                    minorExtremumFinder.Calculate(startDate, endDate, bars);
+                    minorExtrema = minorExtremumFinder.Extrema;
+                }
+                
+                var mainExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
+                mainExtremumFinder.Calculate(startItem.Key, endItem.Key, Bars);
                 bool isImpulse = PatternFinder.IsImpulse(
-                    minorExtremumFinder.Extrema, DeviationPercentCorrection);
+                    mainExtremumFinder.Extrema, DeviationPercentCorrection, minorExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.

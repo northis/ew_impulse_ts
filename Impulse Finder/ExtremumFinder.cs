@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using cAlgo.API;
 
 namespace cAlgo
@@ -75,6 +76,21 @@ namespace cAlgo
             {
                 Calculate(i, bars);
             }
+        }
+
+        /// <summary>
+        /// Calculates the extrema from <see cref="startDate"/> to <see cref="endDate"/> for bars <see cref="bars"/>.
+        /// </summary>
+        /// <param name="startDate">The start date and time.</param>
+        /// <param name="endDate">The end date and time.</param>
+        /// <param name="bars">The bars.</param>
+        public void Calculate(DateTime startDate, DateTime endDate, Bars bars)
+        {
+            int startIndex = bars.OpenTimes.GetIndexByTime(startDate);
+
+            // We want to cover the latest bar
+            int endIndex = bars.OpenTimes.GetIndexByTime(endDate) + 1;
+            Calculate(startIndex, endIndex, bars);
         }
 
         /// <summary>
