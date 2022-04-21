@@ -89,7 +89,7 @@ namespace cAlgo
             int startIndex = bars.OpenTimes.GetIndexByTime(startDate);
 
             // We want to cover the latest bar
-            var useAddToEndIndex = bars.LastBar.OpenTime > endDate;
+            bool useAddToEndIndex = bars.LastBar.OpenTime > endDate;
             int endIndex = bars.OpenTimes.GetIndexByTime(endDate) +
                            (useAddToEndIndex ? 1 : 0);
             Calculate(startIndex, endIndex, bars);

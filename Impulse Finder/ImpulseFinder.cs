@@ -65,31 +65,18 @@ namespace cAlgo
             CheckSetup(index);
         }
 
-        private string StartSetupLineChartName
-        {
-            get { return "StartSetupLine" + Bars.OpenTimes.Last(1); }
-        }
+        private string StartSetupLineChartName => 
+            "StartSetupLine" + Bars.OpenTimes.Last(1);
 
-        private string EndSetupLineChartName
-        {
-            get { return "EndSetupLine" + Bars.OpenTimes.Last(1); }
-        }
+        private string EndSetupLineChartName => 
+            "EndSetupLine" + Bars.OpenTimes.Last(1);
 
-        private string EnterChartName
-        {
-            get { return "Enter" + Bars.OpenTimes.Last(1); }
-        }
+        private string EnterChartName => "Enter" + Bars.OpenTimes.Last(1);
 
-        private string StopChartName
-        {
-            get { return "SL" + Bars.OpenTimes.Last(1); }
-        }
+        private string StopChartName => "SL" + Bars.OpenTimes.Last(1);
 
-        private string ProfitChartName
-        {
-            get { return "TP" + Bars.OpenTimes.Last(1); }
-        }
-        
+        private string ProfitChartName => "TP" + Bars.OpenTimes.Last(1);
+
         /// <summary>
         /// Determines whether the movement from <see cref="startValue"/> to <see cref="endValue"/> is initial. We use current bar position and <see cref="IMPULSE_START_NUMBER"/> to rewind the bars to the past.
         /// </summary>
