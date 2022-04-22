@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using cAlgo.API;
 
 namespace cAlgo
@@ -10,30 +12,29 @@ namespace cAlgo
     {
         static TimeFrameHelper()
         {
-            TIME_FRAMES = new Dictionary<TimeFrame, int>();
-            TIME_FRAMES_ARRAY = new []
+            TIME_FRAMES_ARRAY = new TimeFrameInfo[]
             {
-                TimeFrame.Tick,
-                TimeFrame.Tick10,
-                TimeFrame.Minute,
-                TimeFrame.Minute5,
-                TimeFrame.Minute15,
-                TimeFrame.Minute30,
-                TimeFrame.Hour,
-                TimeFrame.Hour2,
-                TimeFrame.Hour4,
-                TimeFrame.Daily,
-                TimeFrame.Weekly
+                new(TimeFrame.Tick15, TimeSpan.FromSeconds(20), 0),
+                new(TimeFrame.Minute, TimeSpan.FromMinutes(1), 1),
+                new(TimeFrame.Minute5, TimeSpan.FromMinutes(5), 2),
+                new(TimeFrame.Minute15, TimeSpan.FromMinutes(15), 3),
+                new(TimeFrame.Hour, TimeSpan.FromHours(1), 4),
+                new(TimeFrame.Hour2, TimeSpan.FromHours(2), 5),
+                new(TimeFrame.Hour4, TimeSpan.FromHours(4), 6),
+                new(TimeFrame.Daily, TimeSpan.FromDays(1), 7),
+                new(TimeFrame.Weekly, TimeSpan.FromDays(7), 8),
             };
 
-            for (int i = 0; i < TIME_FRAMES_ARRAY.Length; i++)
-            {
-                TIME_FRAMES.Add(TIME_FRAMES_ARRAY[i], i);
-            }
+            TimeFrames = TIME_FRAMES_ARRAY.ToDictionary(
+                a => a.TimeFrame, a => a);
         }
 
-        private static readonly TimeFrame[] TIME_FRAMES_ARRAY;
-        private static readonly Dictionary<TimeFrame, int> TIME_FRAMES;
+        /// <summary>
+        /// Gets the supported time frames.
+        /// </summary>
+        public static Dictionary<TimeFrame, TimeFrameInfo> TimeFrames { get; }
+
+        private static readonly TimeFrameInfo[] TIME_FRAMES_ARRAY;
 
         /// <summary>
         /// Gets the next minor time frame or the current time frame if no minor TF can be found.
@@ -41,16 +42,16 @@ namespace cAlgo
         /// <param name="current">The current time frame.</param>
         public static TimeFrame GetMinorTimeFrame(TimeFrame current)
         {
-            int currentIndex;
-            if (TIME_FRAMES.TryGetValue(current, out currentIndex))
+            if (TimeFrames.TryGetValue(
+                    current, out TimeFrameInfo currentInfo))
             {
-                int minorIndex = currentIndex - 1;
+                int minorIndex = currentInfo.Index - 1;
                 if (minorIndex < 0)
                 {
                     return current;
                 }
 
-                TimeFrame result = TIME_FRAMES_ARRAY[minorIndex];
+                TimeFrame result = TIME_FRAMES_ARRAY[minorIndex].TimeFrame;
                 return result;
             }
 

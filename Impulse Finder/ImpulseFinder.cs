@@ -189,7 +189,7 @@ namespace cAlgo
 
                 TimeFrame minorTimeFrame = 
                     TimeFrameHelper.GetMinorTimeFrame(TimeFrame);
-                SortedDictionary<int, Extremum> minorExtrema = null;
+                Extremum[] minorExtrema = null;
                 if (minorTimeFrame != TimeFrame)
                 {
                     Bars bars = MarketData.GetBars(minorTimeFrame);
@@ -197,13 +197,16 @@ namespace cAlgo
 
                     minorExtremumFinder.Calculate(
                         startItem.Value.OpenTime, endItem.Value.OpenTime, bars);
-                    minorExtrema = minorExtremumFinder.Extrema;
+                    minorExtrema = minorExtremumFinder.ToExtremaArray();
                 }
                 
                 var mainExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
                 mainExtremumFinder.Calculate(startItem.Key, endItem.Key, Bars);
+                
                 bool isImpulse = PatternFinder.IsImpulse(
-                    mainExtremumFinder.Extrema, DeviationPercentCorrection, minorExtrema);
+                    mainExtremumFinder.ToExtremaArray(),
+                    DeviationPercentCorrection, 
+                    minorExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using cAlgo.API;
 
 namespace cAlgo
@@ -52,7 +53,7 @@ namespace cAlgo
         /// <summary>
         /// Gets the collection of extrema found.
         /// </summary>
-        public SortedDictionary<int, Extremum> Extrema { get; private set; }
+        public SortedDictionary<int, Extremum> Extrema { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
@@ -62,6 +63,14 @@ namespace cAlgo
         {
             m_DeviationPercent = deviationPercent;
             Extrema = new SortedDictionary<int, Extremum>();
+        }
+
+        /// <summary>
+        /// Gets all the extrema as array.
+        /// </summary>
+        public Extremum[] ToExtremaArray()
+        {
+            return Extrema.Select(a => a.Value).ToArray();
         }
 
         /// <summary>
@@ -87,7 +96,7 @@ namespace cAlgo
         public void Calculate(DateTime startDate, DateTime endDate, Bars bars)
         {
             int startIndex = bars.OpenTimes.GetIndexByTime(startDate);
-
+            
             // We want to cover the latest bar
             bool useAddToEndIndex = bars.LastBar.OpenTime > endDate;
             int endIndex = bars.OpenTimes.GetIndexByTime(endDate) +
@@ -119,7 +128,8 @@ namespace cAlgo
                 var newExtremum = new Extremum
                 {
                     OpenTime = bars[index].OpenTime,
-                    Value = m_IsUpDirection ? high : low
+                    Value = m_IsUpDirection ? high : low,
+                    BarTimeFrame = bars.TimeFrame
                 };
                 MoveExtremum(index, newExtremum);
                 return;
@@ -130,7 +140,8 @@ namespace cAlgo
                 var extremum = new Extremum
                 {
                     OpenTime = bars[index].OpenTime,
-                    Value = m_IsUpDirection ? low : high
+                    Value = m_IsUpDirection ? low : high,
+                    BarTimeFrame = bars.TimeFrame
                 };
                 SetExtremum(index, extremum);
                 m_IsUpDirection = !m_IsUpDirection;
