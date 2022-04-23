@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace cAlgo
@@ -8,23 +8,25 @@ namespace cAlgo
     /// </summary>
     public static class PatternFinder
     {
+        private const int IMPULSE_EXTREMA_COUNT = 6;
+
         /// <summary>
         /// Determines whether the specified extrema is an simple impulse.
-        /// Simple impulse has 6 extrema and 5 waves
+        /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
         /// </summary>
-        /// <param name="extrema">The extrema sorted array.</param>
+        /// <param name="extremaList">The extrema - list of sorted arrays.</param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="minorExtrema">The extrema sorted array - minor for inner structures.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
-        public static bool IsSimpleImpulse(
-            Extremum[] extrema, 
-            int correctionAllowancePercent, 
-            Extremum[] minorExtrema = null)
+        private static bool IsSimpleImpulse(
+            List<Extremum[]> extremaList, 
+            int correctionAllowancePercent)
         {
+            Extremum[] extrema = extremaList[0];
             int count = extrema.Length;
-            if (count != 6)// support 10, 14, 18 as well with a recursive call maybe
+            if (count != IMPULSE_EXTREMA_COUNT)
+                // support 10, 14, 18 as well with a recursive call maybe
             {
                 return false;
             }
@@ -84,21 +86,28 @@ namespace cAlgo
                 return false;
             }
 
+            Extremum[] minorExtrema = extremaList.Skip(1).FirstOrDefault();
             if (minorExtrema == null)
             {
                 // If we are here, so there are no minor extrema and
                 // we've found an impulse
                 return true;
             }
-            
+
+
+            Extremum[][] innerExtremaArray = extremaList.Skip(2).ToArray();
             bool CheckImpulse(Extremum start, Extremum end)
             {
                 Extremum[] minorWave = minorExtrema
                     .SkipWhile(a => a.OpenTime < start.OpenTime)
                     .TakeWhile(a => a.OpenTime < end.CloseTime)
                     .ToArray();
+
+                var innerAnalyzeList = new List<Extremum[]>(innerExtremaArray);
+                innerAnalyzeList.Insert(0, minorWave);
+
                 bool isWaveImpulse = IsSimpleImpulse(
-                    minorWave, correctionAllowancePercent);
+                    innerAnalyzeList, correctionAllowancePercent);
                 return isWaveImpulse;
             }
 
@@ -117,31 +126,28 @@ namespace cAlgo
         /// <summary>
         /// Determines whether the specified extrema is an impulse.
         /// </summary>
-        /// <param name="mainExtrema">The extrema collection - main.</param>
+        /// <param name="extremaSet">The extrema collection in the order of usage.</param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="minorExtrema">The extrema collection - minor for inner structures.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public static bool IsImpulse(
-            Extremum[] mainExtrema, 
-            int correctionAllowancePercent, 
-            Extremum[] minorExtrema)
+        public static bool IsImpulse(List<Extremum[]> extremaSet, 
+            int correctionAllowancePercent)
         {
-            if (mainExtrema == null)
+            if (extremaSet == null || extremaSet.Count == 0)
             {
                 return false;
             }
 
-            int count = mainExtrema.Length;
-            if (count < 6)
+            int count = extremaSet[0].Length;
+            if (count < IMPULSE_EXTREMA_COUNT)
             {
                 // 0 -> wave 1 -> 2 -> 3 -> 4 -> 5
                 return false;
             }
 
             bool isSimpleImpulse = IsSimpleImpulse(
-                mainExtrema, correctionAllowancePercent, minorExtrema);
+                extremaSet, correctionAllowancePercent);
 
             return isSimpleImpulse;
         }

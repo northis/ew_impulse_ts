@@ -19,11 +19,16 @@
     <PackageReference Include="cTrader.Automate" Version="1.*" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EventArgs\SignalEventArgs.cs" />
+    <Compile Include="EventArgs\LevelEventArgs.cs" />
     <Compile Include="ExtremumFinder.cs" />
     <Compile Include="Extremum.cs" />
+    <Compile Include="IBarsProvider.cs" />
     <Compile Include="ImpulseFinder.cs" />
+    <Compile Include="LevelItem.cs" />
     <Compile Include="PatternFinder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SetupFinder.cs" />
     <Compile Include="TimeFrameHelper.cs" />
     <Compile Include="TimeFrameInfo.cs" />
   </ItemGroup>

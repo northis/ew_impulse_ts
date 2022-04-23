@@ -118,7 +118,7 @@ namespace cAlgo
                 m_Extremum.Value = high;
             }
 
-            if (bars.ClosePrices.Count < 2)
+            if (bars.Count < 2)
             {
                 return;
             }
