@@ -19,6 +19,7 @@
     <PackageReference Include="cTrader.Automate" Version="1.*" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CTraderBarsProvider.cs" />
     <Compile Include="EventArgs\SignalEventArgs.cs" />
     <Compile Include="EventArgs\LevelEventArgs.cs" />
     <Compile Include="ExtremumFinder.cs" />

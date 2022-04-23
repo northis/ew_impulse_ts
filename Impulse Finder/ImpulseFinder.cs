@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using cAlgo.API;
+﻿using cAlgo.API;
 
 namespace cAlgo
 {
@@ -28,7 +25,7 @@ namespace cAlgo
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
         [Parameter("DeviationPercentCorrection", DefaultValue = 250, MinValue = 1)]
-        public int DeviationPercentCorrection { get; set; }
+        public double DeviationPercentCorrection { get; set; }
 
         /// <summary>
         /// Gets or sets the analyze depth - how many minor time frames should be taken into account. <seealso cref="TimeFrameHelper"/>
@@ -36,8 +33,20 @@ namespace cAlgo
         [Parameter("AnalyzeDepth", DefaultValue = 2, MinValue = 1)]
         public int AnalyzeDepth { get; set; }
 
-        private ExtremumFinder m_ExtremumFinder;
+        private string StartSetupLineChartName =>
+            "StartSetupLine" + Bars.OpenTimes.Last(1);
+
+        private string EndSetupLineChartName =>
+            "EndSetupLine" + Bars.OpenTimes.Last(1);
+
+        private string EnterChartName => "Enter" + Bars.OpenTimes.Last(1);
+
+        private string StopChartName => "SL" + Bars.OpenTimes.Last(1);
+
+        private string ProfitChartName => "TP" + Bars.OpenTimes.Last(1);
+
         private SetupFinder m_SetupFinder;
+        private IBarsProvider m_BarsProvider;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -45,11 +54,16 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            m_SetupFinder = new SetupFinder(null, null);
+            m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
+            m_SetupFinder = new SetupFinder(
+                DeviationPercentMajor, 
+                DeviationPercentMinor, 
+                DeviationPercentCorrection,
+                AnalyzeDepth,
+                m_BarsProvider);
             m_SetupFinder.OnEnter += SetupFinderOnEnter;
             m_SetupFinder.OnStopLoss += SetupFinderOnStopLoss;
             m_SetupFinder.OnTakeProfit += SetupFinderOnTakeProfit;
-            m_ExtremumFinder = new ExtremumFinder(DeviationPercentMajor);
         }
 
         protected override void OnDestroy()
@@ -84,20 +98,7 @@ namespace cAlgo
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
-            m_ExtremumFinder.Calculate(index, Bars);
             m_SetupFinder.CheckSetup(index);
         }
-
-        private string StartSetupLineChartName => 
-            "StartSetupLine" + Bars.OpenTimes.Last(1);
-
-        private string EndSetupLineChartName => 
-            "EndSetupLine" + Bars.OpenTimes.Last(1);
-
-        private string EnterChartName => "Enter" + Bars.OpenTimes.Last(1);
-
-        private string StopChartName => "SL" + Bars.OpenTimes.Last(1);
-
-        private string ProfitChartName => "TP" + Bars.OpenTimes.Last(1);
     }
 }

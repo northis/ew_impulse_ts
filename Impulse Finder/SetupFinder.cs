@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using cAlgo.EventArgs;
@@ -11,6 +9,8 @@ namespace cAlgo
 {
     public class SetupFinder
     {
+        private readonly double m_CorrectionAllowancePercent;
+        private readonly int m_AnalyzeDepth;
         private readonly IBarsProvider m_BarsProvider;
         private readonly ExtremumFinder m_ExtremumFinder;
         private bool m_IsInSetup;
@@ -30,10 +30,16 @@ namespace cAlgo
         private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 4;
 
         public SetupFinder(
-            IBarsProvider barsProvider, ExtremumFinder extremumFinder)
+            double deviationPercentMajor,
+            double deviationPercentMinor,
+            double correctionAllowancePercent,
+            int analyzeDepth,
+            IBarsProvider barsProvider)
         {
+            m_CorrectionAllowancePercent = correctionAllowancePercent;
+            m_AnalyzeDepth = analyzeDepth;
             m_BarsProvider = barsProvider;
-            m_ExtremumFinder = extremumFinder;
+            m_ExtremumFinder = new ExtremumFinder(deviationPercentMajor, barsProvider);
         }
 
         public event EventHandler<LevelEventArgs> OnStopLoss;
@@ -90,6 +96,26 @@ namespace cAlgo
             return isInitialMove;
         }
 
+        private List<ExtremumFinder> GetAllFindersOrdered()
+        {
+            //TimeFrame minorTimeFrame =
+            //    TimeFrameHelper.GetMinorTimeFrame(m_BarsProvider.TimeFrame);
+            //Extremum[] minorExtrema = null;
+            //if (minorTimeFrame != TimeFrame)
+            //{
+            //    Bars bars = MarketData.GetBars(minorTimeFrame);
+            //    var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
+
+            //    minorExtremumFinder.Calculate(
+            //        startItem.Value.OpenTime, endItem.Value.OpenTime, bars);
+            //    minorExtrema = minorExtremumFinder.ToExtremaArray();
+            //}
+
+            //var mainExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
+            //mainExtremumFinder.Calculate(startItem.Key, endItem.Key, Bars);
+            return new List<ExtremumFinder>();
+        }
+
         /// <summary>
         /// Checks the conditions of possible setup for <see cref="index"/>.
         /// </summary>
@@ -111,8 +137,8 @@ namespace cAlgo
             double endValue = endItem.Value.Value;
 
             bool isImpulseUp = endValue > startValue;
-            double low = m_BarsProvider.LowPrice(index);
-            double high = m_BarsProvider.HighPrice(index);
+            double low = m_BarsProvider.GetLowPrice(index);
+            double high = m_BarsProvider.GetHighPrice(index);
 
             if (!m_IsInSetup)
             {
@@ -150,26 +176,12 @@ namespace cAlgo
                     return;
                 }
 
-                TimeFrame minorTimeFrame =
-                    TimeFrameHelper.GetMinorTimeFrame(m_BarsProvider.TimeFrame);
-                Extremum[] minorExtrema = null;
-                if (minorTimeFrame != TimeFrame)
-                {
-                    Bars bars = MarketData.GetBars(minorTimeFrame);
-                    var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
-
-                    minorExtremumFinder.Calculate(
-                        startItem.Value.OpenTime, endItem.Value.OpenTime, bars);
-                    minorExtrema = minorExtremumFinder.ToExtremaArray();
-                }
-
-                var mainExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
-                mainExtremumFinder.Calculate(startItem.Key, endItem.Key, Bars);
+                List<Extremum[]> extremaList = GetAllFindersOrdered()
+                    .Select(a => a.ToExtremaArray())
+                    .ToList();
 
                 bool isImpulse = PatternFinder.IsImpulse(
-                    mainExtremumFinder.ToExtremaArray(),
-                    DeviationPercentCorrection,
-                    minorExtrema);
+                    extremaList, m_CorrectionAllowancePercent);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using cAlgo.API;
 
 namespace cAlgo
 {
@@ -13,6 +12,7 @@ namespace cAlgo
         private Extremum m_Extremum;
         private int m_ExtremumIndex;
         private readonly double m_DeviationPercent;
+        private readonly IBarsProvider m_BarsProvider;
         private bool m_IsUpDirection;
 
         /// <summary>
@@ -54,14 +54,16 @@ namespace cAlgo
         /// Gets the collection of extrema found.
         /// </summary>
         public SortedDictionary<int, Extremum> Extrema { get; }
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
         /// </summary>
         /// <param name="deviationPercent">The deviation percent.</param>
-        public ExtremumFinder(double deviationPercent)
+        /// <param name="barsProvider">The source bars provider.</param>
+        public ExtremumFinder(double deviationPercent, IBarsProvider barsProvider)
         {
             m_DeviationPercent = deviationPercent;
+            m_BarsProvider = barsProvider;
             Extrema = new SortedDictionary<int, Extremum>();
         }
 
@@ -74,51 +76,48 @@ namespace cAlgo
         }
 
         /// <summary>
-        /// Calculates the extrema from <see cref="startIndex"/> to <see cref="endIndex"/> for bars <see cref="bars"/>.
+        /// Calculates the extrema from <see cref="startIndex"/> to <see cref="endIndex"/>.
         /// </summary>
         /// <param name="startIndex">The start index.</param>
         /// <param name="endIndex">The end index.</param>
-        /// <param name="bars">The bars.</param>
-        public void Calculate(int startIndex, int endIndex, Bars bars)
+        public void Calculate(int startIndex, int endIndex)
         {
             for (int i = startIndex; i <= endIndex; i++)
             {
-                Calculate(i, bars);
+                Calculate(i);
             }
         }
 
         /// <summary>
-        /// Calculates the extrema from <see cref="startDate"/> to <see cref="endDate"/> for bars <see cref="bars"/>.
+        /// Calculates the extrema from <see cref="startDate"/> to <see cref="endDate"/>.
         /// </summary>
         /// <param name="startDate">The start date and time.</param>
         /// <param name="endDate">The end date and time.</param>
-        /// <param name="bars">The bars.</param>
-        public void Calculate(DateTime startDate, DateTime endDate, Bars bars)
+        public void Calculate(DateTime startDate, DateTime endDate)
         {
-            int startIndex = bars.OpenTimes.GetIndexByTime(startDate);
+            int startIndex = m_BarsProvider.GetIndexByTime(startDate);
             
             // We want to cover the latest bar
-            bool useAddToEndIndex = bars.LastBar.OpenTime > endDate;
-            int endIndex = bars.OpenTimes.GetIndexByTime(endDate) +
+            bool useAddToEndIndex = m_BarsProvider.GetLastBarOpenTime() > endDate;
+            int endIndex = m_BarsProvider.GetIndexByTime(endDate) +
                            (useAddToEndIndex ? 1 : 0);
-            Calculate(startIndex, endIndex, bars);
+            Calculate(startIndex, endIndex);
         }
 
         /// <summary>
-        /// Calculates the extrema for the specified <see cref="index"/> and <see cref="bars"/>.
+        /// Calculates the extrema for the specified <see cref="index"/>.
         /// </summary>
         /// <param name="index">The index.</param>
-        /// <param name="bars">The bars.</param>
-        public void Calculate(int index, Bars bars)
+        public void Calculate(int index)
         {
-            double low = bars.LowPrices[index];
-            double high = bars.HighPrices[index];
+            double low = m_BarsProvider.GetLowPrice(index);
+            double high = m_BarsProvider.GetHighPrice(index);
             if (m_Extremum.Value == 0.0)
             {
                 m_Extremum.Value = high;
             }
 
-            if (bars.Count < 2)
+            if (m_BarsProvider.Count < 2)
             {
                 return;
             }
@@ -127,9 +126,9 @@ namespace cAlgo
             {
                 var newExtremum = new Extremum
                 {
-                    OpenTime = bars[index].OpenTime,
+                    OpenTime = m_BarsProvider.GetOpenTime(index),
                     Value = m_IsUpDirection ? high : low,
-                    BarTimeFrame = bars.TimeFrame
+                    BarTimeFrame = m_BarsProvider.TimeFrame
                 };
                 MoveExtremum(index, newExtremum);
                 return;
@@ -139,9 +138,9 @@ namespace cAlgo
             {
                 var extremum = new Extremum
                 {
-                    OpenTime = bars[index].OpenTime,
+                    OpenTime = m_BarsProvider.GetOpenTime(index),
                     Value = m_IsUpDirection ? low : high,
-                    BarTimeFrame = bars.TimeFrame
+                    BarTimeFrame = m_BarsProvider.TimeFrame
                 };
                 SetExtremum(index, extremum);
                 m_IsUpDirection = !m_IsUpDirection;

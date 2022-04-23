@@ -20,8 +20,8 @@ namespace cAlgo
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
         private static bool IsSimpleImpulse(
-            List<Extremum[]> extremaList, 
-            int correctionAllowancePercent)
+            List<Extremum[]> extremaList,
+            double correctionAllowancePercent)
         {
             Extremum[] extrema = extremaList[0];
             int count = extrema.Length;
@@ -131,8 +131,8 @@ namespace cAlgo
         /// <returns>
         ///   <c>true</c> if the specified extrema is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public static bool IsImpulse(List<Extremum[]> extremaSet, 
-            int correctionAllowancePercent)
+        public static bool IsImpulse(List<Extremum[]> extremaSet,
+            double correctionAllowancePercent)
         {
             if (extremaSet == null || extremaSet.Count == 0)
             {
