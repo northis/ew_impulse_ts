@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using cAlgo.API;
 using cAlgo.API.Internals;
@@ -13,29 +14,28 @@ namespace cAlgo
     public class JsonBarKeeper
     {
         private readonly string m_JsonFilePath;
+        private readonly int m_AnalyzedBarsCount;
 
-        public JsonBarKeeper(string jsonFilePath)
+        public JsonBarKeeper(string jsonFilePath, int analyzedBarsCount)
         {
             m_JsonFilePath = jsonFilePath;
+            m_AnalyzedBarsCount = analyzedBarsCount;
         }
 
-        public JsonBarKeeper() : this(Path.Combine(Environment.CurrentDirectory, "main_history.json"))
+        public JsonBarKeeper(int analyzedBarsCount) : this(Path.Combine(Environment.CurrentDirectory, "main_history.json"), analyzedBarsCount)
         {
         }
 
-        private JsonTimeFrame GetJsonTimeFrame(
-            Bars bars, DateTime? startDateTime = null)
+        private JsonTimeFrame GetJsonTimeFrame(Bars bars, DateTime? startDate = null)
         {
             var jsonTimeFrame = new JsonTimeFrame
             {
                 TimeFrameName = bars.TimeFrame.ToString()
             };
-            if (startDateTime.HasValue)
+            if (startDate.HasValue)
             {
-                do
-                {
-                    bars.LoadMoreHistory();
-                } while (bars[0].OpenTime > startDateTime.Value);
+                Debugger.Launch();
+                var brr = bars.LoadMoreHistory();
             }
 
             var jsonBars = new JsonBar[bars.Count];
@@ -51,6 +51,7 @@ namespace cAlgo
                 };
             }
 
+            jsonTimeFrame.Bars = jsonBars;
             return jsonTimeFrame;
         }
 
@@ -61,20 +62,20 @@ namespace cAlgo
             int timeFrameCount = minorTimeFrames.Length + 1;
             var jsonTimeFrames = new JsonTimeFrame[timeFrameCount];
             jsonTimeFrames[0] = GetJsonTimeFrame(bars);
-            DateTime startDateTime = bars[0].OpenTime;
+
+            var startIndex = Math.Min(bars.Count, m_AnalyzedBarsCount);
+            DateTime startDate = bars.OpenTimes[bars.Count - startIndex];
 
             for (int i = 0; i < minorTimeFrames.Length; i++)
             {
                 Bars currentBars = marketData.GetBars(minorTimeFrames[i]);
 
                 // We already got the main TF, so we add +1 here
-                jsonTimeFrames[i + 1] = GetJsonTimeFrame(currentBars, startDateTime);
+                jsonTimeFrames[i + 1] = GetJsonTimeFrame(currentBars, startDate);
             }
 
             history.JsonTimeFrames = jsonTimeFrames;
-            using StreamWriter file = File.CreateText(m_JsonFilePath);
-            var serializer = new JsonSerializer();
-            serializer.Serialize(file, history);
+            File.WriteAllText(m_JsonFilePath, JsonConvert.SerializeObject(history));
         }
     }
 }

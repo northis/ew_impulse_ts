@@ -57,7 +57,8 @@ namespace cAlgo
             }
 
             int limit = Math.Max(info.Index - depth, 0);
-            for (int i = info.Index; i > limit; i--)
+            int minorStartIndex = info.Index - 1;
+            for (int i = minorStartIndex; i >= limit; i--)
             {
                 res.Add(TIME_FRAMES_ARRAY[i].TimeFrame);
             }

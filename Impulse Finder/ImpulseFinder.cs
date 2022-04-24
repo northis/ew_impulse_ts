@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using cAlgo.API;
+﻿using cAlgo.API;
 
 namespace cAlgo
 {
@@ -7,7 +6,7 @@ namespace cAlgo
     /// Indicator can find possible setups based on initial impulses (wave 1 or A)
     /// </summary>
     /// <seealso cref="cAlgo.API.Indicator" />
-    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.None)]
+    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class ImpulseFinder : Indicator
     {
         /// <summary>
@@ -31,8 +30,14 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the analyze depth - how many minor time frames should be taken into account. <seealso cref="TimeFrameHelper"/>
         /// </summary>
-        [Parameter("AnalyzeDepth", DefaultValue = 2, MinValue = 1)]
+        [Parameter("AnalyzeDepth", DefaultValue = 1, MinValue = 0)]
         public int AnalyzeDepth { get; set; }
+
+       /// <summary>
+       /// Gets or sets the amount of bars that should be analyzed
+       /// </summary>
+        [Parameter("AnalyzeBarsCount", DefaultValue = 1000, MinValue = 10)]
+        public int AnalyzeBarsCount { get; set; }
 
         private string StartSetupLineChartName =>
             "StartSetupLine" + Bars.OpenTimes.Last(1);
@@ -57,8 +62,8 @@ namespace cAlgo
             base.Initialize();
             m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
             m_SetupFinder = new SetupFinder(
-                DeviationPercentMajor, 
-                DeviationPercentMinor, 
+                DeviationPercentMajor,
+                DeviationPercentMinor,
                 DeviationPercentCorrection,
                 AnalyzeDepth,
                 m_BarsProvider);
@@ -92,26 +97,31 @@ namespace cAlgo
             Chart.DrawTrendLine(EndSetupLineChartName, e.StopLoss.Index, e.StopLoss.Price, e.Level.Index, e.Level.Price, Color.Gray);
             Chart.DrawIcon(EnterChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.White);
         }
-
+        
         /// <summary>
         /// Calculate the value(s) of indicator for the given index.
         /// </summary>
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
+            if (Bars.Count - index > AnalyzeBarsCount)
+            {
+                // We won't analyze more bars
+                return;
+            }
+
             //m_SetupFinder.CheckSetup(index);
             if (!IsLastBar)
             {
                 return;
             }
-
+            
             // Here we want to save the market data to the file.
             // The code below is for testing purposes only.
-            //Debugger.Launch();
             TimeFrame[] minorTimeFrames = TimeFrameHelper
                 .GetMinorTimeFrames(TimeFrame, AnalyzeDepth)
                 .ToArray();
-            var jsonBarKeeper = new JsonBarKeeper();
+            var jsonBarKeeper = new JsonBarKeeper(AnalyzeBarsCount);
             jsonBarKeeper.Save(Bars, MarketData, minorTimeFrames);
         }
     }

@@ -115,6 +115,9 @@ namespace cAlgo
                 IBarsProvider bars = m_BarsProvider.GetBars(minorTimeFrame);
                 var minorExtremumFinder = new ExtremumFinder(
                     m_DeviationPercentMinor, bars);
+
+                //TODO
+                //minorExtremumFinder.Calculate();
                 extremaList.Add(minorExtremumFinder);
             }
 
