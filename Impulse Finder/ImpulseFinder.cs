@@ -61,31 +61,31 @@ namespace cAlgo
                 DeviationPercentCorrection,
                 AnalyzeDepth,
                 m_BarsProvider);
-            m_SetupFinder.OnEnter += SetupFinderOnEnter;
-            m_SetupFinder.OnStopLoss += SetupFinderOnStopLoss;
-            m_SetupFinder.OnTakeProfit += SetupFinderOnTakeProfit;
+            m_SetupFinder.OnEnter += OnEnter;
+            m_SetupFinder.OnStopLoss += OnStopLoss;
+            m_SetupFinder.OnTakeProfit += OnTakeProfit;
         }
 
         protected override void OnDestroy()
         {
-            m_SetupFinder.OnEnter -= SetupFinderOnEnter;
-            m_SetupFinder.OnStopLoss -= SetupFinderOnStopLoss;
-            m_SetupFinder.OnTakeProfit -= SetupFinderOnTakeProfit;
+            m_SetupFinder.OnEnter -= OnEnter;
+            m_SetupFinder.OnStopLoss -= OnStopLoss;
+            m_SetupFinder.OnTakeProfit -= OnTakeProfit;
             base.OnDestroy();
         }
 
-        private void SetupFinderOnStopLoss(object sender, EventArgs.LevelEventArgs e)
+        private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
         {
             Chart.DrawIcon(StopChartName, ChartIconType.Star, e.Level.Index
                 , e.Level.Price, Color.Red);
         }
 
-        private void SetupFinderOnTakeProfit(object sender, EventArgs.LevelEventArgs e)
+        private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
             Chart.DrawIcon(ProfitChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.Green);
         }
 
-        private void SetupFinderOnEnter(object sender, EventArgs.SignalEventArgs e)
+        private void OnEnter(object sender, EventArgs.SignalEventArgs e)
         {
             Chart.DrawTrendLine(StartSetupLineChartName, e.TakeProfit.Index, e.TakeProfit.Price, e.Level.Index, e.Level.Price, Color.Gray);
             Chart.DrawTrendLine(EndSetupLineChartName, e.StopLoss.Index, e.StopLoss.Price, e.Level.Index, e.Level.Price, Color.Gray);

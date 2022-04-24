@@ -4,7 +4,7 @@ using cAlgo.API;
 namespace cAlgo
 {
     /// <summary>
-    /// Interface isolated all the cTrader objects from the main code
+    /// Interface isolates all the cTrader objects from the main code
     /// </summary>
     public interface IBarsProvider
     {

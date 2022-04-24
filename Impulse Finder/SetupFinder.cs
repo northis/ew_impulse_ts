@@ -2,13 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
-using cAlgo.API.Internals;
 using cAlgo.EventArgs;
 
 namespace cAlgo
 {
+    /// <summary>
+    /// Class contains the logic of trade setups searching.
+    /// </summary>
     public class SetupFinder
     {
+        private readonly double m_DeviationPercentMinor;
         private readonly double m_CorrectionAllowancePercent;
         private readonly int m_AnalyzeDepth;
         private readonly IBarsProvider m_BarsProvider;
@@ -36,6 +39,7 @@ namespace cAlgo
             int analyzeDepth,
             IBarsProvider barsProvider)
         {
+            m_DeviationPercentMinor = deviationPercentMinor;
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_AnalyzeDepth = analyzeDepth;
             m_BarsProvider = barsProvider;
@@ -96,24 +100,33 @@ namespace cAlgo
             return isInitialMove;
         }
 
+        /// <summary>
+        /// Gets all extremum finders ordered for minor time frames.
+        /// </summary>
+        /// <returns>List of <see cref="ExtremumFinder"/> instances</returns>
         private List<ExtremumFinder> GetAllFindersOrdered()
         {
-            //TimeFrame minorTimeFrame =
-            //    TimeFrameHelper.GetMinorTimeFrame(m_BarsProvider.TimeFrame);
-            //Extremum[] minorExtrema = null;
-            //if (minorTimeFrame != TimeFrame)
-            //{
-            //    Bars bars = MarketData.GetBars(minorTimeFrame);
-            //    var minorExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
+            var extremaList = new List<ExtremumFinder>();
+            int currentDepth = m_AnalyzeDepth;
+            TimeFrame currentTimeFrame = m_BarsProvider.TimeFrame;
+            
+            while (currentDepth > 0)
+            {
+                var minorTimeFrame =
+                    TimeFrameHelper.GetMinorTimeFrame(currentTimeFrame);
+                if (minorTimeFrame == currentTimeFrame)
+                {
+                    break;
+                }
 
-            //    minorExtremumFinder.Calculate(
-            //        startItem.Value.OpenTime, endItem.Value.OpenTime, bars);
-            //    minorExtrema = minorExtremumFinder.ToExtremaArray();
-            //}
+                currentDepth--;
+                IBarsProvider bars = m_BarsProvider.GetBars(minorTimeFrame);
+                var minorExtremumFinder = new ExtremumFinder(
+                    m_DeviationPercentMinor, bars);
+                extremaList.Add(minorExtremumFinder);
+            }
 
-            //var mainExtremumFinder = new ExtremumFinder(DeviationPercentMinor);
-            //mainExtremumFinder.Calculate(startItem.Key, endItem.Key, Bars);
-            return new List<ExtremumFinder>();
+            return extremaList;
         }
 
         /// <summary>
@@ -122,6 +135,7 @@ namespace cAlgo
         /// <param name="index">The index of bar (candle) to calculate.</param>
         public void CheckSetup(int index)
         {
+            m_ExtremumFinder.Calculate(index);
             SortedDictionary<int, Extremum> extrema = m_ExtremumFinder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
