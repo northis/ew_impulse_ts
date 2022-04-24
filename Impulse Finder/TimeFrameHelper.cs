@@ -37,25 +37,32 @@ namespace cAlgo
         private static readonly TimeFrameInfo[] TIME_FRAMES_ARRAY;
 
         /// <summary>
-        /// Gets the next minor time frame or the current time frame if no minor TF can be found.
+        /// Gets the minor time frames for the current time frame.
         /// </summary>
-        /// <param name="current">The current time frame.</param>
-        public static TimeFrame GetMinorTimeFrame(TimeFrame current)
+        /// <param name="current">The current.</param>
+        /// <param name="depth">The depth.</param>
+        /// <returns>The ordered list of minor TFs</returns>
+        public static List<TimeFrame> GetMinorTimeFrames(
+            TimeFrame current, int depth)
         {
-            if (TimeFrames.TryGetValue(
-                    current, out TimeFrameInfo currentInfo))
+            var res = new List<TimeFrame>();
+            if (depth <= 0)
             {
-                int minorIndex = currentInfo.Index - 1;
-                if (minorIndex < 0)
-                {
-                    return current;
-                }
-
-                TimeFrame result = TIME_FRAMES_ARRAY[minorIndex].TimeFrame;
-                return result;
+                return res;
             }
 
-            return current;
+            if (!TimeFrames.TryGetValue(current, out TimeFrameInfo info))
+            {
+                return res;
+            }
+
+            int limit = Math.Max(info.Index - depth, 0);
+            for (int i = info.Index; i > limit; i--)
+            {
+                res.Add(TIME_FRAMES_ARRAY[i].TimeFrame);
+            }
+
+            return res;
         }
     }
 }

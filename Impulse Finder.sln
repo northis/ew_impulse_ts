@@ -1,7 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Impulse Finder", "Impulse Finder\Impulse Finder.csproj", "{D4309C74-56EA-4A74-ADAD-826D50E12B8C}"
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32414.318
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Impulse Finder", "Impulse Finder\Impulse Finder.csproj", "{D4309C74-56EA-4A74-ADAD-826D50E12B8C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpulseFinder.Tests", "ImpulseFinder.Tests\ImpulseFinder.Tests.csproj", "{983E6AE1-14F3-4DDD-84B2-AB16E3D9FE89}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,8 +17,15 @@ Global
 		{D4309C74-56EA-4A74-ADAD-826D50E12B8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D4309C74-56EA-4A74-ADAD-826D50E12B8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D4309C74-56EA-4A74-ADAD-826D50E12B8C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{983E6AE1-14F3-4DDD-84B2-AB16E3D9FE89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{983E6AE1-14F3-4DDD-84B2-AB16E3D9FE89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{983E6AE1-14F3-4DDD-84B2-AB16E3D9FE89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{983E6AE1-14F3-4DDD-84B2-AB16E3D9FE89}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {767DAF0E-FCCA-4537-8725-43B861B1E2E2}
 	EndGlobalSection
 EndGlobal

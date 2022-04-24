@@ -1,4 +1,5 @@
-﻿using cAlgo.API;
+﻿using System.Diagnostics;
+using cAlgo.API;
 
 namespace cAlgo
 {
@@ -98,7 +99,20 @@ namespace cAlgo
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
-            m_SetupFinder.CheckSetup(index);
+            //m_SetupFinder.CheckSetup(index);
+            if (!IsLastBar)
+            {
+                return;
+            }
+
+            // Here we want to save the market data to the file.
+            // The code below is for testing purposes only.
+            //Debugger.Launch();
+            TimeFrame[] minorTimeFrames = TimeFrameHelper
+                .GetMinorTimeFrames(TimeFrame, AnalyzeDepth)
+                .ToArray();
+            var jsonBarKeeper = new JsonBarKeeper();
+            jsonBarKeeper.Save(Bars, MarketData, minorTimeFrames);
         }
     }
 }

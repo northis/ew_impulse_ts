@@ -17,6 +17,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="cTrader.Automate" Version="1.*" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CTraderBarsProvider.cs" />
@@ -26,6 +27,10 @@
     <Compile Include="Extremum.cs" />
     <Compile Include="IBarsProvider.cs" />
     <Compile Include="ImpulseFinder.cs" />
+    <Compile Include="Json\JsonBar.cs" />
+    <Compile Include="Json\JsonBarKeeper.cs" />
+    <Compile Include="Json\JsonHistory.cs" />
+    <Compile Include="Json\JsonTimeFrame.cs" />
     <Compile Include="LevelItem.cs" />
     <Compile Include="PatternFinder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

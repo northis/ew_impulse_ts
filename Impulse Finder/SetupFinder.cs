@@ -107,19 +107,11 @@ namespace cAlgo
         private List<ExtremumFinder> GetAllFindersOrdered()
         {
             var extremaList = new List<ExtremumFinder>();
-            int currentDepth = m_AnalyzeDepth;
-            TimeFrame currentTimeFrame = m_BarsProvider.TimeFrame;
-            
-            while (currentDepth > 0)
-            {
-                var minorTimeFrame =
-                    TimeFrameHelper.GetMinorTimeFrame(currentTimeFrame);
-                if (minorTimeFrame == currentTimeFrame)
-                {
-                    break;
-                }
+            List<TimeFrame> minorTimeFrames = TimeFrameHelper.GetMinorTimeFrames(
+                m_BarsProvider.TimeFrame, m_AnalyzeDepth);
 
-                currentDepth--;
+            foreach (TimeFrame minorTimeFrame in minorTimeFrames)
+            {
                 IBarsProvider bars = m_BarsProvider.GetBars(minorTimeFrame);
                 var minorExtremumFinder = new ExtremumFinder(
                     m_DeviationPercentMinor, bars);
