@@ -1,4 +1,5 @@
-﻿using cAlgo.API;
+﻿using System.Collections.Generic;
+using cAlgo.API;
 
 namespace cAlgo
 {
@@ -52,7 +53,7 @@ namespace cAlgo
         private string ProfitChartName => "TP" + Bars.OpenTimes.Last(1);
 
         private SetupFinder m_SetupFinder;
-        private IBarsProvider m_BarsProvider;
+        private List<IBarsProvider> m_BarsProviders;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -60,14 +61,15 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            m_BarsProvider = new CTraderBarsProvider(
-                Bars, MarketData, AnalyzeBarsCount);
+            m_BarsProviders =
+                BarsProviderFactory.CreateCTraderBarsProviders(AnalyzeBarsCount, TimeFrame, AnalyzeDepth, MarketData,
+                    Bars);
             m_SetupFinder = new SetupFinder(
                 DeviationPercentMajor,
                 DeviationPercentMinor,
                 DeviationPercentCorrection,
                 AnalyzeDepth,
-                m_BarsProvider);
+                m_BarsProviders);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
@@ -119,11 +121,8 @@ namespace cAlgo
             
             // Here we want to save the market data to the file.
             // The code below is for testing purposes only.
-            TimeFrame[] minorTimeFrames = TimeFrameHelper
-                .GetMinorTimeFrames(TimeFrame, AnalyzeDepth)
-                .ToArray();
-            var jsonBarKeeper = new JsonBarKeeper(AnalyzeBarsCount);
-            jsonBarKeeper.Save(Bars, MarketData, minorTimeFrames);
+            var jsonBarKeeper = new JsonBarKeeper();
+            jsonBarKeeper.Save(m_BarsProviders, SymbolName);
         }
     }
 }

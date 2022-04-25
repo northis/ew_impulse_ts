@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using cAlgo.API;
 using cAlgo.EventArgs;
 
 namespace cAlgo
@@ -14,7 +13,7 @@ namespace cAlgo
         private readonly double m_DeviationPercentMinor;
         private readonly double m_CorrectionAllowancePercent;
         private readonly int m_AnalyzeDepth;
-        private readonly IBarsProvider m_BarsProvider;
+        private readonly List<IBarsProvider> m_BarsProviders;
         private readonly ExtremumFinder m_ExtremumFinder;
         private bool m_IsInSetup;
         private int m_SetupStartIndex;
@@ -37,13 +36,14 @@ namespace cAlgo
             double deviationPercentMinor,
             double correctionAllowancePercent,
             int analyzeDepth,
-            IBarsProvider barsProvider)
+            List<IBarsProvider> barsProviders)
         {
             m_DeviationPercentMinor = deviationPercentMinor;
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_AnalyzeDepth = analyzeDepth;
-            m_BarsProvider = barsProvider;
-            m_ExtremumFinder = new ExtremumFinder(deviationPercentMajor, barsProvider);
+            m_BarsProviders = barsProviders;
+            m_ExtremumFinder = new ExtremumFinder(
+                deviationPercentMajor, barsProviders[0]);
         }
 
         public event EventHandler<LevelEventArgs> OnStopLoss;
@@ -107,15 +107,11 @@ namespace cAlgo
         private List<ExtremumFinder> GetAllFindersOrdered()
         {
             var extremaList = new List<ExtremumFinder>();
-            List<TimeFrame> minorTimeFrames = TimeFrameHelper.GetMinorTimeFrames(
-                m_BarsProvider.TimeFrame, m_AnalyzeDepth);
             
-            foreach (TimeFrame minorTimeFrame in minorTimeFrames)
+            foreach (IBarsProvider minorBarProvider in m_BarsProviders.Skip(1))
             {
-                IBarsProvider minorBarProvider = m_BarsProvider.GetBars(minorTimeFrame);
                 var minorExtremumFinder = new ExtremumFinder(
                     m_DeviationPercentMinor, minorBarProvider);
-                
                 minorExtremumFinder.Calculate(
                     minorBarProvider.StartIndexLimit, minorBarProvider.Count - 1);
                 extremaList.Add(minorExtremumFinder);
@@ -146,8 +142,8 @@ namespace cAlgo
             double endValue = endItem.Value.Value;
 
             bool isImpulseUp = endValue > startValue;
-            double low = m_BarsProvider.GetLowPrice(index);
-            double high = m_BarsProvider.GetHighPrice(index);
+            double low = m_BarsProviders[0].GetLowPrice(index);
+            double high = m_BarsProviders[0].GetHighPrice(index);
 
             if (!m_IsInSetup)
             {

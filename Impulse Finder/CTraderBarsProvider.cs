@@ -19,7 +19,7 @@ namespace cAlgo
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="marketData">The market data.</param>
-        /// <param name="barsLimit"></param>
+        /// <param name="barsLimit">The bars limit.</param>
         public CTraderBarsProvider(
             Bars bars, MarketData marketData, int barsLimit)
         {
@@ -85,41 +85,6 @@ namespace cAlgo
         /// Gets the time frame of the current instance.
         /// </summary>
         public TimeFrame TimeFrame => m_Bars.TimeFrame;
-
-        /// <summary>
-        /// Gets the bars of the specified time frame.
-        /// </summary>
-        /// <param name="timeFrame">The time frame.</param>
-        /// <returns>
-        /// A new instance for the <see cref="timeFrame" />
-        /// </returns>
-        public IBarsProvider GetBars(TimeFrame timeFrame)
-        {
-            if (timeFrame == TimeFrame)
-            {
-                // Maybe it's better to return null
-                return this;
-            }
-            
-            if (m_Bars.Count == 0)
-            {
-                // What to do if we cannot load the bars? Dunno
-                LoadBars();
-            }
-
-            // We want to convert the start bar index the datetime
-            // because there are other indices on other time frames.
-            DateTime currentStartDate = m_Bars.OpenTimes[StartIndexLimit];
-            Bars bars = m_MarketData.GetBars(timeFrame);
-            do
-            {
-                bars.LoadMoreHistory();
-
-            } while (bars[^1].OpenTime > currentStartDate);
-
-            var res = new CTraderBarsProvider(bars, m_MarketData, bars.Count);
-            return res;
-        }
 
         /// <summary>
         /// Gets the int index of bar (candle) by datetime.

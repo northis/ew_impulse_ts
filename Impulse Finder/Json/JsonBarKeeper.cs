@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.IO;
-using cAlgo.API;
-using cAlgo.API.Internals;
 using cAlgo.Json;
 using Newtonsoft.Json;
 
@@ -14,65 +12,48 @@ namespace cAlgo
     public class JsonBarKeeper
     {
         private readonly string m_JsonFilePath;
-        private readonly int m_AnalyzedBarsCount;
 
-        public JsonBarKeeper(string jsonFilePath, int analyzedBarsCount)
+        public JsonBarKeeper(string jsonFilePath)
         {
             m_JsonFilePath = jsonFilePath;
-            m_AnalyzedBarsCount = analyzedBarsCount;
         }
 
-        public JsonBarKeeper(int analyzedBarsCount) : this(Path.Combine(Environment.CurrentDirectory, "main_history.json"), analyzedBarsCount)
+        public JsonBarKeeper() : this(
+            Path.Combine(Environment.CurrentDirectory, "main_history.json"))
         {
         }
 
-        private JsonTimeFrame GetJsonTimeFrame(Bars bars, DateTime? startDate = null)
+        /// <summary>
+        /// Saves the specified providers to JSON file.
+        /// </summary>
+        /// <param name="providers">The providers.</param>
+        /// <param name="symbolName">Name of the symbol.</param>
+        public void Save(List<IBarsProvider> providers, string symbolName)
         {
-            var jsonTimeFrame = new JsonTimeFrame
-            {
-                TimeFrameName = bars.TimeFrame.ToString()
-            };
-            if (startDate.HasValue)
-            {
-                Debugger.Launch();
-                var brr = bars.LoadMoreHistory();
-            }
-
-            var jsonBars = new JsonBar[bars.Count];
-            for (int i = 0; i < bars.Count; i++)
-            {
-                Bar bar = bars[i];
-                jsonBars[i] = new JsonBar
-                {
-                    High = bar.High,
-                    Low = bar.Low,
-                    Index = i,
-                    OpenTime = bar.OpenTime
-                };
-            }
-
-            jsonTimeFrame.Bars = jsonBars;
-            return jsonTimeFrame;
-        }
-
-        public void Save(
-            Bars bars, MarketData marketData, TimeFrame[] minorTimeFrames)
-        {
-            // Use here IBarsProvider
-            var history = new JsonHistory{ Symbol = bars.SymbolName};
-            int timeFrameCount = minorTimeFrames.Length + 1;
+            var history = new JsonHistory{ Symbol = symbolName };
+            int timeFrameCount = providers.Count;
             var jsonTimeFrames = new JsonTimeFrame[timeFrameCount];
-            jsonTimeFrames[0] = GetJsonTimeFrame(bars);
 
-            var startIndex = Math.Min(bars.Count, m_AnalyzedBarsCount);
-            DateTime startDate = bars.OpenTimes[bars.Count - startIndex];
-
-            for (int i = 0; i < minorTimeFrames.Length; i++)
+            for (var i = 0; i < providers.Count; i++)
             {
-                Bars currentBars = marketData.GetBars(minorTimeFrames[i]);
+                IBarsProvider provider = providers[i];
+                var jsonTimeFrame= new JsonTimeFrame
+                {
+                    TimeFrameName = provider.TimeFrame.ToString()
+                };
 
-                // We already got the main TF, so we add +1 here
-                jsonTimeFrames[i + 1] = GetJsonTimeFrame(currentBars, startDate);
+                int offset = provider.StartIndexLimit;
+                jsonTimeFrame.Bars = new JsonBar[provider.Count - offset];
+                for (int j = provider.StartIndexLimit; j < provider.Count; j++)
+                {
+                    jsonTimeFrame.Bars[j - offset] = new JsonBar
+                    {
+                        High = provider.GetHighPrice(j),
+                        Low = provider.GetLowPrice(j),
+                        Index = j,
+                        OpenTime = provider.GetOpenTime(j)
+                    };
+                }
             }
 
             history.JsonTimeFrames = jsonTimeFrames;

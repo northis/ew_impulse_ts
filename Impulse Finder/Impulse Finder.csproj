@@ -20,6 +20,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BarsProviderFactory.cs" />
     <Compile Include="CTraderBarsProvider.cs" />
     <Compile Include="EventArgs\SignalEventArgs.cs" />
     <Compile Include="EventArgs\LevelEventArgs.cs" />

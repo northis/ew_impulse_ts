@@ -52,13 +52,6 @@ namespace cAlgo
         TimeFrame TimeFrame { get; }
 
         /// <summary>
-        /// Gets the bars of the specified time frame.
-        /// </summary>
-        /// <param name="timeFrame">The time frame.</param>
-        /// <returns>A new instance for the <see cref="timeFrame"/></returns>
-        IBarsProvider GetBars(TimeFrame timeFrame);
-
-        /// <summary>
         /// Gets the int index of bar (candle) by datetime.
         /// </summary>
         /// <param name="dateTime">The date time.</param>
