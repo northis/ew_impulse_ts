@@ -59,7 +59,7 @@ namespace cAlgo
             {
                 bars.LoadMoreHistory();
 
-            } while (bars[^1].OpenTime > currentStartDate);
+            } while (bars[0].OpenTime > currentStartDate);
 
             var res = new CTraderBarsProvider(bars, marketData, bars.Count);
             return res;

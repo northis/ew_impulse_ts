@@ -100,7 +100,9 @@ namespace cAlgo
             Chart.DrawTrendLine(EndSetupLineChartName, e.StopLoss.Index, e.StopLoss.Price, e.Level.Index, e.Level.Price, Color.Gray);
             Chart.DrawIcon(EnterChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.White);
         }
-        
+
+        private bool m_SavedFileTest = false;
+
         /// <summary>
         /// Calculate the value(s) of indicator for the given index.
         /// </summary>
@@ -113,14 +115,20 @@ namespace cAlgo
                 return;
             }
 
-            //m_SetupFinder.CheckSetup(index);
+            m_SetupFinder.CheckSetup(index);
             if (!IsLastBar)
             {
                 return;
             }
-            
+
+            if (m_SavedFileTest)
+            {
+                return;
+            }
+
             // Here we want to save the market data to the file.
             // The code below is for testing purposes only.
+            m_SavedFileTest = true;
             var jsonBarKeeper = new JsonBarKeeper();
             jsonBarKeeper.Save(m_BarsProviders, SymbolName);
         }

@@ -54,6 +54,7 @@ namespace cAlgo
                         OpenTime = provider.GetOpenTime(j)
                     };
                 }
+                jsonTimeFrames[i] = jsonTimeFrame;
             }
 
             history.JsonTimeFrames = jsonTimeFrames;
