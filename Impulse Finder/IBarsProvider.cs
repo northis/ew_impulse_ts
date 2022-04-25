@@ -32,6 +32,21 @@ namespace cAlgo
         int Count { get; }
 
         /// <summary>
+        /// Loads the bars until <see cref="Limit"/> was reached.
+        /// </summary>
+        void LoadBars();
+
+        /// <summary>
+        /// Gets the limit amount for bars loaded.
+        /// </summary>
+        int Limit { get; }
+
+        /// <summary>
+        /// Gets the start bar index according by limit.
+        /// </summary>
+        int StartIndexLimit { get; }
+
+        /// <summary>
         /// Gets the time frame of the current instance.
         /// </summary>
         TimeFrame TimeFrame { get; }
@@ -40,6 +55,7 @@ namespace cAlgo
         /// Gets the bars of the specified time frame.
         /// </summary>
         /// <param name="timeFrame">The time frame.</param>
+        /// <returns>A new instance for the <see cref="timeFrame"/></returns>
         IBarsProvider GetBars(TimeFrame timeFrame);
 
         /// <summary>

@@ -60,7 +60,8 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
+            m_BarsProvider = new CTraderBarsProvider(
+                Bars, MarketData, AnalyzeBarsCount);
             m_SetupFinder = new SetupFinder(
                 DeviationPercentMajor,
                 DeviationPercentMinor,

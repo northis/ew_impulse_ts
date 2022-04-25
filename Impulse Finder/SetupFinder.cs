@@ -109,15 +109,15 @@ namespace cAlgo
             var extremaList = new List<ExtremumFinder>();
             List<TimeFrame> minorTimeFrames = TimeFrameHelper.GetMinorTimeFrames(
                 m_BarsProvider.TimeFrame, m_AnalyzeDepth);
-
+            
             foreach (TimeFrame minorTimeFrame in minorTimeFrames)
             {
-                IBarsProvider bars = m_BarsProvider.GetBars(minorTimeFrame);
+                IBarsProvider minorBarProvider = m_BarsProvider.GetBars(minorTimeFrame);
                 var minorExtremumFinder = new ExtremumFinder(
-                    m_DeviationPercentMinor, bars);
-
-                //TODO
-                //minorExtremumFinder.Calculate();
+                    m_DeviationPercentMinor, minorBarProvider);
+                
+                minorExtremumFinder.Calculate(
+                    minorBarProvider.StartIndexLimit, minorBarProvider.Count - 1);
                 extremaList.Add(minorExtremumFinder);
             }
 

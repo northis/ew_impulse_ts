@@ -12,16 +12,20 @@ namespace cAlgo
     {
         private readonly Bars m_Bars;
         private readonly MarketData m_MarketData;
+        private readonly int m_BarsLimit;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="marketData">The market data.</param>
-        public CTraderBarsProvider(Bars bars, MarketData marketData)
+        /// <param name="barsLimit"></param>
+        public CTraderBarsProvider(
+            Bars bars, MarketData marketData, int barsLimit)
         {
             m_Bars = bars;
             m_MarketData = marketData;
+            m_BarsLimit = barsLimit;
         }
 
         /// <summary>
@@ -57,6 +61,27 @@ namespace cAlgo
         public int Count => m_Bars.Count;
 
         /// <summary>
+        /// Loads the bars until <see cref="Limit" /> was reached.
+        /// </summary>
+        public void LoadBars()
+        {
+            while (Count < Limit)
+            {
+                m_Bars.LoadMoreHistory();
+            }
+        }
+
+        /// <summary>
+        /// Gets the limit amount for bars loaded.
+        /// </summary>
+        public int Limit => m_BarsLimit;
+
+        /// <summary>
+        /// Gets the start bar index according by limit.
+        /// </summary>
+        public int StartIndexLimit => Math.Max(Count - m_BarsLimit, 0);
+
+        /// <summary>
         /// Gets the time frame of the current instance.
         /// </summary>
         public TimeFrame TimeFrame => m_Bars.TimeFrame;
@@ -65,6 +90,9 @@ namespace cAlgo
         /// Gets the bars of the specified time frame.
         /// </summary>
         /// <param name="timeFrame">The time frame.</param>
+        /// <returns>
+        /// A new instance for the <see cref="timeFrame" />
+        /// </returns>
         public IBarsProvider GetBars(TimeFrame timeFrame)
         {
             if (timeFrame == TimeFrame)
@@ -72,9 +100,24 @@ namespace cAlgo
                 // Maybe it's better to return null
                 return this;
             }
+            
+            if (m_Bars.Count == 0)
+            {
+                // What to do if we cannot load the bars? Dunno
+                LoadBars();
+            }
 
+            // We want to convert the start bar index the datetime
+            // because there are other indices on other time frames.
+            DateTime currentStartDate = m_Bars.OpenTimes[StartIndexLimit];
             Bars bars = m_MarketData.GetBars(timeFrame);
-            var res = new CTraderBarsProvider(bars, m_MarketData);
+            do
+            {
+                bars.LoadMoreHistory();
+
+            } while (bars[^1].OpenTime > currentStartDate);
+
+            var res = new CTraderBarsProvider(bars, m_MarketData, bars.Count);
             return res;
         }
 

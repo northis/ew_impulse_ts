@@ -58,6 +58,7 @@ namespace cAlgo
         public void Save(
             Bars bars, MarketData marketData, TimeFrame[] minorTimeFrames)
         {
+            // Use here IBarsProvider
             var history = new JsonHistory{ Symbol = bars.SymbolName};
             int timeFrameCount = minorTimeFrames.Length + 1;
             var jsonTimeFrames = new JsonTimeFrame[timeFrameCount];
