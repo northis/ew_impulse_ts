@@ -30,6 +30,7 @@
     <Compile Include="ImpulseFinder.cs" />
     <Compile Include="Json\JsonBar.cs" />
     <Compile Include="Json\JsonBarKeeper.cs" />
+    <Compile Include="Json\JsonBarsProvider.cs" />
     <Compile Include="Json\JsonHistory.cs" />
     <Compile Include="Json\JsonTimeFrame.cs" />
     <Compile Include="LevelItem.cs" />
