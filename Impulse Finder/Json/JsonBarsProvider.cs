@@ -1,8 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using cAlgo.API;
-using Newtonsoft.Json;
 
 namespace cAlgo.Json
 {
@@ -12,19 +10,19 @@ namespace cAlgo.Json
     /// <seealso cref="cAlgo.IBarsProvider" />
     public class JsonBarsProvider : IBarsProvider
     {
-        private readonly string m_InputJsonFile;
+        private readonly JsonHistory m_JsonHistory;
         private JsonTimeFrame m_JsonTimeFrame;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonBarsProvider"/> class.
         /// </summary>
-        /// <param name="inputJsonFile">The input json file.</param>
+        /// <param name="jsonHistory">Parsed history object.</param>
         /// <param name="timeFrame">The time frame.</param>
         /// <param name="limit">The limit.</param>
         public JsonBarsProvider(
-            string inputJsonFile, TimeFrame timeFrame, int limit)
+            JsonHistory jsonHistory, TimeFrame timeFrame, int limit = 0)
         {
-            m_InputJsonFile = inputJsonFile;
+            m_JsonHistory = jsonHistory;
             TimeFrame = timeFrame;
             Limit = limit;
         }
@@ -67,21 +65,14 @@ namespace cAlgo.Json
         /// <exception cref="System.Exception">Cannot parse the file {m_InputJsonFile}</exception>
         public void LoadBars()
         {
-            JsonHistory jsonHistory = JsonConvert.DeserializeObject<JsonHistory>(
-                File.ReadAllText(m_InputJsonFile));
-            if (jsonHistory == null)
-            {
-                throw new Exception($"Cannot parse the file {m_InputJsonFile}");
-            }
-
-            m_JsonTimeFrame = jsonHistory.JsonTimeFrames
+            m_JsonTimeFrame = m_JsonHistory.JsonTimeFrames
                 .Single(a => a.TimeFrameName == TimeFrame.ToString());
         }
 
         /// <summary>
-        /// Gets the limit amount for bars loaded.
+        /// Gets or sets the limit amount for bars loaded.
         /// </summary>
-        public int Limit { get; }
+        public int Limit { get; set; }
 
         /// <summary>
         /// Gets the start bar index according by limit.

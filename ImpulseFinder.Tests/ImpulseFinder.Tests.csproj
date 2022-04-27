@@ -18,4 +18,10 @@
     <ProjectReference Include="..\Impulse Finder\Impulse Finder.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="main_history.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

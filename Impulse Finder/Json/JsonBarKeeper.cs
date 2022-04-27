@@ -23,6 +23,18 @@ namespace cAlgo
         {
         }
 
+        public JsonHistory LoadHistory()
+        {
+            JsonHistory jsonHistory = JsonConvert.DeserializeObject<JsonHistory>(
+                File.ReadAllText(m_JsonFilePath));
+            if (jsonHistory == null)
+            {
+                throw new Exception($"Cannot parse the file {m_JsonFilePath}");
+            }
+
+            return jsonHistory;
+        }
+
         /// <summary>
         /// Saves the specified providers to JSON file.
         /// </summary>
