@@ -14,7 +14,7 @@ namespace cAlgo
         {
             TIME_FRAMES_ARRAY = new TimeFrameInfo[]
             {
-                new(TimeFrame.Tick15, TimeSpan.FromSeconds(20), 0),
+                new(TimeFrame.Tick15, TimeSpan.FromSeconds(15), 0),
                 new(TimeFrame.Minute, TimeSpan.FromMinutes(1), 1),
                 new(TimeFrame.Minute5, TimeSpan.FromMinutes(5), 2),
                 new(TimeFrame.Minute15, TimeSpan.FromMinutes(15), 3),

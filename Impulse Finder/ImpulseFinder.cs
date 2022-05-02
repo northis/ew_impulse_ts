@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using cAlgo.API;
 
 namespace cAlgo
@@ -13,19 +14,13 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
-        [Parameter("DeviationPercentMajor", DefaultValue = 0.1, MinValue = 0.01)]
-        public double DeviationPercentMajor { get; set; }
-
-        /// <summary>
-        /// Gets or sets the allowance to impulse recognition in percents (minor).
-        /// </summary>
-        [Parameter("DeviationPercentMinor", DefaultValue = 0.05, MinValue = 0.01)]
-        public double DeviationPercentMinor { get; set; }
-
+        [Parameter("DeviationPercent", DefaultValue = 0.24, MinValue = 0.01)]
+        public double DeviationPercent { get; set; }
+        
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
-        [Parameter("DeviationPercentCorrection", DefaultValue = 250, MinValue = 1)]
+        [Parameter("DeviationPercentCorrection", DefaultValue = 200, MinValue = 1)]
         public double DeviationPercentCorrection { get; set; }
 
         /// <summary>
@@ -37,7 +32,7 @@ namespace cAlgo
        /// <summary>
        /// Gets or sets the amount of bars that should be analyzed
        /// </summary>
-        [Parameter("AnalyzeBarsCount", DefaultValue = 1000, MinValue = 10)]
+        [Parameter("AnalyzeBarsCount", DefaultValue = 500, MinValue = 10)]
         public int AnalyzeBarsCount { get; set; }
 
         private string StartSetupLineChartName =>
@@ -61,14 +56,11 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            m_BarsProviders =
-                BarsProviderFactory.CreateCTraderBarsProviders(AnalyzeBarsCount, TimeFrame, AnalyzeDepth, MarketData,
-                    Bars);
+            m_BarsProviders = BarsProviderFactory.CreateCTraderBarsProviders(
+                    AnalyzeBarsCount, TimeFrame, AnalyzeDepth, MarketData, Bars);
             m_SetupFinder = new SetupFinder(
-                DeviationPercentMajor,
-                DeviationPercentMinor,
+                DeviationPercent,
                 DeviationPercentCorrection,
-                AnalyzeDepth,
                 m_BarsProviders);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
@@ -87,11 +79,13 @@ namespace cAlgo
         {
             Chart.DrawIcon(StopChartName, ChartIconType.Star, e.Level.Index
                 , e.Level.Price, Color.Red);
+            Print($"SL hit! Price:{e.Level.Price}");
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
             Chart.DrawIcon(ProfitChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.Green);
+            Print($"TP hit! Price:{e.Level.Price}");
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
@@ -99,6 +93,7 @@ namespace cAlgo
             Chart.DrawTrendLine(StartSetupLineChartName, e.TakeProfit.Index, e.TakeProfit.Price, e.Level.Index, e.Level.Price, Color.Gray);
             Chart.DrawTrendLine(EndSetupLineChartName, e.StopLoss.Index, e.StopLoss.Price, e.Level.Index, e.Level.Price, Color.Gray);
             Chart.DrawIcon(EnterChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.White);
+            Print($"New setup found! Price:{e.Level.Price}");
         }
 
         private bool m_SavedFileTest = false;
@@ -115,7 +110,14 @@ namespace cAlgo
                 return;
             }
 
-            m_SetupFinder.CheckSetup(index);
+            try
+            {
+                m_SetupFinder.CheckSetup(index);
+            }
+            catch (Exception ex)
+            {
+                Print(ex.Message);
+            }
             if (!IsLastBar)
             {
                 return;
@@ -128,9 +130,9 @@ namespace cAlgo
 
             // Here we want to save the market data to the file.
             // The code below is for testing purposes only.
-            m_SavedFileTest = true;
-            var jsonBarKeeper = new JsonBarKeeper();
-            jsonBarKeeper.Save(m_BarsProviders, SymbolName);
+            //m_SavedFileTest = true;
+            //var jsonBarKeeper = new JsonBarKeeper();
+            //jsonBarKeeper.Save(m_BarsProviders, SymbolName);
         }
     }
 }

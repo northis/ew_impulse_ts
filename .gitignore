@@ -253,3 +253,5 @@ paket-files/
 .idea/
 *.sln.iml
 *.pyc
+
+ImpulseFinder.Tests/main_history.json

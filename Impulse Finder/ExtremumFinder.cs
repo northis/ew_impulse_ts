@@ -96,11 +96,7 @@ namespace cAlgo
         public void Calculate(DateTime startDate, DateTime endDate)
         {
             int startIndex = m_BarsProvider.GetIndexByTime(startDate);
-            
-            // We want to cover the latest bar
-            bool useAddToEndIndex = m_BarsProvider.GetLastBarOpenTime() > endDate;
-            int endIndex = m_BarsProvider.GetIndexByTime(endDate) +
-                           (useAddToEndIndex ? 1 : 0);
+            int endIndex = m_BarsProvider.GetIndexByTime(endDate);
             Calculate(startIndex, endIndex);
         }
 
@@ -110,17 +106,19 @@ namespace cAlgo
         /// <param name="index">The index.</param>
         public void Calculate(int index)
         {
-            double low = m_BarsProvider.GetLowPrice(index);
-            double high = m_BarsProvider.GetHighPrice(index);
-            if (m_Extremum.Value == 0.0)
-            {
-                m_Extremum.Value = high;
-            }
-
             if (m_BarsProvider.Count < 2)
             {
                 return;
             }
+
+            double low = m_BarsProvider.GetLowPrice(index);
+            double high = m_BarsProvider.GetHighPrice(index);
+            m_Extremum ??= new Extremum
+            {
+                OpenTime = m_BarsProvider.GetOpenTime(index),
+                Value = high,
+                BarTimeFrame = m_BarsProvider.TimeFrame
+            };
 
             if (m_IsUpDirection ? high >= m_Extremum.Value : low <= m_Extremum.Value)
             {

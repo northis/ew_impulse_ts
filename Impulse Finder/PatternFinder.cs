@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace cAlgo
@@ -6,26 +7,92 @@ namespace cAlgo
     /// <summary>
     /// Contains pattern-finding logic for the Elliott Waves structures.
     /// </summary>
-    public static class PatternFinder
+    public class PatternFinder
     {
+        private readonly double m_CorrectionAllowancePercent;
+        private readonly List<IBarsProvider> m_BarsProviders;
         private const int IMPULSE_EXTREMA_COUNT = 6;
+        private const int SIMPLE_IMPULSE_EXTREMA_COUNT = 2;
+        private const double MINOR_DEVIATION_START = 0.5;// from 0.1 to 1
+        private const double MINOR_DEVIATION_STEP = 0.1;// from 0.1 to 1
+        // If we have m_DeviationPercent == 0.2, MINOR_DEVIATION_START ==0.5
+        // and MINOR_DEVIATION_STEP == 0.1 so start minor deviation is = 0.2*0.5 = 0.1,
+        // and step every (0.2-0.1)*0.1 => 0.1, 0.11, 0.12, 0.13, ..., 0.19, 0.2
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PatternFinder"/> class.
+        /// </summary>
+        /// <param name="deviationPercent">The deviation percent.</param>
+        /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
+        /// <param name="barsProviders">The bars providers.</param>
+        public PatternFinder(double correctionAllowancePercent,
+            double deviationPercent,
+            List<IBarsProvider> barsProviders)
+        {
+            m_CorrectionAllowancePercent = correctionAllowancePercent;
+            m_BarsProviders = barsProviders;
+
+            double startDeviation = deviationPercent * MINOR_DEVIATION_START;
+            double step = (deviationPercent - startDeviation)* MINOR_DEVIATION_STEP;
+            double currentDeviation = startDeviation;
+
+            MinorDeviations = new List<double>();
+            do
+            {
+                MinorDeviations.Add(currentDeviation);
+                currentDeviation += step;
+            } while (currentDeviation < deviationPercent);
+
+            MinorDeviations.Reverse();
+        }
+
+        private List<double> MinorDeviations { get; }
+
+        private bool CheckImpulse(
+            List<Extremum[]> extremaList, Extremum start, Extremum end)
+        {
+            List<Extremum[]> minorExtremaSet = extremaList.Skip(1).ToList();
+            Extremum[] minorExtrema = minorExtremaSet.FirstOrDefault();
+            if (minorExtrema == null)
+            {
+                // If we are here, so there are no minor extrema and
+                // we've found an impulse
+                return true;
+            }
+            
+            Extremum[] minorWave = minorExtrema
+                .SkipWhile(a => a.OpenTime < start.OpenTime)
+                .TakeWhile(a => a.OpenTime < end.CloseTime)
+                .ToArray();
+
+            minorExtremaSet.RemoveAt(0);
+            minorExtremaSet.Insert(0, minorWave);
+
+            bool isWaveImpulse = IsSimpleImpulse(minorExtremaSet);
+            return isWaveImpulse;
+        }
 
         /// <summary>
         /// Determines whether the specified extrema is an simple impulse.
         /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
         /// </summary>
         /// <param name="extremaList">The extrema - list of sorted arrays.</param>
-        /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
-        private static bool IsSimpleImpulse(
-            List<Extremum[]> extremaList,
-            double correctionAllowancePercent)
+        private bool IsSimpleImpulse(List<Extremum[]> extremaList)
         {
             Extremum[] extrema = extremaList[0];
             int count = extrema.Length;
-            if (count != IMPULSE_EXTREMA_COUNT)
+
+            if (count == SIMPLE_IMPULSE_EXTREMA_COUNT && extremaList.Count == 1)
+            {
+                bool res = CheckImpulse(extremaList, extrema[0], extrema[1]);
+                return res;
+            }
+
+            if (count != IMPULSE_EXTREMA_COUNT &&
+                count != IMPULSE_EXTREMA_COUNT + 1)
                 // support 10, 14, 18 as well with a recursive call maybe
             {
                 return false;
@@ -50,8 +117,8 @@ namespace cAlgo
 
             // Check harmony between 2nd and 4th waves 
             double correctionRatio = fourthWaveDuration / secondWaveDuration;
-            if (correctionRatio * 100 > correctionAllowancePercent ||
-                correctionRatio < 100d / correctionAllowancePercent)
+            if (correctionRatio * 100 > m_CorrectionAllowancePercent ||
+                correctionRatio < 100d / m_CorrectionAllowancePercent)
             {
                 return false;
             }
@@ -85,37 +152,13 @@ namespace cAlgo
             {
                 return false;
             }
-
-            Extremum[] minorExtrema = extremaList.Skip(1).FirstOrDefault();
-            if (minorExtrema == null)
-            {
-                // If we are here, so there are no minor extrema and
-                // we've found an impulse
-                return true;
-            }
-
-
-            Extremum[][] innerExtremaArray = extremaList.Skip(2).ToArray();
-            bool CheckImpulse(Extremum start, Extremum end)
-            {
-                Extremum[] minorWave = minorExtrema
-                    .SkipWhile(a => a.OpenTime < start.OpenTime)
-                    .TakeWhile(a => a.OpenTime < end.CloseTime)
-                    .ToArray();
-
-                var innerAnalyzeList = new List<Extremum[]>(innerExtremaArray);
-                innerAnalyzeList.Insert(0, minorWave);
-
-                bool isWaveImpulse = IsSimpleImpulse(
-                    innerAnalyzeList, correctionAllowancePercent);
-                return isWaveImpulse;
-            }
+            
 
             // Let's look closer to the impulse waves 1, 3 and 5 using
             // the minor extrema provided
-            if (!CheckImpulse(firstItem, firstWaveEnd) ||
-                !CheckImpulse(secondWaveEnd, thirdWaveEnd) ||
-                !CheckImpulse(fourthWaveEnd, fifthWaveEnd))
+            if (!CheckImpulse(extremaList, firstItem, firstWaveEnd) 
+                || !CheckImpulse(extremaList, secondWaveEnd, thirdWaveEnd) 
+                || !CheckImpulse(extremaList, fourthWaveEnd, fifthWaveEnd))
             {
                 return false;
             }
@@ -123,33 +166,35 @@ namespace cAlgo
             return true;
         }
 
+       
         /// <summary>
-        /// Determines whether the specified extrema is an impulse.
+        /// Determines whether the interval between the dates is an impulse.
         /// </summary>
-        /// <param name="extremaSet">The extrema collection in the order of usage.</param>
-        /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
+        /// <param name="dateStart">The date start.</param>
+        /// <param name="dateEnd">The date end.</param>
         /// <returns>
-        ///   <c>true</c> if the specified extrema is impulse; otherwise, <c>false</c>.
+        ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public static bool IsImpulse(List<Extremum[]> extremaSet,
-            double correctionAllowancePercent)
+        public bool IsImpulse(DateTime dateStart, DateTime dateEnd)
         {
-            if (extremaSet == null || extremaSet.Count == 0)
+            foreach (double minorDeviation in MinorDeviations)
             {
-                return false;
+                var extremaSet = new List<Extremum[]>();
+                foreach (IBarsProvider barsProvider in m_BarsProviders)
+                {
+                    var minorExtremumFinder = new ExtremumFinder(
+                        minorDeviation, barsProvider);
+                    minorExtremumFinder.Calculate(dateStart, dateEnd);
+                    extremaSet.Add(minorExtremumFinder.ToExtremaArray());
+                }
+                bool isSimpleImpulse = IsSimpleImpulse(extremaSet);
+                if (isSimpleImpulse)
+                {
+                    return true;
+                }
             }
-
-            int count = extremaSet[0].Length;
-            if (count < IMPULSE_EXTREMA_COUNT)
-            {
-                // 0 -> wave 1 -> 2 -> 3 -> 4 -> 5
-                return false;
-            }
-
-            bool isSimpleImpulse = IsSimpleImpulse(
-                extremaSet, correctionAllowancePercent);
-
-            return isSimpleImpulse;
+            
+            return false;
         }
     }
 }

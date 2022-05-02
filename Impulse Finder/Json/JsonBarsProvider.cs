@@ -98,10 +98,11 @@ namespace cAlgo.Json
         private int GetIndexByTimeInner(
             int startIndex, int endIndex, DateTime dateTime)
         {
-            double midIndexDouble = ((double)endIndex - startIndex) / 2;
-            if (midIndexDouble < 1)
+            double diff = ((double)endIndex - startIndex) / 2;
+            double midIndexDouble = startIndex + diff;
+            if (diff < 1)
             {
-                return -1;
+                return startIndex;
             }
 
             int midIndex = Convert.ToInt32(midIndexDouble);

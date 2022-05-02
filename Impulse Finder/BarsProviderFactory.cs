@@ -37,8 +37,9 @@ namespace cAlgo
                 // because there are other indices on other time frames.
                 DateTime currentStartDate = currentBarsProvider.GetOpenTime(currentBarsProvider.StartIndexLimit);
                 var jsonBarsProvider = new JsonBarsProvider(jsonHistory, timeFrame);
+                jsonBarsProvider.LoadBars();
                 int limit = jsonBarsProvider.GetIndexByTime(currentStartDate);
-                jsonBarsProvider.Limit = limit;
+                jsonBarsProvider.Limit = jsonBarsProvider.Count - limit;
                 currentBarsProvider = jsonBarsProvider;
                 resList.Add(jsonBarsProvider);
             }

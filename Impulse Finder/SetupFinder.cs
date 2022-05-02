@@ -10,9 +10,7 @@ namespace cAlgo
     /// </summary>
     public class SetupFinder
     {
-        private readonly double m_DeviationPercentMinor;
-        private readonly double m_CorrectionAllowancePercent;
-        private readonly int m_AnalyzeDepth;
+        private readonly PatternFinder m_PatternFinder;
         private readonly List<IBarsProvider> m_BarsProviders;
         private readonly ExtremumFinder m_ExtremumFinder;
         private bool m_IsInSetup;
@@ -31,23 +29,36 @@ namespace cAlgo
         // 4. The previous extremum (to find out, weather this impulse is an initial one or not).
         private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 4;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SetupFinder"/> class.
+        /// </summary>
+        /// <param name="deviationPercent">The deviation percent.</param>
+        /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
+        /// <param name="barsProviders">The bars providers.</param>
         public SetupFinder(
-            double deviationPercentMajor,
-            double deviationPercentMinor,
+            double deviationPercent,
             double correctionAllowancePercent,
-            int analyzeDepth,
             List<IBarsProvider> barsProviders)
         {
-            m_DeviationPercentMinor = deviationPercentMinor;
-            m_CorrectionAllowancePercent = correctionAllowancePercent;
-            m_AnalyzeDepth = analyzeDepth;
             m_BarsProviders = barsProviders;
-            m_ExtremumFinder = new ExtremumFinder(
-                deviationPercentMajor, barsProviders[0]);
+            m_ExtremumFinder = new ExtremumFinder(deviationPercent, barsProviders[0]);
+            m_PatternFinder = new PatternFinder(
+                correctionAllowancePercent, deviationPercent, barsProviders);
         }
 
+        /// <summary>
+        /// Occurs on stop loss.
+        /// </summary>
         public event EventHandler<LevelEventArgs> OnStopLoss;
+
+        /// <summary>
+        /// Occurs when on take profit.
+        /// </summary>
         public event EventHandler<LevelEventArgs> OnTakeProfit;
+
+        /// <summary>
+        /// Occurs when a new setup is found.
+        /// </summary>
         public event EventHandler<SignalEventArgs> OnEnter;
 
         /// <summary>
@@ -99,27 +110,7 @@ namespace cAlgo
 
             return isInitialMove;
         }
-
-        /// <summary>
-        /// Gets all extremum finders ordered for minor time frames.
-        /// </summary>
-        /// <returns>List of <see cref="ExtremumFinder"/> instances</returns>
-        private List<ExtremumFinder> GetAllFindersOrdered()
-        {
-            var extremaList = new List<ExtremumFinder>();
-            
-            foreach (IBarsProvider minorBarProvider in m_BarsProviders.Skip(1))
-            {
-                var minorExtremumFinder = new ExtremumFinder(
-                    m_DeviationPercentMinor, minorBarProvider);
-                minorExtremumFinder.Calculate(
-                    minorBarProvider.StartIndexLimit, minorBarProvider.Count - 1);
-                extremaList.Add(minorExtremumFinder);
-            }
-
-            return extremaList;
-        }
-
+        
         /// <summary>
         /// Checks the conditions of possible setup for <see cref="index"/>.
         /// </summary>
@@ -180,13 +171,9 @@ namespace cAlgo
                 {
                     return;
                 }
-
-                List<Extremum[]> extremaList = GetAllFindersOrdered()
-                    .Select(a => a.ToExtremaArray())
-                    .ToList();
-
-                bool isImpulse = PatternFinder.IsImpulse(
-                    extremaList, m_CorrectionAllowancePercent);
+                
+                bool isImpulse = m_PatternFinder.IsImpulse(
+                    startItem.Value.OpenTime, endItem.Value.CloseTime);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
