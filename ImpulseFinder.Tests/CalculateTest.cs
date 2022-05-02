@@ -15,7 +15,6 @@ namespace ImpulseFinder.Tests
         public double DeviationPercent { get; set; } = 0.25;
         public double DeviationPercentCorrection { get; set; } = 150;
         public int AnalyzeDepth { get; set; } = 1;
-        public int AnalyzeBarsCount { get; set; } = 500;
         public TimeFrame MainTimeFrame { get; set; } = TimeFrame.Minute5;
         public string MainHistoryFile { get; set; } = "main_history.json";
 
@@ -30,7 +29,7 @@ namespace ImpulseFinder.Tests
             var jsonKeeper = new JsonBarKeeper(jsonHistoryFilePath);
             var jsonHistory = jsonKeeper.LoadHistory();
             var providers = BarsProviderFactory.CreateJsonBarsProviders(
-                AnalyzeBarsCount, MainTimeFrame, AnalyzeDepth, jsonHistory);
+                MainTimeFrame, AnalyzeDepth, jsonHistory);
             var setupFinder = new SetupFinder(DeviationPercent, DeviationPercentCorrection, providers);
 
             int enterCount = 0;

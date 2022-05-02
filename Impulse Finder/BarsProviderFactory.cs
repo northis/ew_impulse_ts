@@ -14,19 +14,17 @@ namespace cAlgo
         /// <summary>
         /// Creates the <see cref="JsonBarsProvider"/> providers.
         /// </summary>
-        /// <param name="analyzeBarsCount">The analyze bars count.</param>
         /// <param name="initialTimeFrame">The initial time frame.</param>
         /// <param name="analyzeDepth">The analyze depth.</param>
         /// <param name="jsonHistory">The json history.</param>
         public static List<IBarsProvider> CreateJsonBarsProviders(
-            int analyzeBarsCount,
             TimeFrame initialTimeFrame,
             int analyzeDepth,
             JsonHistory jsonHistory)
         {
             List<TimeFrame> timeFrames = TimeFrameHelper.GetMinorTimeFrames(
                 initialTimeFrame, analyzeDepth);
-            var bBarsProvider = new JsonBarsProvider(jsonHistory, initialTimeFrame, analyzeBarsCount);
+            var bBarsProvider = new JsonBarsProvider(jsonHistory, initialTimeFrame);
             var resList = new List<IBarsProvider> { bBarsProvider };
             bBarsProvider.LoadBars();
 
@@ -50,14 +48,12 @@ namespace cAlgo
         /// <summary>
         /// Creates the <see cref="CTraderBarsProvider"/> providers.
         /// </summary>
-        /// <param name="analyzeBarsCount">The analyze bars count.</param>
         /// <param name="initialTimeFrame">The initial time frame.</param>
         /// <param name="analyzeDepth">The analyze depth.</param>
         /// <param name="marketData">The market data.</param>
         /// <param name="mainBars">The main bars.</param>
         /// <returns>The list of instances</returns>
         public static List<IBarsProvider> CreateCTraderBarsProviders(
-            int analyzeBarsCount, 
             TimeFrame initialTimeFrame, 
             int analyzeDepth,
             MarketData marketData,
@@ -66,7 +62,7 @@ namespace cAlgo
             List<TimeFrame> timeFrames = TimeFrameHelper.GetMinorTimeFrames(
                 initialTimeFrame, analyzeDepth);
             var bBarsProvider = new CTraderBarsProvider(
-                mainBars, marketData, analyzeBarsCount);
+                mainBars, marketData);
             var resList = new List<IBarsProvider>{ bBarsProvider };
             bBarsProvider.LoadBars();
 
@@ -96,7 +92,6 @@ namespace cAlgo
         private static IBarsProvider GetCTraderBarProvider(
             MarketData marketData, TimeFrame timeFrame, DateTime currentStartDate)
         {
-            //TODO How to handle the bar updating
             Bars bars = marketData.GetBars(timeFrame);
             if (bars.Count == 0)
             {
@@ -110,7 +105,7 @@ namespace cAlgo
 
             } while (bars[0].OpenTime > currentStartDate);
 
-            var res = new CTraderBarsProvider(bars, marketData, bars.Count);
+            var res = new CTraderBarsProvider(bars, marketData);
             return res;
         }
 

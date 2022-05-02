@@ -12,6 +12,7 @@ namespace cAlgo
     {
         static TimeFrameHelper()
         {
+            // TODO Support all the TFs
             TIME_FRAMES_ARRAY = new TimeFrameInfo[]
             {
                 new(TimeFrame.Tick15, TimeSpan.FromSeconds(15), 0),

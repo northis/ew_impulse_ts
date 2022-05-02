@@ -12,20 +12,16 @@ namespace cAlgo
     {
         private readonly Bars m_Bars;
         private readonly MarketData m_MarketData;
-        private readonly int m_BarsLimit;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="marketData">The market data.</param>
-        /// <param name="barsLimit">The bars limit.</param>
-        public CTraderBarsProvider(
-            Bars bars, MarketData marketData, int barsLimit)
+        public CTraderBarsProvider(Bars bars, MarketData marketData)
         {
             m_Bars = bars;
             m_MarketData = marketData;
-            m_BarsLimit = barsLimit;
         }
 
         /// <summary>
@@ -74,12 +70,12 @@ namespace cAlgo
         /// <summary>
         /// Gets the limit amount for bars loaded.
         /// </summary>
-        public int Limit => m_BarsLimit;
+        public int Limit => Count;
 
         /// <summary>
         /// Gets the start bar index according by limit.
         /// </summary>
-        public int StartIndexLimit => Math.Max(Count - m_BarsLimit, 0);
+        public int StartIndexLimit => 0;
 
         /// <summary>
         /// Gets the time frame of the current instance.

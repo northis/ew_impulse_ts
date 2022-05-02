@@ -28,13 +28,7 @@ namespace cAlgo
         /// </summary>
         [Parameter("AnalyzeDepth", DefaultValue = 1, MinValue = 0)]
         public int AnalyzeDepth { get; set; }
-
-       /// <summary>
-       /// Gets or sets the amount of bars that should be analyzed
-       /// </summary>
-        [Parameter("AnalyzeBarsCount", DefaultValue = 500, MinValue = 10)]
-        public int AnalyzeBarsCount { get; set; }
-
+        
         private string StartSetupLineChartName =>
             "StartSetupLine" + Bars.OpenTimes.Last(1);
 
@@ -57,7 +51,7 @@ namespace cAlgo
         {
             base.Initialize();
             m_BarsProviders = BarsProviderFactory.CreateCTraderBarsProviders(
-                    AnalyzeBarsCount, TimeFrame, AnalyzeDepth, MarketData, Bars);
+                TimeFrame, AnalyzeDepth, MarketData, Bars);
             m_SetupFinder = new SetupFinder(
                 DeviationPercent,
                 DeviationPercentCorrection,
@@ -104,12 +98,6 @@ namespace cAlgo
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
-            if (Bars.Count - index > AnalyzeBarsCount)
-            {
-                // We won't analyze more bars
-                return;
-            }
-
             try
             {
                 m_SetupFinder.CheckSetup(index);
@@ -118,6 +106,7 @@ namespace cAlgo
             {
                 Print(ex.Message);
             }
+
             if (!IsLastBar)
             {
                 return;
@@ -128,6 +117,9 @@ namespace cAlgo
                 return;
             }
 
+            m_SavedFileTest = true;
+            
+            Print($"History calculation is completed, index {index}");
             // Here we want to save the market data to the file.
             // The code below is for testing purposes only.
             //m_SavedFileTest = true;

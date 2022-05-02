@@ -48,6 +48,12 @@ namespace cAlgo
 
         private List<double> MinorDeviations { get; }
 
+         /// <summary>
+        /// Checks the impulse.
+        /// </summary>
+        /// <param name="extremaList">The extrema list.</param>
+        /// <param name="start">The start.</param>
+        /// <param name="end">The end.</param>
         private bool CheckImpulse(
             List<Extremum[]> extremaList, Extremum start, Extremum end)
         {
