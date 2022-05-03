@@ -9,6 +9,13 @@ namespace cAlgo
     /// </summary>
     public class PatternFinder
     {
+        enum ImpulseState
+        {
+            NoImpulse,
+            Found,
+            Zigzags
+        }
+
         private readonly double m_CorrectionAllowancePercent;
         private readonly List<IBarsProvider> m_BarsProviders;
         private const int IMPULSE_EXTREMA_COUNT = 6;
@@ -54,7 +61,7 @@ namespace cAlgo
         /// <param name="extremaList">The extrema list.</param>
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
-        private bool CheckImpulse(
+        private ImpulseState CheckImpulse(
             List<Extremum[]> extremaList, Extremum start, Extremum end)
         {
             List<Extremum[]> minorExtremaSet = extremaList.Skip(1).ToList();
@@ -63,7 +70,7 @@ namespace cAlgo
             {
                 // If we are here, so there are no minor extrema and
                 // we've found an impulse
-                return true;
+                return ImpulseState.Found;
             }
             
             Extremum[] minorWave = minorExtrema
@@ -74,8 +81,8 @@ namespace cAlgo
             minorExtremaSet.RemoveAt(0);
             minorExtremaSet.Insert(0, minorWave);
 
-            bool isWaveImpulse = IsSimpleImpulse(minorExtremaSet);
-            return isWaveImpulse;
+            var waveImpulseResult = IsSimpleImpulse(minorExtremaSet);
+            return waveImpulseResult;
         }
 
         /// <summary>
@@ -86,14 +93,14 @@ namespace cAlgo
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSimpleImpulse(List<Extremum[]> extremaList)
+        private ImpulseState IsSimpleImpulse(List<Extremum[]> extremaList)
         {
             Extremum[] extrema = extremaList[0];
             int count = extrema.Length;
 
             if (count == SIMPLE_IMPULSE_EXTREMA_COUNT && extremaList.Count == 1)
             {
-                bool res = CheckImpulse(extremaList, extrema[0], extrema[1]);
+                ImpulseState res = CheckImpulse(extremaList, extrema[0], extrema[1]);
                 return res;
             }
 
@@ -101,7 +108,7 @@ namespace cAlgo
                 count != IMPULSE_EXTREMA_COUNT + 1)
                 // support 10, 14, 18 as well with a recursive call maybe
             {
-                return false;
+                return ImpulseState.NoImpulse;
             }
 
             Extremum firstItem = extrema[0];
@@ -118,7 +125,7 @@ namespace cAlgo
             double fourthWaveDuration = (fourthWaveEnd.OpenTime - thirdWaveEnd.OpenTime).TotalSeconds;
             if (secondWaveDuration <= 0 || fourthWaveDuration <= 0)
             {
-                return false;
+                return ImpulseState.NoImpulse;
             }
 
             // Check harmony between 2nd and 4th waves 
@@ -126,14 +133,14 @@ namespace cAlgo
             if (correctionRatio * 100 > m_CorrectionAllowancePercent ||
                 correctionRatio < 100d / m_CorrectionAllowancePercent)
             {
-                return false;
+                return ImpulseState.NoImpulse;
             }
 
             // Check the overlap rule
             if (isUp && firstWaveEnd.Value >= fourthWaveEnd.Value ||
                 !isUp && firstWaveEnd.Value <= fourthWaveEnd.Value)
             {
-                return false;
+                return ImpulseState.NoImpulse;
             }
 
             double firstWaveLength = (isUp ? 1 : -1) *
@@ -149,27 +156,29 @@ namespace cAlgo
                 thirdWaveLength <= 0 ||
                 fifthWaveLength <= 0)
             {
-                return false;
+                return ImpulseState.NoImpulse;
             }
 
             // Check the 3rd wave length
             if (thirdWaveLength < firstWaveLength ||
                 thirdWaveLength < fifthWaveLength)
             {
-                return false;
+                return ImpulseState.NoImpulse;
             }
             
-
             // Let's look closer to the impulse waves 1, 3 and 5 using
             // the minor extrema provided
-            if (!CheckImpulse(extremaList, firstItem, firstWaveEnd) 
-                || !CheckImpulse(extremaList, secondWaveEnd, thirdWaveEnd) 
-                || !CheckImpulse(extremaList, fourthWaveEnd, fifthWaveEnd))
+            if (CheckImpulse(extremaList, firstItem, firstWaveEnd) 
+                != ImpulseState.Found &&
+            CheckImpulse(extremaList, secondWaveEnd, thirdWaveEnd) 
+            != ImpulseState.Found &&
+                CheckImpulse(extremaList, fourthWaveEnd, fifthWaveEnd) 
+                != ImpulseState.Found)
             {
-                return false;
+                return ImpulseState.Zigzags;
             }
 
-            return true;
+            return ImpulseState.Found;
         }
 
        
@@ -183,6 +192,7 @@ namespace cAlgo
         /// </returns>
         public bool IsImpulse(DateTime dateStart, DateTime dateEnd)
         {
+            var results = new List<ImpulseState>();
             foreach (double minorDeviation in MinorDeviations)
             {
                 var extremaSet = new List<Extremum[]>();
@@ -193,11 +203,23 @@ namespace cAlgo
                     minorExtremumFinder.Calculate(dateStart, dateEnd);
                     extremaSet.Add(minorExtremumFinder.ToExtremaArray());
                 }
-                bool isSimpleImpulse = IsSimpleImpulse(extremaSet);
-                if (isSimpleImpulse)
+
+                var isSimpleImpulse = IsSimpleImpulse(extremaSet);
+                if (isSimpleImpulse is ImpulseState.Found or ImpulseState.Zigzags)
                 {
-                    return true;
+                    System.Diagnostics.Debugger.Launch();
+                    results.Add(isSimpleImpulse);
                 }
+            }
+            
+            if (results.Count == 0)
+            {
+                return false;
+            }
+
+            if (results.All(a => a != ImpulseState.Zigzags))
+            {
+                return true;
             }
             
             return false;
