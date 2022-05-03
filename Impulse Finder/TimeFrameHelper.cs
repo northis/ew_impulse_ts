@@ -51,10 +51,21 @@ namespace cAlgo
             {
                 return res;
             }
-
+            
             if (!TimeFrames.TryGetValue(current, out TimeFrameInfo info))
             {
-                return res;
+                //System.Diagnostics.Debugger.Launch();
+                KeyValuePair<TimeFrame, TimeFrameInfo>[] possibleSub = 
+                    TimeFrames.Where(a => current > a.Key).ToArray();
+                if (possibleSub.Length > 0)
+                {
+                    info = possibleSub[^1].Value;
+                }
+                else
+                {
+
+                    return res;
+                }
             }
 
             int limit = Math.Max(info.Index - depth, 0);
