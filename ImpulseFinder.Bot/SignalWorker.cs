@@ -1,4 +1,6 @@
-﻿namespace ImpulseFinder.Bot
+﻿using OpenAPI.Net.Auth;
+
+namespace ImpulseFinder.Bot
 {
     internal class SignalWorker: IHostedService, IDisposable
     {
@@ -7,6 +9,7 @@
         public SignalWorker(ILogger<SignalWorker> logger)
         {
             m_Logger = logger;
+            
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
