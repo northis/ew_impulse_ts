@@ -11,6 +11,16 @@ namespace cAlgo
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class ImpulseFinder : Indicator
     {
+
+        [Output("EnterPrices", LineColor = "Gray")]
+        public IndicatorDataSeries EnterPrices { get; set; }
+
+        [Output("TakeProfits", LineColor = "Green")]
+        public IndicatorDataSeries TakeProfits { get; set; }
+
+        [Output("StopLosses", LineColor = "Orange")]
+        public IndicatorDataSeries StopLosses { get; set; }
+
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
@@ -87,6 +97,10 @@ namespace cAlgo
             Chart.DrawTrendLine(StartSetupLineChartName, e.TakeProfit.Index, e.TakeProfit.Price, e.Level.Index, e.Level.Price, Color.Gray);
             Chart.DrawTrendLine(EndSetupLineChartName, e.StopLoss.Index, e.StopLoss.Price, e.Level.Index, e.Level.Price, Color.Gray);
             Chart.DrawIcon(EnterChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.White);
+
+            EnterPrices[e.Level.Index] = e.Level.Price;
+            TakeProfits[e.Level.Index] = e.TakeProfit.Price;
+            StopLosses[e.Level.Index] = e.StopLoss.Price;
             Print($"New setup found! Price:{e.Level.Price}");
         }
 

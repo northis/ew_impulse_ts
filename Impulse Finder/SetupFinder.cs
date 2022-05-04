@@ -184,11 +184,18 @@ namespace cAlgo
                 m_SetupEndIndex = endItem.Key;
                 m_IsInSetup = true;
 
+                var tpArg = isImpulseUp
+                    ? new LevelItem(endValue, m_SetupEndIndex)
+                    : new LevelItem(startValue, m_SetupStartIndex);
+                var slArg = isImpulseUp
+                    ? new LevelItem(startValue, m_SetupStartIndex)
+                    : new LevelItem(endValue, m_SetupEndIndex);
+
                 OnEnter?.Invoke(this, 
                     new SignalEventArgs(
                         new LevelItem(triggerLevel, index),
-                        new LevelItem(startValue, m_SetupStartIndex),
-                        new LevelItem(endValue, m_SetupEndIndex)));
+                        tpArg,
+                        slArg));
                 // Here we should give a trade signal.
                 return;
             }

@@ -101,7 +101,12 @@ namespace cAlgo
 
             do
             {
+                DateTime currentFirstDate = bars[0].OpenTime;
                 bars.LoadMoreHistory();
+                if (currentFirstDate == bars[0].OpenTime)
+                {
+                    break;
+                }
 
             } while (bars[0].OpenTime > currentStartDate);
 
