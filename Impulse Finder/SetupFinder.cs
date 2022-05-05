@@ -125,9 +125,12 @@ namespace cAlgo
                 return;
             }
 
-            KeyValuePair<int, Extremum> startItem = extrema.ElementAt(count - IMPULSE_START_NUMBER);
-            KeyValuePair<int, Extremum> endItem = extrema.ElementAt(count - IMPULSE_END_NUMBER);
-            KeyValuePair<int, Extremum> lastItem = extrema.ElementAt(count - CORRECTION_EXTREMUM_NUMBER);
+            KeyValuePair<int, Extremum> startItem = extrema
+                .ElementAt(count - IMPULSE_START_NUMBER);
+            KeyValuePair<int, Extremum> endItem = extrema
+                .ElementAt(count - IMPULSE_END_NUMBER);
+            KeyValuePair<int, Extremum> lastItem = extrema
+                .ElementAt(count - CORRECTION_EXTREMUM_NUMBER);
 
             double startValue = startItem.Value.Value;
             double endValue = endItem.Value.Value;
@@ -205,7 +208,8 @@ namespace cAlgo
             endValue = extrema[m_SetupEndIndex].Value;
             isImpulseUp = endValue > startValue;
 
-            bool isProfitHit = isImpulseUp && high >= endValue || !isImpulseUp && low <= endValue;
+            bool isProfitHit = isImpulseUp && high >= endValue 
+                               || !isImpulseUp && low <= endValue;
             if (isProfitHit)
             {
                 OnTakeProfit?.Invoke(this, 
@@ -213,7 +217,8 @@ namespace cAlgo
                 m_IsInSetup = false;
             }
 
-            bool isStopHit = isImpulseUp && low <= startValue || !isImpulseUp && high >= startValue;
+            bool isStopHit = isImpulseUp && low <= startValue 
+                             || !isImpulseUp && high >= startValue;
             //add allowance
             if (isStopHit)
             {

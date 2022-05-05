@@ -24,7 +24,7 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
-        [Parameter("DeviationPercent", DefaultValue = 0.24, MinValue = 0.01)]
+        [Parameter("DeviationPercent", DefaultValue = 0.3, MinValue = 0.01)]
         public double DeviationPercent { get; set; }
         
         /// <summary>
@@ -36,8 +36,7 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the analyze depth - how many minor time frames should be taken into account. <seealso cref="TimeFrameHelper"/>
         /// </summary>
-        [Parameter("AnalyzeDepth", DefaultValue = 1, MinValue = 0)]
-        public int AnalyzeDepth { get; set; }
+        private const int ANALYZE_DEPTH = 1;
         
         private string StartSetupLineChartName =>
             "StartSetupLine" + Bars.OpenTimes.Last(1);
@@ -61,7 +60,7 @@ namespace cAlgo
         {
             base.Initialize();
             m_BarsProviders = BarsProviderFactory.CreateCTraderBarsProviders(
-                TimeFrame, AnalyzeDepth, MarketData, Bars);
+                TimeFrame, ANALYZE_DEPTH, MarketData, Bars);
             m_SetupFinder = new SetupFinder(
                 DeviationPercent,
                 DeviationPercentCorrection,
