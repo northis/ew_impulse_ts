@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace cAlgo
 {
@@ -10,86 +8,52 @@ namespace cAlgo
     public class PatternFinder
     {
         private readonly double m_CorrectionAllowancePercent;
+        private readonly double m_Deviation;
+        private readonly IBarsProvider m_BarsProvider;
         private const int IMPULSE_EXTREMA_COUNT = 6;
         private const int ZIGZAG_EXTREMA_COUNT = 4;
-        private const double MINOR_DEVIATION_START = 0.1;// from 0.1 to 1
-        private const double MINOR_DEVIATION_STEP = 0.01;// from 0.1 to 1
-        // If we have m_DeviationPercent == 0.2, MINOR_DEVIATION_START ==0.5
-        // and MINOR_DEVIATION_STEP == 0.1 so start minor deviation is = 0.2*0.5 = 0.1,
-        // and step every (0.2-0.1)*0.1 => 0.1, 0.11, 0.12, 0.13, ..., 0.19, 0.2
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PatternFinder"/> class.
         /// </summary>
-        /// <param name="deviationPercent">The deviation percent.</param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="barsProviders">The bars providers.</param>
+        /// <param name="deviation">The deviation.</param>
+        /// <param name="barsProvider">The bars provider.</param>
         public PatternFinder(double correctionAllowancePercent,
-            double deviationPercent,
-            List<IBarsProvider> barsProviders)
+            double deviation,
+            IBarsProvider barsProvider)
         {
             m_CorrectionAllowancePercent = correctionAllowancePercent;
-
-            double startDeviation = deviationPercent * MINOR_DEVIATION_START;
-            double step = (deviationPercent - startDeviation)* MINOR_DEVIATION_STEP;
-            double currentDeviation = startDeviation;
-
-            MinorDeviations = new List<double>();
-            do
-            {
-                MinorDeviations.Add(currentDeviation);
-                currentDeviation += step;
-            } while (currentDeviation < deviationPercent);
-
-            MinorDeviations.Reverse();
-            if (barsProviders.Count != 2)
-            {
-                throw new NotSupportedException(
-                    "We support two bar providers only - for two time frames");
-            }
-
-            FirstBars = barsProviders[0];
-            SecondBars = barsProviders[1];
+            m_Deviation = deviation;
+            m_BarsProvider = barsProvider;
         }
-
-        private List<double> MinorDeviations { get; }
-        
-        IBarsProvider FirstBars { get; }
-        IBarsProvider SecondBars { get; }
 
         /// <summary>
         /// Determines whether the specified interval has a zigzag.
         /// </summary>
         /// <param name="start">The start of the interval.</param>
         /// <param name="end">The end of the interval.</param>
-        /// <param name="deviations">The deviations to analyze.</param>
-        /// <param name="provider">The provider.</param>
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsZigzag(
-            DateTime start, DateTime end, 
-            List<double> deviations, IBarsProvider provider)
+        private bool IsZigzag(DateTime start, DateTime end)
         {
-            foreach (var deviation in deviations)
+            var minorExtremumFinder =
+                new ExtremumFinder(m_Deviation, m_BarsProvider);
+            minorExtremumFinder.Calculate(start, end);
+            Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
+            int count = extrema.Length;
+
+            if (count == IMPULSE_EXTREMA_COUNT ||
+                count == IMPULSE_EXTREMA_COUNT + 1)
             {
-                var minorExtremumFinder =
-                    new ExtremumFinder(deviation, provider);
-                minorExtremumFinder.Calculate(start, end);
-                Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
-                int count = extrema.Length;
+                return false;
+            }
 
-                if (count == IMPULSE_EXTREMA_COUNT ||
-                    count == IMPULSE_EXTREMA_COUNT + 1)
-                {
-                    return false;
-                }
-
-                if (count == ZIGZAG_EXTREMA_COUNT ||
-                    count == ZIGZAG_EXTREMA_COUNT + 1)
-                {
-                    return true;
-                }
+            if (count == ZIGZAG_EXTREMA_COUNT ||
+                count == ZIGZAG_EXTREMA_COUNT + 1)
+            {
+                return true;
             }
 
             return false;
@@ -99,17 +63,14 @@ namespace cAlgo
         /// Determines whether the specified extrema is an simple impulse.
         /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
         /// </summary>
-        /// <param name="deviation">The deviation we should check the impulse with.</param>
         /// <param name="dateStart">The date start.</param>
         /// <param name="dateEnd">The date end.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSimpleImpulse(
-            double deviation, DateTime dateStart, DateTime dateEnd)
+        private bool IsSimpleImpulse(DateTime dateStart, DateTime dateEnd)
         {
-            var minorExtremumFinder =
-                new ExtremumFinder(deviation, FirstBars);
+            var minorExtremumFinder = new ExtremumFinder(m_Deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(dateStart, dateEnd);
             Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
             int count = extrema.Length;
@@ -177,18 +138,11 @@ namespace cAlgo
             }
 
             // System.Diagnostics.Debugger.Launch();
-            List<double> minorDeviations = MinorDeviations
-                .SkipWhile(a => a >= deviation)
-                .ToList();
-            
             // Let's look closer to the impulse waves 1, 3 and 5.
             // We shouldn't pass zigzags in it
-            if (IsZigzag(firstItem.OpenTime, firstWaveEnd.CloseTime,
-                    minorDeviations, SecondBars) 
-                || IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.CloseTime,
-                    minorDeviations, SecondBars)
-                || IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.CloseTime,
-                    minorDeviations, SecondBars))
+            if (IsZigzag(firstItem.OpenTime, firstWaveEnd.CloseTime)
+                || IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.CloseTime)
+                || IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.CloseTime))
             {
                 return false;
             }
@@ -206,21 +160,12 @@ namespace cAlgo
         /// </returns>
         public bool IsImpulse(DateTime dateStart, DateTime dateEnd)
         {
-            if (IsZigzag(dateStart, dateEnd, MinorDeviations, FirstBars))
+            bool isSimpleImpulse = IsSimpleImpulse(dateStart, dateEnd);
+            if (isSimpleImpulse)
             {
-                return false;
+                return true;
             }
 
-            foreach (double minorDeviation in MinorDeviations)
-            {
-                bool isSimpleImpulse = IsSimpleImpulse(
-                    minorDeviation, dateStart, dateEnd);
-                if (isSimpleImpulse)
-                {
-                    return true;
-                }
-            }
-            
             return false;
         }
     }

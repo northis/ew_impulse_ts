@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using cAlgo.API;
 
 namespace cAlgo
@@ -7,11 +6,10 @@ namespace cAlgo
     /// <summary>
     /// Indicator can find possible setups based on initial impulses (wave 1 or A)
     /// </summary>
-    /// <seealso cref="cAlgo.API.Indicator" />
+    /// <seealso cref="Indicator" />
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class ImpulseFinder : Indicator
     {
-
         [Output("EnterPrices", LineColor = "Gray")]
         public IndicatorDataSeries EnterPrices { get; set; }
 
@@ -24,9 +22,13 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
-        [Parameter("DeviationPercent", DefaultValue = 0.3, MinValue = 0.01)]
-        public double DeviationPercent { get; set; }
-        
+        public double DeviationPercentMajor { get; set; } = 0.3;
+
+        /// <summary>
+        /// Gets or sets the allowance to impulse recognition in percents (minor).
+        /// </summary>
+        public double DeviationPercentMinor { get; set; } = 0.01;
+
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
@@ -51,7 +53,7 @@ namespace cAlgo
         private string ProfitChartName => "TP" + Bars.OpenTimes.Last(1);
 
         private SetupFinder m_SetupFinder;
-        private List<IBarsProvider> m_BarsProviders;
+        private IBarsProvider m_BarsProvider;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -59,12 +61,13 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            m_BarsProviders = BarsProviderFactory.CreateCTraderBarsProviders(
-                TimeFrame, ANALYZE_DEPTH, MarketData, Bars);
+            m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
+            m_BarsProvider.LoadBars();
             m_SetupFinder = new SetupFinder(
-                DeviationPercent,
+                DeviationPercentMajor,
+                DeviationPercentMinor,
                 DeviationPercentCorrection,
-                m_BarsProviders);
+                m_BarsProvider);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
@@ -117,6 +120,7 @@ namespace cAlgo
             }
             catch (Exception ex)
             {
+                // System.Diagnostics.Debugger.Launch();
                 Print(ex.Message);
             }
 

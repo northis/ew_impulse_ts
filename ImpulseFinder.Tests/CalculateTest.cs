@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using cAlgo;
 using cAlgo.API;
+using cAlgo.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ImpulseFinder.Tests
@@ -12,8 +14,9 @@ namespace ImpulseFinder.Tests
     {
         #region Properties
 
-        public double DeviationPercent { get; set; } = 0.25;
-        public double DeviationPercentCorrection { get; set; } = 150;
+        public double DeviationPercentMajor { get; set; } = 0.3;
+        public double DeviationPercentMinor { get; set; } = 0.01;
+        public double DeviationPercentCorrection { get; set; } = 200;
         public int AnalyzeDepth { get; set; } = 1;
         public TimeFrame MainTimeFrame { get; set; } = TimeFrame.Minute5;
         public string MainHistoryFile { get; set; } = "main_history.json";
@@ -28,9 +31,9 @@ namespace ImpulseFinder.Tests
                 Environment.CurrentDirectory, MainHistoryFile);
             var jsonKeeper = new JsonBarKeeper(jsonHistoryFilePath);
             var jsonHistory = jsonKeeper.LoadHistory();
-            var providers = BarsProviderFactory.CreateJsonBarsProviders(
-                MainTimeFrame, AnalyzeDepth, jsonHistory);
-            var setupFinder = new SetupFinder(DeviationPercent, DeviationPercentCorrection, providers);
+            var bBarsProvider = new JsonBarsProvider(jsonHistory, MainTimeFrame);
+            bBarsProvider.LoadBars();
+            var setupFinder = new SetupFinder(DeviationPercentMajor, DeviationPercentMinor, DeviationPercentCorrection, bBarsProvider);
 
             int enterCount = 0;
             int tpCount = 0;
@@ -42,10 +45,8 @@ namespace ImpulseFinder.Tests
             };
             setupFinder.OnTakeProfit += (_, _) => tpCount++;
             setupFinder.OnStopLoss += (_, _) => slCount++;
-            int mainBarCount = providers
-                .First(a => a.TimeFrame == MainTimeFrame).Count;
-            int startIndex = providers
-                .First(a => a.TimeFrame == MainTimeFrame).StartIndexLimit;
+            int mainBarCount = bBarsProvider.Count;
+            int startIndex = bBarsProvider.StartIndexLimit;
 
             for (int i = startIndex; i < mainBarCount; i++)
             {

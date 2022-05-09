@@ -10,40 +10,44 @@ namespace cAlgo
     /// </summary>
     public class SetupFinder
     {
+        private readonly IBarsProvider m_BarsProvider;
         private readonly PatternFinder m_PatternFinder;
-        private readonly List<IBarsProvider> m_BarsProviders;
         private readonly ExtremumFinder m_ExtremumFinder;
         private bool m_IsInSetup;
         private int m_SetupStartIndex;
         private int m_SetupEndIndex;
+        private double m_SetupStartPrice;
+        private double m_SetupEndPrice;
 
         private const double TRIGGER_LEVEL_RATIO = 0.5;
-
-        private const int CORRECTION_EXTREMUM_NUMBER = 1;
-        private const int IMPULSE_END_NUMBER = 2;
-        private const int IMPULSE_START_NUMBER = 3;
+        
+        private const int IMPULSE_END_NUMBER = 1;
+        private const int IMPULSE_START_NUMBER = 2;
         // We want to collect at lease this amount of extrema
         // 1. Extremum of a correction.
         // 2. End of the impulse
         // 3. Start of the impulse
         // 4. The previous extremum (to find out, weather this impulse is an initial one or not).
-        private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 4;
+        private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
-        /// <param name="deviationPercent">The deviation percent.</param>
+        /// <param name="deviationPercentMajor">The deviation percent.</param>
+        /// <param name="deviationPercentMinor"></param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="barsProviders">The bars providers.</param>
+        /// <param name="barsProvider">The bars provider.</param>
         public SetupFinder(
-            double deviationPercent,
+            double deviationPercentMajor,
+            double deviationPercentMinor,
             double correctionAllowancePercent,
-            List<IBarsProvider> barsProviders)
+            IBarsProvider barsProvider)
         {
-            m_BarsProviders = barsProviders;
-            m_ExtremumFinder = new ExtremumFinder(deviationPercent, barsProviders[0]);
+            m_BarsProvider = barsProvider;
+            m_ExtremumFinder = new ExtremumFinder(
+                deviationPercentMajor, m_BarsProvider);
             m_PatternFinder = new PatternFinder(
-                correctionAllowancePercent, deviationPercent, barsProviders);
+                correctionAllowancePercent, deviationPercentMinor, m_BarsProvider);
         }
 
         /// <summary>
@@ -124,25 +128,24 @@ namespace cAlgo
             {
                 return;
             }
+            
+            double low = m_BarsProvider.GetLowPrice(index);
+            double high = m_BarsProvider.GetHighPrice(index);
 
             KeyValuePair<int, Extremum> startItem = extrema
                 .ElementAt(count - IMPULSE_START_NUMBER);
             KeyValuePair<int, Extremum> endItem = extrema
                 .ElementAt(count - IMPULSE_END_NUMBER);
-            KeyValuePair<int, Extremum> lastItem = extrema
-                .ElementAt(count - CORRECTION_EXTREMUM_NUMBER);
 
-            double startValue = startItem.Value.Value;
-            double endValue = endItem.Value.Value;
-
-            bool isImpulseUp = endValue > startValue;
-            double low = m_BarsProviders[0].GetLowPrice(index);
-            double high = m_BarsProviders[0].GetHighPrice(index);
-
-            if (!m_IsInSetup)
+            void CheckImpulse()
             {
-                double lastValue = lastItem.Value.Value;
-                if (lastValue >= Math.Max(startValue, endValue) || lastValue <= Math.Min(startValue, endValue))
+                double startValue = startItem.Value.Value;
+                double endValue = endItem.Value.Value;
+
+                bool isImpulseUp = endValue > startValue;
+
+                if (high >= Math.Max(startValue, endValue)
+                    || low <= Math.Min(startValue, endValue))
                 {
                     return;
                     // The setup is no longer valid, TP or SL is already hit.
@@ -174,7 +177,7 @@ namespace cAlgo
                 {
                     return;
                 }
-                
+
                 bool isImpulse = m_PatternFinder.IsImpulse(
                     startItem.Value.OpenTime, endItem.Value.CloseTime);
                 if (!isImpulse)
@@ -185,45 +188,62 @@ namespace cAlgo
 
                 m_SetupStartIndex = startItem.Key;
                 m_SetupEndIndex = endItem.Key;
+                m_SetupStartPrice = startItem.Value.Value;
+                m_SetupEndPrice = endItem.Value.Value;
                 m_IsInSetup = true;
 
-                var tpArg = isImpulseUp
+                LevelItem tpArg = isImpulseUp
                     ? new LevelItem(endValue, m_SetupEndIndex)
                     : new LevelItem(startValue, m_SetupStartIndex);
-                var slArg = isImpulseUp
+                LevelItem slArg = isImpulseUp
                     ? new LevelItem(startValue, m_SetupStartIndex)
                     : new LevelItem(endValue, m_SetupEndIndex);
 
-                OnEnter?.Invoke(this, 
+                OnEnter?.Invoke(this,
                     new SignalEventArgs(
                         new LevelItem(triggerLevel, index),
                         tpArg,
                         slArg));
                 // Here we should give a trade signal.
+            }
+
+            if (!m_IsInSetup)
+            {
+                CheckImpulse();
+            }
+
+            // We want to check if we have an extremum between a possible impulse
+            // and the current position
+            if (!m_IsInSetup && count > MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
+            {
+                startItem = extrema.ElementAt(count - IMPULSE_START_NUMBER - 1);
+                endItem = extrema.ElementAt(count - IMPULSE_END_NUMBER - 1);
+                CheckImpulse();
+            }
+
+            if (!m_IsInSetup)
+            {
                 return;
             }
 
-            // Re-define the setup-related start and end values
-            startValue = extrema[m_SetupStartIndex].Value;
-            endValue = extrema[m_SetupEndIndex].Value;
-            isImpulseUp = endValue > startValue;
-
-            bool isProfitHit = isImpulseUp && high >= endValue 
-                               || !isImpulseUp && low <= endValue;
+            bool isImpulseUp = m_SetupEndPrice > m_SetupStartPrice;
+            bool isProfitHit = isImpulseUp && high >= m_SetupEndPrice
+                               || !isImpulseUp && low <= m_SetupEndPrice;
+            
             if (isProfitHit)
             {
                 OnTakeProfit?.Invoke(this, 
-                    new LevelEventArgs(new LevelItem(endValue, index)));
+                    new LevelEventArgs(new LevelItem(m_SetupEndPrice, index)));
                 m_IsInSetup = false;
             }
 
-            bool isStopHit = isImpulseUp && low <= startValue 
-                             || !isImpulseUp && high >= startValue;
+            bool isStopHit = isImpulseUp && low <= m_SetupStartPrice
+                             || !isImpulseUp && high >= m_SetupStartPrice;
             //add allowance
             if (isStopHit)
             {
                 OnStopLoss?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(startValue, index)));
+                    new LevelEventArgs(new LevelItem(m_SetupStartPrice, index)));
                 m_IsInSetup = false;
             }
         }
