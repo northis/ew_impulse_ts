@@ -22,12 +22,12 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
-        public double DeviationPercentMajor { get; set; } = 0.3;
+        public double DeviationPercentMajor { get; set; } = 0.5;
 
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (minor).
         /// </summary>
-        public double DeviationPercentMinor { get; set; } = 0.01;
+        public double DeviationPercentMinor { get; set; } = 0.1;
 
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
