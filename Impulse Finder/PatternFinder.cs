@@ -108,7 +108,7 @@ namespace cAlgo
                             break;
                         }
 
-                        return Array.IndexOf(secExtrema,
+                        return Array.IndexOf(extrema,
                             isUp ? secExtrema.Min() : secExtrema.Max());
                     }
                 }
@@ -121,6 +121,7 @@ namespace cAlgo
 
             } else if (countRest % IMPULSE_EXTREMA_STEP_COUNT == 0)
             {
+                System.Diagnostics.Debugger.Launch();
                 for (int i = 1; i < count; i++)
                 {
                     //int endIndex = i + IMPULSE_EXTREMA_INDEX;
@@ -134,7 +135,8 @@ namespace cAlgo
                         continue;
                     }
 
-                    bool isFirstWaveImpulse = IsSimpleImpulse(extrema[..i]);
+                    int ni = i + 1;//TODO what the fuck is this?
+                    bool isFirstWaveImpulse = IsSimpleImpulse(extrema[..ni]);
                     if (!isFirstWaveImpulse)
                     {
                         continue;
@@ -156,8 +158,9 @@ namespace cAlgo
                             continue;
                         }
 
+                        int nj = j + 1;
                         bool isThirdWaveImpulse = IsSimpleImpulse(
-                            extrema[thirdStartIndex..j]);
+                            extrema[thirdStartIndex..nj]);
                         if (!isThirdWaveImpulse)
                         {
                             continue;
@@ -271,7 +274,6 @@ namespace cAlgo
             //bool isZigzag = IsZigzag(dateStart, dateEnd);
 
 
-            // System.Diagnostics.Debugger.Launch();
             //// Let's look closer to the impulse waves 1, 3 and 5.
             //// We shouldn't pass zigzags in it
             //if (IsZigzag(firstItem.OpenTime, firstWaveEnd.CloseTime)
