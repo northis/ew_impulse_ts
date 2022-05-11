@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace cAlgo
 {
@@ -73,7 +74,7 @@ namespace cAlgo
         private bool IsSimpleImpulse(Extremum[] extrema)
         {
             int count = extrema.Length;
-            if (count == 0)
+            if (count < SIMPLE_EXTREMA_COUNT)
             {
                 return false;
             }
@@ -88,8 +89,32 @@ namespace cAlgo
                 return false;
             }
 
+            Extremum firstItem = extrema[0];
+            Extremum lastItem = extrema[^1];
+            bool isUp = lastItem.Value > firstItem.Value;
+
             int countRest = count - IMPULSE_EXTREMA_COUNT;
-            int indexRest = countRest - 1;
+
+            int? GetCorrectionEndIndex(int prevImpulseEndIndex)
+            {
+                for (int j = prevImpulseEndIndex + 1; j < count; j++)
+                {
+                    if (isUp && extrema[j] > extrema[prevImpulseEndIndex] ||
+                        !isUp && extrema[j] < extrema[prevImpulseEndIndex])
+                    {
+                        Extremum[] secExtrema = extrema[(prevImpulseEndIndex + 1)..j];
+                        if (secExtrema.Length < SIMPLE_EXTREMA_COUNT)
+                        {
+                            break;
+                        }
+
+                        return Array.IndexOf(secExtrema,
+                            isUp ? secExtrema.Min() : secExtrema.Max());
+                    }
+                }
+
+                return null;
+            }
 
             if (countRest == 0 /*|| countRest == 1*/)
             {
@@ -114,26 +139,59 @@ namespace cAlgo
                     {
                         continue;
                     }
-                    // handle 2nd
-                    for (int j = i; j < count; j++)
+
+                    // 2nd wave end candidate
+                    int? secondEndIndex = GetCorrectionEndIndex(i);
+                    // We can check here the 2nd wave for zigzag/flat/combination
+                    if (!secondEndIndex.HasValue)
                     {
-                        if (j % 2 == 0)
+                        continue;
+                    }
+
+                    int thirdStartIndex = secondEndIndex.Value;
+                    for (int j = thirdStartIndex; j < count; j++)
+                    {
+                        if ((j - thirdStartIndex) % 2 == 0)
                         {
                             continue;
                         }
-                        
-                        bool isThirdWaveImpulse = IsSimpleImpulse(extrema[i..j]);
-                        bool isFifthWaveImpulse = IsSimpleImpulse(extrema[j..]);
 
-                        // handle 4th
-                        if (isFifthWaveImpulse && isThirdWaveImpulse)
+                        bool isThirdWaveImpulse = IsSimpleImpulse(
+                            extrema[thirdStartIndex..j]);
+                        if (!isThirdWaveImpulse)
                         {
-                            var builtExtrema = new Extremum[IMPULSE_EXTREMA_STEP_COUNT];
-                            builtExtrema[0] = extrema[0];
-                            builtExtrema[IMPULSE_EXTREMA_INDEX] = extrema[^1];
-                            builtExtrema[1] = extrema[i];
-                            builtExtrema[2] = extrema[j];
+                            continue;
+                        }
 
+                        // We can support here a triangle/flat/zigzag check
+                        // For flat and triangle we cannot use so simple
+                        // logic with Max() and Min().
+                        int? forthEndIndex = GetCorrectionEndIndex(j);
+                        if (!forthEndIndex.HasValue)
+                        {
+                            continue;
+                        }
+
+                        bool isFifthWaveImpulse = IsSimpleImpulse(
+                            extrema[forthEndIndex.Value..]);
+                        if (!isFifthWaveImpulse)
+                        {
+                            continue;
+                        }
+                        // If we are here, we've just found an impulse.
+                        // Lets check all the rules:
+
+                        var builtExtrema = new Extremum[IMPULSE_EXTREMA_STEP_COUNT];
+                        builtExtrema[0] = extrema[0];
+                        builtExtrema[1] = extrema[i];
+                        builtExtrema[2] = extrema[thirdStartIndex];
+                        builtExtrema[3] = extrema[j];
+                        builtExtrema[4] = extrema[forthEndIndex.Value];
+                        builtExtrema[IMPULSE_EXTREMA_INDEX] = extrema[^1];
+
+                        bool isImpulse = IsSimpleImpulse(builtExtrema);
+                        if (isImpulse)
+                        {
                             return true;
                         }
                     }
@@ -145,10 +203,6 @@ namespace cAlgo
             {
                 return false;
             }
-
-            Extremum firstItem = extrema[0];
-            Extremum lastItem = extrema[^1];
-            bool isUp = lastItem.Value > firstItem.Value;
             
             Extremum firstWaveEnd = extrema[1];
             Extremum secondWaveEnd = extrema[2];

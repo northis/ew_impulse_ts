@@ -39,5 +39,40 @@ namespace cAlgo
         /// Gets or sets time frame of the bar.
         /// </summary>
         public TimeFrame BarTimeFrame { get; set; }
+
+        public static bool operator >=(Extremum a, Extremum b)
+        {
+            return a.Value >= b.Value;
+        }
+
+        public static bool operator <=(Extremum a, Extremum b)
+        {
+            return a.Value <= b.Value;
+        }
+
+        public static bool operator >(Extremum a, Extremum b)
+        {
+            return a.Value > b.Value;
+        }
+
+        public static bool operator <(Extremum a, Extremum b)
+        {
+            return a.Value < b.Value;
+        }
+
+        public static bool operator ==(Extremum a, Extremum b)
+        {
+            if (a == null || b == null)
+            {
+                return false;
+            }
+
+            return Math.Abs(a.Value - b.Value) < double.Epsilon;
+        }
+
+        public static bool operator !=(Extremum a, Extremum b)
+        {
+            return !(a == b);
+        }
     }
 }
