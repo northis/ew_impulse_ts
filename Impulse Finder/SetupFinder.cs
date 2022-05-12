@@ -179,7 +179,7 @@ namespace cAlgo
                 }
 
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value.OpenTime, endItem.Value.CloseTime);
+                    startItem.Value.OpenTime, endItem.Value.OpenTime);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.

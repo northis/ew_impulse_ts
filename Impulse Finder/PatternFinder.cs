@@ -92,24 +92,28 @@ namespace cAlgo
             Extremum firstItem = extrema[0];
             Extremum lastItem = extrema[^1];
             bool isUp = lastItem.Value > firstItem.Value;
-
             int countRest = count - IMPULSE_EXTREMA_COUNT;
 
             int? GetCorrectionEndIndex(int prevImpulseEndIndex)
             {
-                for (int j = prevImpulseEndIndex + 1; j < count; j++)
+                Extremum prev = extrema[prevImpulseEndIndex];
+                int nPrevImpulseEndIndex = prevImpulseEndIndex + 1;
+                for (int j = nPrevImpulseEndIndex; j < count; j++)
                 {
-                    if (isUp && extrema[j] > extrema[prevImpulseEndIndex] ||
-                        !isUp && extrema[j] < extrema[prevImpulseEndIndex])
+                    if (isUp && extrema[j] > prev || !isUp && extrema[j] < prev)
                     {
-                        Extremum[] secExtrema = extrema[(prevImpulseEndIndex + 1)..j];
+                        int nj = j + 1;
+                        Extremum[] secExtrema = extrema[nPrevImpulseEndIndex..nj];
                         if (secExtrema.Length < SIMPLE_EXTREMA_COUNT)
                         {
                             break;
                         }
 
-                        return Array.IndexOf(extrema,
-                            isUp ? secExtrema.Min() : secExtrema.Max());
+                        Extremum resExtremum = isUp 
+                            ? secExtrema.Min() 
+                            : secExtrema.Max();
+                        int resIndex = Array.IndexOf(extrema, resExtremum);
+                        return resIndex;
                     }
                 }
 
@@ -121,8 +125,7 @@ namespace cAlgo
 
             } else if (countRest % IMPULSE_EXTREMA_STEP_COUNT == 0)
             {
-                System.Diagnostics.Debugger.Launch();
-                for (int i = 1; i < count; i++)
+                for (int i = 1; i < count-1; i++)
                 {
                     //int endIndex = i + IMPULSE_EXTREMA_INDEX;
                     //if (endIndex >= count)
@@ -135,7 +138,7 @@ namespace cAlgo
                         continue;
                     }
 
-                    int ni = i + 1;//TODO what the fuck is this?
+                    int ni = i + 1;
                     bool isFirstWaveImpulse = IsSimpleImpulse(extrema[..ni]);
                     if (!isFirstWaveImpulse)
                     {
@@ -184,7 +187,7 @@ namespace cAlgo
                         // If we are here, we've just found an impulse.
                         // Lets check all the rules:
 
-                        var builtExtrema = new Extremum[IMPULSE_EXTREMA_STEP_COUNT];
+                        var builtExtrema = new Extremum[IMPULSE_EXTREMA_COUNT];
                         builtExtrema[0] = extrema[0];
                         builtExtrema[1] = extrema[i];
                         builtExtrema[2] = extrema[thirdStartIndex];
@@ -286,10 +289,18 @@ namespace cAlgo
             var minorExtremumFinder = new ExtremumFinder(m_Deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(dateStart, dateEnd);
             Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
-            bool isSimpleImpulse = IsSimpleImpulse(extrema);
-            if (isSimpleImpulse)
+            
+            try
             {
-                return true;
+                bool isSimpleImpulse = IsSimpleImpulse(extrema);
+                if (isSimpleImpulse)
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                throw;
             }
 
             return false;

@@ -22,7 +22,7 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
-        public double DeviationPercentMajor { get; set; } = 0.5;
+        public double DeviationPercentMajor { get; set; } = 3;
 
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (minor).
