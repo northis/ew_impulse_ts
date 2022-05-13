@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using cAlgo;
 using cAlgo.API;
 using cAlgo.Json;
@@ -26,14 +24,14 @@ namespace ImpulseFinder.Tests
         [TestMethod]
         public void MainCalculateTest()
         {
-            // TODO Provide with the history file here!
+           // TODO Provide with the history file here!
             string jsonHistoryFilePath = Path.Combine(
                 Environment.CurrentDirectory, MainHistoryFile);
             var jsonKeeper = new JsonBarKeeper(jsonHistoryFilePath);
             var jsonHistory = jsonKeeper.LoadHistory();
             var bBarsProvider = new JsonBarsProvider(jsonHistory, MainTimeFrame);
             bBarsProvider.LoadBars();
-            var setupFinder = new SetupFinder(DeviationPercentMajor, DeviationPercentMinor, DeviationPercentCorrection, bBarsProvider);
+            var setupFinder = new SetupFinder(DeviationPercentMajor, DeviationPercentMinor, DeviationPercentCorrection, bBarsProvider, bBarsProvider);
 
             int enterCount = 0;
             int tpCount = 0;

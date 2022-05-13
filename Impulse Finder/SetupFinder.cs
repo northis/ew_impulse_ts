@@ -36,18 +36,20 @@ namespace cAlgo
         /// <param name="deviationPercentMajor">The deviation percent.</param>
         /// <param name="deviationPercentMinor"></param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="barsProviderMajor">The bars provider (major).</param>
+        /// <param name="barsProviderMain">The bars provider main (main).</param>
         public SetupFinder(
             double deviationPercentMajor,
             double deviationPercentMinor,
             double correctionAllowancePercent,
-            IBarsProvider barsProvider)
+            IBarsProvider barsProviderMajor,
+            IBarsProvider barsProviderMain)
         {
-            m_BarsProvider = barsProvider;
+            m_BarsProvider = barsProviderMajor;
             m_ExtremumFinder = new ExtremumFinder(
                 deviationPercentMajor, m_BarsProvider);
             m_PatternFinder = new PatternFinder(
-                correctionAllowancePercent, deviationPercentMinor, m_BarsProvider);
+                correctionAllowancePercent, deviationPercentMinor, barsProviderMain);
         }
 
         /// <summary>

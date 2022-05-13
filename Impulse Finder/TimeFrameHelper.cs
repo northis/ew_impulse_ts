@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using cAlgo.API;
 
 namespace cAlgo
@@ -12,18 +13,18 @@ namespace cAlgo
     {
         static TimeFrameHelper()
         {
-            TIME_FRAMES_ARRAY = new TimeFrameInfo[]
-            {
-                new(TimeFrame.Tick15, TimeSpan.FromSeconds(15), 0),
-                new(TimeFrame.Minute, TimeSpan.FromMinutes(1), 1),
-                new(TimeFrame.Minute5, TimeSpan.FromMinutes(5), 2),
-                new(TimeFrame.Minute15, TimeSpan.FromMinutes(15), 3),
-                new(TimeFrame.Hour, TimeSpan.FromHours(1), 4),
-                new(TimeFrame.Hour2, TimeSpan.FromHours(2), 5),
-                new(TimeFrame.Hour4, TimeSpan.FromHours(4), 6),
-                new(TimeFrame.Daily, TimeSpan.FromDays(1), 7),
-                new(TimeFrame.Weekly, TimeSpan.FromDays(7), 8),
-            };
+            int timeFrameTypeTimeEnum = 0;//TimeFrameType.Time
+            Type timeFrameType = typeof(TimeFrame);
+            TIME_FRAMES_ARRAY = timeFrameType.GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(a => a.FieldType == timeFrameType)
+                .Select(a => a.GetValue(null) as TimeFrame)
+                .Where(a => Convert.ToInt32(timeFrameType
+                    .GetProperty("TimeFrameType", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?.GetValue(a)) == timeFrameTypeTimeEnum)
+                .Select(a => new TimeFrameInfo(a, TimeSpan.FromMinutes(Convert.ToInt32(timeFrameType
+                    .GetProperty("Size", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?.GetValue(a)))))
+                .ToArray();
 
             TimeFrames = TIME_FRAMES_ARRAY.ToDictionary(
                 a => a.TimeFrame, a => a);
@@ -37,44 +38,23 @@ namespace cAlgo
         private static readonly TimeFrameInfo[] TIME_FRAMES_ARRAY;
 
         /// <summary>
-        /// Gets the minor time frames for the current time frame.
+        /// Gets the next major time frames for the current time frame.
         /// </summary>
         /// <param name="current">The current.</param>
-        /// <param name="depth">The depth.</param>
-        /// <returns>The ordered list of minor TFs</returns>
-        public static List<TimeFrame> GetMinorTimeFrames(
-            TimeFrame current, int depth)
+        /// <param name="nextRatio">Get next TF at least this times bigger.</param>
+        public static TimeFrame GetNextTimeFrame(TimeFrame current, double nextRatio)
         {
-            var res = new List<TimeFrame>();
-            if (depth <= 0)
-            {
-                return res;
-            }
-            
             if (!TimeFrames.TryGetValue(current, out TimeFrameInfo info))
             {
-                //System.Diagnostics.Debugger.Launch();
-                KeyValuePair<TimeFrame, TimeFrameInfo>[] possibleSub = 
-                    TimeFrames.Where(a => current > a.Key).ToArray();
-                if (possibleSub.Length > 0)
-                {
-                    info = possibleSub[^1].Value;
-                }
-                else
-                {
-
-                    return res;
-                }
+                return current;
             }
 
-            int limit = Math.Max(info.Index - depth, 0);
-            int minorStartIndex = info.Index - 1;
-            for (int i = minorStartIndex; i >= limit; i--)
-            {
-                res.Add(TIME_FRAMES_ARRAY[i].TimeFrame);
-            }
+            TimeSpan nextTs = TimeSpan.FromMinutes(info.TimeSpan.Minutes* nextRatio);
+            TimeFrameInfo res = TIME_FRAMES_ARRAY
+                .SkipWhile(a => a.TimeSpan < nextTs)
+                .FirstOrDefault();
 
-            return res;
+            return res == null ? TIME_FRAMES_ARRAY[^1].TimeFrame : res.TimeFrame;
         }
     }
 }

@@ -22,23 +22,18 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (major).
         /// </summary>
-        public double DeviationPercentMajor { get; set; } = 3;
+        public double DeviationPercentMajor { get; set; } = 0.3;
 
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents (minor).
         /// </summary>
-        public double DeviationPercentMinor { get; set; } = 0.1;
+        public double DeviationPercentMinor { get; set; } = 0.3;
 
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
         [Parameter("DeviationPercentCorrection", DefaultValue = 200, MinValue = 1)]
         public double DeviationPercentCorrection { get; set; }
-
-        /// <summary>
-        /// Gets or sets the analyze depth - how many minor time frames should be taken into account. <seealso cref="TimeFrameHelper"/>
-        /// </summary>
-        private const int ANALYZE_DEPTH = 1;
         
         private string StartSetupLineChartName =>
             "StartSetupLine" + Bars.OpenTimes.Last(1);
@@ -54,6 +49,9 @@ namespace cAlgo
 
         private SetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
+        private Bars m_BarsMajor;
+
+        private const double MAJOR_TF_RATIO = 5;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -61,13 +59,19 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
+
+            TimeFrame majorTf = 
+                TimeFrameHelper.GetNextTimeFrame(TimeFrame, MAJOR_TF_RATIO);
+            m_BarsMajor = MarketData.GetBars(majorTf);
+            m_BarsProvider = new CTraderBarsProvider(m_BarsMajor, MarketData);
+            var mainBarsProvider = new CTraderBarsProvider(Bars, MarketData);
             m_BarsProvider.LoadBars();
             m_SetupFinder = new SetupFinder(
                 DeviationPercentMajor,
                 DeviationPercentMinor,
                 DeviationPercentCorrection,
-                m_BarsProvider);
+                m_BarsProvider, 
+                mainBarsProvider);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
