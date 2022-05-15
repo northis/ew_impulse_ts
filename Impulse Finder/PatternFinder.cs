@@ -68,10 +68,11 @@ namespace cAlgo
         /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
         /// </summary>
         /// <param name="extrema">The extrema.</param>
+        /// <param name="allowSimple">True if we treat count <see cref="SIMPLE_EXTREMA_COUNT"/>-movement as impulse.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSimpleImpulse(Extremum[] extrema)
+        private bool IsSimpleImpulse(Extremum[] extrema, bool allowSimple = true)
         {
             int count = extrema.Length;
             if (count < SIMPLE_EXTREMA_COUNT)
@@ -81,7 +82,7 @@ namespace cAlgo
 
             if (count == SIMPLE_EXTREMA_COUNT)
             {
-                return true;
+                return allowSimple;
             }
 
             if (count == ZIGZAG_EXTREMA_COUNT)
@@ -123,9 +124,10 @@ namespace cAlgo
             if (countRest == 0 /*|| countRest == 1*/)
             {
 
-            } else if (countRest % IMPULSE_EXTREMA_STEP_COUNT == 0)
+            }
+            else if (countRest % IMPULSE_EXTREMA_STEP_COUNT == 0)
             {
-                for (int i = 1; i < count-1; i++)
+                for (int i = 1; i < count - 1; i++)
                 {
                     //int endIndex = i + IMPULSE_EXTREMA_INDEX;
                     //if (endIndex >= count)
@@ -209,7 +211,7 @@ namespace cAlgo
             {
                 return false;
             }
-            
+
             Extremum firstWaveEnd = extrema[1];
             Extremum secondWaveEnd = extrema[2];
             Extremum thirdWaveEnd = extrema[3];
@@ -276,7 +278,6 @@ namespace cAlgo
         {
             //bool isZigzag = IsZigzag(dateStart, dateEnd);
 
-
             //// Let's look closer to the impulse waves 1, 3 and 5.
             //// We shouldn't pass zigzags in it
             //if (IsZigzag(firstItem.OpenTime, firstWaveEnd.CloseTime)
@@ -290,17 +291,10 @@ namespace cAlgo
             minorExtremumFinder.Calculate(dateStart, dateEnd);
             Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
             
-            try
+            bool isSimpleImpulse = IsSimpleImpulse(extrema, false);
+            if (isSimpleImpulse)
             {
-                bool isSimpleImpulse = IsSimpleImpulse(extrema);
-                if (isSimpleImpulse)
-                {
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                throw;
+                return true;
             }
 
             return false;

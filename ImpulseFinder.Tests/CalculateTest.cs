@@ -12,8 +12,7 @@ namespace ImpulseFinder.Tests
     {
         #region Properties
 
-        public double DeviationPercentMajor { get; set; } = 0.3;
-        public double DeviationPercentMinor { get; set; } = 0.01;
+        public double DeviationPercentMajor { get; set; } = 0.5;
         public double DeviationPercentCorrection { get; set; } = 200;
         public int AnalyzeDepth { get; set; } = 1;
         public TimeFrame MainTimeFrame { get; set; } = TimeFrame.Minute5;
@@ -31,7 +30,8 @@ namespace ImpulseFinder.Tests
             var jsonHistory = jsonKeeper.LoadHistory();
             var bBarsProvider = new JsonBarsProvider(jsonHistory, MainTimeFrame);
             bBarsProvider.LoadBars();
-            var setupFinder = new SetupFinder(DeviationPercentMajor, DeviationPercentMinor, DeviationPercentCorrection, bBarsProvider, bBarsProvider);
+            var setupFinder = new SetupFinder(DeviationPercentMajor,
+                DeviationPercentCorrection, bBarsProvider, bBarsProvider);
 
             int enterCount = 0;
             int tpCount = 0;

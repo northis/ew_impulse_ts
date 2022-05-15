@@ -15,6 +15,8 @@ namespace cAlgo
         private readonly IBarsProvider m_BarsProvider;
         private bool m_IsUpDirection;
 
+        public API.Chart Chart { get; set; }
+
         /// <summary>
         /// Gets the deviation price in absolute value.
         /// </summary>
@@ -26,7 +28,7 @@ namespace cAlgo
                 return m_Extremum.Value * (1.0 + m_DeviationPercent * percentRate);
             }
         }
-
+        
         /// <summary>
         /// Moves the extremum to the (index, price) point.
         /// </summary>
@@ -113,9 +115,11 @@ namespace cAlgo
 
             double low = m_BarsProvider.GetLowPrice(index);
             double high = m_BarsProvider.GetHighPrice(index);
+            DateTime openTime = m_BarsProvider.GetOpenTime(index);
+
             m_Extremum ??= new Extremum
             {
-                OpenTime = m_BarsProvider.GetOpenTime(index),
+                OpenTime = openTime,
                 Value = high,
                 BarTimeFrame = m_BarsProvider.TimeFrame
             };
@@ -124,7 +128,7 @@ namespace cAlgo
             {
                 var newExtremum = new Extremum
                 {
-                    OpenTime = m_BarsProvider.GetOpenTime(index),
+                    OpenTime = openTime,
                     Value = m_IsUpDirection ? high : low,
                     BarTimeFrame = m_BarsProvider.TimeFrame
                 };
@@ -136,7 +140,7 @@ namespace cAlgo
             {
                 var extremum = new Extremum
                 {
-                    OpenTime = m_BarsProvider.GetOpenTime(index),
+                    OpenTime = openTime,
                     Value = m_IsUpDirection ? low : high,
                     BarTimeFrame = m_BarsProvider.TimeFrame
                 };

@@ -34,22 +34,20 @@ namespace cAlgo
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="deviationPercentMajor">The deviation percent.</param>
-        /// <param name="deviationPercentMinor"></param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="barsProviderMajor">The bars provider (major).</param>
+        /// <param name="barsProviderMinor">The bars provider (minor).</param>
         /// <param name="barsProviderMain">The bars provider main (main).</param>
         public SetupFinder(
             double deviationPercentMajor,
-            double deviationPercentMinor,
             double correctionAllowancePercent,
-            IBarsProvider barsProviderMajor,
+            IBarsProvider barsProviderMinor,
             IBarsProvider barsProviderMain)
         {
-            m_BarsProvider = barsProviderMajor;
+            m_BarsProvider = barsProviderMain;
             m_ExtremumFinder = new ExtremumFinder(
                 deviationPercentMajor, m_BarsProvider);
             m_PatternFinder = new PatternFinder(
-                correctionAllowancePercent, deviationPercentMinor, barsProviderMain);
+                correctionAllowancePercent, deviationPercentMajor / 2, barsProviderMinor);
         }
 
         /// <summary>
@@ -72,16 +70,18 @@ namespace cAlgo
         /// </summary>
         /// <param name="startValue">The start value.</param>
         /// <param name="endValue">The end value.</param>
+        /// <param name="startIndex">The start index.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsInitialMovement(double startValue, double endValue)
+        private bool IsInitialMovement(
+            double startValue, double endValue, int startIndex)
         {
             int count = m_ExtremumFinder.Extrema.Count;
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
-            for (int curIndex = count - IMPULSE_START_NUMBER - 1; curIndex >= 0; curIndex--)
+            for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
                 double curValue = m_ExtremumFinder
                     .Extrema
@@ -116,7 +116,7 @@ namespace cAlgo
 
             return isInitialMove;
         }
-        
+
         /// <summary>
         /// Checks the conditions of possible setup for <see cref="index"/>.
         /// </summary>
@@ -134,10 +134,12 @@ namespace cAlgo
             double low = m_BarsProvider.GetLowPrice(index);
             double high = m_BarsProvider.GetHighPrice(index);
 
+            int startIndex = count - IMPULSE_START_NUMBER;
+            int endIndex = count - IMPULSE_END_NUMBER;
             KeyValuePair<int, Extremum> startItem = extrema
-                .ElementAt(count - IMPULSE_START_NUMBER);
+                .ElementAt(startIndex);
             KeyValuePair<int, Extremum> endItem = extrema
-                .ElementAt(count - IMPULSE_END_NUMBER);
+                .ElementAt(endIndex);
 
             void CheckImpulse()
             {
@@ -145,15 +147,19 @@ namespace cAlgo
                 double endValue = endItem.Value.Value;
 
                 bool isImpulseUp = endValue > startValue;
-
-                if (high >= Math.Max(startValue, endValue)
-                    || low <= Math.Min(startValue, endValue))
+                double maxValue = Math.Max(startValue, endValue);
+                double minValue = Math.Min(startValue, endValue);
+                for (int i = endItem.Key + 1; i < index; i++)
                 {
-                    return;
-                    // The setup is no longer valid, TP or SL is already hit.
+                    if (maxValue <= m_BarsProvider.GetHighPrice(i) ||
+                        minValue >= m_BarsProvider.GetLowPrice(i))
+                    {
+                        return;
+                        // The setup is no longer valid, TP or SL is already hit.
+                    }
                 }
 
-                bool isInitialMove = IsInitialMovement(startValue, endValue);
+                bool isInitialMove = IsInitialMovement(startValue, endValue, startIndex);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
@@ -181,7 +187,7 @@ namespace cAlgo
                 }
 
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value.OpenTime, endItem.Value.OpenTime);
+                    startItem.Value.OpenTime, endItem.Value.CloseTime);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -218,8 +224,10 @@ namespace cAlgo
             // and the current position
             if (!m_IsInSetup && count > MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
-                startItem = extrema.ElementAt(count - IMPULSE_START_NUMBER - 1);
-                endItem = extrema.ElementAt(count - IMPULSE_END_NUMBER - 1);
+                startIndex -= 1;
+                endIndex -= 1;
+                startItem = extrema.ElementAt(startIndex);
+                endItem = extrema.ElementAt(endIndex);
                 CheckImpulse();
             }
 

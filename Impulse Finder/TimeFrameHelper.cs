@@ -15,13 +15,16 @@ namespace cAlgo
         {
             int timeFrameTypeTimeEnum = 0;//TimeFrameType.Time
             Type timeFrameType = typeof(TimeFrame);
-            TIME_FRAMES_ARRAY = timeFrameType.GetFields(BindingFlags.Public | BindingFlags.Static)
+            TIME_FRAMES_ARRAY = timeFrameType.GetFields(
+                    BindingFlags.Public | BindingFlags.Static)
                 .Where(a => a.FieldType == timeFrameType)
                 .Select(a => a.GetValue(null) as TimeFrame)
                 .Where(a => Convert.ToInt32(timeFrameType
-                    .GetProperty("TimeFrameType", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .GetProperty("TimeFrameType", 
+                        BindingFlags.NonPublic | BindingFlags.Instance)
                     ?.GetValue(a)) == timeFrameTypeTimeEnum)
-                .Select(a => new TimeFrameInfo(a, TimeSpan.FromMinutes(Convert.ToInt32(timeFrameType
+                .Select(a => new TimeFrameInfo(a, 
+                    TimeSpan.FromMinutes(Convert.ToInt32(timeFrameType
                     .GetProperty("Size", BindingFlags.NonPublic | BindingFlags.Instance)
                     ?.GetValue(a)))))
                 .ToArray();
@@ -38,10 +41,10 @@ namespace cAlgo
         private static readonly TimeFrameInfo[] TIME_FRAMES_ARRAY;
 
         /// <summary>
-        /// Gets the next major time frames for the current time frame.
+        /// Gets the next minor time frames for the current time frame.
         /// </summary>
         /// <param name="current">The current.</param>
-        /// <param name="nextRatio">Get next TF at least this times bigger.</param>
+        /// <param name="nextRatio">Get next TF at least this times smaller.</param>
         public static TimeFrame GetNextTimeFrame(TimeFrame current, double nextRatio)
         {
             if (!TimeFrames.TryGetValue(current, out TimeFrameInfo info))
@@ -49,7 +52,7 @@ namespace cAlgo
                 return current;
             }
 
-            TimeSpan nextTs = TimeSpan.FromMinutes(info.TimeSpan.Minutes* nextRatio);
+            TimeSpan nextTs = TimeSpan.FromMinutes(info.TimeSpan.Minutes / nextRatio);
             TimeFrameInfo res = TIME_FRAMES_ARRAY
                 .SkipWhile(a => a.TimeSpan < nextTs)
                 .FirstOrDefault();
