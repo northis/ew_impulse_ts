@@ -12,13 +12,13 @@ namespace cAlgo
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class ImpulseFinder : Indicator
     {
-        [Output("EnterPrices", LineColor = "Gray")]
+        [Output("EnterPrices", LineColor = "Transparent")]
         public IndicatorDataSeries EnterPrices { get; set; }
 
-        [Output("TakeProfits", LineColor = "Green")]
+        [Output("TakeProfits", LineColor = "Transparent")]
         public IndicatorDataSeries TakeProfits { get; set; }
 
-        [Output("StopLosses", LineColor = "Orange")]
+        [Output("StopLosses", LineColor = "Transparent")]
         public IndicatorDataSeries StopLosses { get; set; }
 
         /// <summary>

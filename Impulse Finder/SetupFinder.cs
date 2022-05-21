@@ -211,7 +211,8 @@ namespace cAlgo
             KeyValuePair<int, Extremum> endItem = extrema
                 .ElementAt(endIndex);
 
-            if (endItem.Value.OpenTime >= m_BarsProviderMinor.GetOpenTime(minorIndex))
+            if (endItem.Value.CloseTime >= m_BarsProviderMinor.GetOpenTime(minorIndex) 
+                && !m_IsInSetup)
             {
                 // Hold your horses, we will wait the next bars
                 return;
