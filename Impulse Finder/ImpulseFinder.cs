@@ -60,6 +60,12 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
+            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
+            {
+                throw new NotSupportedException(
+                    $"Time frame {TimeFrame} isn't supported.");
+            }
+
             TimeFrame majorTf =
                 TimeFrameHelper.GetNextTimeFrame(TimeFrame, MAJOR_TF_RATIO);
             m_BarsMajor = MarketData.GetBars(majorTf);
@@ -104,8 +110,8 @@ namespace cAlgo
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
         {
             int levelIndex = e.Level.Index;
-            int tpIndex = GetIndexFromMajor(e.TakeProfit.Index);
-            int slIndex = GetIndexFromMajor(e.StopLoss.Index);
+            int tpIndex = e.TakeProfit.Index;
+            int slIndex = e.StopLoss.Index;
 
             Chart.DrawTrendLine(StartSetupLineChartName, tpIndex, e.TakeProfit.Price, levelIndex, e.Level.Price, Color.Gray);
             Chart.DrawTrendLine(EndSetupLineChartName, slIndex, e.StopLoss.Price, levelIndex, e.Level.Price, Color.Gray);
@@ -118,25 +124,8 @@ namespace cAlgo
         }
 
         private bool m_SavedFileTest = false;
-        private int m_CurrentMajorIndex = 0;
         private Bars m_BarsMajor;
 
-        private int GetIndexFromMajor(int index)
-        {
-            return GetIndexByDate(Bars, m_BarsMajor[index].OpenTime);
-        }
-
-        private int GetIndexByDate(Bars bars, DateTime time)
-        {
-            for (int i = bars.Count - 1; i > 0; i--)
-            {
-                if (time == bars.OpenTimes[i])
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
 
         /// <summary>
         /// Calculate the value(s) of indicator for the given index.
@@ -146,16 +135,7 @@ namespace cAlgo
         {
             try
             {
-                int currentMajorIndex = GetIndexByDate(m_BarsMajor, Bars[index].OpenTime);
-                if (currentMajorIndex != -1)
-                {
-                    m_CurrentMajorIndex = currentMajorIndex;
-                }
-
-                if (m_CurrentMajorIndex > 0)
-                {
-                    SetupFinder.CheckSetup(m_CurrentMajorIndex, index);
-                }
+                SetupFinder.CheckSetup(index);
             }
             catch (Exception ex)
             {
