@@ -15,8 +15,6 @@ namespace cAlgo
         private readonly IBarsProvider m_BarsProvider;
         private bool m_IsUpDirection;
 
-        public API.Chart Chart { get; set; }
-
         /// <summary>
         /// Gets the deviation price in absolute value.
         /// </summary>

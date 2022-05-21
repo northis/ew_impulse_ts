@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using cAlgo.API;
+using cAlgo.API.Internals;
 
 namespace cAlgo
 {
@@ -22,13 +24,13 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents.
         /// </summary>
-        [Parameter("DeviationPercent", DefaultValue = 0.5, MinValue = 0.01)]
+        [Parameter("DeviationPercent", DefaultValue = Helper.DEVIATION_DEF, MinValue = Helper.DEVIATION_MIN, MaxValue = Helper.DEVIATION_MAX)]
         public double DeviationPercent { get; set; }
 
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
-        [Parameter("DeviationPercentCorrection", DefaultValue = 150, MinValue = 1)]
+        [Parameter("DeviationPercentCorrection", DefaultValue = Helper.PERCENT_CORRECTION_DEF, MinValue = Helper.PERCENT_CORRECTION_MIN, MaxValue = Helper.PERCENT_CORRECTION_MAX)]
         public double DeviationPercentCorrection { get; set; }
         
         private string StartSetupLineChartName =>
@@ -43,11 +45,14 @@ namespace cAlgo
 
         private string ProfitChartName => "TP" + Bars.OpenTimes.Last(1);
 
-        private SetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
-        private Bars m_BarsMinor;
 
-        private const double MINOR_TF_RATIO = 5;
+        private const double MAJOR_TF_RATIO = 5;
+
+        /// <summary>
+        /// Gets the main setup finder
+        /// </summary>
+        public SetupFinder SetupFinder { get; private set; }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -55,56 +60,83 @@ namespace cAlgo
         protected override void Initialize()
         {
             base.Initialize();
-            TimeFrame minorTf =
-                TimeFrameHelper.GetNextTimeFrame(TimeFrame, MINOR_TF_RATIO);
-            m_BarsMinor = MarketData.GetBars(minorTf);
+            TimeFrame majorTf =
+                TimeFrameHelper.GetNextTimeFrame(TimeFrame, MAJOR_TF_RATIO);
+            m_BarsMajor = MarketData.GetBars(majorTf);
+            var majorBarsProvider = new CTraderBarsProvider(m_BarsMajor, MarketData);
             m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
-            var minorBarsProvider = new CTraderBarsProvider(m_BarsMinor, MarketData);
             m_BarsProvider.LoadBars();
-            m_SetupFinder = new SetupFinder(
+            majorBarsProvider.LoadBars();
+
+            SetupFinder = new SetupFinder(
                 DeviationPercent,
                 DeviationPercentCorrection,
-                minorBarsProvider,
-                m_BarsProvider);
-            m_SetupFinder.OnEnter += OnEnter;
-            m_SetupFinder.OnStopLoss += OnStopLoss;
-            m_SetupFinder.OnTakeProfit += OnTakeProfit;
+                m_BarsProvider,
+                majorBarsProvider);
+            SetupFinder.OnEnter += OnEnter;
+            SetupFinder.OnStopLoss += OnStopLoss;
+            SetupFinder.OnTakeProfit += OnTakeProfit;
         }
 
         protected override void OnDestroy()
         {
-            m_SetupFinder.OnEnter -= OnEnter;
-            m_SetupFinder.OnStopLoss -= OnStopLoss;
-            m_SetupFinder.OnTakeProfit -= OnTakeProfit;
+            SetupFinder.OnEnter -= OnEnter;
+            SetupFinder.OnStopLoss -= OnStopLoss;
+            SetupFinder.OnTakeProfit -= OnTakeProfit;
             base.OnDestroy();
         }
 
         private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
         {
-            Chart.DrawIcon(StopChartName, ChartIconType.Star, e.Level.Index
+            int levelIndex = e.Level.Index;
+            Chart.DrawIcon(StopChartName, ChartIconType.Star, levelIndex
                 , e.Level.Price, Color.Red);
             Print($"SL hit! Price:{e.Level.Price}");
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
-            Chart.DrawIcon(ProfitChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.Green);
+            int levelIndex = e.Level.Index;
+            Chart.DrawIcon(ProfitChartName, ChartIconType.Star, levelIndex, e.Level.Price, Color.Green);
             Print($"TP hit! Price:{e.Level.Price}");
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
         {
-            Chart.DrawTrendLine(StartSetupLineChartName, e.TakeProfit.Index, e.TakeProfit.Price, e.Level.Index, e.Level.Price, Color.Gray);
-            Chart.DrawTrendLine(EndSetupLineChartName, e.StopLoss.Index, e.StopLoss.Price, e.Level.Index, e.Level.Price, Color.Gray);
-            Chart.DrawIcon(EnterChartName, ChartIconType.Star, e.Level.Index, e.Level.Price, Color.White);
+            int levelIndex = e.Level.Index;
+            int tpIndex = GetIndexFromMajor(e.TakeProfit.Index);
+            int slIndex = GetIndexFromMajor(e.StopLoss.Index);
 
-            EnterPrices[e.Level.Index] = e.Level.Price;
-            TakeProfits[e.Level.Index] = e.TakeProfit.Price;
-            StopLosses[e.Level.Index] = e.StopLoss.Price;
+            Chart.DrawTrendLine(StartSetupLineChartName, tpIndex, e.TakeProfit.Price, levelIndex, e.Level.Price, Color.Gray);
+            Chart.DrawTrendLine(EndSetupLineChartName, slIndex, e.StopLoss.Price, levelIndex, e.Level.Price, Color.Gray);
+            Chart.DrawIcon(EnterChartName, ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
+
+            EnterPrices[levelIndex] = e.Level.Price;
+            TakeProfits[levelIndex] = e.TakeProfit.Price;
+            StopLosses[levelIndex] = e.StopLoss.Price;
             Print($"New setup found! Price:{e.Level.Price}");
         }
 
         private bool m_SavedFileTest = false;
+        private int m_CurrentMajorIndex = 0;
+        private Bars m_BarsMajor;
+
+        private int GetIndexFromMajor(int index)
+        {
+            return GetIndexByDate(Bars, m_BarsMajor[index].OpenTime);
+        }
+
+        private int GetIndexByDate(Bars bars, DateTime time)
+        {
+            for (int i = bars.Count - 1; i > 0; i--)
+            {
+                if (time == bars.OpenTimes[i])
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
 
         /// <summary>
         /// Calculate the value(s) of indicator for the given index.
@@ -114,7 +146,16 @@ namespace cAlgo
         {
             try
             {
-                m_SetupFinder.CheckSetup(index);
+                int currentMajorIndex = GetIndexByDate(m_BarsMajor, Bars[index].OpenTime);
+                if (currentMajorIndex != -1)
+                {
+                    m_CurrentMajorIndex = currentMajorIndex;
+                }
+
+                if (m_CurrentMajorIndex > 0)
+                {
+                    SetupFinder.CheckSetup(m_CurrentMajorIndex, index);
+                }
             }
             catch (Exception ex)
             {

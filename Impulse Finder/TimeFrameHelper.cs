@@ -41,7 +41,7 @@ namespace cAlgo
         private static readonly TimeFrameInfo[] TIME_FRAMES_ARRAY;
 
         /// <summary>
-        /// Gets the next minor time frames for the current time frame.
+        /// Gets the next time frame for the current time frame.
         /// </summary>
         /// <param name="current">The current.</param>
         /// <param name="nextRatio">Get next TF at least this times smaller.</param>
@@ -52,7 +52,7 @@ namespace cAlgo
                 return current;
             }
 
-            TimeSpan nextTs = TimeSpan.FromMinutes(info.TimeSpan.Minutes / nextRatio);
+            TimeSpan nextTs = TimeSpan.FromMinutes(info.TimeSpan.TotalMinutes * nextRatio);
             TimeFrameInfo res = TIME_FRAMES_ARRAY
                 .SkipWhile(a => a.TimeSpan < nextTs)
                 .FirstOrDefault();

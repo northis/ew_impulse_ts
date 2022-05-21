@@ -13,8 +13,6 @@ namespace cAlgo
         private readonly IBarsProvider m_BarsProvider;
         private const int IMPULSE_EXTREMA_COUNT = 6;
         private const int SIMPLE_EXTREMA_COUNT = 2;
-        private const int IMPULSE_EXTREMA_INDEX = IMPULSE_EXTREMA_COUNT - 1;
-        private const int IMPULSE_EXTREMA_STEP_COUNT = 4;
         private const int ZIGZAG_EXTREMA_COUNT = 4;
 
         /// <summary>
@@ -67,13 +65,21 @@ namespace cAlgo
         /// Determines whether the specified extrema is an simple impulse.
         /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
         /// </summary>
-        /// <param name="extrema">The extrema.</param>
+        /// <param name="dateStart">The date start.</param>
+        /// <param name="dateEnd">The date end.</param>
+        /// <param name="deviation">The deviation percent</param>
         /// <param name="allowSimple">True if we treat count <see cref="SIMPLE_EXTREMA_COUNT"/>-movement as impulse.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSimpleImpulse(Extremum[] extrema, bool allowSimple = true)
+        private bool IsSimpleImpulse(
+            DateTime dateStart, DateTime dateEnd, 
+            double deviation, bool allowSimple = true)
         {
+            var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
+            minorExtremumFinder.Calculate(dateStart, dateEnd);
+            Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
+
             int count = extrema.Length;
             if (count < SIMPLE_EXTREMA_COUNT)
             {
@@ -94,120 +100,7 @@ namespace cAlgo
             Extremum lastItem = extrema[^1];
             bool isUp = lastItem.Value > firstItem.Value;
             int countRest = count - IMPULSE_EXTREMA_COUNT;
-
-            int? GetCorrectionEndIndex(int prevImpulseEndIndex)
-            {
-                Extremum prev = extrema[prevImpulseEndIndex];
-                int nPrevImpulseEndIndex = prevImpulseEndIndex + 1;
-                for (int j = nPrevImpulseEndIndex; j < count; j++)
-                {
-                    if (isUp && extrema[j] > prev || !isUp && extrema[j] < prev)
-                    {
-                        int nj = j + 1;
-                        Extremum[] secExtrema = extrema[nPrevImpulseEndIndex..nj];
-                        if (secExtrema.Length < SIMPLE_EXTREMA_COUNT)
-                        {
-                            break;
-                        }
-
-                        Extremum resExtremum = isUp 
-                            ? secExtrema.Min() 
-                            : secExtrema.Max();
-                        int resIndex = Array.IndexOf(extrema, resExtremum);
-                        return resIndex;
-                    }
-                }
-
-                return null;
-            }
-
-            if (countRest == 0 /*|| countRest == 1*/)
-            {
-
-            }
-            else if (countRest % IMPULSE_EXTREMA_STEP_COUNT == 0)
-            {
-                for (int i = 1; i < count - 1; i++)
-                {
-                    //int endIndex = i + IMPULSE_EXTREMA_INDEX;
-                    //if (endIndex >= count)
-                    //{
-                    //    return false;
-                    //}
-
-                    if (i % 2 == 0)// We don't want to consider corrections
-                    {
-                        continue;
-                    }
-
-                    int ni = i + 1;
-                    bool isFirstWaveImpulse = IsSimpleImpulse(extrema[..ni]);
-                    if (!isFirstWaveImpulse)
-                    {
-                        continue;
-                    }
-
-                    // 2nd wave end candidate
-                    int? secondEndIndex = GetCorrectionEndIndex(i);
-                    // We can check here the 2nd wave for zigzag/flat/combination
-                    if (!secondEndIndex.HasValue)
-                    {
-                        continue;
-                    }
-
-                    int thirdStartIndex = secondEndIndex.Value;
-                    for (int j = thirdStartIndex; j < count; j++)
-                    {
-                        if ((j - thirdStartIndex) % 2 == 0)
-                        {
-                            continue;
-                        }
-
-                        int nj = j + 1;
-                        bool isThirdWaveImpulse = IsSimpleImpulse(
-                            extrema[thirdStartIndex..nj]);
-                        if (!isThirdWaveImpulse)
-                        {
-                            continue;
-                        }
-
-                        // We can support here a triangle/flat/zigzag check
-                        // For flat and triangle we cannot use so simple
-                        // logic with Max() and Min().
-                        int? forthEndIndex = GetCorrectionEndIndex(j);
-                        if (!forthEndIndex.HasValue)
-                        {
-                            continue;
-                        }
-
-                        bool isFifthWaveImpulse = IsSimpleImpulse(
-                            extrema[forthEndIndex.Value..]);
-                        if (!isFifthWaveImpulse)
-                        {
-                            continue;
-                        }
-                        // If we are here, we've just found an impulse.
-                        // Lets check all the rules:
-
-                        var builtExtrema = new Extremum[IMPULSE_EXTREMA_COUNT];
-                        builtExtrema[0] = extrema[0];
-                        builtExtrema[1] = extrema[i];
-                        builtExtrema[2] = extrema[thirdStartIndex];
-                        builtExtrema[3] = extrema[j];
-                        builtExtrema[4] = extrema[forthEndIndex.Value];
-                        builtExtrema[IMPULSE_EXTREMA_INDEX] = extrema[^1];
-
-                        bool isImpulse = IsSimpleImpulse(builtExtrema);
-                        if (isImpulse)
-                        {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            }
-            else
+            if (countRest != 0 /*&& countRest != 1*/)
             {
                 return false;
             }
@@ -263,6 +156,18 @@ namespace cAlgo
                 return false;
             }
 
+            //for (double dv = deviation * Helper.DEVIATION_START_RATIO * 0.5;
+            //     dv >= Helper.DEVIATION_LOW;
+            //     dv -= Helper.DEVIATION_STEP)
+            //{
+            //    if (IsSimpleImpulse(firstItem.OpenTime, firstWaveEnd.CloseTime, dv) &&
+            //        IsSimpleImpulse(secondWaveEnd.OpenTime, thirdWaveEnd.CloseTime, dv) &&
+            //        IsSimpleImpulse(fourthWaveEnd.OpenTime, fifthWaveEnd.CloseTime, dv))
+            //    {
+            //        return true;
+            //    }
+            //}
+
             return true;
         }
         
@@ -287,14 +192,16 @@ namespace cAlgo
             //    return false;
             //}
 
-            var minorExtremumFinder = new ExtremumFinder(m_Deviation, m_BarsProvider);
-            minorExtremumFinder.Calculate(dateStart, dateEnd);
-            Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
-            
-            bool isSimpleImpulse = IsSimpleImpulse(extrema, false);
-            if (isSimpleImpulse)
+            for (double dv = m_Deviation; 
+                 dv >= Helper.DEVIATION_LOW;
+                 dv -= Helper.DEVIATION_STEP)
             {
-                return true;
+
+                bool isSimpleImpulse = IsSimpleImpulse(dateStart, dateEnd, dv, false);
+                if (isSimpleImpulse)
+                {
+                    return true;
+                }
             }
 
             return false;
