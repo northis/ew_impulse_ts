@@ -223,7 +223,7 @@ namespace cAlgo
             KeyValuePair<int, Extremum> endItem = extrema
                 .ElementAt(endIndex);
 
-            if (endItem.Value.OpenTime >= m_BarsProviderMinor.GetOpenTime(minorIndex) 
+            if (endItem.Value.CloseTime >= m_BarsProviderMinor.GetOpenTime(minorIndex) 
                 && !m_IsInSetup)
             {
                 // Hold your horses, we will wait the next bars
@@ -301,18 +301,42 @@ namespace cAlgo
 
                 m_SetupStartIndex = startItem.Key;
                 m_SetupEndIndex = endItem.Key;
-                m_SetupStartPrice = startItem.Value.Value;
-                m_SetupEndPrice = endItem.Value.Value;
+                m_SetupStartPrice = startValue;
+                m_SetupEndPrice = endValue;
                 m_TriggerLevel = triggerLevel;
                 m_TriggerBarIndex = minorIndex;
                 m_IsInSetup = true;
+                
+                double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE / 100;
+                double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE / 100;
 
-                LevelItem tpArg = isImpulseUp
-                    ? new LevelItem(endValue, GetIndexFromMajor(m_SetupEndIndex, endValue))
-                    : new LevelItem(startValue, GetIndexFromMajor(m_SetupStartIndex, startValue));
-                LevelItem slArg = isImpulseUp
-                    ? new LevelItem(startValue, GetIndexFromMajor(m_SetupStartIndex, startValue))
-                    : new LevelItem(endValue, GetIndexFromMajor(m_SetupEndIndex, endValue));
+                LevelItem tpArg;
+                if (isImpulseUp)
+                {
+                    m_SetupEndPrice = endValue - endAllowance;
+                    tpArg = new LevelItem(m_SetupEndPrice,
+                        GetIndexFromMajor(m_SetupEndIndex, endValue));
+                }
+                else
+                {
+                    m_SetupStartPrice = startValue + startAllowance;
+                    tpArg = new LevelItem(m_SetupStartPrice,
+                        GetIndexFromMajor(m_SetupStartIndex, startValue));
+                }
+
+                LevelItem slArg;
+                if (isImpulseUp)
+                {
+                    m_SetupStartPrice = startValue - startAllowance;
+                    slArg = new LevelItem(m_SetupStartPrice,
+                        GetIndexFromMajor(m_SetupStartIndex, startValue));
+                }
+                else
+                {
+                    m_SetupEndPrice = endValue + endAllowance;
+                    slArg = new LevelItem(m_SetupEndPrice, 
+                        GetIndexFromMajor(m_SetupEndIndex, endValue));
+                }
 
                 OnEnter?.Invoke(this,
                     new SignalEventArgs(
@@ -363,7 +387,6 @@ namespace cAlgo
 
             bool isStopHit = isImpulseUp && low <= m_SetupStartPrice
                              || !isImpulseUp && high >= m_SetupStartPrice;
-            //add allowance
             if (isStopHit)
             {
                 m_IsInSetup = false;

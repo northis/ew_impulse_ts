@@ -157,7 +157,7 @@ namespace cAlgo
                 return false;
             }
 
-            for (double dv = deviation * 0.5;
+            for (double dv = deviation * Helper.DEVIATION_INNER_RATIO;
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {
