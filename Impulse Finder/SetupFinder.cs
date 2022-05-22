@@ -19,6 +19,8 @@ namespace cAlgo
         private int m_SetupEndIndex;
         private double m_SetupStartPrice;
         private double m_SetupEndPrice;
+        private double m_TriggerLevel;
+        private int m_TriggerBarIndex;
         private int m_CurrentMajorIndex = 0;
 
         private const double TRIGGER_LEVEL_RATIO = 0.5;
@@ -290,10 +292,19 @@ namespace cAlgo
                     return;
                 }
 
+                if (m_SetupStartIndex == startItem.Key ||
+                    m_SetupEndIndex == endItem.Key)
+                {
+                    // Cannot use the same impulse twice.
+                    return;
+                }
+
                 m_SetupStartIndex = startItem.Key;
                 m_SetupEndIndex = endItem.Key;
                 m_SetupStartPrice = startItem.Value.Value;
                 m_SetupEndPrice = endItem.Value.Value;
+                m_TriggerLevel = triggerLevel;
+                m_TriggerBarIndex = minorIndex;
                 m_IsInSetup = true;
 
                 LevelItem tpArg = isImpulseUp
@@ -345,8 +356,9 @@ namespace cAlgo
             if (isProfitHit)
             {
                 m_IsInSetup = false;
-                OnTakeProfit?.Invoke(this, 
-                    new LevelEventArgs(new LevelItem(m_SetupEndPrice, minorIndex)));
+                OnTakeProfit?.Invoke(this,
+                    new LevelEventArgs(new LevelItem(m_SetupEndPrice, minorIndex),
+                        new LevelItem(m_TriggerLevel, m_TriggerBarIndex)));
             }
 
             bool isStopHit = isImpulseUp && low <= m_SetupStartPrice
@@ -356,7 +368,8 @@ namespace cAlgo
             {
                 m_IsInSetup = false;
                 OnStopLoss?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(m_SetupStartPrice, minorIndex)));
+                    new LevelEventArgs(new LevelItem(m_SetupStartPrice, minorIndex),
+                        new LevelItem(m_TriggerLevel, m_TriggerBarIndex)));
             }
         }
     }

@@ -31,13 +31,10 @@ namespace cAlgo
         [Parameter("DeviationPercentCorrection", DefaultValue = Helper.PERCENT_CORRECTION_DEF, MinValue = Helper.PERCENT_CORRECTION_MIN, MaxValue = Helper.PERCENT_CORRECTION_MAX)]
         public double DeviationPercentCorrection { get; set; }
         
-        private string StartSetupLineChartName =>
-            "StartSetupLine" + Bars.OpenTimes.Last(1);
+        private string SetupLine =>
+            "SetupLine" + Bars.OpenTimes.Last(1);
         private string ImpulseLineName =>
             "ImpulseLine" + Bars.OpenTimes.Last(1);
-
-        private string EndSetupLineChartName =>
-            "EndSetupLine" + Bars.OpenTimes.Last(1);
 
         private string EnterChartName => "Enter" + Bars.OpenTimes.Last(1);
 
@@ -95,26 +92,23 @@ namespace cAlgo
         private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
         {
             int levelIndex = e.Level.Index;
+            Chart.DrawTrendLine(SetupLine, e.FromLevel.Index, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightCoral, 2);
             Chart.DrawIcon(StopChartName, ChartIconType.Star, levelIndex
-                , e.Level.Price, Color.Red);
+                , e.Level.Price, Color.LightCoral);
             Print($"SL hit! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
             int levelIndex = e.Level.Index;
-            Chart.DrawIcon(ProfitChartName, ChartIconType.Star, levelIndex, e.Level.Price, Color.Green);
+            Chart.DrawTrendLine(SetupLine, e.FromLevel.Index, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightGreen, 2);
+            Chart.DrawIcon(ProfitChartName, ChartIconType.Star, levelIndex, e.Level.Price, Color.LightGreen);
             Print($"TP hit! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
         {
             int levelIndex = e.Level.Index;
-            int tpIndex = e.TakeProfit.Index;
-            int slIndex = e.StopLoss.Index;
-
-            Chart.DrawTrendLine(StartSetupLineChartName, tpIndex, e.TakeProfit.Price, levelIndex, e.Level.Price, Color.Gray);
-            Chart.DrawTrendLine(EndSetupLineChartName, slIndex, e.StopLoss.Price, levelIndex, e.Level.Price, Color.Gray);
             Chart.DrawIcon(EnterChartName, ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
             if (e.Waves is { Length: > 0 })
             {
