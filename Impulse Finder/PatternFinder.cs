@@ -68,17 +68,18 @@ namespace cAlgo
         /// <param name="dateStart">The date start.</param>
         /// <param name="dateEnd">The date end.</param>
         /// <param name="deviation">The deviation percent</param>
+        /// <param name="extrema">The impulse waves found.</param>
         /// <param name="allowSimple">True if we treat count <see cref="SIMPLE_EXTREMA_COUNT"/>-movement as impulse.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
         private bool IsSimpleImpulse(
             DateTime dateStart, DateTime dateEnd, 
-            double deviation, bool allowSimple = true)
+            double deviation, out Extremum[] extrema, bool allowSimple = true)
         {
             var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(dateStart, dateEnd);
-            Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
+            extrema = minorExtremumFinder.ToExtremaArray();
 
             int count = extrema.Length;
             if (count < SIMPLE_EXTREMA_COUNT)
@@ -156,30 +157,35 @@ namespace cAlgo
                 return false;
             }
 
-            //for (double dv = deviation * Helper.DEVIATION_START_RATIO * 0.5;
-            //     dv >= Helper.DEVIATION_LOW;
-            //     dv -= Helper.DEVIATION_STEP)
-            //{
-            //    if (IsSimpleImpulse(firstItem.OpenTime, firstWaveEnd.CloseTime, dv) &&
-            //        IsSimpleImpulse(secondWaveEnd.OpenTime, thirdWaveEnd.CloseTime, dv) &&
-            //        IsSimpleImpulse(fourthWaveEnd.OpenTime, fifthWaveEnd.CloseTime, dv))
-            //    {
-            //        return true;
-            //    }
-            //}
+            for (double dv = deviation * 0.5;
+                 dv >= Helper.DEVIATION_LOW;
+                 dv -= Helper.DEVIATION_STEP)
+            {
+                if (IsSimpleImpulse(firstItem.OpenTime, 
+                        firstWaveEnd.CloseTime, dv, out _) &&
+                    IsSimpleImpulse(secondWaveEnd.OpenTime,
+                        thirdWaveEnd.CloseTime, dv, out _) &&
+                    IsSimpleImpulse(fourthWaveEnd.OpenTime,
+                        fifthWaveEnd.CloseTime, dv, out _))
+                {
+                    return true;
+                }
+            }
 
             return true;
         }
-        
+
         /// <summary>
         /// Determines whether the interval between the dates is an impulse.
         /// </summary>
         /// <param name="dateStart">The date start.</param>
         /// <param name="dateEnd">The date end.</param>
+        /// <param name="extrema">The impulse waves found.</param>
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsImpulse(DateTime dateStart, DateTime dateEnd)
+        public bool IsImpulse(
+            DateTime dateStart, DateTime dateEnd, out Extremum[] extrema)
         {
             //bool isZigzag = IsZigzag(dateStart, dateEnd);
 
@@ -192,12 +198,13 @@ namespace cAlgo
             //    return false;
             //}
 
+            extrema = null;
             for (double dv = m_Deviation; 
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {
-
-                bool isSimpleImpulse = IsSimpleImpulse(dateStart, dateEnd, dv, false);
+                bool isSimpleImpulse = IsSimpleImpulse(
+                    dateStart, dateEnd, dv, out extrema, false);
                 if (isSimpleImpulse)
                 {
                     return true;

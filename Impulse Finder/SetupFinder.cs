@@ -120,6 +120,31 @@ namespace cAlgo
 
             return isInitialMove;
         }
+
+        private int GetMinorIndexByDate(DateTime time, double value)
+        {
+            TimeSpan currentTimeSpan =
+                TimeFrameHelper.TimeFrames[m_BarsProviderMinor.TimeFrame].TimeSpan;
+            DateTime currentDateTime = time;
+            DateTime endDateTime = time.Add(
+                TimeFrameHelper.TimeFrames[m_BarsProviderMajor.TimeFrame].TimeSpan);
+
+            do
+            {
+                int indexInner = m_BarsProviderMinor.GetIndexByTime(currentDateTime);
+                double high = m_BarsProviderMinor.GetHighPrice(indexInner);
+                double low = m_BarsProviderMinor.GetLowPrice(indexInner);
+                if (Math.Abs(value - high) < double.Epsilon ||
+                    Math.Abs(value - low) < double.Epsilon)
+                {
+                    return indexInner;
+                }
+
+                currentDateTime = currentDateTime.Add(currentTimeSpan);
+            } while (currentDateTime < endDateTime);
+
+            return -1;
+        }
         
         private int GetIndexFromMajor(int index, double? value = null)
         {
@@ -137,26 +162,11 @@ namespace cAlgo
 
             if (value.HasValue && resultIndex != -1)
             {
-                TimeSpan currentTimeSpan = 
-                    TimeFrameHelper.TimeFrames[m_BarsProviderMinor.TimeFrame].TimeSpan;
-                DateTime currentDateTime = time;
-                DateTime endDateTime = time.Add(
-                    TimeFrameHelper.TimeFrames[m_BarsProviderMajor.TimeFrame].TimeSpan);
-
-                do
+                int innerIndex = GetMinorIndexByDate(time, value.Value);
+                if (innerIndex != -1)
                 {
-                    int indexInner = m_BarsProviderMinor.GetIndexByTime(currentDateTime);
-                    double high = m_BarsProviderMinor.GetHighPrice(indexInner);
-                    double low = m_BarsProviderMinor.GetLowPrice(indexInner);
-                    if (Math.Abs(value.Value - high) < double.Epsilon ||
-                        Math.Abs(value.Value - low) < double.Epsilon)
-                    {
-                        resultIndex = indexInner;
-                        break;
-                    }
-
-                    currentDateTime = currentDateTime.Add(currentTimeSpan);
-                } while (currentDateTime < endDateTime);
+                    resultIndex = innerIndex;
+                }
             }
 
             return resultIndex;
@@ -211,7 +221,7 @@ namespace cAlgo
             KeyValuePair<int, Extremum> endItem = extrema
                 .ElementAt(endIndex);
 
-            if (endItem.Value.CloseTime >= m_BarsProviderMinor.GetOpenTime(minorIndex) 
+            if (endItem.Value.OpenTime >= m_BarsProviderMinor.GetOpenTime(minorIndex) 
                 && !m_IsInSetup)
             {
                 // Hold your horses, we will wait the next bars
@@ -265,8 +275,15 @@ namespace cAlgo
                     return;
                 }
 
+                DateTime impulseStart =
+                    m_BarsProviderMinor.GetOpenTime(GetMinorIndexByDate(
+                        startItem.Value.OpenTime, startItem.Value.Value));
+                DateTime impulseEnd =
+                    m_BarsProviderMinor.GetOpenTime(GetMinorIndexByDate(
+                        endItem.Value.OpenTime, endItem.Value.Value));
+
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value.OpenTime, endItem.Value.CloseTime);
+                    impulseStart, impulseEnd, out Extremum[] outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -290,7 +307,8 @@ namespace cAlgo
                     new SignalEventArgs(
                         new LevelItem(triggerLevel, minorIndex),
                         tpArg,
-                        slArg));
+                        slArg,
+                        outExtrema));
                 // Here we should give a trade signal.
             }
 

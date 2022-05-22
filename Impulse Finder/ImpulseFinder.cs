@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using cAlgo.API;
-using cAlgo.API.Internals;
 
 namespace cAlgo
 {
@@ -35,6 +33,8 @@ namespace cAlgo
         
         private string StartSetupLineChartName =>
             "StartSetupLine" + Bars.OpenTimes.Last(1);
+        private string ImpulseLineName =>
+            "ImpulseLine" + Bars.OpenTimes.Last(1);
 
         private string EndSetupLineChartName =>
             "EndSetupLine" + Bars.OpenTimes.Last(1);
@@ -97,14 +97,14 @@ namespace cAlgo
             int levelIndex = e.Level.Index;
             Chart.DrawIcon(StopChartName, ChartIconType.Star, levelIndex
                 , e.Level.Price, Color.Red);
-            Print($"SL hit! Price:{e.Level.Price}");
+            Print($"SL hit! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
             int levelIndex = e.Level.Index;
             Chart.DrawIcon(ProfitChartName, ChartIconType.Star, levelIndex, e.Level.Price, Color.Green);
-            Print($"TP hit! Price:{e.Level.Price}");
+            Print($"TP hit! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
@@ -116,11 +116,25 @@ namespace cAlgo
             Chart.DrawTrendLine(StartSetupLineChartName, tpIndex, e.TakeProfit.Price, levelIndex, e.Level.Price, Color.Gray);
             Chart.DrawTrendLine(EndSetupLineChartName, slIndex, e.StopLoss.Price, levelIndex, e.Level.Price, Color.Gray);
             Chart.DrawIcon(EnterChartName, ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
+            if (e.Waves is { Length: > 0 })
+            {
+                Extremum start = e.Waves[0];
+                Extremum[] rest = e.Waves[1..];
+                for (var index = 0; index < rest.Length; index++)
+                {
+                    Extremum wave = rest[index];
+                    int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
+                    int endIndex = m_BarsProvider.GetIndexByTime(wave.OpenTime);
+                    Chart.DrawTrendLine($"{ImpulseLineName}{index}", 
+                        startIndex, start.Value, endIndex, wave.Value, Color.LightBlue);
+                    start = wave;
+                }
+            }
 
             EnterPrices[levelIndex] = e.Level.Price;
             TakeProfits[levelIndex] = e.TakeProfit.Price;
             StopLosses[levelIndex] = e.StopLoss.Price;
-            Print($"New setup found! Price:{e.Level.Price}");
+            Print($"New setup found! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         private bool m_SavedFileTest = false;
