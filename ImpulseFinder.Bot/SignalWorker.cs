@@ -1,15 +1,18 @@
-﻿using OpenAPI.Net.Auth;
+﻿using ImpulseFinder.Bot.OpenApi;
+using OpenAPI.Net.Auth;
 
 namespace ImpulseFinder.Bot
 {
     internal class SignalWorker: IHostedService, IDisposable
     {
         private readonly ILogger<SignalWorker> m_Logger;
+        private readonly IOpenApiService m_OpenApiService;
 
-        public SignalWorker(ILogger<SignalWorker> logger)
+        public SignalWorker(
+            ILogger<SignalWorker> logger, IOpenApiService openApiService)
         {
             m_Logger = logger;
-            
+            m_OpenApiService = openApiService;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
