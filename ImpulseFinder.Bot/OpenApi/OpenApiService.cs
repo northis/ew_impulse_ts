@@ -9,24 +9,19 @@ namespace ImpulseFinder.Bot.OpenApi
 {
     public sealed class OpenApiService : IOpenApiService
     {
-        private readonly Func<OpenClient> m_LiveClientFactory;
-        private readonly Func<OpenClient> m_DemoClientFactory;
         private readonly ConcurrentQueue<MessageQueueItem> m_MessagesQueue = new();
         private readonly System.Timers.Timer m_SendMessageTimer;
-
-        private OpenClient m_LiveClient;
-        private OpenClient m_DemoClient;
+        
+        private OpenClient m_Client;
 
         private ApiCredentials m_ApiCredentials;
+        private const double MAX_MESSAGE_PER_SECOND = 45;
 
-        public OpenApiService(
-            Func<OpenClient> liveClientFactory, 
-            Func<OpenClient> demoClientFactory, int maxMessagePerSecond = 45)
+        public OpenApiService(OpenClient client)
         {
-            m_LiveClientFactory = liveClientFactory ?? throw new ArgumentNullException(nameof(liveClientFactory));
-            m_DemoClientFactory = demoClientFactory ?? throw new ArgumentNullException(nameof(demoClientFactory));
+            m_Client = client ?? throw new ArgumentNullException(nameof(client));
 
-            m_SendMessageTimer = new(1000.0 / maxMessagePerSecond);
+            m_SendMessageTimer = new(1000.0 / MAX_MESSAGE_PER_SECOND);
 
             m_SendMessageTimer.Elapsed += SendMessageTimerElapsed;
             m_SendMessageTimer.AutoReset = false;
@@ -34,9 +29,7 @@ namespace ImpulseFinder.Bot.OpenApi
 
         public bool IsConnected { get; private set; }
 
-        public IObservable<IMessage> LiveObservable => m_LiveClient;
-
-        public IObservable<IMessage> DemoObservable => m_DemoClient;
+        public IObservable<IMessage> ClientObservable => m_Client;
 
         public event Action Connected;
 
@@ -44,38 +37,13 @@ namespace ImpulseFinder.Bot.OpenApi
         {
             m_ApiCredentials = apiCredentials;
 
-            OpenClient liveClient = null;
-            OpenClient demoClient = null;
-
-            try
-            {
-                liveClient = m_LiveClientFactory();
-
-                await liveClient.Connect();
-
-                demoClient = m_DemoClientFactory();
-
-                await demoClient.Connect();
-            }
-            catch
-            {
-                if (liveClient is not null) liveClient.Dispose();
-                if (demoClient is not null) demoClient.Dispose();
-
-                throw;
-            }
+            await m_Client.Connect();
 
             m_SendMessageTimer.Start();
 
-            await Task.WhenAll(AuthorizeApp(liveClient, m_ApiCredentials), AuthorizeApp(demoClient, m_ApiCredentials));
-
+            await AuthorizeApp(m_Client, m_ApiCredentials);
             IsConnected = true;
-
-            m_LiveClient = liveClient;
-            m_DemoClient = demoClient;
-
-            m_LiveClient.Subscribe(_ => { }, OnError);
-            m_DemoClient.Subscribe(_ => { }, OnError);
+            m_Client.Subscribe(_ => { }, OnError);
 
             Connected?.Invoke();
         }
@@ -91,7 +59,10 @@ namespace ImpulseFinder.Bot.OpenApi
 
         private async void Reconnect()
         {
-            if (m_LiveClient.IsDisposed is false || m_DemoClient.IsDisposed is false) return;
+            if (m_Client.IsDisposed is false || m_Client.IsDisposed is false)
+            {
+                return;
+            }
 
             try
             {

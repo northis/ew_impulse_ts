@@ -10,44 +10,24 @@ namespace ImpulseFinder.Bot.Root
         public MainConfigurator(IConfiguration configuration)
         {
             Configuration = configuration;
+            BotSettings = new BotSettingHolder(configuration);
         }
         
-        private string _releaseNotesInfo;
-        private string _aboutInfo;
-        private string _preInstalledFolder;
-        private BotSettingHolder _botSettings;
+        private string m_ReleaseNotesInfo;
+        private string m_AboutInfo;
 
-        public BotSettingHolder BotSettings
-        {
-            get
-            {
-                if (_botSettings != null) return _botSettings;
-
-                _botSettings = new BotSettingHolder(Configuration);
-                return _botSettings;
-            }
-        }
+        public BotSettingHolder BotSettings { get; init;}
 
         public string ReleaseNotesInfo
         {
             get
             {
-                if (_releaseNotesInfo != null) return _releaseNotesInfo;
+                if (m_ReleaseNotesInfo != null) return m_ReleaseNotesInfo;
 
                 var path = Path.Combine(CurrentDir, "ReleaseNotes.txt");
-                _releaseNotesInfo = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+                m_ReleaseNotesInfo = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
 
-                return _releaseNotesInfo;
-            }
-        }
-        public string PreInstalledFolder
-        {
-            get
-            {
-                if (_preInstalledFolder != null) return _preInstalledFolder;
-
-                _preInstalledFolder = Path.Combine(CurrentDir, "Hsk");
-                return _preInstalledFolder;
+                return m_ReleaseNotesInfo;
             }
         }
 
@@ -55,9 +35,9 @@ namespace ImpulseFinder.Bot.Root
         {
             get
             {
-                if (_aboutInfo != null)
+                if (m_AboutInfo != null)
                 {
-                    return _aboutInfo;
+                    return m_AboutInfo;
                 }
 
                 var path = Path.Combine(CurrentDir, "package.json");
@@ -71,19 +51,18 @@ namespace ImpulseFinder.Bot.Root
                     sb.AppendLine("Contact me: @soft_udder");
                     sb.AppendLine($"Github: {json.homepage}");
 
-                    _aboutInfo = sb.ToString();
+                    m_AboutInfo = sb.ToString();
                 }
                 else
                 {
-                    _aboutInfo = string.Empty;
+                    m_AboutInfo = string.Empty;
                 }
 
-                return _aboutInfo;
+                return m_AboutInfo;
             }
         }
 
         public string CurrentDir => AppDomain.CurrentDomain.BaseDirectory;
-        public uint MaxUploadFileSize => 8192;
 
         public IConfiguration Configuration { get; }
         public IServiceProvider ServiceProvider { get; private set; }
@@ -99,19 +78,20 @@ namespace ImpulseFinder.Bot.Root
 
         public void ConfigureServices(IServiceCollection services)
         {
-            var botSettings = BotSettings;
+            BotSettingHolder botSettings = BotSettings;
             var tClient = new TelegramBotClient(botSettings.TelegramBotKey)
                 { Timeout = botSettings.PollingTimeout };
 
-            //var commandManager = new CommandManager(GetCommands, GetHiddenCommands,
-            //    new Dictionary<string, ECommands> {{botSettings.ServiceCommandPassword, ECommands.Admin}});
-            
-            services.AddSingleton(bS => botSettings);
-            services.AddSingleton(cl => tClient);
-            //services.AddSingleton<ICommandManager>(commandManager);
+            var commandManager = new CommandManager(
+                GetCommands,
+                new Dictionary<string, ECommands>());
 
-            services.AddTransient(a => new AboutCommand(ReleaseNotesInfo, AboutInfo));
-            services.AddTransient(a => new HelpCommand(GetCommands));
+            services.AddSingleton(_ => botSettings);
+            services.AddSingleton(_ => tClient);
+            services.AddSingleton<ICommandManager>(commandManager);
+
+            services.AddTransient(_ => new AboutCommand(ReleaseNotesInfo, AboutInfo));
+            services.AddTransient(_ => new HelpCommand(GetCommands));
         }
 
         public void Configure(IHostBuilder app, IHostingEnvironment env, IApplicationLifetime applicationLifetime)

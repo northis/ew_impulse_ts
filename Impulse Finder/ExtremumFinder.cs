@@ -95,7 +95,7 @@ namespace cAlgo
         /// <param name="endDate">The end date and time.</param>
         public void Calculate(DateTime startDate, DateTime endDate)
         {
-            int startIndex = m_BarsProvider.GetIndexByTime(startDate);
+            int startIndex = m_BarsProvider.GetIndexByTime(startDate)-1;
             int endIndex = m_BarsProvider.GetIndexByTime(endDate);
             Calculate(startIndex, endIndex);
         }

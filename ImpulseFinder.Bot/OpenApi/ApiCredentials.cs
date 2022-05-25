@@ -1,4 +1,4 @@
-﻿namespace Samples.Shared.Models
+﻿namespace ImpulseFinder.Bot.OpenApi
 {
     public class ApiCredentials
     {

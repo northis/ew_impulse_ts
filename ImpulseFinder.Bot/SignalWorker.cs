@@ -8,8 +8,7 @@ namespace ImpulseFinder.Bot
         private readonly ILogger<SignalWorker> m_Logger;
         private readonly IOpenApiService m_OpenApiService;
 
-        public SignalWorker(
-            ILogger<SignalWorker> logger, IOpenApiService openApiService)
+        public SignalWorker(ILogger<SignalWorker> logger, IOpenApiService openApiService)
         {
             m_Logger = logger;
             m_OpenApiService = openApiService;

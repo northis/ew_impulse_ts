@@ -83,7 +83,6 @@ namespace cAlgo
         private bool IsInitialMovement(
             double startValue, double endValue, int startIndex)
         {
-            int count = m_ExtremumFinder.Extrema.Count;
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
@@ -237,7 +236,7 @@ namespace cAlgo
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
-                bool isImpulseUp = endValue > startValue;
+                var isImpulseUp = endValue > startValue;
                 double maxValue = Math.Max(startValue, endValue);
                 double minValue = Math.Min(startValue, endValue);
                 for (int i = endItem.Key + 1; i < m_CurrentMajorIndex; i++)
@@ -268,8 +267,8 @@ namespace cAlgo
                 }
                 else
                 {
-                    triggerLevel = startValue + triggerSize;
-                    gotSetup = high >= triggerLevel && high < endValue;
+                    triggerLevel = endValue + triggerSize;
+                    gotSetup = high >= triggerLevel && high < startValue;
                 }
 
                 if (!gotSetup)
@@ -285,7 +284,7 @@ namespace cAlgo
                         endItem.Value.OpenTime, endItem.Value.Value));
 
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    impulseStart, impulseEnd, out Extremum[] outExtrema);
+                    impulseStart, impulseEnd, isImpulseUp, out Extremum[] outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -299,44 +298,31 @@ namespace cAlgo
                     return;
                 }
 
-                m_SetupStartIndex = startItem.Key;
-                m_SetupEndIndex = endItem.Key;
-                m_SetupStartPrice = startValue;
-                m_SetupEndPrice = endValue;
                 m_TriggerLevel = triggerLevel;
                 m_TriggerBarIndex = minorIndex;
                 m_IsInSetup = true;
                 
-                double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE / 100;
-                double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE / 100;
+                double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
+                double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
-                LevelItem tpArg;
+                m_SetupStartIndex = startItem.Key;
+                m_SetupEndIndex = endItem.Key;
+
                 if (isImpulseUp)
                 {
+                    m_SetupStartPrice = startValue - startAllowance;
                     m_SetupEndPrice = endValue - endAllowance;
-                    tpArg = new LevelItem(m_SetupEndPrice,
-                        GetIndexFromMajor(m_SetupEndIndex, endValue));
                 }
                 else
                 {
                     m_SetupStartPrice = startValue + startAllowance;
-                    tpArg = new LevelItem(m_SetupStartPrice,
-                        GetIndexFromMajor(m_SetupStartIndex, startValue));
+                    m_SetupEndPrice = endValue + endAllowance;
                 }
 
-                LevelItem slArg;
-                if (isImpulseUp)
-                {
-                    m_SetupStartPrice = startValue - startAllowance;
-                    slArg = new LevelItem(m_SetupStartPrice,
-                        GetIndexFromMajor(m_SetupStartIndex, startValue));
-                }
-                else
-                {
-                    m_SetupEndPrice = endValue + endAllowance;
-                    slArg = new LevelItem(m_SetupEndPrice, 
-                        GetIndexFromMajor(m_SetupEndIndex, endValue));
-                }
+                var tpArg = new LevelItem(m_SetupEndPrice,
+                    GetIndexFromMajor(m_SetupEndIndex, endValue));
+                var slArg = new LevelItem(m_SetupStartPrice,
+                    GetIndexFromMajor(m_SetupStartIndex, startValue));
 
                 OnEnter?.Invoke(this,
                     new SignalEventArgs(
@@ -349,18 +335,33 @@ namespace cAlgo
 
             if (!m_IsInSetup)
             {
-                CheckImpulse();
-            }
+                for (;;)
+                {
+                    CheckImpulse();
+                    if (m_IsInSetup)
+                    {
+                        break;
+                    }
+                    // We don't know how far we are from the nearest initial impulse
+                    // so we go deep and check
 
-            // We want to check if we have an extremum between a possible impulse
-            // and the current position
-            if (!m_IsInSetup && count > MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
-            {
-                startIndex -= 1;
-                endIndex -= 1;
-                startItem = extrema.ElementAt(startIndex);
-                endItem = extrema.ElementAt(endIndex);
-                CheckImpulse();
+                    startIndex -= 1;
+                    endIndex -= 1;
+                    if (startIndex < 0 || endIndex < 0)
+                    {
+                        break;
+                    }
+
+                    startItem = extrema.ElementAt(startIndex);
+                    endItem = extrema.ElementAt(endIndex);
+
+                    // If we are no longer between start and end of the impulse
+                    if (startItem.Value.Value >= low && endItem.Value.Value >= low ||
+                        startItem.Value.Value <= high && endItem.Value.Value <= high)
+                    {
+                        break;
+                    }
+                }
             }
 
             if (!m_IsInSetup)

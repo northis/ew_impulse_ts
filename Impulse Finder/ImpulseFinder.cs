@@ -22,15 +22,17 @@ namespace cAlgo
         /// <summary>
         /// Gets or sets the allowance to impulse recognition in percents.
         /// </summary>
-        [Parameter("DeviationPercent", DefaultValue = Helper.DEVIATION_DEF, MinValue = Helper.DEVIATION_MIN, MaxValue = Helper.DEVIATION_MAX)]
-        public double DeviationPercent { get; set; }
+        //[Parameter("DeviationPercent", DefaultValue = Helper.DEVIATION_DEF, MinValue = Helper.DEVIATION_MIN,
+        //    MaxValue = Helper.DEVIATION_MAX)]
+        public double DeviationPercent { get; set; } = Helper.DEVIATION_DEF;
 
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
-        [Parameter("DeviationPercentCorrection", DefaultValue = Helper.PERCENT_CORRECTION_DEF, MinValue = Helper.PERCENT_CORRECTION_MIN, MaxValue = Helper.PERCENT_CORRECTION_MAX)]
-        public double DeviationPercentCorrection { get; set; }
-        
+        //[Parameter("DeviationPercentCorrection", DefaultValue = Helper.PERCENT_CORRECTION_DEF, MinValue = Helper.PERCENT_CORRECTION_MIN, MaxValue = Helper.PERCENT_CORRECTION_MAX)]
+        public double DeviationPercentCorrection { get; set; } = Helper.PERCENT_CORRECTION_DEF;
+
+
         private string SetupLine =>
             "SetupLine" + Bars.OpenTimes.Last(1);
         private string ImpulseLineName =>
@@ -147,7 +149,7 @@ namespace cAlgo
             }
             catch (Exception ex)
             {
-                // System.Diagnostics.Debugger.Launch();
+                //System.Diagnostics.Debugger.Launch();
                 Print(ex.Message);
             }
 
