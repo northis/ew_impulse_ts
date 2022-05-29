@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace cAlgo
 {
@@ -36,25 +35,17 @@ namespace cAlgo
         /// </summary>
         /// <param name="start">The start of the interval.</param>
         /// <param name="end">The end of the interval.</param>
+        /// <param name="deviation">The deviation percent</param>
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsZigzag(DateTime start, DateTime end)
+        private bool IsZigzag(DateTime start, DateTime end, double deviation)
         {
             var minorExtremumFinder =
-                new ExtremumFinder(m_Deviation, m_BarsProvider);
+                new ExtremumFinder(deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(start, end);
-            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
-            int count = extrema.Count;
-
-            if (count == IMPULSE_EXTREMA_COUNT ||
-                count == IMPULSE_EXTREMA_COUNT + 1)
-            {
-                return false;
-            }
-
-            if (count == ZIGZAG_EXTREMA_COUNT ||
-                count == ZIGZAG_EXTREMA_COUNT + 1)
+            int count = minorExtremumFinder.Extrema.Count;
+            if (count == ZIGZAG_EXTREMA_COUNT)
             {
                 return true;
             }
@@ -70,14 +61,13 @@ namespace cAlgo
         /// <param name="end">The end extremum.</param>
         /// <param name="deviation">The deviation percent</param>
         /// <param name="extrema">The impulse waves found.</param>
-        /// <param name="isImpulseUp">if set to <c>true</c> than impulse should go up.</param>
         /// <param name="allowSimple">True if we treat count <see cref="SIMPLE_EXTREMA_COUNT"/>-movement as impulse.</param>
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
         private bool IsSimpleImpulse(
             Extremum start, Extremum end, 
-            double deviation, out List<Extremum> extrema, bool isImpulseUp, 
+            double deviation, out List<Extremum> extrema, 
             bool allowSimple = true)
         {
             var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
@@ -130,12 +120,17 @@ namespace cAlgo
             int countRest = count - IMPULSE_EXTREMA_COUNT;
             if (countRest != 0)
             {
-                return false;
-                //if (countRest < ZIGZAG_EXTREMA_COUNT)
-                //{
-                //    return false;
-                //}
+                if (countRest < ZIGZAG_EXTREMA_COUNT)
+                {
+                    return false;
+                }
 
+                if (countRest % ZIGZAG_EXTREMA_COUNT == 0)
+                {
+                    return true;
+                }
+
+                return false;
                 //double innerDeviation = deviation + Helper.DEVIATION_STEP;
                 //if (innerDeviation > Helper.DEVIATION_MAX)
                 //{
@@ -168,6 +163,7 @@ namespace cAlgo
                 return false;
             }
 
+            bool isImpulseUp = start.Value < end.Value;
             // Check the overlap rule
             if (isImpulseUp && firstWaveEnd.Value >= fourthWaveEnd.Value ||
                 !isImpulseUp && firstWaveEnd.Value <= fourthWaveEnd.Value)
@@ -196,19 +192,26 @@ namespace cAlgo
                 return false;
             }
 
-            for (double dv = deviation;
+            for (double dv = deviation/2;
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {
-                if (IsSimpleImpulse(
-                        firstItem, firstWaveEnd, dv, out _, isImpulseUp, false) &&
-                    IsSimpleImpulse(
-                        secondWaveEnd, thirdWaveEnd, dv, out _, isImpulseUp, false) &&
-                    IsSimpleImpulse(
-                        fourthWaveEnd, fifthWaveEnd, dv, out _, isImpulseUp, false))
+                if (IsZigzag(firstItem.OpenTime, firstWaveEnd.OpenTime, dv) ||
+                    IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.OpenTime, dv) ||
+                    IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.OpenTime, dv))
                 {
-                    return true;
+                    return false;
                 }
+
+                //if (IsSimpleImpulse(
+                //        firstItem, firstWaveEnd, dv, out _) &&
+                //    IsSimpleImpulse(
+                //        secondWaveEnd, thirdWaveEnd, dv, out _) &&
+                //    IsSimpleImpulse(
+                //        fourthWaveEnd, fifthWaveEnd, dv, out _))
+                //{
+                //    return true;
+                //}
             }
 
             return true;
@@ -219,13 +222,12 @@ namespace cAlgo
         /// </summary>
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
-        /// <param name="isImpulseUp">if set to <c>true</c> than impulse should go up.</param>
         /// <param name="extrema">The impulse waves found.</param>
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
         public bool IsImpulse(
-            Extremum start, Extremum end, bool isImpulseUp, out List<Extremum> extrema)
+            Extremum start, Extremum end, out List<Extremum> extrema)
         {
             //bool isZigzag = IsZigzag(dateStart, dateEnd);
 
@@ -243,8 +245,7 @@ namespace cAlgo
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {
-                bool isSimpleImpulse = IsSimpleImpulse(
-                    start, end, dv, out extrema, isImpulseUp, false);
+                bool isSimpleImpulse = IsSimpleImpulse(start, end, dv, out extrema, false);
                 if (isSimpleImpulse)
                 {
                     return true;

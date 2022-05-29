@@ -186,8 +186,7 @@ namespace cAlgo
                 }
                 
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, 
-                    isImpulseUp, out List<Extremum> outExtrema);
+                    startItem.Value, endItem.Value, out List<Extremum> outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
