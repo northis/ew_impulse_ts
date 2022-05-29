@@ -20,7 +20,13 @@ namespace cAlgo
 
         [Output("StopLosses", LineColor = "Transparent")]
         public IndicatorDataSeries StopLosses { get; set; }
-        
+
+        /// <summary>
+        /// Gets or sets the wanted average bars per wave.
+        /// </summary>
+        [Parameter("WantedAvgBarsPerWave", DefaultValue = Helper.WANTED_AVG_BARS_PER_WAVE_DEF, MinValue = 10, MaxValue = 200)]
+        public double WantedAvgBarsPerWave { get; set; }
+
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
@@ -137,7 +143,7 @@ namespace cAlgo
                 {
                     double avg = diffs.Average();
                     // System.Diagnostics.Debugger.Launch();
-                    deviationPercent = Helper.DEVIATION_DEF * Helper.WANTED_AVG_BARS_PER_WAVE / avg;
+                    deviationPercent = Helper.DEVIATION_DEF * WantedAvgBarsPerWave / avg;
                 }
 
                 Print($"History ok, index {index}, dev percent {deviationPercent:F2}");
