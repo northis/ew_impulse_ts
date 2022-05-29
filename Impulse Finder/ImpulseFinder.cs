@@ -41,7 +41,7 @@ namespace cAlgo
         public SetupFinder SetupFinder { get; private set; }
 
         private ExtremumFinder m_ExtremumFinder;
-        private bool m_IsInitialized = false;
+        private bool m_IsInitialized;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -138,6 +138,7 @@ namespace cAlgo
                     currentKey = key;
                 }
 
+                m_ExtremumFinder = null;
                 double deviationPercent = Helper.DEVIATION_DEF;
                 if (diffs.Count > 0)
                 {
