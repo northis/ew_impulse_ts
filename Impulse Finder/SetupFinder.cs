@@ -10,8 +10,7 @@ namespace cAlgo
     /// </summary>
     public class SetupFinder
     {
-        private readonly IBarsProvider m_BarsProviderMinor;
-        private readonly IBarsProvider m_BarsProviderMajor;
+        private readonly IBarsProvider m_BarsProvider;
         private readonly PatternFinder m_PatternFinder;
         private readonly ExtremumFinder m_ExtremumFinder;
         private bool m_IsInSetup;
@@ -21,7 +20,6 @@ namespace cAlgo
         private double m_SetupEndPrice;
         private double m_TriggerLevel;
         private int m_TriggerBarIndex;
-        private int m_CurrentMajorIndex = 0;
 
         private const double TRIGGER_LEVEL_RATIO = 0.5;
         
@@ -37,23 +35,18 @@ namespace cAlgo
         /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
-        /// <param name="deviationPercentMajor">The deviation percent.</param>
+        /// <param name="deviationPercent">The deviation percent.</param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="barsProviderMinor">The bars provider (minor).</param>
-        /// <param name="barsProviderMain">The bars provider main (main).</param>
+        /// <param name="barsProvider">The bars provider.</param>
         public SetupFinder(
-            double deviationPercentMajor,
+            double deviationPercent,
             double correctionAllowancePercent,
-            IBarsProvider barsProviderMinor,
-            IBarsProvider barsProviderMain)
+            IBarsProvider barsProvider)
         {
-            m_BarsProviderMinor = barsProviderMinor;
-            m_BarsProviderMajor = barsProviderMain;
-            m_ExtremumFinder = new ExtremumFinder(
-                deviationPercentMajor, m_BarsProviderMajor);
+            m_BarsProvider = barsProvider;
+            m_ExtremumFinder = new ExtremumFinder(deviationPercent, m_BarsProvider);
             m_PatternFinder = new PatternFinder(
-                correctionAllowancePercent, deviationPercentMajor, barsProviderMinor);
-            m_BarsProviderMajor.LoadBars();
+                correctionAllowancePercent, deviationPercent, barsProvider);
         }
 
         /// <summary>
@@ -122,89 +115,13 @@ namespace cAlgo
             return isInitialMove;
         }
 
-        private int GetMinorIndexByDate(DateTime time, double value)
-        {
-            TimeSpan currentTimeSpan =
-                TimeFrameHelper.TimeFrames[m_BarsProviderMinor.TimeFrame].TimeSpan;
-            DateTime currentDateTime = time;
-            DateTime endDateTime = time.Add(
-                TimeFrameHelper.TimeFrames[m_BarsProviderMajor.TimeFrame].TimeSpan);
-
-            do
-            {
-                int indexInner = m_BarsProviderMinor.GetIndexByTime(currentDateTime);
-                double high = m_BarsProviderMinor.GetHighPrice(indexInner);
-                double low = m_BarsProviderMinor.GetLowPrice(indexInner);
-                if (Math.Abs(value - high) < double.Epsilon ||
-                    Math.Abs(value - low) < double.Epsilon)
-                {
-                    return indexInner;
-                }
-
-                currentDateTime = currentDateTime.Add(currentTimeSpan);
-            } while (currentDateTime < endDateTime);
-
-            return -1;
-        }
-        
-        private int GetIndexFromMajor(int index, double? value = null)
-        {
-            int resultIndex = -1;
-            DateTime time = m_BarsProviderMajor.GetOpenTime(index);
-            for (int i = m_BarsProviderMinor.Count - 1; i > 0; i--)
-            {
-                if (time != m_BarsProviderMinor.GetOpenTime(i))
-                {
-                    continue;
-                }
-
-                resultIndex = i;
-            }
-
-            if (value.HasValue && resultIndex != -1)
-            {
-                int innerIndex = GetMinorIndexByDate(time, value.Value);
-                if (innerIndex != -1)
-                {
-                    resultIndex = innerIndex;
-                }
-            }
-
-            return resultIndex;
-        }
-
-        private int GetIndexFromMinor(int index)
-        {
-            DateTime time = m_BarsProviderMinor.GetOpenTime(index);
-            for (int i = m_BarsProviderMajor.Count - 1; i > 0; i--)
-            {
-                if (time == m_BarsProviderMajor.GetOpenTime(i))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
-
         /// <summary>
         /// Checks the conditions of possible setup for <see cref="minorIndex"/>.
         /// </summary>
-        /// <param name="minorIndex">The index of bar (minor TF) to calculate.</param>
+        /// <param name="minorIndex">The index of bar to calculate.</param>
         public void CheckSetup(int minorIndex)
         {
-            int currentMajorIndex = GetIndexFromMinor(minorIndex);
-            if (currentMajorIndex != -1)
-            {
-                m_CurrentMajorIndex = currentMajorIndex;
-            }
-
-            if (m_CurrentMajorIndex <=0)
-            {
-                return;
-            }
-
-            m_ExtremumFinder.Calculate(m_CurrentMajorIndex);
+            m_ExtremumFinder.Calculate(minorIndex);
             SortedDictionary<int, Extremum> extrema = m_ExtremumFinder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
@@ -212,8 +129,8 @@ namespace cAlgo
                 return;
             }
 
-            double low = m_BarsProviderMinor.GetLowPrice(minorIndex);
-            double high = m_BarsProviderMinor.GetHighPrice(minorIndex);
+            double low = m_BarsProvider.GetLowPrice(minorIndex);
+            double high = m_BarsProvider.GetHighPrice(minorIndex);
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
@@ -222,15 +139,7 @@ namespace cAlgo
             KeyValuePair<int, Extremum> endItem = extrema
                 .ElementAt(endIndex);
 
-            if (endItem.Value.CloseTime >= m_BarsProviderMinor.GetOpenTime(minorIndex) 
-                && !m_IsInSetup)
-            {
-                // Hold your horses, we will wait the next bars
-                return;
-            }
-
-            bool isInSetup = m_IsInSetup;
-
+            bool isInSetupBefore = m_IsInSetup;
             void CheckImpulse()
             {
                 double startValue = startItem.Value.Value;
@@ -238,11 +147,11 @@ namespace cAlgo
 
                 var isImpulseUp = endValue > startValue;
                 double maxValue = Math.Max(startValue, endValue);
-                double minValue = Math.Min(startValue, endValue);
-                for (int i = endItem.Key + 1; i < m_CurrentMajorIndex; i++)
+                double minValue = Math.Min(startValue, minorIndex);
+                for (int i = endItem.Key + 1; i < minorIndex; i++)
                 {
-                    if (maxValue <= m_BarsProviderMajor.GetHighPrice(i) ||
-                        minValue >= m_BarsProviderMajor.GetLowPrice(i))
+                    if (maxValue <= m_BarsProvider.GetHighPrice(i) ||
+                        minValue >= m_BarsProvider.GetLowPrice(i))
                     {
                         return;
                         // The setup is no longer valid, TP or SL is already hit.
@@ -275,16 +184,10 @@ namespace cAlgo
                 {
                     return;
                 }
-
-                DateTime impulseStart =
-                    m_BarsProviderMinor.GetOpenTime(GetMinorIndexByDate(
-                        startItem.Value.OpenTime, startItem.Value.Value));
-                DateTime impulseEnd =
-                    m_BarsProviderMinor.GetOpenTime(GetMinorIndexByDate(
-                        endItem.Value.OpenTime, endItem.Value.Value));
-
+                
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    impulseStart, impulseEnd, isImpulseUp, out Extremum[] outExtrema);
+                    startItem.Value, endItem.Value, 
+                    isImpulseUp, out List<Extremum> outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -295,6 +198,12 @@ namespace cAlgo
                     m_SetupEndIndex == endItem.Key)
                 {
                     // Cannot use the same impulse twice.
+                    return;
+                }
+
+                if (endItem.Key == minorIndex)
+                {
+                    // Wait for the next bar
                     return;
                 }
 
@@ -319,10 +228,8 @@ namespace cAlgo
                     m_SetupEndPrice = endValue + endAllowance;
                 }
 
-                var tpArg = new LevelItem(m_SetupEndPrice,
-                    GetIndexFromMajor(m_SetupEndIndex, endValue));
-                var slArg = new LevelItem(m_SetupStartPrice,
-                    GetIndexFromMajor(m_SetupStartIndex, startValue));
+                var tpArg = new LevelItem(m_SetupEndPrice, m_SetupEndIndex);
+                var slArg = new LevelItem(m_SetupStartPrice, m_SetupStartIndex);
 
                 OnEnter?.Invoke(this,
                     new SignalEventArgs(
@@ -369,7 +276,7 @@ namespace cAlgo
                 return;
             }
 
-            if (isInSetup != m_IsInSetup)
+            if (!isInSetupBefore)
             {
                 return;
             }

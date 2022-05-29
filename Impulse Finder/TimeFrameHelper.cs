@@ -15,7 +15,7 @@ namespace cAlgo
         {
             int timeFrameTypeTimeEnum = 0;//TimeFrameType.Time
             Type timeFrameType = typeof(TimeFrame);
-            TIME_FRAMES_ARRAY = timeFrameType.GetFields(
+            TimeFrameInfo[] timeFramesArray = timeFrameType.GetFields(
                     BindingFlags.Public | BindingFlags.Static)
                 .Where(a => a.FieldType == timeFrameType)
                 .Select(a => a.GetValue(null) as TimeFrame)
@@ -25,11 +25,11 @@ namespace cAlgo
                     ?.GetValue(a)) == timeFrameTypeTimeEnum)
                 .Select(a => new TimeFrameInfo(a, 
                     TimeSpan.FromMinutes(Convert.ToInt32(timeFrameType
-                    .GetProperty("Size", BindingFlags.NonPublic | BindingFlags.Instance)
-                    ?.GetValue(a)))))
+                        .GetProperty("Size", BindingFlags.NonPublic | BindingFlags.Instance)
+                        ?.GetValue(a)))))
                 .ToArray();
 
-            TimeFrames = TIME_FRAMES_ARRAY.ToDictionary(
+            TimeFrames = timeFramesArray.ToDictionary(
                 a => a.TimeFrame, a => a);
         }
 
@@ -37,27 +37,5 @@ namespace cAlgo
         /// Gets the supported time frames.
         /// </summary>
         public static Dictionary<TimeFrame, TimeFrameInfo> TimeFrames { get; }
-
-        private static readonly TimeFrameInfo[] TIME_FRAMES_ARRAY;
-
-        /// <summary>
-        /// Gets the next time frame for the current time frame.
-        /// </summary>
-        /// <param name="current">The current.</param>
-        /// <param name="nextRatio">Get next TF at least this times smaller.</param>
-        public static TimeFrame GetNextTimeFrame(TimeFrame current, double nextRatio)
-        {
-            if (!TimeFrames.TryGetValue(current, out TimeFrameInfo info))
-            {
-                return current;
-            }
-
-            TimeSpan nextTs = TimeSpan.FromMinutes(info.TimeSpan.TotalMinutes * nextRatio);
-            TimeFrameInfo res = TIME_FRAMES_ARRAY
-                .SkipWhile(a => a.TimeSpan < nextTs)
-                .FirstOrDefault();
-
-            return res == null ? TIME_FRAMES_ARRAY[^1].TimeFrame : res.TimeFrame;
-        }
     }
 }

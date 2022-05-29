@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace cAlgo
@@ -43,8 +44,8 @@ namespace cAlgo
             var minorExtremumFinder =
                 new ExtremumFinder(m_Deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(start, end);
-            Extremum[] extrema = minorExtremumFinder.ToExtremaArray();
-            int count = extrema.Length;
+            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
+            int count = extrema.Count;
 
             if (count == IMPULSE_EXTREMA_COUNT ||
                 count == IMPULSE_EXTREMA_COUNT + 1)
@@ -65,8 +66,8 @@ namespace cAlgo
         /// Determines whether the specified extrema is an simple impulse.
         /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
         /// </summary>
-        /// <param name="dateStart">The date start.</param>
-        /// <param name="dateEnd">The date end.</param>
+        /// <param name="start">The start extremum.</param>
+        /// <param name="end">The end extremum.</param>
         /// <param name="deviation">The deviation percent</param>
         /// <param name="extrema">The impulse waves found.</param>
         /// <param name="isImpulseUp">if set to <c>true</c> than impulse should go up.</param>
@@ -75,15 +76,41 @@ namespace cAlgo
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
         private bool IsSimpleImpulse(
-            DateTime dateStart, DateTime dateEnd, 
-            double deviation, out Extremum[] extrema, bool isImpulseUp, 
+            Extremum start, Extremum end, 
+            double deviation, out List<Extremum> extrema, bool isImpulseUp, 
             bool allowSimple = true)
         {
             var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
-            minorExtremumFinder.Calculate(dateStart, dateEnd);
-            extrema = minorExtremumFinder.ToExtremaArray();
+            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
+            extrema = minorExtremumFinder.ToExtremaList();
 
-            int count = extrema.Length;
+            if (extrema.Count == 0)
+            {
+                extrema.Add(start);
+                extrema.Add(end);
+            }
+            else
+            {
+                if (extrema[0].OpenTime == start.OpenTime)
+                {
+                    extrema[0].Value = start.Value;
+                }
+                else
+                {
+                    extrema.Insert(0, start);
+                }
+
+                if (extrema[^1].OpenTime == end.OpenTime)
+                {
+                    extrema[^1].Value = end.Value;
+                }
+                else
+                {
+                    extrema.Add(end);
+                }
+            }
+
+            int count = extrema.Count;
             if (count < SIMPLE_EXTREMA_COUNT)
             {
                 return false;
@@ -103,20 +130,21 @@ namespace cAlgo
             int countRest = count - IMPULSE_EXTREMA_COUNT;
             if (countRest != 0)
             {
-                if (countRest < ZIGZAG_EXTREMA_COUNT)
-                {
-                    return false;
-                }
+                return false;
+                //if (countRest < ZIGZAG_EXTREMA_COUNT)
+                //{
+                //    return false;
+                //}
 
-                double innerDeviation = deviation + Helper.DEVIATION_STEP;
-                if (innerDeviation > Helper.DEVIATION_MAX)
-                {
-                    return false;
-                }
+                //double innerDeviation = deviation + Helper.DEVIATION_STEP;
+                //if (innerDeviation > Helper.DEVIATION_MAX)
+                //{
+                //    return false;
+                //}
 
-                bool innerCheck = IsSimpleImpulse(
-                    dateStart, dateEnd, innerDeviation, out extrema, isImpulseUp, false);
-                return innerCheck;
+                //bool innerCheck = IsSimpleImpulse(
+                //    dateStart, dateEnd, innerDeviation, out extrema, isImpulseUp, false);
+                //return innerCheck;
             }
 
             Extremum firstWaveEnd = extrema[1];
@@ -161,23 +189,23 @@ namespace cAlgo
                 return false;
             }
 
-            //// Check the 3rd wave length
+            // Check the 3rd wave length
             if (thirdWaveLength < firstWaveLength &&
                 thirdWaveLength < fifthWaveLength)
             {
                 return false;
             }
 
-            for (double dv = deviation * Helper.DEVIATION_INNER_RATIO;
+            for (double dv = deviation;
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {
-                if (IsSimpleImpulse(firstItem.OpenTime,
-                        firstWaveEnd.CloseTime, dv, out _, isImpulseUp) &&
-                    IsSimpleImpulse(secondWaveEnd.OpenTime,
-                        thirdWaveEnd.CloseTime, dv, out _, isImpulseUp) &&
-                    IsSimpleImpulse(fourthWaveEnd.OpenTime,
-                        fifthWaveEnd.CloseTime, dv, out _, isImpulseUp))
+                if (IsSimpleImpulse(
+                        firstItem, firstWaveEnd, dv, out _, isImpulseUp, false) &&
+                    IsSimpleImpulse(
+                        secondWaveEnd, thirdWaveEnd, dv, out _, isImpulseUp, false) &&
+                    IsSimpleImpulse(
+                        fourthWaveEnd, fifthWaveEnd, dv, out _, isImpulseUp, false))
                 {
                     return true;
                 }
@@ -189,15 +217,15 @@ namespace cAlgo
         /// <summary>
         /// Determines whether the interval between the dates is an impulse.
         /// </summary>
-        /// <param name="dateStart">The date start.</param>
-        /// <param name="dateEnd">The date end.</param>
+        /// <param name="start">The start extremum.</param>
+        /// <param name="end">The end extremum.</param>
         /// <param name="isImpulseUp">if set to <c>true</c> than impulse should go up.</param>
         /// <param name="extrema">The impulse waves found.</param>
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
         public bool IsImpulse(
-            DateTime dateStart, DateTime dateEnd, bool isImpulseUp, out Extremum[] extrema)
+            Extremum start, Extremum end, bool isImpulseUp, out List<Extremum> extrema)
         {
             //bool isZigzag = IsZigzag(dateStart, dateEnd);
 
@@ -216,7 +244,7 @@ namespace cAlgo
                  dv -= Helper.DEVIATION_STEP)
             {
                 bool isSimpleImpulse = IsSimpleImpulse(
-                    dateStart, dateEnd, dv, out extrema, isImpulseUp, false);
+                    start, end, dv, out extrema, isImpulseUp, false);
                 if (isSimpleImpulse)
                 {
                     return true;

@@ -70,9 +70,9 @@ namespace cAlgo
         /// <summary>
         /// Gets all the extrema as array.
         /// </summary>
-        public Extremum[] ToExtremaArray()
+        public List<Extremum> ToExtremaList()
         {
-            return Extrema.Select(a => a.Value).ToArray();
+            return Extrema.Select(a => a.Value).ToList();
         }
 
         /// <summary>
@@ -95,7 +95,7 @@ namespace cAlgo
         /// <param name="endDate">The end date and time.</param>
         public void Calculate(DateTime startDate, DateTime endDate)
         {
-            int startIndex = m_BarsProvider.GetIndexByTime(startDate)-1;
+            int startIndex = m_BarsProvider.GetIndexByTime(startDate);
             int endIndex = m_BarsProvider.GetIndexByTime(endDate);
             Calculate(startIndex, endIndex);
         }
