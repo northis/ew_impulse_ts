@@ -125,21 +125,16 @@ namespace cAlgo
                     return false;
                 }
 
-                if (countRest % ZIGZAG_EXTREMA_COUNT == 0)
+                double maxDeviation = deviation * Helper.DEVIATION_HIGH_RATIO;
+                double innerDeviation = deviation + Helper.DEVIATION_STEP;
+                if (innerDeviation > maxDeviation)
                 {
-                    return true;
+                    return false;
                 }
 
-                return false;
-                //double innerDeviation = deviation + Helper.DEVIATION_STEP;
-                //if (innerDeviation > Helper.DEVIATION_MAX)
-                //{
-                //    return false;
-                //}
-
-                //bool innerCheck = IsSimpleImpulse(
-                //    dateStart, dateEnd, innerDeviation, out extrema, isImpulseUp, false);
-                //return innerCheck;
+                bool innerCheck = IsSimpleImpulse(
+                    start, end, innerDeviation, out extrema); 
+                return innerCheck;
             }
 
             Extremum firstWaveEnd = extrema[1];
@@ -192,7 +187,7 @@ namespace cAlgo
                 return false;
             }
 
-            for (double dv = deviation/2;
+            for (double dv = deviation;
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {
@@ -239,8 +234,18 @@ namespace cAlgo
             //{
             //    return false;
             //}
-
             extrema = null;
+            if (!TimeFrameHelper.TimeFrames.TryGetValue(
+                   start.BarTimeFrame, out TimeFrameInfo tfInfo))
+            {
+                return false;
+            }
+
+            if (end.OpenTime - start.OpenTime < tfInfo.TimeSpan * Helper.MINIMUM_BARS_IN_IMPULSE)
+            {
+                return false;
+            }
+
             for (double dv = m_Deviation; 
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
