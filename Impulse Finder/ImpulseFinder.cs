@@ -20,13 +20,7 @@ namespace cAlgo
 
         [Output("StopLosses", LineColor = "Transparent")]
         public IndicatorDataSeries StopLosses { get; set; }
-
-        /// <summary>
-        /// Gets or sets the wanted average bars per wave.
-        /// </summary>
-        [Parameter("WantedAvgBarsPerWave", DefaultValue = Helper.WANTED_AVG_BARS_PER_WAVE_DEF, MinValue = 10, MaxValue = 200)]
-        public double WantedAvgBarsPerWave { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the allowance for the correction harmony (2nd and 4th waves).
         /// </summary>
@@ -40,7 +34,6 @@ namespace cAlgo
         /// </summary>
         public SetupFinder SetupFinder { get; private set; }
 
-        private ExtremumFinder m_ExtremumFinder;
         private bool m_IsInitialized;
 
         /// <summary>
@@ -56,7 +49,11 @@ namespace cAlgo
             }
             
             m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
-            m_ExtremumFinder = new ExtremumFinder(Helper.DEVIATION_DEF, m_BarsProvider);
+
+            SetupFinder = new SetupFinder(HarmonyPercentCorrection, m_BarsProvider);
+            SetupFinder.OnEnter += OnEnter;
+            SetupFinder.OnStopLoss += OnStopLoss;
+            SetupFinder.OnTakeProfit += OnTakeProfit;
         }
 
         protected override void OnDestroy()
@@ -115,55 +112,11 @@ namespace cAlgo
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
-            if (m_IsInitialized)
+            SetupFinder.CheckSetup(index);
+            if (IsLastBar && !m_IsInitialized)
             {
-                SetupFinder.CheckSetup(index);
-                return;
-            }
-
-            if (IsLastBar)
-            {
-                // We want to calculate wanted amount bars in wave
                 m_IsInitialized = true;
-
-                var diffs = new List<int>();
-                int? currentKey = null;
-                foreach (int key in m_ExtremumFinder.Extrema.Keys)
-                {
-                    if (currentKey.HasValue)
-                    {
-                        diffs.Add(key - currentKey.Value);
-                    }
-
-                    currentKey = key;
-                }
-
-                m_ExtremumFinder = null;
-                double deviationPercent = Helper.DEVIATION_DEF;
-                if (diffs.Count > 0)
-                {
-                    double avg = diffs.Average();
-                    // System.Diagnostics.Debugger.Launch();
-                    deviationPercent = Helper.DEVIATION_DEF * WantedAvgBarsPerWave / avg;
-                }
-
-                Print($"History ok, index {index}, dev percent {deviationPercent:F2}");
-
-                SetupFinder = new SetupFinder(
-                    deviationPercent,
-                    HarmonyPercentCorrection,
-                    m_BarsProvider);
-                SetupFinder.OnEnter += OnEnter;
-                SetupFinder.OnStopLoss += OnStopLoss;
-                SetupFinder.OnTakeProfit += OnTakeProfit;
-                for (int i = 0; i < Bars.Count; i++)
-                {
-                    SetupFinder.CheckSetup(i);
-                }
-            }
-            else
-            {
-                m_ExtremumFinder.Calculate(index);
+                Print($"History ok, index {index}");
             }
         }
     }
