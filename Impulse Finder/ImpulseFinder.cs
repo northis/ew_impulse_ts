@@ -15,7 +15,10 @@ namespace cAlgo
         private IBarsProvider m_BarsProvider;
         private TelegramBotClient m_TelegramBotClient;
         private ChatId m_TelegramChatId;
-        private int? m_LastSignalMessageId = null;
+        private int? m_LastSignalMessageId;
+
+        private const string TOKEN_NAME = "IMPULSE_FINDER_BOT_TOKEN_NAME";
+        private const string CHAT_ID = "IMPULSE_FINDER_BOT_CHAT_ID";
 
         /// <summary>
         /// Gets or sets the telegram bot token.
@@ -55,7 +58,16 @@ namespace cAlgo
             SetupFinder.OnStopLoss += OnStopLoss;
             SetupFinder.OnTakeProfit += OnTakeProfit;
 
-            if (TelegramBotToken != null && ChatId != null)
+            if (string.IsNullOrEmpty(TelegramBotToken))
+            {
+                TelegramBotToken = Environment.GetEnvironmentVariable(TOKEN_NAME);
+            }
+            if (string.IsNullOrEmpty(ChatId))
+            {
+                ChatId = Environment.GetEnvironmentVariable(CHAT_ID);
+            }
+
+            if (!string.IsNullOrEmpty(TelegramBotToken) && !string.IsNullOrEmpty(ChatId))
             {
                 m_TelegramBotClient = new TelegramBotClient(TelegramBotToken)
                 {
@@ -126,7 +138,7 @@ namespace cAlgo
             }
             
             Print($"New setup found! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
-            if (m_TelegramBotClient == null && m_IsInitialized)
+            if (m_TelegramBotClient == null || !m_IsInitialized)
             {
                 return;
             }
