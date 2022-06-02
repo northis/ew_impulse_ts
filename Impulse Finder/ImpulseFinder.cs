@@ -55,7 +55,7 @@ namespace cAlgo
             SetupFinder.OnStopLoss += OnStopLoss;
             SetupFinder.OnTakeProfit += OnTakeProfit;
 
-            if (TelegramBotToken != null && ChatId!=null)
+            if (TelegramBotToken != null && ChatId != null)
             {
                 m_TelegramBotClient = new TelegramBotClient(TelegramBotToken)
                 {
@@ -126,14 +126,33 @@ namespace cAlgo
             }
             
             Print($"New setup found! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
-            if (m_TelegramBotClient == null || !m_IsInitialized)
+            if (m_TelegramBotClient == null && m_IsInitialized)
             {
                 return;
             }
-            
-            string tradeType = e.StopLoss.Price < e.TakeProfit.Price ? "BUY" : "SELL";
+
+            string tradeType;
+            double price;
+            if (e.StopLoss.Price < e.TakeProfit.Price)
+            {
+                tradeType =  "BUY";
+                price = Bid;
+            }
+            else
+            {
+                tradeType = "SELL";
+                price = Ask;
+            }
+
+            double sl = e.StopLoss.Price;
+            double tp = e.TakeProfit.Price;
+
+            double den = Math.Abs(price - sl);
+            string ratio = den > 0 
+                ? $" (R:R {Math.Abs(price - tp) / den:F1})" 
+                : string.Empty;
             string alert =
-                $"{SymbolName} {tradeType} {Environment.NewLine}TP: {e.TakeProfit.Price}{Environment.NewLine}SL: {e.StopLoss.Price}";
+                $"#{SymbolName} {tradeType} {Environment.NewLine}TP: {e.TakeProfit.Price:F5}{Environment.NewLine}SL: {e.StopLoss.Price:F5}{Environment.NewLine}Price: {price}{ratio}";
 
             Message msgRes = m_TelegramBotClient
                 .SendTextMessageAsync(m_TelegramChatId, alert)
