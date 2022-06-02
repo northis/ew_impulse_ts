@@ -9,7 +9,6 @@ namespace cAlgo
     public class PatternFinder
     {
         private readonly double m_CorrectionAllowancePercent;
-        private readonly double m_Deviation;
         private readonly IBarsProvider m_BarsProvider;
         private const int IMPULSE_EXTREMA_COUNT = 6;
         private const int SIMPLE_EXTREMA_COUNT = 2;
@@ -19,14 +18,10 @@ namespace cAlgo
         /// Initializes a new instance of the <see cref="PatternFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="deviation">The deviation.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        public PatternFinder(double correctionAllowancePercent,
-            double deviation,
-            IBarsProvider barsProvider)
+        public PatternFinder(double correctionAllowancePercent, IBarsProvider barsProvider)
         {
             m_CorrectionAllowancePercent = correctionAllowancePercent;
-            m_Deviation = deviation;
             m_BarsProvider = barsProvider;
         }
 
@@ -133,7 +128,7 @@ namespace cAlgo
                 }
 
                 bool innerCheck = IsSimpleImpulse(
-                    start, end, innerDeviation, out extrema); 
+                    start, end, innerDeviation, out extrema, false); 
                 return innerCheck;
             }
 
@@ -217,36 +212,16 @@ namespace cAlgo
         /// </summary>
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
+        /// <param name="deviation">The deviation to use.</param>
         /// <param name="extrema">The impulse waves found.</param>
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
         public bool IsImpulse(
-            Extremum start, Extremum end, out List<Extremum> extrema)
+            Extremum start, Extremum end, double deviation, out List<Extremum> extrema)
         {
-            //bool isZigzag = IsZigzag(dateStart, dateEnd);
-
-            //// Let's look closer to the impulse waves 1, 3 and 5.
-            //// We shouldn't pass zigzags in it
-            //if (IsZigzag(firstItem.OpenTime, firstWaveEnd.CloseTime)
-            //    || IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.CloseTime)
-            //    || IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.CloseTime))
-            //{
-            //    return false;
-            //}
             extrema = null;
-            if (!TimeFrameHelper.TimeFrames.TryGetValue(
-                   start.BarTimeFrame, out TimeFrameInfo tfInfo))
-            {
-                return false;
-            }
-
-            if (end.OpenTime - start.OpenTime < tfInfo.TimeSpan * Helper.MINIMUM_BARS_IN_IMPULSE)
-            {
-                return false;
-            }
-
-            for (double dv = m_Deviation; 
+            for (double dv = deviation; 
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {

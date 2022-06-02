@@ -12,7 +12,7 @@ namespace cAlgo
     {
         private readonly IBarsProvider m_BarsProvider;
         private readonly PatternFinder m_PatternFinder;
-        private readonly ExtremumFinder m_ExtremumFinder;
+        private readonly List<ExtremumFinder> m_ExtremumFinders = new List<ExtremumFinder>();
         private bool m_IsInSetup;
         private int m_SetupStartIndex;
         private int m_SetupEndIndex;
@@ -35,18 +35,19 @@ namespace cAlgo
         /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
-        /// <param name="deviationPercent">The deviation percent.</param>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        public SetupFinder(
-            double deviationPercent,
-            double correctionAllowancePercent,
-            IBarsProvider barsProvider)
+        public SetupFinder(double correctionAllowancePercent, IBarsProvider barsProvider)
         {
             m_BarsProvider = barsProvider;
-            m_ExtremumFinder = new ExtremumFinder(deviationPercent, m_BarsProvider);
-            m_PatternFinder = new PatternFinder(
-                correctionAllowancePercent, deviationPercent, barsProvider);
+            for (double d = Helper.DEVIATION_MAX;
+                 d >= Helper.DEVIATION_MIN;
+                 d -= Helper.DEVIATION_STEP)
+            {
+                m_ExtremumFinders.Add(new ExtremumFinder(d, m_BarsProvider));
+            }
+
+            m_PatternFinder = new PatternFinder(correctionAllowancePercent, barsProvider);
         }
 
         /// <summary>
@@ -70,18 +71,19 @@ namespace cAlgo
         /// <param name="startValue">The start value.</param>
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
+        /// <param name="finder">The extremum finder instance.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
         private bool IsInitialMovement(
-            double startValue, double endValue, int startIndex)
+            double startValue, double endValue, int startIndex, ExtremumFinder finder)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                double curValue = m_ExtremumFinder
+                double curValue = finder
                     .Extrema
                     .ElementAt(curIndex).Value.Value;
                 if (isImpulseUp)
@@ -116,21 +118,24 @@ namespace cAlgo
         }
 
         /// <summary>
-        /// Checks the conditions of possible setup for <see cref="minorIndex"/>.
+        /// Determines whether the data for specified index contains a trade setup.
         /// </summary>
-        /// <param name="minorIndex">The index of bar to calculate.</param>
-        public void CheckSetup(int minorIndex)
+        /// <param name="index">Index of the current candle.</param>
+        /// <param name="finder">The extremum finder instance.</param>
+        /// <returns>
+        ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
+        /// </returns>
+        private bool IsSetup(int index, ExtremumFinder finder)
         {
-            m_ExtremumFinder.Calculate(minorIndex);
-            SortedDictionary<int, Extremum> extrema = m_ExtremumFinder.Extrema;
+            SortedDictionary<int, Extremum> extrema = finder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
-                return;
+                return false;
             }
 
-            double low = m_BarsProvider.GetLowPrice(minorIndex);
-            double high = m_BarsProvider.GetHighPrice(minorIndex);
+            double low = m_BarsProvider.GetLowPrice(index);
+            double high = m_BarsProvider.GetHighPrice(index);
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
@@ -142,13 +147,18 @@ namespace cAlgo
             bool isInSetupBefore = m_IsInSetup;
             void CheckImpulse()
             {
+                if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
+                {
+                    return;
+                }
+
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
                 var isImpulseUp = endValue > startValue;
                 double maxValue = Math.Max(startValue, endValue);
-                double minValue = Math.Min(startValue, minorIndex);
-                for (int i = endItem.Key + 1; i < minorIndex; i++)
+                double minValue = Math.Min(startValue, index);
+                for (int i = endItem.Key + 1; i < index; i++)
                 {
                     if (maxValue <= m_BarsProvider.GetHighPrice(i) ||
                         minValue >= m_BarsProvider.GetLowPrice(i))
@@ -158,7 +168,8 @@ namespace cAlgo
                     }
                 }
 
-                bool isInitialMove = IsInitialMovement(startValue, endValue, startIndex);
+                bool isInitialMove = IsInitialMovement(
+                    startValue, endValue, startIndex, finder);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
@@ -184,9 +195,9 @@ namespace cAlgo
                 {
                     return;
                 }
-                
+
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, out List<Extremum> outExtrema);
+                    startItem.Value, endItem.Value, finder.DeviationPercent, out List<Extremum> outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -200,16 +211,16 @@ namespace cAlgo
                     return;
                 }
 
-                if (endItem.Key == minorIndex)
+                if (endItem.Key == index)
                 {
                     // Wait for the next bar
                     return;
                 }
 
                 m_TriggerLevel = triggerLevel;
-                m_TriggerBarIndex = minorIndex;
+                m_TriggerBarIndex = index;
                 m_IsInSetup = true;
-                
+
                 double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
                 double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
@@ -232,7 +243,7 @@ namespace cAlgo
 
                 OnEnter?.Invoke(this,
                     new SignalEventArgs(
-                        new LevelItem(triggerLevel, minorIndex),
+                        new LevelItem(triggerLevel, index),
                         tpArg,
                         slArg,
                         outExtrema));
@@ -241,7 +252,7 @@ namespace cAlgo
 
             if (!m_IsInSetup)
             {
-                for (;;)
+                for (; ; )
                 {
                     CheckImpulse();
                     if (m_IsInSetup)
@@ -272,23 +283,23 @@ namespace cAlgo
 
             if (!m_IsInSetup)
             {
-                return;
+                return false;
             }
 
             if (!isInSetupBefore)
             {
-                return;
+                return false;
             }
 
             bool isImpulseUp = m_SetupEndPrice > m_SetupStartPrice;
             bool isProfitHit = isImpulseUp && high >= m_SetupEndPrice
                                || !isImpulseUp && low <= m_SetupEndPrice;
-            
+
             if (isProfitHit)
             {
                 m_IsInSetup = false;
                 OnTakeProfit?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(m_SetupEndPrice, minorIndex),
+                    new LevelEventArgs(new LevelItem(m_SetupEndPrice, index),
                         new LevelItem(m_TriggerLevel, m_TriggerBarIndex)));
             }
 
@@ -298,8 +309,30 @@ namespace cAlgo
             {
                 m_IsInSetup = false;
                 OnStopLoss?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(m_SetupStartPrice, minorIndex),
+                    new LevelEventArgs(new LevelItem(m_SetupStartPrice, index),
                         new LevelItem(m_TriggerLevel, m_TriggerBarIndex)));
+            }
+
+            return m_IsInSetup;
+        }
+
+        /// <summary>
+        /// Checks the conditions of possible setup for <see cref="index"/>.
+        /// </summary>
+        /// <param name="index">The index of bar to calculate.</param>
+        public void CheckSetup(int index)
+        {
+            foreach (ExtremumFinder finder in m_ExtremumFinders)
+            {
+                finder.Calculate(index);
+            }
+
+            foreach (ExtremumFinder finder in m_ExtremumFinders)
+            {
+                if (IsSetup(index, finder))
+                {
+                    break;
+                }
             }
         }
     }
