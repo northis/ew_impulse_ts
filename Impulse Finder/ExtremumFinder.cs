@@ -68,11 +68,6 @@ namespace cAlgo
         }
 
         /// <summary>
-        /// Gets the deviation percent.
-        /// </summary>
-        public double DeviationPercent => m_DeviationPercent;
-
-        /// <summary>
         /// Gets all the extrema as array.
         /// </summary>
         public List<Extremum> ToExtremaList()
