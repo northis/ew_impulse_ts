@@ -1,7 +1,6 @@
 ﻿using System;
 using cAlgo.API;
-using Telegram.Bot;
-using Telegram.Bot.Types;
+using cAlgo.Config;
 
 namespace cAlgo
 {
@@ -12,14 +11,6 @@ namespace cAlgo
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class ImpulseFinder : Indicator
     {
-        private IBarsProvider m_BarsProvider;
-        private TelegramBotClient m_TelegramBotClient;
-        private ChatId m_TelegramChatId;
-        private int? m_LastSignalMessageId;
-
-        private const string TOKEN_NAME = "IMPULSE_FINDER_BOT_TOKEN_NAME";
-        private const string CHAT_ID = "IMPULSE_FINDER_BOT_CHAT_ID";
-
         /// <summary>
         /// Gets or sets the telegram bot token.
         /// </summary>
@@ -32,11 +23,10 @@ namespace cAlgo
         [Parameter("ChatId", DefaultValue = null)]
         public string ChatId { get; set; }
 
-        /// <summary>
-        /// Gets the main setup finder
-        /// </summary>
-        public SetupFinder SetupFinder { get; private set; }
-
+        private SetupFinder m_SetupFinder;
+        private TelegramReporter m_TelegramReporter;
+        private StateKeeper m_StateKeeper;
+        private IBarsProvider m_BarsProvider;
         private bool m_IsInitialized;
 
         /// <summary>
@@ -50,38 +40,28 @@ namespace cAlgo
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
             }
-            
+
+            string[] symbols = { SymbolName };
+            m_StateKeeper = new StateKeeper();
+            m_StateKeeper.Init(symbols);
+
             m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
 
-            SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, m_BarsProvider);
-            SetupFinder.OnEnter += OnEnter;
-            SetupFinder.OnStopLoss += OnStopLoss;
-            SetupFinder.OnTakeProfit += OnTakeProfit;
+            m_SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, 
+                m_BarsProvider, m_StateKeeper.MainState.States[SymbolName]);
+            m_SetupFinder.OnEnter += OnEnter;
+            m_SetupFinder.OnStopLoss += OnStopLoss;
+            m_SetupFinder.OnTakeProfit += OnTakeProfit;
 
-            if (string.IsNullOrEmpty(TelegramBotToken))
-            {
-                TelegramBotToken = Environment.GetEnvironmentVariable(TOKEN_NAME);
-            }
-            if (string.IsNullOrEmpty(ChatId))
-            {
-                ChatId = Environment.GetEnvironmentVariable(CHAT_ID);
-            }
-
-            if (!string.IsNullOrEmpty(TelegramBotToken) && !string.IsNullOrEmpty(ChatId))
-            {
-                m_TelegramBotClient = new TelegramBotClient(TelegramBotToken)
-                {
-                    Timeout = TimeSpan.FromSeconds(10)
-                };
-                m_TelegramChatId = new ChatId(Convert.ToInt64(ChatId));
-            }
+            m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, m_StateKeeper.MainState);
         }
 
         protected override void OnDestroy()
         {
-            SetupFinder.OnEnter -= OnEnter;
-            SetupFinder.OnStopLoss -= OnStopLoss;
-            SetupFinder.OnTakeProfit -= OnTakeProfit;
+            m_StateKeeper.Save();
+            m_SetupFinder.OnEnter -= OnEnter;
+            m_SetupFinder.OnStopLoss -= OnStopLoss;
+            m_SetupFinder.OnTakeProfit -= OnTakeProfit;
             base.OnDestroy();
         }
 
@@ -92,14 +72,12 @@ namespace cAlgo
             Chart.DrawIcon($"SL{levelIndex}", ChartIconType.Star, levelIndex
                 , e.Level.Price, Color.LightCoral);
             Print($"SL hit! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
-            if (m_TelegramBotClient == null || !m_IsInitialized)
+            if (!m_IsInitialized)
             {
                 return;
             }
 
-            string alert = "SL hit";
-            m_TelegramBotClient.SendTextMessageAsync(
-                m_TelegramChatId, alert, null, null, null, null, m_LastSignalMessageId);
+            m_TelegramReporter.ReportStopLoss(SymbolName);
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
@@ -107,15 +85,15 @@ namespace cAlgo
             int levelIndex = e.Level.Index;
             Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.Index, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightGreen, 2);
             Chart.DrawIcon($"TP{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.LightGreen);
-            Print($"TP hit! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
-            if (m_TelegramBotClient == null || !m_IsInitialized)
+
+            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            Print($"TP hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
+            if (!m_IsInitialized)
             {
                 return;
             }
 
-            string alert = "TP hit";
-            m_TelegramBotClient.SendTextMessageAsync(
-                m_TelegramChatId, alert, null, null, null, null, m_LastSignalMessageId);
+            m_TelegramReporter.ReportTakeProfit(SymbolName);
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
@@ -138,38 +116,19 @@ namespace cAlgo
             }
             
             Print($"New setup found! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
-            if (m_TelegramBotClient == null || !m_IsInitialized)
+            if (!m_TelegramReporter.IsReady || !m_IsInitialized)
             {
                 return;
             }
 
-            string tradeType;
-            double price;
-            if (e.StopLoss.Price < e.TakeProfit.Price)
+            m_TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
-                tradeType =  "BUY";
-                price = Bid;
-            }
-            else
-            {
-                tradeType = "SELL";
-                price = Ask;
-            }
-
-            double sl = e.StopLoss.Price;
-            double tp = e.TakeProfit.Price;
-
-            double den = Math.Abs(price - sl);
-            string ratio = den > 0 
-                ? $" (R:R {Math.Abs(price - tp) / den:F1})" 
-                : string.Empty;
-            string alert =
-                $"#{SymbolName} {tradeType} {Environment.NewLine}TP: {e.TakeProfit.Price:F5}{Environment.NewLine}SL: {e.StopLoss.Price:F5}{Environment.NewLine}Price: {price}{ratio}";
-
-            Message msgRes = m_TelegramBotClient
-                .SendTextMessageAsync(m_TelegramChatId, alert)
-                .Result;
-            m_LastSignalMessageId = msgRes.MessageId;
+                Ask = Ask, 
+                Bid = Bid, 
+                Digits = Symbol.Digits, 
+                SignalEventArgs = e, 
+                SymbolName = SymbolName
+            });
         }
 
         /// <summary>
@@ -178,7 +137,7 @@ namespace cAlgo
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
-            SetupFinder.CheckSetup(index);
+            m_SetupFinder.CheckSetup(index);
             if (IsLastBar && !m_IsInitialized)
             {
                 m_IsInitialized = true;

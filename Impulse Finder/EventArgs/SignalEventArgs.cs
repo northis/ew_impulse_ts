@@ -4,8 +4,7 @@ namespace cAlgo.EventArgs
 {
     public class SignalEventArgs : System.EventArgs
     {
-        public SignalEventArgs(
-            LevelItem level, LevelItem takeProfit, LevelItem stopLoss, List<Extremum> waves)
+        public SignalEventArgs(LevelItem level, LevelItem takeProfit, LevelItem stopLoss, List<Extremum> waves)
         {
             Level = level;
             TakeProfit = takeProfit;

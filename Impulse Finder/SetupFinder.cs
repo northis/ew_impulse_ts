@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.Config;
 using cAlgo.EventArgs;
 
 namespace cAlgo
@@ -12,14 +13,7 @@ namespace cAlgo
     {
         private readonly IBarsProvider m_BarsProvider;
         private readonly PatternFinder m_PatternFinder;
-        private readonly List<ExtremumFinder> m_ExtremumFinders = new List<ExtremumFinder>();
-        private bool m_IsInSetup;
-        private int m_SetupStartIndex;
-        private int m_SetupEndIndex;
-        private double m_SetupStartPrice;
-        private double m_SetupEndPrice;
-        private double m_TriggerLevel;
-        private int m_TriggerBarIndex;
+        private readonly List<ExtremumFinder> m_ExtremumFinders = new();
 
         private const double TRIGGER_LEVEL_RATIO = 0.5;
         
@@ -33,13 +27,20 @@ namespace cAlgo
         private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 2;
 
         /// <summary>
+        /// Gets the state.
+        /// </summary>
+        public SymbolState State { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        public SetupFinder(double correctionAllowancePercent, IBarsProvider barsProvider)
+        /// <param name="state">The state.</param>
+        public SetupFinder(double correctionAllowancePercent, IBarsProvider barsProvider, SymbolState state)
         {
             m_BarsProvider = barsProvider;
+            State = state;
             for (double d = Helper.DEVIATION_MAX;
                  d >= Helper.DEVIATION_MIN;
                  d -= Helper.DEVIATION_STEP)
@@ -144,7 +145,7 @@ namespace cAlgo
             KeyValuePair<int, Extremum> endItem = extrema
                 .ElementAt(endIndex);
 
-            bool isInSetupBefore = m_IsInSetup;
+            bool isInSetupBefore = State.IsInSetup;
             void CheckImpulse()
             {
                 if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
@@ -204,8 +205,8 @@ namespace cAlgo
                     return;
                 }
 
-                if (m_SetupStartIndex == startItem.Key ||
-                    m_SetupEndIndex == endItem.Key)
+                if (State.SetupStartIndex == startItem.Key ||
+                    State.SetupEndIndex == endItem.Key)
                 {
                     // Cannot use the same impulse twice.
                     return;
@@ -217,45 +218,68 @@ namespace cAlgo
                     return;
                 }
 
-                m_TriggerLevel = triggerLevel;
-                m_TriggerBarIndex = index;
-                m_IsInSetup = true;
+                State.TriggerLevel = triggerLevel;
+                State.TriggerBarIndex = index;
+                State.IsInSetup = true;
 
                 double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
                 double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
-                m_SetupStartIndex = startItem.Key;
-                m_SetupEndIndex = endItem.Key;
+                State.SetupStartIndex = startItem.Key;
+                State.SetupEndIndex = endItem.Key;
 
                 if (isImpulseUp)
                 {
-                    m_SetupStartPrice = startValue - startAllowance;
-                    m_SetupEndPrice = endValue - endAllowance;
+                    State.SetupStartPrice = startValue - startAllowance;
+                    State.SetupEndPrice = endValue - endAllowance;
                 }
                 else
                 {
-                    m_SetupStartPrice = startValue + startAllowance;
-                    m_SetupEndPrice = endValue + endAllowance;
+                    State.SetupStartPrice = startValue + startAllowance;
+                    State.SetupEndPrice = endValue + endAllowance;
                 }
 
-                var tpArg = new LevelItem(m_SetupEndPrice, m_SetupEndIndex);
-                var slArg = new LevelItem(m_SetupStartPrice, m_SetupStartIndex);
+                var tpArg = new LevelItem(State.SetupEndPrice, State.SetupEndIndex);
+                var slArg = new LevelItem(State.SetupStartPrice, State.SetupStartIndex);
+
+                double realPrice;
+                if (triggerLevel >= low && triggerLevel <= high)
+                {
+                    realPrice = triggerLevel;
+                }
+                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
+                {
+                    realPrice = low;
+                }
+                else
+                {
+                    realPrice = high;
+                }
+
+                if (isImpulseUp && 
+                    (realPrice>= State.SetupEndPrice || realPrice <= State.SetupStartPrice) ||
+                    !isImpulseUp &&
+                    (realPrice <= State.SetupEndPrice || realPrice >= State.SetupStartPrice))
+                {
+                    // TP or SL is already hit, cannot use this signal
+                    return;
+                }
 
                 OnEnter?.Invoke(this,
                     new SignalEventArgs(
-                        new LevelItem(triggerLevel, index),
+                        new LevelItem(realPrice, index),
                         tpArg,
                         slArg,
                         outExtrema));
                 // Here we should give a trade signal.
             }
 
-            if (!m_IsInSetup)
+            if (!State.IsInSetup)
             {
-                for (; ; )
+                for (;;)
                 {
                     CheckImpulse();
-                    if (m_IsInSetup)
+                    if (State.IsInSetup)
                     {
                         break;
                     }
@@ -281,7 +305,7 @@ namespace cAlgo
                 }
             }
 
-            if (!m_IsInSetup)
+            if (!State.IsInSetup)
             {
                 return false;
             }
@@ -291,29 +315,29 @@ namespace cAlgo
                 return false;
             }
 
-            bool isImpulseUp = m_SetupEndPrice > m_SetupStartPrice;
-            bool isProfitHit = isImpulseUp && high >= m_SetupEndPrice
-                               || !isImpulseUp && low <= m_SetupEndPrice;
+            bool isImpulseUp = State.SetupEndPrice > State.SetupStartPrice;
+            bool isProfitHit = isImpulseUp && high >= State.SetupEndPrice
+                               || !isImpulseUp && low <= State.SetupEndPrice;
 
             if (isProfitHit)
             {
-                m_IsInSetup = false;
+                State.IsInSetup = false;
                 OnTakeProfit?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(m_SetupEndPrice, index),
-                        new LevelItem(m_TriggerLevel, m_TriggerBarIndex)));
+                    new LevelEventArgs(new LevelItem(State.SetupEndPrice, index),
+                        new LevelItem(State.TriggerLevel, State.TriggerBarIndex)));
             }
 
-            bool isStopHit = isImpulseUp && low <= m_SetupStartPrice
-                             || !isImpulseUp && high >= m_SetupStartPrice;
+            bool isStopHit = isImpulseUp && low <= State.SetupStartPrice
+                             || !isImpulseUp && high >= State.SetupStartPrice;
             if (isStopHit)
             {
-                m_IsInSetup = false;
+                State.IsInSetup = false;
                 OnStopLoss?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(m_SetupStartPrice, index),
-                        new LevelItem(m_TriggerLevel, m_TriggerBarIndex)));
+                    new LevelEventArgs(new LevelItem(State.SetupStartPrice, index),
+                        new LevelItem(State.TriggerLevel, State.TriggerBarIndex)));
             }
 
-            return m_IsInSetup;
+            return State.IsInSetup;
         }
 
         /// <summary>

@@ -83,6 +83,11 @@ namespace cAlgo
         public TimeFrame TimeFrame => m_Bars.TimeFrame;
 
         /// <summary>
+        /// Gets the current symbol.
+        /// </summary>
+        public string Symbol => m_Bars.SymbolName;
+
+        /// <summary>
         /// Gets the int index of bar (candle) by datetime.
         /// </summary>
         /// <param name="dateTime">The date time.</param>

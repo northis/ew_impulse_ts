@@ -1,5 +1,6 @@
 ﻿using System;
 using cAlgo.API;
+using cAlgo.API.Internals;
 
 namespace cAlgo
 {
@@ -50,6 +51,11 @@ namespace cAlgo
         /// Gets the time frame of the current instance.
         /// </summary>
         TimeFrame TimeFrame { get; }
+
+        /// <summary>
+        /// Gets the current symbol.
+        /// </summary>
+        string Symbol { get; }
 
         /// <summary>
         /// Gets the int index of bar (candle) by datetime.
