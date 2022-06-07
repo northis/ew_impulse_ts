@@ -32,6 +32,7 @@
     <Compile Include="Helper.cs" />
     <Compile Include="IBarsProvider.cs" />
     <Compile Include="ImpulseFinder.cs" />
+    <Compile Include="ImpulseSignalerBaseRobot.cs" />
     <Compile Include="LevelItem.cs" />
     <Compile Include="PatternFinder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

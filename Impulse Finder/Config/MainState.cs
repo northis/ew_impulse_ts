@@ -5,7 +5,6 @@ namespace cAlgo.Config
 {
     public class MainState
     {
-        [JsonExtensionData]
         [JsonProperty(nameof(States))]
         public Dictionary<string, SymbolState> States { get; set; }
     }

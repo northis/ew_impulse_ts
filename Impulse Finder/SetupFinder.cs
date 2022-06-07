@@ -11,7 +11,6 @@ namespace cAlgo
     /// </summary>
     public class SetupFinder
     {
-        private readonly IBarsProvider m_BarsProvider;
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
 
@@ -32,6 +31,11 @@ namespace cAlgo
         public SymbolState State { get; }
 
         /// <summary>
+        /// Gets the bars provider.
+        /// </summary>
+        public IBarsProvider BarsProvider { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
@@ -39,13 +43,13 @@ namespace cAlgo
         /// <param name="state">The state.</param>
         public SetupFinder(double correctionAllowancePercent, IBarsProvider barsProvider, SymbolState state)
         {
-            m_BarsProvider = barsProvider;
+            BarsProvider = barsProvider;
             State = state;
             for (double d = Helper.DEVIATION_MAX;
                  d >= Helper.DEVIATION_MIN;
                  d -= Helper.DEVIATION_STEP)
             {
-                m_ExtremumFinders.Add(new ExtremumFinder(d, m_BarsProvider));
+                m_ExtremumFinders.Add(new ExtremumFinder(d, BarsProvider));
             }
 
             m_PatternFinder = new PatternFinder(correctionAllowancePercent, barsProvider);
@@ -135,8 +139,8 @@ namespace cAlgo
                 return false;
             }
 
-            double low = m_BarsProvider.GetLowPrice(index);
-            double high = m_BarsProvider.GetHighPrice(index);
+            double low = BarsProvider.GetLowPrice(index);
+            double high = BarsProvider.GetHighPrice(index);
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
@@ -161,8 +165,8 @@ namespace cAlgo
                 double minValue = Math.Min(startValue, index);
                 for (int i = endItem.Key + 1; i < index; i++)
                 {
-                    if (maxValue <= m_BarsProvider.GetHighPrice(i) ||
-                        minValue >= m_BarsProvider.GetLowPrice(i))
+                    if (maxValue <= BarsProvider.GetHighPrice(i) ||
+                        minValue >= BarsProvider.GetLowPrice(i))
                     {
                         return;
                         // The setup is no longer valid, TP or SL is already hit.

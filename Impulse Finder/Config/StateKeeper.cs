@@ -76,14 +76,14 @@ namespace cAlgo.Config
                     Load();
                 }
 
-                Dictionary<string, SymbolState> prevDic = MainState.States;
+                Dictionary<string, SymbolState> prevDic = MainState?.States;
                 MainState = new MainState
                 {
                     States = new Dictionary<string, SymbolState>()
                 };
                 foreach (string symbol in symbols)
                 {
-                    if (!prevDic.TryGetValue(symbol, out SymbolState prevState))
+                    if (prevDic == null || !prevDic.TryGetValue(symbol, out SymbolState prevState))
                     {
                         prevState = new SymbolState();
                     }
@@ -100,7 +100,8 @@ namespace cAlgo.Config
         {
             lock (m_SyncRoot)
             {
-                File.WriteAllText(m_FilePath, JsonConvert.SerializeObject(MainState));
+                string json = JsonConvert.SerializeObject(MainState, Formatting.Indented);
+                File.WriteAllText(m_FilePath, json);
             }
         }
     }
