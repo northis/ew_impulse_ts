@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.Config;
@@ -72,7 +73,6 @@ namespace cAlgo
 
         private void BarOpened(BarOpenedEventArgs obj)
         {
-            //System.Diagnostics.Debugger.Launch();
             int index = obj.Bars.Count - 1;
             if (index < 0)
             {
@@ -145,7 +145,8 @@ namespace cAlgo
         {
             SetupFinder sf = (SetupFinder)sender;
             symbolInfo = Symbols.GetSymbolInfo(sf.State.Symbol);
-            price = $"Price:{level.Price.ToString($"F{symbolInfo.Digits}")} ({sf.BarsProvider.GetOpenTime(level.Index):s})";
+            string priceFmt = level.Price.ToString($"F{symbolInfo.Digits}", CultureInfo.InvariantCulture);
+            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index):s})";
         }
 
         protected override void OnStop()
