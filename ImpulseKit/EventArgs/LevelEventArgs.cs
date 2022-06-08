@@ -1,4 +1,4 @@
-﻿namespace cAlgo.EventArgs
+﻿namespace TradeKit.EventArgs
 {
     public class LevelEventArgs : System.EventArgs
     {

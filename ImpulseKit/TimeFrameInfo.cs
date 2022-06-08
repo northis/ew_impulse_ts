@@ -1,7 +1,7 @@
 ﻿using System;
 using cAlgo.API;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Class with handy info for <see cref="TimeFrame"/>

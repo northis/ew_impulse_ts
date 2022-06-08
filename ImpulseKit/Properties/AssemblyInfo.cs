@@ -2,16 +2,16 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("Impulse Finder")]
-[assembly: AssemblyDescription("Impulse Finder Indicator for cTrader")]
+[assembly: AssemblyTitle("Elliott Wave Impulse Kit Library")]
+[assembly: AssemblyDescription("Elliott Wave Impulse Kit Library for cTrader")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyProduct("Impulse Finder")]
+[assembly: AssemblyProduct("Impulse Kit Library")]
 [assembly: AssemblyTrademark("Mikhail Berdnikov (C) 2022")]
 [assembly: AssemblyCulture("")]
 
 [assembly: ComVisible(false)]
 
-[assembly: Guid("35f19c43-c7cc-4f53-b8e0-61caaf9cd8e8")]
+[assembly: Guid("56c3972e-d19f-4ade-956b-74dc235f2dcd")]
 
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]

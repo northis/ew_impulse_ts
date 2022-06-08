@@ -1,15 +1,15 @@
 ﻿using System;
 using cAlgo.API;
-using cAlgo.Config;
+using TradeKit.Config;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Indicator can find possible setups based on initial impulses (wave 1 or A)
     /// </summary>
     /// <seealso cref="Indicator" />
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-    public class ImpulseFinder : Indicator
+    public class ImpulseFinderBaseIndicator : Indicator
     {
         /// <summary>
         /// Gets or sets the telegram bot token.
@@ -45,8 +45,7 @@ namespace cAlgo
             m_StateKeeper = new StateKeeper();
             m_StateKeeper.Init(symbols);
 
-            m_BarsProvider = new CTraderBarsProvider(Bars, MarketData);
-
+            m_BarsProvider = new CTraderBarsProvider(Bars);
             m_SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, 
                 m_BarsProvider, m_StateKeeper.MainState.States[SymbolName]);
             m_SetupFinder.OnEnter += OnEnter;

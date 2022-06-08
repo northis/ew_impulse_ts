@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Class allows to find all the extrema from the set of market candles

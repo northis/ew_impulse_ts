@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
-using cAlgo.Config;
+using TradeKit.Config;
 
-namespace cAlgo
+namespace TradeKit
 {
     public class ImpulseSignalerBaseRobot : Robot
     {
@@ -33,6 +33,9 @@ namespace cAlgo
         [Parameter("ChatId", DefaultValue = null)]
         public string ChatId { get; set; }
 
+        private int m_EnterCount = 0;
+        private int m_TakeCount = 0;
+        private int m_StopCount = 0;
 
         private Dictionary<string, SetupFinder> m_SetupFinders;
         private TelegramReporter m_TelegramReporter;
@@ -59,7 +62,7 @@ namespace cAlgo
                 SymbolState state = m_StateKeeper.MainState.States[sb];
                 state.Symbol = sb;
                 state.TimeFrame = TimeFrame.Name;
-                var barsProvider = new CTraderBarsProvider(Bars, MarketData);
+                var barsProvider = new CTraderBarsProvider(Bars);
                 var sf = new SetupFinder(
                     Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
                 m_BarsMap[sb] = MarketData.GetBars(TimeFrame, sb);
@@ -100,6 +103,7 @@ namespace cAlgo
 
         private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
         {
+            m_StopCount++;
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Print($"SL hit! {price}");
             if (IsBacktesting || !m_TelegramReporter.IsReady)
@@ -112,6 +116,7 @@ namespace cAlgo
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
+            m_TakeCount++;
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Print($"TP hit! {price}");
             if (IsBacktesting || !m_TelegramReporter.IsReady)
@@ -124,6 +129,7 @@ namespace cAlgo
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
         {
+            m_EnterCount++;
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Print($"New setup found! {price}");
             if (IsBacktesting || !m_TelegramReporter.IsReady)
@@ -160,6 +166,7 @@ namespace cAlgo
             }
 
             m_StateKeeper.Save();
+            Print($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace cAlgo
+﻿namespace TradeKit
 {
     public class LevelItem
     {

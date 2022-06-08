@@ -10,8 +10,8 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>cAlgo</RootNamespace>
-    <AssemblyName>Impulse Finder</AssemblyName>
+    <RootNamespace>TradeKit</RootNamespace>
+    <AssemblyName>ImpulseKit</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
   </PropertyGroup>
@@ -31,7 +31,7 @@
     <Compile Include="Extremum.cs" />
     <Compile Include="Helper.cs" />
     <Compile Include="IBarsProvider.cs" />
-    <Compile Include="ImpulseFinder.cs" />
+    <Compile Include="ImpulseFinderBaseIndicator.cs" />
     <Compile Include="ImpulseSignalerBaseRobot.cs" />
     <Compile Include="LevelItem.cs" />
     <Compile Include="PatternFinder.cs" />

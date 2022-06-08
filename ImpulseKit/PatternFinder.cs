@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Contains pattern-finding logic for the Elliott Waves structures.

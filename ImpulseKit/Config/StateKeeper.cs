@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 
-namespace cAlgo.Config
+namespace TradeKit.Config
 {
     /// <summary>
     /// Keeps the signal state between the sessions

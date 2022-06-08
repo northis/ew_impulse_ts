@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace cAlgo.EventArgs
+namespace TradeKit.EventArgs
 {
     public class SignalEventArgs : System.EventArgs
     {

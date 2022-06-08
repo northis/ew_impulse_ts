@@ -2,26 +2,23 @@
 using cAlgo.API;
 using cAlgo.API.Internals;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Implements the <see cref="IBarsProvider"/> from the cTrader objects.
     /// </summary>
-    /// <seealso cref="cAlgo.IBarsProvider" />
+    /// <seealso cref="IBarsProvider" />
     public class CTraderBarsProvider : IBarsProvider
     {
         private readonly Bars m_Bars;
-        private readonly MarketData m_MarketData;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
         /// </summary>
         /// <param name="bars">The bars.</param>
-        /// <param name="marketData">The market data.</param>
-        public CTraderBarsProvider(Bars bars, MarketData marketData)
+        public CTraderBarsProvider(Bars bars)
         {
             m_Bars = bars;
-            m_MarketData = marketData;
         }
 
         /// <summary>

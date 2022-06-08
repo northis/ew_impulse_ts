@@ -1,7 +1,7 @@
 ﻿using System;
 using cAlgo.API;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Contains the extremum point data

@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using cAlgo.Config;
-using cAlgo.EventArgs;
+using TradeKit.Config;
+using TradeKit.EventArgs;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Class contains the logic of trade setups searching.

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using cAlgo.API;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Handles all the Time Frame-related logic

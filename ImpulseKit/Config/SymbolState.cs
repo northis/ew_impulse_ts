@@ -1,7 +1,6 @@
 ﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
-namespace cAlgo.Config
+namespace TradeKit.Config
 {
     public class SymbolState
     {

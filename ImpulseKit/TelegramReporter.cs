@@ -1,15 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using cAlgo.Config;
-using cAlgo.EventArgs;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using TradeKit.Config;
+using TradeKit.EventArgs;
 
-namespace cAlgo
+namespace TradeKit
 {
     public class TelegramReporter
     {

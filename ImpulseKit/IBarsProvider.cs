@@ -1,8 +1,7 @@
 ﻿using System;
 using cAlgo.API;
-using cAlgo.API.Internals;
 
-namespace cAlgo
+namespace TradeKit
 {
     /// <summary>
     /// Interface isolates all the cTrader objects from the main code
