@@ -136,7 +136,7 @@ namespace TradeKit
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
-            m_SetupFinder.CheckSetup(index);
+            m_SetupFinder.CheckBar(index);
             if (IsLastBar && !m_IsInitialized)
             {
                 m_IsInitialized = true;

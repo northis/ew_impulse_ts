@@ -127,10 +127,12 @@ namespace TradeKit
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         /// <param name="finder">The extremum finder instance.</param>
+        /// <param name="high">The high.</param>
+        /// <param name="low">The low.</param>
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSetup(int index, ExtremumFinder finder)
+        private bool IsSetup(int index, ExtremumFinder finder, double? high = null, double? low=null)
         {
             SortedDictionary<int, Extremum> extrema = finder.Extrema;
             int count = extrema.Count;
@@ -139,8 +141,8 @@ namespace TradeKit
                 return false;
             }
 
-            double low = BarsProvider.GetLowPrice(index);
-            double high = BarsProvider.GetHighPrice(index);
+            low ??= BarsProvider.GetLowPrice(index);
+            high ??= BarsProvider.GetHighPrice(index);
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
@@ -251,13 +253,13 @@ namespace TradeKit
                 {
                     realPrice = triggerLevel;
                 }
-                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
+                else if (Math.Abs(triggerLevel - low.Value) < Math.Abs(triggerLevel - high.Value))
                 {
-                    realPrice = low;
+                    realPrice = low.Value;
                 }
                 else
                 {
-                    realPrice = high;
+                    realPrice = high.Value;
                 }
 
                 if (isImpulseUp && 
@@ -268,7 +270,7 @@ namespace TradeKit
                     // TP or SL is already hit, cannot use this signal
                     return;
                 }
-
+                
                 OnEnter?.Invoke(this,
                     new SignalEventArgs(
                         new LevelItem(realPrice, index),
@@ -345,10 +347,12 @@ namespace TradeKit
         }
 
         /// <summary>
-        /// Checks the conditions of possible setup for <see cref="index"/>.
+        /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
         /// </summary>
         /// <param name="index">The index of bar to calculate.</param>
-        public void CheckSetup(int index)
+        /// <param name="high">The high.</param>
+        /// <param name="low">The low.</param>
+        public void CheckBar(int index, double? high = null, double? low = null)
         {
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {

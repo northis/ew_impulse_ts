@@ -33,9 +33,9 @@ namespace TradeKit
         [Parameter("ChatId", DefaultValue = null)]
         public string ChatId { get; set; }
 
-        private int m_EnterCount = 0;
-        private int m_TakeCount = 0;
-        private int m_StopCount = 0;
+        private int m_EnterCount;
+        private int m_TakeCount;
+        private int m_StopCount;
 
         private Dictionary<string, SetupFinder> m_SetupFinders;
         private TelegramReporter m_TelegramReporter;
@@ -66,7 +66,7 @@ namespace TradeKit
                 var sf = new SetupFinder(
                     Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
                 m_BarsMap[sb] = MarketData.GetBars(TimeFrame, sb);
-                m_BarsMap[sb].BarOpened += BarOpened;
+                m_BarsMap[sb].Tick += OnTickArrived;
                 m_SetupFinders[sb] = sf;
                 m_BarsInitMap[sb] = false;
             }
@@ -74,31 +74,53 @@ namespace TradeKit
             m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, m_StateKeeper.MainState);
         }
 
-        private void BarOpened(BarOpenedEventArgs obj)
+        private void OnTickArrived(BarsTickEventArgs obj)
         {
+            if (obj.IsBarOpened)
+            {
+                BarOpened(obj.Bars);
+                return;
+            }
+
+            if (!m_BarsInitMap[obj.Bars.SymbolName])
+            {
+                return;
+            }
+
             int index = obj.Bars.Count - 1;
             if (index < 0)
             {
                 return;
             }
 
-            SetupFinder sf = m_SetupFinders[obj.Bars.SymbolName];
-            if (m_BarsInitMap[obj.Bars.SymbolName])
+            m_SetupFinders[obj.Bars.SymbolName].CheckBar(index, Bid, Bid);
+        }
+
+        private void BarOpened(Bars bars)
+        {
+            int index = bars.Count - 1;
+            if (index < 0)
             {
-                m_SetupFinders[obj.Bars.SymbolName].CheckSetup(index);
                 return;
             }
 
-            for (int i = 0; i < obj.Bars.Count; i++)
+            SetupFinder sf = m_SetupFinders[bars.SymbolName];
+            if (m_BarsInitMap[bars.SymbolName])
             {
-                sf.CheckSetup(i);
+                m_SetupFinders[bars.SymbolName].CheckBar(index);
+                return;
+            }
+
+            for (int i = 0; i < bars.Count; i++)
+            {
+                sf.CheckBar(i);
             }
 
             sf.OnEnter += OnEnter;
             sf.OnStopLoss += OnStopLoss;
             sf.OnTakeProfit += OnTakeProfit;
             sf.State.IsInSetup = false;
-            m_BarsInitMap[obj.Bars.SymbolName] = true;
+            m_BarsInitMap[bars.SymbolName] = true;
         }
 
         private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
@@ -162,11 +184,15 @@ namespace TradeKit
                 sf.OnEnter -= OnEnter;
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
-                m_BarsMap[sf.State.Symbol].BarOpened -= BarOpened;
+                m_BarsMap[sf.State.Symbol].Tick -= OnTickArrived;
             }
 
-            m_StateKeeper.Save();
             Print($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
+
+            if (!IsBacktesting)
+            {
+                m_StateKeeper.Save();
+            }
         }
     }
 }
