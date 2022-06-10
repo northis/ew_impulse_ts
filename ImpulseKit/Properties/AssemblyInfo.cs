@@ -13,8 +13,8 @@ using System.Runtime.InteropServices;
 
 [assembly: Guid("56c3972e-d19f-4ade-956b-74dc235f2dcd")]
 
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
 #if DEBUG
     [assembly: Debuggable(DebuggableAttribute.DebuggingModes.Default | DebuggableAttribute.DebuggingModes.DisableOptimizations)]
 #endif

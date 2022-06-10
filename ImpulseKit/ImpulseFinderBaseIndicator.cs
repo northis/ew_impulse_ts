@@ -70,7 +70,8 @@ namespace TradeKit
             Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.Index, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightCoral, 2);
             Chart.DrawIcon($"SL{levelIndex}", ChartIconType.Star, levelIndex
                 , e.Level.Price, Color.LightCoral);
-            Print($"SL hit! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
+            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            Print($"SL hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
             if (!m_IsInitialized)
             {
                 return;
@@ -113,8 +114,9 @@ namespace TradeKit
                     start = wave;
                 }
             }
-            
-            Print($"New setup found! Price:{e.Level.Price:F5} ({Bars[e.Level.Index].OpenTime:s})");
+
+            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            Print($"New setup found! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
             if (!m_TelegramReporter.IsReady || !m_IsInitialized)
             {
                 return;

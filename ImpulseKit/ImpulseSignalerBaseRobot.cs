@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
+using cAlgo.API.Internals;
 using TradeKit.Config;
 
 namespace TradeKit
@@ -41,6 +42,7 @@ namespace TradeKit
         private TelegramReporter m_TelegramReporter;
         private StateKeeper m_StateKeeper;
         private Dictionary<string, Bars> m_BarsMap;
+        private Dictionary<string, Symbol> m_SymbolsMap;
         private Dictionary<string, bool> m_BarsInitMap;
 
         protected override void OnStart()
@@ -50,23 +52,24 @@ namespace TradeKit
                 : SymbolsToProceed.Split(new[] {'|', ',', ';', ' '}, StringSplitOptions.RemoveEmptyEntries)
                     .Where(a => Symbols.Exists(a))
                     .ToArray();
-            
+
             m_StateKeeper = new StateKeeper();
             m_StateKeeper.Init(symbols);
             m_SetupFinders = new Dictionary<string, SetupFinder>();
             m_BarsMap = new Dictionary<string, Bars>();
             m_BarsInitMap = new Dictionary<string, bool>();
+            m_SymbolsMap = new Dictionary<string, Symbol>();
 
             foreach (string sb in symbols)
             {
                 SymbolState state = m_StateKeeper.MainState.States[sb];
                 state.Symbol = sb;
                 state.TimeFrame = TimeFrame.Name;
-                var barsProvider = new CTraderBarsProvider(Bars);
-                var sf = new SetupFinder(
-                    Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
                 m_BarsMap[sb] = MarketData.GetBars(TimeFrame, sb);
-                m_BarsMap[sb].Tick += OnTickArrived;
+                var barsProvider = new CTraderBarsProvider(m_BarsMap[sb]);
+                var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
+                m_BarsMap[sb].BarOpened += BarOpened;
+                m_SymbolsMap[sb] = Symbols.GetSymbol(sb);
                 m_SetupFinders[sb] = sf;
                 m_BarsInitMap[sb] = false;
             }
@@ -74,30 +77,9 @@ namespace TradeKit
             m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, m_StateKeeper.MainState);
         }
 
-        private void OnTickArrived(BarsTickEventArgs obj)
+        private void BarOpened(BarOpenedEventArgs obj)
         {
-            if (obj.IsBarOpened)
-            {
-                BarOpened(obj.Bars);
-                return;
-            }
-
-            if (!m_BarsInitMap[obj.Bars.SymbolName])
-            {
-                return;
-            }
-
-            int index = obj.Bars.Count - 1;
-            if (index < 0)
-            {
-                return;
-            }
-
-            m_SetupFinders[obj.Bars.SymbolName].CheckBar(index, Bid, Bid);
-        }
-
-        private void BarOpened(Bars bars)
-        {
+            Bars bars = obj.Bars;
             int index = bars.Count - 1;
             if (index < 0)
             {
@@ -107,7 +89,7 @@ namespace TradeKit
             SetupFinder sf = m_SetupFinders[bars.SymbolName];
             if (m_BarsInitMap[bars.SymbolName])
             {
-                m_SetupFinders[bars.SymbolName].CheckBar(index);
+                sf.CheckBar(index);
                 return;
             }
 
@@ -159,10 +141,11 @@ namespace TradeKit
                 return;
             }
 
+            Symbol s = m_SymbolsMap[symbolInfo.Name];
             m_TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
-                Ask = Ask,
-                Bid = Bid,
+                Ask = s.Ask,
+                Bid = s.Bid,
                 Digits = symbolInfo.Digits,
                 SignalEventArgs = e,
                 SymbolName = symbolInfo.Name
@@ -174,7 +157,7 @@ namespace TradeKit
             SetupFinder sf = (SetupFinder)sender;
             symbolInfo = Symbols.GetSymbolInfo(sf.State.Symbol);
             string priceFmt = level.Price.ToString($"F{symbolInfo.Digits}", CultureInfo.InvariantCulture);
-            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index):s})";
+            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index):s}) - {sf.State.Symbol}";
         }
 
         protected override void OnStop()
@@ -184,11 +167,10 @@ namespace TradeKit
                 sf.OnEnter -= OnEnter;
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
-                m_BarsMap[sf.State.Symbol].Tick -= OnTickArrived;
+                m_BarsMap[sf.State.Symbol].BarOpened -= BarOpened;
             }
 
             Print($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
-
             if (!IsBacktesting)
             {
                 m_StateKeeper.Save();

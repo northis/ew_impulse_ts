@@ -115,10 +115,10 @@ namespace TradeKit
             int countRest = count - IMPULSE_EXTREMA_COUNT;
             if (countRest != 0)
             {
-                if (countRest < ZIGZAG_EXTREMA_COUNT)
-                {
-                    return false;
-                }
+                //if (countRest < ZIGZAG_EXTREMA_COUNT)
+                //{
+                //    return false;
+                //}
 
                 double maxDeviation = deviation * Helper.DEVIATION_HIGH_RATIO;
                 double innerDeviation = deviation + Helper.DEVIATION_STEP;
@@ -137,6 +137,11 @@ namespace TradeKit
             Extremum thirdWaveEnd = extrema[3];
             Extremum fourthWaveEnd = extrema[4];
             Extremum fifthWaveEnd = extrema[5];
+
+            if (Math.Abs(thirdWaveEnd.Value - fifthWaveEnd.Value) <= double.Epsilon)
+            {
+                return false;
+            }
 
             double secondWaveDuration = (secondWaveEnd.OpenTime - firstWaveEnd.OpenTime).TotalSeconds;
             double fourthWaveDuration = (fourthWaveEnd.OpenTime - thirdWaveEnd.OpenTime).TotalSeconds;

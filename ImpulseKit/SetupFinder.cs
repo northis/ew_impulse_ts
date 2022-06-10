@@ -88,9 +88,7 @@ namespace TradeKit
             bool isImpulseUp = endValue > startValue;
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                double curValue = finder
-                    .Extrema
-                    .ElementAt(curIndex).Value.Value;
+                double curValue = finder.Extrema.ElementAt(curIndex).Value.Value;
                 if (isImpulseUp)
                 {
                     if (curValue <= startValue)
@@ -127,12 +125,10 @@ namespace TradeKit
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         /// <param name="finder">The extremum finder instance.</param>
-        /// <param name="high">The high.</param>
-        /// <param name="low">The low.</param>
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSetup(int index, ExtremumFinder finder, double? high = null, double? low=null)
+        private bool IsSetup(int index, ExtremumFinder finder)
         {
             SortedDictionary<int, Extremum> extrema = finder.Extrema;
             int count = extrema.Count;
@@ -141,8 +137,8 @@ namespace TradeKit
                 return false;
             }
 
-            low ??= BarsProvider.GetLowPrice(index);
-            high ??= BarsProvider.GetHighPrice(index);
+            double low = BarsProvider.GetLowPrice(index);
+            double high = BarsProvider.GetHighPrice(index);
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
@@ -253,13 +249,13 @@ namespace TradeKit
                 {
                     realPrice = triggerLevel;
                 }
-                else if (Math.Abs(triggerLevel - low.Value) < Math.Abs(triggerLevel - high.Value))
+                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
                 {
-                    realPrice = low.Value;
+                    realPrice = low;
                 }
                 else
                 {
-                    realPrice = high.Value;
+                    realPrice = high;
                 }
 
                 if (isImpulseUp && 
@@ -350,9 +346,7 @@ namespace TradeKit
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
         /// </summary>
         /// <param name="index">The index of bar to calculate.</param>
-        /// <param name="high">The high.</param>
-        /// <param name="low">The low.</param>
-        public void CheckBar(int index, double? high = null, double? low = null)
+        public void CheckBar(int index)
         {
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
