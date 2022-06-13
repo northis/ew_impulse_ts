@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
@@ -19,7 +20,7 @@ namespace TradeKit
         /// <summary>
         /// Gets the symbol names.
         /// </summary>
-        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,EURUSD,GBPUSD,XAGUSD")]
+        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY")]
         public string SymbolsToProceed { get; set; }
 
         /// <summary>
@@ -102,7 +103,7 @@ namespace TradeKit
             {
                 sf.CheckBar(i);
             }
-
+            
             sf.OnEnter += OnEnter;
             sf.OnStopLoss += OnStopLoss;
             sf.OnTakeProfit += OnTakeProfit;
