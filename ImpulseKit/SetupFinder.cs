@@ -146,7 +146,7 @@ namespace TradeKit
                 .ElementAt(startIndex);
             KeyValuePair<int, Extremum> endItem = extrema
                 .ElementAt(endIndex);
-
+            
             bool isInSetupBefore = State.IsInSetup;
             void CheckImpulse()
             {
@@ -200,7 +200,7 @@ namespace TradeKit
                 }
 
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, finder.DeviationPercent, out List<Extremum> outExtrema);
+                    startItem.Value, endItem.Value, out List<Extremum> outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.

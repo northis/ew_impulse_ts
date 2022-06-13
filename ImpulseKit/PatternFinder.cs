@@ -115,20 +115,24 @@ namespace TradeKit
             int countRest = count - IMPULSE_EXTREMA_COUNT;
             if (countRest != 0)
             {
-                //if (countRest < ZIGZAG_EXTREMA_COUNT)
-                //{
-                //    return false;
-                //}
-
-                double maxDeviation = deviation * Helper.DEVIATION_HIGH_RATIO;
+                if (countRest < ZIGZAG_EXTREMA_COUNT)
+                {
+                    return false;
+                }
+                
                 double innerDeviation = deviation + Helper.DEVIATION_STEP;
-                if (innerDeviation > maxDeviation)
+                if (innerDeviation > Helper.DEVIATION_MAX)
+                {
+                    return false;
+                }
+
+                if (IsZigzag(start.OpenTime, end.OpenTime, innerDeviation))
                 {
                     return false;
                 }
 
                 bool innerCheck = IsSimpleImpulse(
-                    start, end, innerDeviation, out extrema, false); 
+                    start, end, innerDeviation, out extrema, false);
                 return innerCheck;
             }
 
@@ -217,24 +221,17 @@ namespace TradeKit
         /// </summary>
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
-        /// <param name="deviation">The deviation to use.</param>
         /// <param name="extrema">The impulse waves found.</param>
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsImpulse(
-            Extremum start, Extremum end, double deviation, out List<Extremum> extrema)
+        public bool IsImpulse(Extremum start, Extremum end, out List<Extremum> extrema)
         {
             extrema = null;
-            for (double dv = deviation; 
-                 dv >= Helper.DEVIATION_LOW;
-                 dv -= Helper.DEVIATION_STEP)
+            bool isSimpleImpulse = IsSimpleImpulse(start, end, Helper.DEVIATION_LOW, out extrema, false);
+            if (isSimpleImpulse)
             {
-                bool isSimpleImpulse = IsSimpleImpulse(start, end, dv, out extrema, false);
-                if (isSimpleImpulse)
-                {
-                    return true;
-                }
+                return true;
             }
 
             return false;

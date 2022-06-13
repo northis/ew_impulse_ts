@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Newtonsoft.Json;
 
 namespace TradeKit.Config
@@ -57,8 +56,6 @@ namespace TradeKit.Config
                 {
                     File.Delete(m_FilePath);
                 }
-
-                Init(MainState.States.Keys.ToArray());
             }
         }
         

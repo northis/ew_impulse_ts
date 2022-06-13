@@ -54,6 +54,11 @@ namespace TradeKit
                     .ToArray();
 
             m_StateKeeper = new StateKeeper();
+            if (IsBacktesting)
+            {
+                m_StateKeeper.ResetState();
+            }
+
             m_StateKeeper.Init(symbols);
             m_SetupFinders = new Dictionary<string, SetupFinder>();
             m_BarsMap = new Dictionary<string, Bars>();
