@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace TradeKit
@@ -117,7 +118,7 @@ namespace TradeKit
             Extremum secondWaveEnd;
             Extremum thirdWaveEnd;
             Extremum fourthWaveEnd;
-            Extremum fifthWaveEnd = extrema[5];
+            Extremum fifthWaveEnd= extrema[^1];
             int countRest = count - IMPULSE_EXTREMA_COUNT;
 
             bool CheckWaves()
@@ -176,19 +177,23 @@ namespace TradeKit
                     {
                         return false;
                     }
-
-                    //if (IsSimpleImpulse(
-                    //        firstItem, firstWaveEnd, dv, out _) &&
-                    //    IsSimpleImpulse(
-                    //        secondWaveEnd, thirdWaveEnd, dv, out _) &&
-                    //    IsSimpleImpulse(
-                    //        fourthWaveEnd, fifthWaveEnd, dv, out _))
-                    //{
-                    //    return true;
-                    //}
                 }
 
-                return true;
+                //if (IsZigzag(firstItem.OpenTime, firstWaveEnd.OpenTime, deviation) ||
+                //    IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.OpenTime, deviation) ||
+                //    IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.OpenTime, deviation))
+                //{
+                //    return false;
+                //}
+
+                if (IsSimpleImpulse(firstItem, firstWaveEnd, deviation, out _) &&
+                    IsSimpleImpulse(secondWaveEnd, thirdWaveEnd, deviation, out _) &&
+                    IsSimpleImpulse(fourthWaveEnd, fifthWaveEnd, deviation, out _))
+                {
+                    return true;
+                }
+
+                return false;
             }
             
             if (countRest == 0)
@@ -197,6 +202,7 @@ namespace TradeKit
                 secondWaveEnd = extrema[2];
                 thirdWaveEnd = extrema[3];
                 fourthWaveEnd = extrema[4];
+                fifthWaveEnd = extrema[5];
                 return CheckWaves();
             }
 
@@ -218,6 +224,7 @@ namespace TradeKit
             int[] impulseStartIndices = {1, 5, 7, 9, 15, 17, 21};
             int[] correctionStartIndices = { 1, 3, 9 };
             int minWaveRest = count - ZIGZAG_EXTREMA_COUNT;
+            //Debugger.Launch();
 
             foreach (int firstIndex in impulseStartIndices)
             {
@@ -250,7 +257,7 @@ namespace TradeKit
                         foreach (int correctionFourthIndex in correctionStartIndices)
                         {
                             int fourthIndex = thirdIndex + correctionFourthIndex;
-                            if (thirdIndex > minWaveRest - 3)
+                            if (fourthIndex > minWaveRest - 3)
                             {
                                 return false;
                             }
