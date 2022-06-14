@@ -86,7 +86,8 @@ namespace TradeKit
         private void BarOpened(BarOpenedEventArgs obj)
         {
             Bars bars = obj.Bars;
-            int index = bars.Count - 1;
+            int prevCount = bars.Count - 1;
+            int index = prevCount - 1;
             if (index < 0)
             {
                 return;
@@ -99,7 +100,7 @@ namespace TradeKit
                 return;
             }
 
-            for (int i = 0; i < bars.Count; i++)
+            for (int i = 0; i < prevCount; i++)
             {
                 sf.CheckBar(i);
             }

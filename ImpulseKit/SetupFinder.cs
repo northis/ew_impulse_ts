@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TradeKit.Config;
 using TradeKit.EventArgs;
@@ -206,6 +207,7 @@ namespace TradeKit
                     // The move is not an impulse.
                     return;
                 }
+                //Debugger.Launch();
 
                 if (State.SetupStartIndex == startItem.Key ||
                     State.SetupEndIndex == endItem.Key)
