@@ -37,6 +37,7 @@
     <Compile Include="PatternFinder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SetupFinder.cs" />
+    <Compile Include="SymbolExtension.cs" />
     <Compile Include="TelegramReporter.cs" />
     <Compile Include="TimeFrameHelper.cs" />
     <Compile Include="TimeFrameInfo.cs" />

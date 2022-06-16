@@ -11,6 +11,9 @@ namespace TradeKit
 {
     public class ImpulseSignalerBaseRobot : Robot
     {
+        private const string BOT_NAME = "ImpulseSignalerRobot";
+        private const double RISK_DEPOSIT_PERCENT = 5;
+
         /// <summary>
         /// Gets or sets a value indicating whether we should use the symbols list.
         /// </summary>
@@ -143,12 +146,34 @@ namespace TradeKit
             m_EnterCount++;
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Print($"New setup found! {price}");
-            if (IsBacktesting || !m_TelegramReporter.IsReady)
+            Symbol s = m_SymbolsMap[symbolInfo.Name];
+
+            if (IsBacktesting)
+            {
+                double tp = e.TakeProfit.Price;
+                double sl = e.StopLoss.Price;
+                bool isLong = sl < tp;
+                if (!isLong)
+                {
+                    tp += s.Spread;
+                    sl += s.Spread;
+                }
+
+                TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
+                double priceNow = isLong ? s.Ask : s.Bid;
+
+                double slP = Math.Abs(priceNow - sl) / symbolInfo.PipSize;
+                double tpP = Math.Abs(priceNow - tp) / symbolInfo.PipSize;
+                double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
+                ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
+                return;
+            }
+
+            if (!m_TelegramReporter.IsReady)
             {
                 return;
             }
 
-            Symbol s = m_SymbolsMap[symbolInfo.Name];
             m_TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
                 Ask = s.Ask,
