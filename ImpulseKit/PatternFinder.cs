@@ -130,6 +130,14 @@ namespace TradeKit
                     return false;
                 }
 
+                double minSeconds = Helper.CORRECTION_BAR_MIN *
+                                    TimeFrameHelper.TimeFrames[secondWaveEnd.BarTimeFrame].TimeSpan.TotalSeconds;
+
+                if (secondWaveDuration < minSeconds)
+                {
+                    return false;
+                }
+
                 // Check harmony between the 2nd and the 4th waves 
                 double correctionRatio = fourthWaveDuration / secondWaveDuration;
                 if (correctionRatio * 100 > m_CorrectionAllowancePercent ||
@@ -210,21 +218,10 @@ namespace TradeKit
             {
                 return false;
             }
-            
-            //var diffs = new List<Tuple<int, double>>();
-            //Extremum currentExtremum = extrema[0];
-
-            //for (int i = 1; i < count; i++)
-            //{
-            //    Extremum nextExtremum = extrema[i];
-            //    diffs.Add(new Tuple<int, double>(i, Math.Abs(currentExtremum - nextExtremum)));
-            //    currentExtremum = nextExtremum;
-            //}
 
             int[] impulseStartIndices = {1, 5, 7, 9, 15, 17, 21};
             int[] correctionStartIndices = { 1, 3, 9 };
             int minWaveRest = count - ZIGZAG_EXTREMA_COUNT;
-            //Debugger.Launch();
 
             foreach (int firstIndex in impulseStartIndices)
             {

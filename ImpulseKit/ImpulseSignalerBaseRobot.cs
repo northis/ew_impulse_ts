@@ -79,6 +79,7 @@ namespace TradeKit
                 var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
                 m_BarsMap[sb].BarOpened += BarOpened;
                 m_SymbolsMap[sb] = Symbols.GetSymbol(sb);
+                m_SymbolsMap[sb].Tick += OnTick;
                 m_SetupFinders[sb] = sf;
                 m_BarsInitMap[sb] = false;
             }
@@ -90,6 +91,12 @@ namespace TradeKit
             //}
 
             Print("OnStart is ok");
+        }
+
+        private void OnTick(SymbolTickEventArgs obj)
+        {
+            SetupFinder sf = m_SetupFinders[obj.SymbolName];
+            sf.CheckTick(obj.Bid);
         }
 
         private void BarOpened(BarOpenedEventArgs obj)
@@ -206,6 +213,7 @@ namespace TradeKit
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
                 m_BarsMap[sf.State.Symbol].BarOpened -= BarOpened;
+                m_SymbolsMap[sf.State.Symbol].Tick -= OnTick;
             }
 
             Print($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");

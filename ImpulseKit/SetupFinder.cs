@@ -14,7 +14,11 @@ namespace TradeKit
     {
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
+        private bool m_GotPreLevel = false;
+        private int m_LastBarIndex;
+        ExtremumFinder m_PreFinder = null;
 
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
         
         private const int IMPULSE_END_NUMBER = 1;
@@ -126,10 +130,11 @@ namespace TradeKit
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         /// <param name="finder">The extremum finder instance.</param>
+        /// <param name="currentPrice">The current price.</param>
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSetup(int index, ExtremumFinder finder)
+        private bool IsSetup(int index, ExtremumFinder finder, double? currentPrice = null)
         {
             SortedDictionary<int, Extremum> extrema = finder.Extrema;
             int count = extrema.Count;
@@ -138,8 +143,8 @@ namespace TradeKit
                 return false;
             }
 
-            double low = BarsProvider.GetLowPrice(index);
-            double high = BarsProvider.GetHighPrice(index);
+            double low = currentPrice ?? BarsProvider.GetLowPrice(index);
+            double high = currentPrice ?? BarsProvider.GetHighPrice(index);
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
@@ -151,11 +156,6 @@ namespace TradeKit
             bool isInSetupBefore = State.IsInSetup;
             void CheckImpulse()
             {
-                if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
-                {
-                    return;
-                }
-
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
@@ -180,34 +180,44 @@ namespace TradeKit
                     return;
                 }
 
-                double triggerSize = Math.Abs(endValue - startValue) * TRIGGER_LEVEL_RATIO;
-
                 double triggerLevel;
-                bool gotSetup;
-                if (isImpulseUp)
+                bool GotSetup(double levelRatio)
                 {
-                    triggerLevel = endValue - triggerSize;
-                    gotSetup = low <= triggerLevel && low > startValue;
-                }
-                else
-                {
-                    triggerLevel = endValue + triggerSize;
-                    gotSetup = high >= triggerLevel && high < startValue;
+                    double triggerSize = Math.Abs(endValue - startValue) * levelRatio;
+
+                    bool gotSetup;
+                    if (isImpulseUp)
+                    {
+                        triggerLevel = endValue - triggerSize;
+                        gotSetup = low <= triggerLevel && low > startValue;
+                    }
+                    else
+                    {
+                        triggerLevel = endValue + triggerSize;
+                        gotSetup = high >= triggerLevel && high < startValue;
+                    }
+
+                    return gotSetup;
                 }
 
-                if (!gotSetup)
+                if (!GotSetup(TRIGGER_LEVEL_RATIO))
                 {
+                    if (m_PreFinder == null && GotSetup(TRIGGER_PRE_LEVEL_RATIO))
+                    {
+                        m_PreFinder = finder;
+                    }
                     return;
                 }
 
+                m_PreFinder = null;
+
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value,finder.DeviationPercent, out List<Extremum> outExtrema);
+                    startItem.Value, endItem.Value, finder.DeviationPercent, out List<Extremum> outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
                     return;
                 }
-                //Debugger.Launch();
 
                 if (State.SetupStartIndex == startItem.Key ||
                     State.SetupEndIndex == endItem.Key)
@@ -350,14 +360,34 @@ namespace TradeKit
         /// <param name="index">The index of bar to calculate.</param>
         public void CheckBar(int index)
         {
+            m_LastBarIndex = index;
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.Calculate(index);
             }
 
+            CheckSetup(null);
+        }
+
+        /// <summary>
+        /// Checks the tick.
+        /// </summary>
+        /// <param name="price">The price.</param>
+        public void CheckTick(double price)
+        {
+            if (m_PreFinder == null)
+            {
+                return;
+            }
+
+            IsSetup(m_LastBarIndex, m_PreFinder, price);
+        }
+
+        private void CheckSetup(double? price)
+        {
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
-                if (IsSetup(index, finder))
+                if (IsSetup(m_LastBarIndex, finder))
                 {
                     break;
                 }
