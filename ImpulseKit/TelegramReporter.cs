@@ -95,16 +95,19 @@ namespace TradeKit
             double sl = signalEventArgs.StopLoss.Price + (isLong ? 0 : spread);
             double tp = signalEventArgs.TakeProfit.Price + (isLong ? 0 : spread);
 
-            double den = Math.Abs(price - sl);
-            string ratio = den > 0
-                ? $" (R:R {Math.Abs(price - tp) / den:F1})"
-                : string.Empty;
-            
+            double nom = Math.Abs(price - sl);
+            double den = Math.Abs(price - tp);
+
             var sb = new StringBuilder();
-            sb.Append($"#{signalArgs.SymbolName} {tradeType}");
+            sb.AppendLine($"#{signalArgs.SymbolName} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
             sb.AppendLine($"TP: {PriceFormat(signalEventArgs.TakeProfit.Price, signalArgs.Digits)}");
             sb.AppendLine($"SL: {PriceFormat(signalEventArgs.StopLoss.Price, signalArgs.Digits)}");
-            sb.AppendLine($"Price: {PriceFormat(price, signalArgs.Digits)}{ratio}");
+
+            if (den > 0)
+            {
+                sb.AppendLine($"Risk/Reward: {PriceFormat(nom / den, 1)}");
+                sb.AppendLine($"Spread/Reward: {PriceFormat(100 * spread / (den + spread), 1)}%");
+            }
 
             string alert = sb.ToString();
             Message msgRes = m_TelegramBotClient

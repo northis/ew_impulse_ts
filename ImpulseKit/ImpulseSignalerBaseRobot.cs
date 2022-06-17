@@ -58,10 +58,10 @@ namespace TradeKit
                     .ToArray();
 
             m_StateKeeper = new StateKeeper();
-            if (IsBacktesting)
-            {
+            //if (IsBacktesting)
+            //{
                 m_StateKeeper.ResetState();
-            }
+            //}
 
             m_StateKeeper.Init(symbols);
             m_SetupFinders = new Dictionary<string, SetupFinder>();
@@ -84,6 +84,12 @@ namespace TradeKit
             }
             
             m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, m_StateKeeper.MainState);
+            //if (!IsBacktesting)
+            //{
+            //    m_StateKeeper.Save();
+            //}
+
+            Print("OnStart is ok");
         }
 
         private void BarOpened(BarOpenedEventArgs obj)
@@ -203,10 +209,10 @@ namespace TradeKit
             }
 
             Print($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
-            if (!IsBacktesting)
-            {
-                m_StateKeeper.Save();
-            }
+            //if (!IsBacktesting)
+            //{
+            //    m_StateKeeper.Save();
+            //}
         }
     }
 }
