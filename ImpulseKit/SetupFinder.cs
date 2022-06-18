@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using TradeKit.Config;
 using TradeKit.EventArgs;
@@ -14,7 +13,6 @@ namespace TradeKit
     {
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
-        private bool m_GotPreLevel = false;
         private int m_LastBarIndex;
         ExtremumFinder m_PreFinder = null;
 
