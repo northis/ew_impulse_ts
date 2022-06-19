@@ -3,7 +3,12 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <EnableDefaultItems>False</EnableDefaultItems>
-    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+	  <Version>1.0.1</Version>
+	  <Authors>Mikhail Berdnikov</Authors>
+	  <Copyright>Mikhail Berdnikov (C) 2022</Copyright>
+	  <RepositoryUrl>https://github.com/northis/ew_impulse_ts</RepositoryUrl>
+	  <Product>Elliott Wave Impulse Kit Library</Product>
+	  <Description>Elliott Wave Impulse Kit Library for cTrader</Description>
   </PropertyGroup>
   <PropertyGroup>
     <LangVersion>10</LangVersion>
@@ -35,7 +40,6 @@
     <Compile Include="ImpulseSignalerBaseRobot.cs" />
     <Compile Include="LevelItem.cs" />
     <Compile Include="PatternFinder.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SetupFinder.cs" />
     <Compile Include="SymbolExtension.cs" />
     <Compile Include="TelegramReporter.cs" />
