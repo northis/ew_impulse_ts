@@ -130,6 +130,11 @@ namespace TradeKit
                     return false;
                 }
 
+                if (Math.Abs(thirdWaveEnd.Value - fifthWaveEnd.Value) < double.Epsilon)
+                {
+                    return false;
+                }
+
                 double minSeconds = Helper.CORRECTION_BAR_MIN *
                                     TimeFrameHelper.TimeFrames[secondWaveEnd.BarTimeFrame].TimeSpan.TotalSeconds;
 
@@ -176,8 +181,8 @@ namespace TradeKit
                 }
 
                 for (double dv = deviation;
-                     dv >= Helper.DEVIATION_LOW;
-                     dv -= Helper.DEVIATION_STEP)
+                     dv >= Helper.DEVIATION_LOW/2;
+                     dv -= Helper.DEVIATION_STEP/2)
                 {
                     if (IsZigzag(firstItem.OpenTime, firstWaveEnd.OpenTime, dv) ||
                         IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.OpenTime, dv) ||
@@ -187,19 +192,25 @@ namespace TradeKit
                     }
                 }
 
+                for (double dv = deviation;
+                     dv >= Helper.DEVIATION_LOW;
+                     dv -= Helper.DEVIATION_STEP)
+                {
+
+                    if (IsSimpleImpulse(firstItem, firstWaveEnd, dv, out _) &&
+                        IsSimpleImpulse(secondWaveEnd, thirdWaveEnd, dv, out _) &&
+                        IsSimpleImpulse(fourthWaveEnd, fifthWaveEnd, dv, out _))
+                    {
+                        return true;
+                    }
+                }
+
                 //if (IsZigzag(firstItem.OpenTime, firstWaveEnd.OpenTime, deviation) ||
                 //    IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.OpenTime, deviation) ||
                 //    IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.OpenTime, deviation))
                 //{
                 //    return false;
                 //}
-
-                if (IsSimpleImpulse(firstItem, firstWaveEnd, deviation, out _) &&
-                    IsSimpleImpulse(secondWaveEnd, thirdWaveEnd, deviation, out _) &&
-                    IsSimpleImpulse(fourthWaveEnd, fifthWaveEnd, deviation, out _))
-                {
-                    return true;
-                }
 
                 return false;
             }
@@ -264,6 +275,7 @@ namespace TradeKit
                             bool res = CheckWaves();
                             if (res)
                             {
+                                //Debugger.Launch();
                                 return true;
                             }
                         }

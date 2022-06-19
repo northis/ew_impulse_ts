@@ -57,7 +57,7 @@ namespace TradeKit
 
         protected override void OnDestroy()
         {
-            m_StateKeeper.Save();
+            //m_StateKeeper.Save();
             m_SetupFinder.OnEnter -= OnEnter;
             m_SetupFinder.OnStopLoss -= OnStopLoss;
             m_SetupFinder.OnTakeProfit -= OnTakeProfit;

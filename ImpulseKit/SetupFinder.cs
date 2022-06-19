@@ -14,7 +14,7 @@ namespace TradeKit
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         private int m_LastBarIndex;
-        ExtremumFinder m_PreFinder = null;
+        ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
@@ -154,6 +154,11 @@ namespace TradeKit
             bool isInSetupBefore = State.IsInSetup;
             void CheckImpulse()
             {
+                if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
+                {
+                    return;
+                }
+
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
@@ -297,6 +302,11 @@ namespace TradeKit
                     }
                     // We don't know how far we are from the nearest initial impulse
                     // so we go deep and check
+
+                    if (index - startIndex > Helper.BARS_DEPTH)
+                    {
+                        break;
+                    }
 
                     startIndex -= 1;
                     endIndex -= 1;

@@ -6,9 +6,9 @@ namespace SignalsCheckKit
 {
     internal static class SignalParser
     {
-        private const string SIGNAL_REGEX = @"(b[a|u]y|sel[l]?)[\D]*([0-9]{1,8}[.,;:\s]?[0-9]{0,5})";
-        private const string TP_REGEX = @"t(ake\s)?p(rofit)?[\D]*(\d?\D)([\D])*([0-9]{1,8})[.,:\s]?([0-9]{0,5})";
-        private const string SL_REGEX = @"s(top\s)?[l|t](oss)?[\D]*([0-9]{1,8})[.,;:\s]?([0-9]{0,5}?)";
+        private const string SIGNAL_REGEX = @"(b[a|u]y|sel[l]?)[\D]*([0-9.,]{1,10})";
+        private const string TP_REGEX = @"t(ake\s)?p(rofit)?\d?[\D]*([0-9.,]{1,10})";
+        private const string SL_REGEX = @"s(top\s)?[l|t](oss)?[\D]*([0-9.,]{1,10})";
 
         private static readonly Dictionary<string, string> SYMBOL_REGEX_MAP = new()
         {
@@ -43,11 +43,11 @@ namespace SignalsCheckKit
                 }
 
                 var signalOut = new Signal();
-                if (signal.Groups.Count > 2)
+                if (signal.Groups.Count > 1)
                 {
-                    double.TryParse(signal.Groups[2].Value, out double enterPrice);
+                    double.TryParse(signal.Groups[1].Value, out double enterPrice);
                     signalOut.Price = enterPrice;
-                    signalOut.IsLong = signal.Groups[1].Value?.ToLowerInvariant() == "buy";
+                    signalOut.IsLong = signal.Groups[0].Value?.ToLowerInvariant() == "buy";
                 }
 
                 Match sl = Regex.Match(historyItem.Text, SL_REGEX, RegexOptions.IgnoreCase);
