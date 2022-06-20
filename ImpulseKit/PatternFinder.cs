@@ -181,8 +181,8 @@ namespace TradeKit
                 }
 
                 for (double dv = deviation;
-                     dv >= Helper.DEVIATION_LOW/2;
-                     dv -= Helper.DEVIATION_STEP/2)
+                     dv >= Helper.DEVIATION_LOW;
+                     dv -= Helper.DEVIATION_STEP)
                 {
                     if (IsZigzag(firstItem.OpenTime, firstWaveEnd.OpenTime, dv) ||
                         IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.OpenTime, dv) ||

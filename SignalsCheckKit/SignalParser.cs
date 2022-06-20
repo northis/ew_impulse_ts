@@ -1,4 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Diagnostics;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using SignalsCheckKit.Json;
 
@@ -10,20 +12,50 @@ namespace SignalsCheckKit
         private const string TP_REGEX = @"t(ake\s)?p(rofit)?\d?[\D]*([0-9.,]{1,10})";
         private const string SL_REGEX = @"s(top\s)?[l|t](oss)?[\D]*([0-9.,]{1,10})";
 
+        private static readonly NumberStyles NUMBER_STYLES = NumberStyles.AllowCurrencySymbol
+                                                             | NumberStyles.AllowDecimalPoint
+                                                             | NumberStyles.AllowLeadingWhite
+                                                             | NumberStyles.AllowTrailingWhite
+                                                             | NumberStyles.AllowThousands;
+
         private static readonly Dictionary<string, string> SYMBOL_REGEX_MAP = new()
         {
             {"XAUUSD", @"(gold)|(xau[\s\\\/-]*usd)"}
         };
 
-        public static List<Signal> ParseSignals(string symbol, string filePath)
+        public static Dictionary<DateTime, Signal> ParseSignals(
+            string symbol, string filePath, bool useUtc)
         {
-            var res = new List<Signal>();
+            var res = new Dictionary<DateTime, Signal>();
             if (!SYMBOL_REGEX_MAP.TryGetValue(symbol, out string symbolRegex))
             {
                 return res;
             }
-            TelegramHistorySignal[]? history = 
-                JsonConvert.DeserializeObject<TelegramHistorySignal[]>(File.ReadAllText(filePath));
+            
+            string text = File.ReadAllText(filePath);
+            TelegramHistorySignal[]? history = null;
+            try
+            {
+                history = JsonConvert.DeserializeObject<TelegramExportJson>(text)?.Messages;
+                Debugger.Launch();
+            }
+            catch (Exception)
+            {
+                ;
+            }
+
+            if (history == null)
+            {
+                try
+                {
+                    history = JsonConvert.DeserializeObject<TelegramHistorySignal[]>(text);
+                }
+                catch (Exception)
+                {
+                    ;
+                }
+            }
+
             if (history == null)
             {
                 return res;
@@ -31,32 +63,59 @@ namespace SignalsCheckKit
 
             foreach (TelegramHistorySignal historyItem in history)
             {
-                if (!Regex.IsMatch(historyItem.Text, symbolRegex, RegexOptions.IgnoreCase))
+                string textAll = string.Concat(historyItem.Text);
+
+                if (!Regex.IsMatch(textAll, symbolRegex, RegexOptions.IgnoreCase))
                 {
                     continue;
                 }
 
-                Match signal = Regex.Match(historyItem.Text, SIGNAL_REGEX, RegexOptions.IgnoreCase);
+                Match signal = Regex.Match(textAll, SIGNAL_REGEX, RegexOptions.IgnoreCase);
                 if (!signal.Success)
                 {
                     continue;
                 }
 
-                var signalOut = new Signal();
-                if (signal.Groups.Count > 1)
-                {
-                    double.TryParse(signal.Groups[1].Value, out double enterPrice);
+                DateTime utcDateTime = useUtc ? historyItem.Date : historyItem.Date.ToUniversalTime();
+                var signalOut = new Signal {DateTime = utcDateTime, SymbolName = symbol};
+                if (double.TryParse(signal.Groups[2].Value,
+                        NUMBER_STYLES, CultureInfo.InvariantCulture, out double enterPrice))
                     signalOut.Price = enterPrice;
-                    signalOut.IsLong = signal.Groups[0].Value?.ToLowerInvariant() == "buy";
-                }
 
-                Match sl = Regex.Match(historyItem.Text, SL_REGEX, RegexOptions.IgnoreCase);
-                if (!signal.Success)
+                signalOut.IsLong = signal.Groups[1].Value?.ToLowerInvariant() == "buy";
+
+                Match sl = Regex.Match(textAll, SL_REGEX, RegexOptions.IgnoreCase);
+                if (!sl.Success)
                 {
                     continue;
                 }
 
-                var tp = Regex.Match(historyItem.Text, TP_REGEX, RegexOptions.IgnoreCase);
+                if (!double.TryParse(sl.Groups[3].Value,
+                        NUMBER_STYLES, CultureInfo.InvariantCulture, out double slPrice))
+                {
+                    continue;
+                }
+
+                signalOut.StopLoss = slPrice;
+
+                var tpsCollection = Regex.Matches(textAll, TP_REGEX, RegexOptions.IgnoreCase);
+                if (tpsCollection.Count == 0)
+                {
+                    continue;
+                }
+
+                var tpList = new List<double>();
+                foreach (Match? match in tpsCollection)
+                {
+                    if (match == null || !double.TryParse(match.Groups[3].Value,
+                            NUMBER_STYLES, CultureInfo.InvariantCulture, out double tpPrice))
+                        continue;
+
+                    tpList.Add(tpPrice);
+                }
+
+                signalOut.TakeProfits = tpList.ToArray();
+                res[signalOut.DateTime]= signalOut;
             }
 
             return res;

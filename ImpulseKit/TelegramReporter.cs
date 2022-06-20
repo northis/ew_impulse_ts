@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Telegram.Bot;
@@ -39,6 +40,7 @@ namespace TradeKit
             {
                 Timeout = TimeSpan.FromSeconds(10)
             };
+            
             m_TelegramChatId = new ChatId(Convert.ToInt64(chartId));
             IsReady = true;
         }
