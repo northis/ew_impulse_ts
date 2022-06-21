@@ -37,7 +37,6 @@ namespace SignalsCheckKit
             try
             {
                 history = JsonConvert.DeserializeObject<TelegramExportJson>(text)?.Messages;
-                Debugger.Launch();
             }
             catch (Exception)
             {

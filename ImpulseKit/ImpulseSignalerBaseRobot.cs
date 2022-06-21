@@ -23,7 +23,7 @@ namespace TradeKit
         /// <summary>
         /// Gets the symbol names.
         /// </summary>
-        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100")]
+        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100,USDNOK,USDSEK,USDDDK,XBRUSD,XTIUSD")]
         public string SymbolsToProceed { get; set; }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace TradeKit
         {
             string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
                 ? new[] {SymbolName}
-                : SymbolsToProceed.Split(new[] {'|', ',', ';', ' '}, StringSplitOptions.RemoveEmptyEntries)
+                : SymbolsToProceed.Split(new[] {'|', ',', ';',}, StringSplitOptions.RemoveEmptyEntries)
                     .Where(a => Symbols.Exists(a))
                     .ToArray();
 
@@ -82,6 +82,7 @@ namespace TradeKit
                 m_SymbolsMap[sb].Tick += OnTick;
                 m_SetupFinders[sb] = sf;
                 m_BarsInitMap[sb] = false;
+                Print($"{sb} is added");
             }
 
             m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, m_StateKeeper.MainState);
@@ -90,7 +91,7 @@ namespace TradeKit
             //    m_StateKeeper.Save();
             //}
 
-            Print("OnStart is ok");
+            Print($"OnStart is OK, is telegram ready: {m_TelegramReporter.IsReady}");
         }
 
         private void OnTick(SymbolTickEventArgs obj)

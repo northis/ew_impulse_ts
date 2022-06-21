@@ -18,7 +18,7 @@ namespace TradeKit
         private const string TOKEN_NAME = "IMPULSE_FINDER_BOT_TOKEN_NAME";
         private const string CHAT_ID = "IMPULSE_FINDER_BOT_CHAT_ID";
 
-        public TelegramReporter(string botToken, string chartId, MainState state)
+        public TelegramReporter(string botToken, string chatId, MainState state)
         {
             m_State = state;
             if (string.IsNullOrEmpty(botToken))
@@ -26,12 +26,12 @@ namespace TradeKit
                 botToken = Environment.GetEnvironmentVariable(TOKEN_NAME);
             }
 
-            if (string.IsNullOrEmpty(chartId))
+            if (string.IsNullOrEmpty(chatId))
             {
-                chartId = Environment.GetEnvironmentVariable(CHAT_ID);
+                chatId = Environment.GetEnvironmentVariable(CHAT_ID);
             }
 
-            if (string.IsNullOrEmpty(botToken) || string.IsNullOrEmpty(chartId))
+            if (string.IsNullOrEmpty(botToken) || string.IsNullOrEmpty(chatId))
             {
                 return;
             }
@@ -41,7 +41,7 @@ namespace TradeKit
                 Timeout = TimeSpan.FromSeconds(10)
             };
             
-            m_TelegramChatId = new ChatId(Convert.ToInt64(chartId));
+            m_TelegramChatId = new ChatId(chatId);
             IsReady = true;
         }
 
