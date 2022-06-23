@@ -101,7 +101,7 @@ namespace TradeKit
             double den = Math.Abs(price - tp);
 
             var sb = new StringBuilder();
-            sb.AppendLine($"#{signalArgs.SymbolName} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
+            sb.AppendLine($"#{signalArgs.SymbolName.Replace(" ","")} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
             sb.AppendLine($"TP: {PriceFormat(signalEventArgs.TakeProfit.Price, signalArgs.Digits)}");
             sb.AppendLine($"SL: {PriceFormat(signalEventArgs.StopLoss.Price, signalArgs.Digits)}");
 

@@ -12,11 +12,4 @@ namespace SignalsCheckKit.Json
         [JsonConverter(typeof(TelegramTextItemConverter))]
         public string Text { get; set; }
     }
-
-    public class TelegramTextItem
-    {
-        [JsonProperty("text")]
-        public string Text { get; set; }
-    }
-
 }

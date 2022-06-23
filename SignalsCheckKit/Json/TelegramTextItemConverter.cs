@@ -19,16 +19,7 @@ namespace SignalsCheckKit.Json
             JToken token = JToken.Load(reader);
             if (token.Type == JTokenType.Array)
             {
-                TelegramTextItem val = null;
-                try
-                {
-                    val = token.ToObject<List<TelegramTextItem>>().FirstOrDefault();
-                }
-                catch (Exception)
-                {
-                    ;
-                }
-                return val?.Text;
+                return token.ToString();
             }
 
             return token.Value<string>();
