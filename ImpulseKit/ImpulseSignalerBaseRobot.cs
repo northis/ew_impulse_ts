@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Config;
@@ -19,6 +18,18 @@ namespace TradeKit
         /// </summary>
         [Parameter(nameof(UseSymbolsList), DefaultValue = false)]
         public bool UseSymbolsList { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating we should use the TF list.
+        /// </summary>
+        [Parameter(nameof(UseTimeFramesList), DefaultValue = false)]
+        public bool UseTimeFramesList { get; set; }
+
+        /// <summary>
+        /// Gets or sets the time frames we should use.
+        /// </summary>
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute,Minute3,Minute5,Minute10,Minute15")]
+        public string TimeFramesToProceed { get; set; }
 
         /// <summary>
         /// Gets the symbol names.
@@ -42,67 +53,94 @@ namespace TradeKit
         private int m_TakeCount;
         private int m_StopCount;
 
-        private Dictionary<string, SetupFinder> m_SetupFinders;
+        private Dictionary<string, SetupFinder> m_SetupFindersMap;
+        private Dictionary<string, SetupFinder[]> m_SymbolFindersMap;
         private TelegramReporter m_TelegramReporter;
-        private StateKeeper m_StateKeeper;
         private Dictionary<string, Bars> m_BarsMap;
         private Dictionary<string, Symbol> m_SymbolsMap;
         private Dictionary<string, bool> m_BarsInitMap;
+        private Dictionary<string, bool> m_PositionFinderMap;
+
+        private string[] SplitString(string str)
+        {
+            return str.Split(new[] {'|', ',', ';',}, StringSplitOptions.RemoveEmptyEntries);
+        }
 
         protected override void OnStart()
         {
-            string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
-                ? new[] {SymbolName}
-                : SymbolsToProceed.Split(new[] {'|', ',', ';',}, StringSplitOptions.RemoveEmptyEntries)
-                    .Where(a => Symbols.Exists(a))
-                    .ToArray();
-
-            m_StateKeeper = new StateKeeper();
-            //if (IsBacktesting)
-            //{
-                m_StateKeeper.ResetState();
-            //}
-
-            m_StateKeeper.Init(symbols);
-            m_SetupFinders = new Dictionary<string, SetupFinder>();
+            Debugger.Launch();
+            m_SetupFindersMap = new Dictionary<string, SetupFinder>();
             m_BarsMap = new Dictionary<string, Bars>();
             m_BarsInitMap = new Dictionary<string, bool>();
             m_SymbolsMap = new Dictionary<string, Symbol>();
+            m_SymbolFindersMap = new Dictionary<string, SetupFinder[]>();
+            m_PositionFinderMap = new Dictionary<string, bool>();
 
-            foreach (string sb in symbols)
+            string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
+                ? new[] { SymbolName }
+                : SplitString(SymbolsToProceed);
+            string[] timeFrames = !UseTimeFramesList || string.IsNullOrEmpty(TimeFramesToProceed)
+                ? new[] { TimeFrame.Name }
+                : SplitString(TimeFramesToProceed);
+            
+            foreach (string symbolName in symbols)
             {
-                SymbolState state = m_StateKeeper.MainState.States[sb];
-                state.Symbol = sb;
-                state.TimeFrame = TimeFrame.Name;
-                m_BarsMap[sb] = MarketData.GetBars(TimeFrame, sb);
-                var barsProvider = new CTraderBarsProvider(m_BarsMap[sb]);
-                var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
-                m_BarsMap[sb].BarOpened += BarOpened;
-                m_SymbolsMap[sb] = Symbols.GetSymbol(sb);
-                m_SymbolsMap[sb].Tick += OnTick;
-                m_SetupFinders[sb] = sf;
-                m_BarsInitMap[sb] = false;
-                Print($"{sb} is added");
+                if (!Symbols.Exists(symbolName))
+                {
+                    continue;
+                }
+
+                var finders = new List<SetupFinder>();
+                foreach (string timeFrameStr in timeFrames)
+                {
+                    if (!TimeFrame.TryParse(timeFrameStr, out TimeFrame timeFrame))
+                    {
+                        continue;
+                    }
+
+                    var state = new SymbolState
+                    {
+                        Symbol = symbolName,
+                        TimeFrame = timeFrame.Name
+                    };
+
+                    Bars bars = MarketData.GetBars(timeFrame, symbolName);
+                    var barsProvider = new CTraderBarsProvider(bars);
+                    var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
+                    string key = sf.Id;
+                    m_BarsMap[key] = bars;
+                    m_BarsMap[key].BarOpened += BarOpened;
+                    m_SymbolsMap[key] = Symbols.GetSymbol(symbolName);
+                    m_SymbolsMap[key].Tick += OnTick;
+                    m_SetupFindersMap[key] = sf;
+                    m_BarsInitMap[key] = false;
+                    finders.Add(sf);
+                    Print($"Symbol {symbolName}, time frame {timeFrame.Name} is added");
+                }
+
+                m_SymbolFindersMap[symbolName] = finders.ToArray();
             }
 
-            m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, m_StateKeeper.MainState);
-            //if (!IsBacktesting)
-            //{
-            //    m_StateKeeper.Save();
-            //}
-
+            m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId);
             Print($"OnStart is OK, is telegram ready: {m_TelegramReporter.IsReady}");
         }
 
         private void OnTick(SymbolTickEventArgs obj)
         {
-            SetupFinder sf = m_SetupFinders[obj.SymbolName];
-            sf.CheckTick(obj.Bid);
+            if (!m_SymbolFindersMap.TryGetValue(obj.SymbolName, out SetupFinder[] finders))
+            {
+                return;
+            }
+
+            foreach (SetupFinder sf in finders)
+            {
+                sf.CheckTick(obj.Bid);
+            }
         }
 
         private void BarOpened(BarOpenedEventArgs obj)
         {
-            Bars bars = obj.Bars;
+            Bars bars = obj.Bars; 
             int prevCount = bars.Count - 1;
             int index = prevCount - 1;
             if (index < 0)
@@ -110,8 +148,13 @@ namespace TradeKit
                 return;
             }
 
-            SetupFinder sf = m_SetupFinders[bars.SymbolName];
-            if (m_BarsInitMap[bars.SymbolName])
+            string finderId = SetupFinder.GetId(bars.SymbolName, bars.TimeFrame.Name);
+            if (!m_SetupFindersMap.TryGetValue(finderId, out SetupFinder sf))
+            {
+                return;
+            }
+
+            if (m_BarsInitMap[finderId])
             {
                 sf.CheckBar(index);
                 return;
@@ -126,41 +169,88 @@ namespace TradeKit
             sf.OnStopLoss += OnStopLoss;
             sf.OnTakeProfit += OnTakeProfit;
             sf.State.IsInSetup = false;
-            m_BarsInitMap[bars.SymbolName] = true;
+            m_BarsInitMap[finderId] = true;
+        }
+
+        private bool HandleClose(object sender, EventArgs.LevelEventArgs e, 
+            out string price, out string setupId)
+        {
+            SetupFinder sf = (SetupFinder)sender;
+            setupId = sf.Id;
+            price = null;
+            if (!m_PositionFinderMap.TryGetValue(sf.Id, out bool isInPosition))
+            {
+                return false;
+            }
+
+            GetEventStrings(sender, e.Level, out price, out SymbolInfo _);
+
+            m_PositionFinderMap[sf.Id] = false;
+            return isInPosition;
         }
 
         private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
         {
+            if (!HandleClose(sender, e, out string price, out string setupId))
+            {
+                return;
+            }
+
             m_StopCount++;
-            GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Print($"SL hit! {price}");
             if (IsBacktesting || !m_TelegramReporter.IsReady)
             {
                 return;
             }
-
-            m_TelegramReporter.ReportStopLoss(symbolInfo.Name);
+            
+            m_TelegramReporter.ReportStopLoss(setupId);
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
+            if (!HandleClose(sender, e, out string price, out string setupId))
+            {
+                return;
+            }
+
             m_TakeCount++;
-            GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Print($"TP hit! {price}");
             if (IsBacktesting || !m_TelegramReporter.IsReady)
             {
                 return;
             }
-
-            m_TelegramReporter.ReportTakeProfit(symbolInfo.Name);
+            
+            m_TelegramReporter.ReportTakeProfit(setupId);
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
         {
+            SetupFinder sf = (SetupFinder)sender;
+            if (!m_SymbolFindersMap.TryGetValue(sf.State.Symbol, out SetupFinder[] finders))
+            {
+                return;
+            }
+
+            foreach (SetupFinder finder in finders)
+            {
+                if (finder.Id == sf.Id)
+                {
+                    continue;
+                }
+
+                if (Math.Abs(finder.State.SetupStartPrice - e.StopLoss.Price) < double.Epsilon ||
+                    Math.Abs(finder.State.SetupEndPrice - e.StopLoss.Price) < double.Epsilon)
+                {
+                    Print($"Already got this setup in on {finder.State.Symbol} - {finder.State.TimeFrame}");
+                    return;
+                }
+            }
+
             m_EnterCount++;
+            m_PositionFinderMap[sf.Id] = true;
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Print($"New setup found! {price}");
-            Symbol s = m_SymbolsMap[symbolInfo.Name];
+            Symbol s = m_SymbolsMap[sf.Id];
 
             if (IsBacktesting)
             {
@@ -194,7 +284,8 @@ namespace TradeKit
                 Bid = s.Bid,
                 Digits = symbolInfo.Digits,
                 SignalEventArgs = e,
-                SymbolName = symbolInfo.Name
+                SymbolName = symbolInfo.Name,
+                SenderId = sf.Id
             });
         }
 
@@ -208,20 +299,16 @@ namespace TradeKit
 
         protected override void OnStop()
         {
-            foreach (SetupFinder sf in m_SetupFinders.Values)
+            foreach (SetupFinder sf in m_SetupFindersMap.Values)
             {
                 sf.OnEnter -= OnEnter;
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
-                m_BarsMap[sf.State.Symbol].BarOpened -= BarOpened;
-                m_SymbolsMap[sf.State.Symbol].Tick -= OnTick;
+                m_BarsMap[sf.Id].BarOpened -= BarOpened;
+                m_SymbolsMap[sf.Id].Tick -= OnTick;
             }
 
             Print($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
-            //if (!IsBacktesting)
-            //{
-            //    m_StateKeeper.Save();
-            //}
         }
     }
 }

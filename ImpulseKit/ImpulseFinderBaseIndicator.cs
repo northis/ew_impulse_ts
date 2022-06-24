@@ -11,21 +11,7 @@ namespace TradeKit
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class ImpulseFinderBaseIndicator : Indicator
     {
-        /// <summary>
-        /// Gets or sets the telegram bot token.
-        /// </summary>
-        [Parameter("TelegramBotToken", DefaultValue = null)]
-        public string TelegramBotToken { get; set; }
-
-        /// <summary>
-        /// Gets or sets the chat identifier where to send signals.
-        /// </summary>
-        [Parameter("ChatId", DefaultValue = null)]
-        public string ChatId { get; set; }
-
         private SetupFinder m_SetupFinder;
-        private TelegramReporter m_TelegramReporter;
-        private StateKeeper m_StateKeeper;
         private IBarsProvider m_BarsProvider;
         private bool m_IsInitialized;
 
@@ -40,24 +26,22 @@ namespace TradeKit
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
             }
-
-            string[] symbols = { SymbolName };
-            m_StateKeeper = new StateKeeper();
-            m_StateKeeper.Init(symbols);
+            
+            var state = new SymbolState
+            {
+                Symbol = SymbolName,
+                TimeFrame = TimeFrame.Name
+            };
 
             m_BarsProvider = new CTraderBarsProvider(Bars);
-            m_SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, 
-                m_BarsProvider, m_StateKeeper.MainState.States[SymbolName]);
+            m_SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, m_BarsProvider, state);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
-
-            m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, m_StateKeeper.MainState);
         }
 
         protected override void OnDestroy()
         {
-            //m_StateKeeper.Save();
             m_SetupFinder.OnEnter -= OnEnter;
             m_SetupFinder.OnStopLoss -= OnStopLoss;
             m_SetupFinder.OnTakeProfit -= OnTakeProfit;
@@ -72,12 +56,6 @@ namespace TradeKit
                 , e.Level.Price, Color.LightCoral);
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Print($"SL hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
-            if (!m_IsInitialized)
-            {
-                return;
-            }
-
-            m_TelegramReporter.ReportStopLoss(SymbolName);
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
@@ -88,12 +66,6 @@ namespace TradeKit
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Print($"TP hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
-            if (!m_IsInitialized)
-            {
-                return;
-            }
-
-            m_TelegramReporter.ReportTakeProfit(SymbolName);
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
@@ -117,19 +89,6 @@ namespace TradeKit
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Print($"New setup found! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
-            if (!m_TelegramReporter.IsReady || !m_IsInitialized)
-            {
-                return;
-            }
-
-            m_TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
-            {
-                Ask = Ask, 
-                Bid = Bid, 
-                Digits = Symbol.Digits, 
-                SignalEventArgs = e, 
-                SymbolName = SymbolName
-            });
         }
 
         /// <summary>

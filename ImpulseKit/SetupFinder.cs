@@ -39,6 +39,21 @@ namespace TradeKit
         public IBarsProvider BarsProvider { get; }
 
         /// <summary>
+        /// Gets the identifier of this setup finder.
+        /// </summary>
+        public string Id => GetId(State.Symbol, State.TimeFrame);
+
+        /// <summary>
+        /// Gets the identifier.
+        /// </summary>
+        /// <param name="symbolName">Name of the symbol.</param>
+        /// <param name="timeFrame">The time frame.</param>
+        public static string GetId(string symbolName, string timeFrame)
+        {
+            return symbolName + timeFrame;
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
@@ -164,7 +179,7 @@ namespace TradeKit
 
                 var isImpulseUp = endValue > startValue;
                 double maxValue = Math.Max(startValue, endValue);
-                double minValue = Math.Min(startValue, index);
+                double minValue = Math.Min(startValue, endValue);
                 for (int i = endItem.Key + 1; i < index; i++)
                 {
                     if (maxValue <= BarsProvider.GetHighPrice(i) ||
