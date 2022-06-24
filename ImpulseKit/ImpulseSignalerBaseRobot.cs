@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using cAlgo.API;
 using cAlgo.API.Internals;
@@ -68,7 +67,6 @@ namespace TradeKit
 
         protected override void OnStart()
         {
-            Debugger.Launch();
             m_SetupFindersMap = new Dictionary<string, SetupFinder>();
             m_BarsMap = new Dictionary<string, Bars>();
             m_BarsInitMap = new Dictionary<string, bool>();
