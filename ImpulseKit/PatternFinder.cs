@@ -30,18 +30,20 @@ namespace TradeKit
         /// <summary>
         /// Determines whether the specified interval has a zigzag.
         /// </summary>
-        /// <param name="start">The start of the interval.</param>
-        /// <param name="end">The end of the interval.</param>
+        /// <param name="start">The start extremum.</param>
+        /// <param name="end">The end extremum.</param>
         /// <param name="deviation">The deviation percent</param>
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsZigzag(DateTime start, DateTime end, double deviation)
+        private bool IsZigzag(Extremum start, Extremum end, double deviation)
         {
-            var minorExtremumFinder =
-                new ExtremumFinder(deviation, m_BarsProvider);
-            minorExtremumFinder.Calculate(start, end);
-            int count = minorExtremumFinder.Extrema.Count;
+            var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
+            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
+            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
+
+            NormalizeExtrema(extrema, start, end);
+            int count = extrema.Count;
             if (count == ZIGZAG_EXTREMA_COUNT)
             {
                 return true;
@@ -51,26 +53,13 @@ namespace TradeKit
         }
 
         /// <summary>
-        /// Determines whether the specified extrema is an simple impulse.
-        /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
+        /// Normalizes the extrema.
         /// </summary>
+        /// <param name="extrema">The extrema.</param>
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
-        /// <param name="deviation">The deviation percent</param>
-        /// <param name="extrema">The impulse waves found.</param>
-        /// <param name="allowSimple">True if we treat count <see cref="SIMPLE_EXTREMA_COUNT"/>-movement as impulse.</param>
-        /// <returns>
-        ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
-        /// </returns>
-        private bool IsSimpleImpulse(
-            Extremum start, Extremum end,
-            double deviation, out List<Extremum> extrema,
-            bool allowSimple = true)
+        private void NormalizeExtrema(List<Extremum> extrema, Extremum start, Extremum end)
         {
-            var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
-            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
-            extrema = minorExtremumFinder.ToExtremaList();
-
             if (extrema.Count == 0)
             {
                 extrema.Add(start);
@@ -96,6 +85,29 @@ namespace TradeKit
                     extrema.Add(end);
                 }
             }
+        }
+
+        /// <summary>
+        /// Determines whether the specified extrema is an simple impulse.
+        /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
+        /// </summary>
+        /// <param name="start">The start extremum.</param>
+        /// <param name="end">The end extremum.</param>
+        /// <param name="deviation">The deviation percent</param>
+        /// <param name="extrema">The impulse waves found.</param>
+        /// <param name="allowSimple">True if we treat count <see cref="SIMPLE_EXTREMA_COUNT"/>-movement as impulse.</param>
+        /// <returns>
+        ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
+        /// </returns>
+        private bool IsSimpleImpulse(
+            Extremum start, Extremum end,
+            double deviation, out List<Extremum> extrema,
+            bool allowSimple = true)
+        {
+            var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
+            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
+            extrema = minorExtremumFinder.ToExtremaList();
+            NormalizeExtrema(extrema, start, end);
 
             int count = extrema.Count;
             if (count < SIMPLE_EXTREMA_COUNT)
@@ -180,13 +192,14 @@ namespace TradeKit
                     return false;
                 }
 
-                for (double dv = deviation;
+                for (double dv = Helper.DEVIATION_MAX;
                      dv >= Helper.DEVIATION_LOW;
                      dv -= Helper.DEVIATION_STEP)
                 {
-                    if (IsZigzag(firstItem.OpenTime, firstWaveEnd.OpenTime, dv) ||
-                        IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.OpenTime, dv) ||
-                        IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.OpenTime, dv))
+
+                    if (IsZigzag(firstItem, firstWaveEnd, dv) ||
+                        IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
+                        IsZigzag(fourthWaveEnd, fifthWaveEnd, dv))
                     {
                         return false;
                     }
@@ -275,7 +288,6 @@ namespace TradeKit
                             bool res = CheckWaves();
                             if (res)
                             {
-                                //Debugger.Launch();
                                 return true;
                             }
                         }
