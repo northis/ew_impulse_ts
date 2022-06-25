@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using cAlgo.API;
+using cAlgo.API.Collections;
 using cAlgo.API.Internals;
 using TradeKit.Config;
 
@@ -226,6 +227,36 @@ namespace TradeKit
             SetupFinder sf = (SetupFinder)sender;
             if (!m_SymbolFindersMap.TryGetValue(sf.State.Symbol, out SetupFinder[] finders))
             {
+                return;
+            }
+
+            if (!m_BarsMap.TryGetValue(sf.Id, out Bars bars))
+            {
+                return;
+            }
+
+            DateTime setupStart = bars.OpenTimes[e.StopLoss.Index];
+            DateTime setupEnd = bars.OpenTimes[e.TakeProfit.Index];
+            IReadonlyList<TradingSession> sessions = m_SymbolsMap[sf.Id].MarketHours.Sessions;
+
+            DateTime setupDayStart = setupStart.Subtract(setupStart.TimeOfDay)
+                .AddDays(-(int) setupStart.DayOfWeek);
+            bool isSetupInDay = false;
+            foreach (TradingSession session in sessions)
+            {
+                DateTime sessionDateTime = setupDayStart.AddDays((int)session.StartDay).Add(session.StartTime);
+                DateTime sessionEndTime = setupDayStart.AddDays((int)session.EndDay).Add(session.EndTime);
+
+                if (setupStart > sessionDateTime && setupEnd < sessionEndTime)
+                {
+                    isSetupInDay = true;
+                    break;
+                }
+            }
+
+            if (!isSetupInDay)
+            {
+                Print("Skip the signal, the setup contains a trade session change");
                 return;
             }
 

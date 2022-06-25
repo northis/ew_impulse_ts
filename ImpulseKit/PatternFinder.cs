@@ -15,7 +15,6 @@ namespace TradeKit
         private const int IMPULSE_EXTREMA_COUNT = 6;
         private const int SIMPLE_EXTREMA_COUNT = 2;
         private const int ZIGZAG_EXTREMA_COUNT = 4;
-        private const int DOUBLE_ZIGZAG_EXTREMA_COUNT = 8;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PatternFinder"/> class.
@@ -45,7 +44,7 @@ namespace TradeKit
 
             NormalizeExtrema(extrema, start, end);
             int count = extrema.Count;
-            if (count == ZIGZAG_EXTREMA_COUNT || count == DOUBLE_ZIGZAG_EXTREMA_COUNT)
+            if (count == ZIGZAG_EXTREMA_COUNT)
             {
                 return true;
             }
@@ -205,6 +204,25 @@ namespace TradeKit
                         return false;
                     }
                 }
+
+                //bool isCorrectionOk = false;
+                //for (double dv = Helper.DEVIATION_MAX;
+                //     dv >= Helper.DEVIATION_LOW;
+                //     dv -= Helper.DEVIATION_STEP)
+                //{
+
+                //    if (IsZigzag(firstWaveEnd, secondWaveEnd, dv) ||
+                //        IsZigzag(thirdWaveEnd, fourthWaveEnd, dv))
+                //    {
+                //        isCorrectionOk = true;
+                //        break;
+                //    }
+                //}
+
+                //if (!isCorrectionOk)
+                //{
+                //    return false;
+                //}
 
                 for (double dv = deviation;
                      dv >= Helper.DEVIATION_LOW;
