@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Internals;
@@ -239,9 +240,10 @@ namespace TradeKit
             DateTime setupEnd = bars.OpenTimes[e.TakeProfit.Index];
             IReadonlyList<TradingSession> sessions = m_SymbolsMap[sf.Id].MarketHours.Sessions;
 
-            DateTime setupDayStart = setupStart.Subtract(setupStart.TimeOfDay)
+            DateTime setupDayStart = setupStart
+                .Subtract(setupStart.TimeOfDay)
                 .AddDays(-(int) setupStart.DayOfWeek);
-            bool isSetupInDay = false;
+            bool isSetupInDay = !sessions.Any();
             foreach (TradingSession session in sessions)
             {
                 DateTime sessionDateTime = setupDayStart.AddDays((int)session.StartDay).Add(session.StartTime);

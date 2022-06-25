@@ -192,11 +192,8 @@ namespace TradeKit
                     return false;
                 }
 
-                for (double dv = Helper.DEVIATION_MAX;
-                     dv >= Helper.DEVIATION_LOW;
-                     dv -= Helper.DEVIATION_STEP)
+                for (double dv = Helper.DEVIATION_MAX; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
-
                     if (IsZigzag(firstItem, firstWaveEnd, dv) ||
                         IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
                         IsZigzag(fourthWaveEnd, fifthWaveEnd, dv))
@@ -224,11 +221,8 @@ namespace TradeKit
                 //    return false;
                 //}
 
-                for (double dv = deviation;
-                     dv >= Helper.DEVIATION_LOW;
-                     dv -= Helper.DEVIATION_STEP)
+                for (double dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
-
                     if (IsSimpleImpulse(firstItem, firstWaveEnd, dv, out _) &&
                         IsSimpleImpulse(secondWaveEnd, thirdWaveEnd, dv, out _) &&
                         IsSimpleImpulse(fourthWaveEnd, fifthWaveEnd, dv, out _))
