@@ -7,9 +7,13 @@ namespace SignalsCheckKit
         private const string BOT_NAME = "SignalsCheckRobot";
         [Parameter("SignalHistoryFilePath", DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
-        private const double RISK_DEPOSIT_PERCENT = 2;
+        private const double RISK_DEPOSIT_PERCENT = 5;
         [Parameter("UseUtc", DefaultValue = true)]
         public bool UseUtc { get; set; }
+        [Parameter("UseOneTP", DefaultValue = true)]
+        public bool UseOneTP { get; set; }
+        [Parameter("UseBreakeven", DefaultValue = true)]
+        public bool UseBreakeven { get; set; }
 
         private Dictionary<DateTime, Signal> m_Signals = new();
         
@@ -22,10 +26,15 @@ namespace SignalsCheckKit
 
         private void OnPositionClosed(PositionClosedEventArgs obj)
         {
-            //foreach (var position in Positions.Where(a => a.Label == BOT_NAME))
-            //{
-            //    position.ModifyStopLossPrice(position.EntryPrice);
-            //}
+            if (!UseBreakeven)
+            {
+                return;
+            }
+
+            foreach (var position in Positions.Where(a => a.Label == BOT_NAME))
+            {
+                position.ModifyStopLossPrice(position.EntryPrice);
+            }
         }
 
         protected override void OnBar()
@@ -55,10 +64,15 @@ namespace SignalsCheckKit
                 double slUnits = Math.Abs(priceNow - signal.StopLoss);
                 double slP = slUnits / Symbol.PipSize;
 
-                foreach (double tp in signal.TakeProfits.Take(1))
+                for (var i = 0; i < signal.TakeProfits.Length; i++)
                 {
-                    double tpP = Math.Abs(priceNow - tp) / Symbol.PipSize;
+                    if (UseOneTP && i > 0)
+                    {
+                        break;
+                    }
 
+                    double tp = signal.TakeProfits[i];
+                    double tpP = Math.Abs(priceNow - tp) / Symbol.PipSize;
                     double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
                     ExecuteMarketOrder(type, Symbol.Name, volume, BOT_NAME, slP, tpP);
                 }
