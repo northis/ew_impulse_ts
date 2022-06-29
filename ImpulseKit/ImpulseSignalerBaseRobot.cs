@@ -136,7 +136,7 @@ namespace TradeKit
 
             foreach (SetupFinder sf in finders)
             {
-                sf.CheckTick(obj.Bid);
+                sf.CheckTick(obj.Bid, obj.Ask);
             }
         }
 

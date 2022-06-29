@@ -151,11 +151,13 @@ namespace TradeKit
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         /// <param name="finder">The extremum finder instance.</param>
-        /// <param name="currentPrice">The current price.</param>
+        /// <param name="currentPriceBid">The current price (Bid).</param>
+        /// <param name="currentPriceAsk">The current price (Ask).</param>
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSetup(int index, ExtremumFinder finder, double? currentPrice = null)
+        private bool IsSetup(int index, ExtremumFinder finder, 
+            double? currentPriceBid = null, double? currentPriceAsk = null)
         {
             SortedDictionary<int, Extremum> extrema = finder.Extrema;
             int count = extrema.Count;
@@ -164,8 +166,8 @@ namespace TradeKit
                 return false;
             }
 
-            double low = currentPrice ?? BarsProvider.GetLowPrice(index);
-            double high = currentPrice ?? BarsProvider.GetHighPrice(index);
+            double low = currentPriceBid ?? BarsProvider.GetLowPrice(index);
+            double high = currentPriceBid ?? BarsProvider.GetHighPrice(index);
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
@@ -257,13 +259,28 @@ namespace TradeKit
                     // Wait for the next bar
                     return;
                 }
+                
+                double realPrice;
+                double? actualCurrentPrice = isImpulseUp ? currentPriceAsk : currentPriceBid;
+                if (triggerLevel >= low && triggerLevel <= high)
+                {
+                    realPrice = actualCurrentPrice ?? triggerLevel;
+                }
+                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
+                {
+                    realPrice = actualCurrentPrice ?? low;
+                }
+                else
+                {
+                    realPrice = actualCurrentPrice ?? high;
+                }
 
-                State.TriggerLevel = triggerLevel;
+                State.TriggerLevel = realPrice;
                 State.TriggerBarIndex = index;
                 State.IsInSetup = true;
                 
-                double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
-                double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
+                double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
+                double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
                 State.SetupStartIndex = startItem.Key;
                 State.SetupEndIndex = endItem.Key;
@@ -281,23 +298,6 @@ namespace TradeKit
                         endValue + endAllowance + m_Symbol.Spread, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                 }
 
-                var tpArg = new LevelItem(State.SetupEndPrice, State.SetupEndIndex);
-                var slArg = new LevelItem(State.SetupStartPrice, State.SetupStartIndex);
-
-                double realPrice;
-                if (triggerLevel >= low && triggerLevel <= high)
-                {
-                    realPrice = triggerLevel;
-                }
-                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
-                {
-                    realPrice = low;
-                }
-                else
-                {
-                    realPrice = high;
-                }
-
                 if (isImpulseUp && 
                     (realPrice>= State.SetupEndPrice || realPrice <= State.SetupStartPrice) ||
                     !isImpulseUp &&
@@ -306,6 +306,9 @@ namespace TradeKit
                     // TP or SL is already hit, cannot use this signal
                     return;
                 }
+
+                var tpArg = new LevelItem(State.SetupEndPrice, State.SetupEndIndex);
+                var slArg = new LevelItem(State.SetupStartPrice, State.SetupStartIndex);
                 
                 OnEnter?.Invoke(this,
                     new SignalEventArgs(
@@ -405,15 +408,16 @@ namespace TradeKit
         /// <summary>
         /// Checks the tick.
         /// </summary>
-        /// <param name="price">The price.</param>
-        public void CheckTick(double price)
+        /// <param name="bid">The price (bid).</param>
+        /// <param name="ask">The price (ask).</param>
+        public void CheckTick(double bid, double ask)
         {
             if (m_PreFinder == null)
             {
                 return;
             }
 
-            IsSetup(m_LastBarIndex, m_PreFinder, price);
+            IsSetup(m_LastBarIndex, m_PreFinder, bid, ask);
         }
 
         private void CheckSetup(double? price)
