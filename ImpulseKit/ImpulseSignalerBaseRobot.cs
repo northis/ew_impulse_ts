@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
@@ -106,11 +107,12 @@ namespace TradeKit
 
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
                     var barsProvider = new CTraderBarsProvider(bars);
-                    var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state);
+                    Symbol symbolEntity = Symbols.GetSymbol(symbolName);
+                    var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state, symbolEntity);
                     string key = sf.Id;
                     m_BarsMap[key] = bars;
                     m_BarsMap[key].BarOpened += BarOpened;
-                    m_SymbolsMap[key] = Symbols.GetSymbol(symbolName);
+                    m_SymbolsMap[key] = symbolEntity;
                     m_SymbolsMap[key].Tick += OnTick;
                     m_SetupFindersMap[key] = sf;
                     m_BarsInitMap[key] = false;
@@ -269,8 +271,8 @@ namespace TradeKit
                     continue;
                 }
 
-                if (Math.Abs(finder.State.SetupStartPrice - e.StopLoss.Price) < double.Epsilon ||
-                    Math.Abs(finder.State.SetupEndPrice - e.StopLoss.Price) < double.Epsilon)
+                if (Math.Abs(finder.State.SetupStartPrice - e.StopLoss.Price) < double.Epsilon &&
+                    Math.Abs(finder.State.SetupEndPrice - e.TakeProfit.Price) < double.Epsilon)
                 {
                     Print($"Already got this setup in on {finder.State.Symbol} - {finder.State.TimeFrame}");
                     return;
@@ -288,18 +290,12 @@ namespace TradeKit
                 double tp = e.TakeProfit.Price;
                 double sl = e.StopLoss.Price;
                 bool isLong = sl < tp;
-                if (!isLong)
-                {
-                    tp += s.Spread;
-                    sl += s.Spread;
-                }
-
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
-
+                
                 double slP = Math.Abs(priceNow - sl) / symbolInfo.PipSize;
                 double tpP = Math.Abs(priceNow - tp) / symbolInfo.PipSize;
-                double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
+                double volume = s.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
                 ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
                 return;
             }

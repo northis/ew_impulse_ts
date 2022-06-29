@@ -34,7 +34,7 @@ namespace TradeKit
             };
 
             m_BarsProvider = new CTraderBarsProvider(Bars);
-            m_SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, m_BarsProvider, state);
+            m_SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, m_BarsProvider, state, Symbol);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;

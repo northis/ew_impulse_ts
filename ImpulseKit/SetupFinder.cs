@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using cAlgo.API;
+using cAlgo.API.Internals;
 using TradeKit.Config;
 using TradeKit.EventArgs;
 
@@ -11,6 +14,7 @@ namespace TradeKit
     /// </summary>
     public class SetupFinder
     {
+        private readonly Symbol m_Symbol;
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         private int m_LastBarIndex;
@@ -53,14 +57,18 @@ namespace TradeKit
             return symbolName + timeFrame;
         }
 
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="state">The state.</param>
-        public SetupFinder(double correctionAllowancePercent, IBarsProvider barsProvider, SymbolState state)
+        /// <param name="symbol">The symbol.</param>
+        public SetupFinder(
+            double correctionAllowancePercent, IBarsProvider barsProvider, SymbolState state, Symbol symbol)
         {
+            m_Symbol = symbol;
             BarsProvider = barsProvider;
             State = state;
             for (double d = Helper.DEVIATION_MAX;
@@ -253,22 +261,24 @@ namespace TradeKit
                 State.TriggerLevel = triggerLevel;
                 State.TriggerBarIndex = index;
                 State.IsInSetup = true;
-
+                
                 double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
                 double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
                 State.SetupStartIndex = startItem.Key;
                 State.SetupEndIndex = endItem.Key;
-
+                
                 if (isImpulseUp)
                 {
-                    State.SetupStartPrice = startValue - startAllowance;
-                    State.SetupEndPrice = endValue - endAllowance;
+                    State.SetupStartPrice = Math.Round(startValue - startAllowance, m_Symbol.Digits, MidpointRounding.ToZero);
+                    State.SetupEndPrice = Math.Round(endValue - endAllowance, m_Symbol.Digits, MidpointRounding.ToZero);
                 }
                 else
                 {
-                    State.SetupStartPrice = startValue + startAllowance;
-                    State.SetupEndPrice = endValue + endAllowance;
+                    State.SetupStartPrice = Math.Round(
+                        startValue + startAllowance + m_Symbol.Spread, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                    State.SetupEndPrice = Math.Round(
+                        endValue + endAllowance + m_Symbol.Spread, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                 }
 
                 var tpArg = new LevelItem(State.SetupEndPrice, State.SetupEndIndex);
