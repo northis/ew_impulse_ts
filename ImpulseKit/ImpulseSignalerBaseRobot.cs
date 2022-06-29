@@ -293,8 +293,8 @@ namespace TradeKit
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
                 
-                double slP = Math.Abs(priceNow - sl) / symbolInfo.PipSize;
-                double tpP = Math.Abs(priceNow - tp) / symbolInfo.PipSize;
+                double slP = Math.Round(Math.Abs(priceNow - sl) / symbolInfo.PipSize);
+                double tpP = Math.Round(Math.Abs(priceNow - tp) / symbolInfo.PipSize);
                 double volume = s.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
                 ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
                 return;
