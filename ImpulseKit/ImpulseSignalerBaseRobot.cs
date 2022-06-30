@@ -258,10 +258,10 @@ namespace TradeKit
                 }
             }
 
-            if (!isSetupInDay)
+            bool isHighRisk = !isSetupInDay;
+            if (isHighRisk)
             {
-                Print("Skip the signal, the setup contains a trade session change");
-                return;
+                Print("A risky signal, the setup contains a trade session change");
             }
 
             foreach (SetupFinder finder in finders)
@@ -295,7 +295,9 @@ namespace TradeKit
                 
                 double slP = Math.Round(Math.Abs(priceNow - sl) / symbolInfo.PipSize);
                 double tpP = Math.Round(Math.Abs(priceNow - tp) / symbolInfo.PipSize);
-                double volume = s.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
+
+                double depositPercent = isHighRisk ? RISK_DEPOSIT_PERCENT / 2 : RISK_DEPOSIT_PERCENT;
+                double volume = s.GetVolume(depositPercent, Account.Balance, slP);
                 ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
                 return;
             }
@@ -312,7 +314,8 @@ namespace TradeKit
                 Digits = symbolInfo.Digits,
                 SignalEventArgs = e,
                 SymbolName = symbolInfo.Name,
-                SenderId = sf.Id
+                SenderId = sf.Id,
+                IsHighRisk = isHighRisk
             });
         }
 

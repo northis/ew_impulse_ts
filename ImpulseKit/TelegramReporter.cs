@@ -131,13 +131,18 @@ namespace TradeKit
 
             var sb = new StringBuilder();
             sb.AppendLine($"#{signalArgs.SymbolName.Replace(" ","")} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
-            sb.AppendLine($"TP: {PriceFormat(signalEventArgs.TakeProfit.Price, signalArgs.Digits)}");
-            sb.AppendLine($"SL: {PriceFormat(signalEventArgs.StopLoss.Price, signalArgs.Digits)}");
+            sb.AppendLine($"TP {PriceFormat(signalEventArgs.TakeProfit.Price, signalArgs.Digits)}");
+            sb.AppendLine($"SL {PriceFormat(signalEventArgs.StopLoss.Price, signalArgs.Digits)}");
 
             if (den > 0)
             {
-                sb.AppendLine($"Risk/Reward: {PriceFormat(100 * nom / den, 0)}%");
-                sb.AppendLine($"Spread/Reward: {PriceFormat(100 * spread / (den + spread), 1)}%");
+                sb.AppendLine($"Risk/Reward {PriceFormat(100 * nom / den, 0)}%");
+                sb.AppendLine($"Spread/Reward {PriceFormat(100 * spread / den, 0)}%");
+            }
+
+            if (signalArgs.IsHighRisk)
+            {
+                sb.AppendLine("NOTE: Overnight setup, use small lot!");
             }
 
             string alert = sb.ToString();
@@ -190,6 +195,14 @@ namespace TradeKit
             /// Gets or sets the amount of digits for the <see cref="SymbolName"/>.
             /// </summary>
             public int Digits { get; set; }
+
+            /// <summary>
+            /// Gets or sets a value indicating whether this signal is a high-risk trade.
+            /// </summary>
+            /// <value>
+            ///   <c>true</c> if this signal is a high-risk trade; otherwise, <c>false</c>.
+            /// </value>
+            public bool IsHighRisk { get; set; }
         }
     }
 }
