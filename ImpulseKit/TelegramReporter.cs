@@ -140,11 +140,6 @@ namespace TradeKit
                 sb.AppendLine($"Spread/Reward {PriceFormat(100 * spread / den, 0)}%");
             }
 
-            if (signalArgs.IsHighRisk)
-            {
-                sb.AppendLine("NOTE: Overnight setup, use small lot!");
-            }
-
             string alert = sb.ToString();
             Message msgRes = m_TelegramBotClient
                 .SendTextMessageAsync(m_TelegramChatId, alert)
@@ -195,14 +190,6 @@ namespace TradeKit
             /// Gets or sets the amount of digits for the <see cref="SymbolName"/>.
             /// </summary>
             public int Digits { get; set; }
-
-            /// <summary>
-            /// Gets or sets a value indicating whether this signal is a high-risk trade.
-            /// </summary>
-            /// <value>
-            ///   <c>true</c> if this signal is a high-risk trade; otherwise, <c>false</c>.
-            /// </value>
-            public bool IsHighRisk { get; set; }
         }
     }
 }

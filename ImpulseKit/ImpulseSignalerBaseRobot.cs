@@ -133,7 +133,7 @@ namespace TradeKit
             {
                 return;
             }
-
+            
             foreach (SetupFinder sf in finders)
             {
                 sf.CheckTick(obj.Bid, obj.Ask);
@@ -237,10 +237,24 @@ namespace TradeKit
             {
                 return;
             }
+            
+            DateTime setupStart = bars.OpenTimes[e.StopLoss.Index].ToLocalTime();
+            DateTime setupEnd = bars.OpenTimes[e.TakeProfit.Index].ToLocalTime();
+            Symbol symbol = m_SymbolsMap[sf.Id];
 
-            DateTime setupStart = bars.OpenTimes[e.StopLoss.Index];
-            DateTime setupEnd = bars.OpenTimes[e.TakeProfit.Index];
-            IReadonlyList<TradingSession> sessions = m_SymbolsMap[sf.Id].MarketHours.Sessions;
+            double tp = e.TakeProfit.Price;
+            double sl = e.StopLoss.Price;
+            bool isLong = sl < tp;
+            double spread = symbol.Spread;
+
+            if (isLong && symbol.Ask >= tp || 
+                spread > 0 && Math.Abs(sl - tp) / spread < Helper.MAX_SPREAD_RATIO)
+            {
+                Print("Big spread, ignore the signal");
+                return;
+            }
+
+            IReadonlyList<TradingSession> sessions = symbol.MarketHours.Sessions;
 
             DateTime setupDayStart = setupStart
                 .Subtract(setupStart.TimeOfDay)
@@ -257,11 +271,11 @@ namespace TradeKit
                     break;
                 }
             }
-
-            bool isHighRisk = !isSetupInDay;
-            if (isHighRisk)
+            
+            if (!isSetupInDay)
             {
                 Print("A risky signal, the setup contains a trade session change");
+                return;
             }
 
             foreach (SetupFinder finder in finders)
@@ -287,17 +301,13 @@ namespace TradeKit
 
             if (IsBacktesting)
             {
-                double tp = e.TakeProfit.Price;
-                double sl = e.StopLoss.Price;
-                bool isLong = sl < tp;
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
                 
                 double slP = Math.Round(Math.Abs(priceNow - sl) / symbolInfo.PipSize);
                 double tpP = Math.Round(Math.Abs(priceNow - tp) / symbolInfo.PipSize);
-
-                double depositPercent = isHighRisk ? RISK_DEPOSIT_PERCENT / 2 : RISK_DEPOSIT_PERCENT;
-                double volume = s.GetVolume(depositPercent, Account.Balance, slP);
+                
+                double volume = s.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
                 ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
                 return;
             }
@@ -314,8 +324,7 @@ namespace TradeKit
                 Digits = symbolInfo.Digits,
                 SignalEventArgs = e,
                 SymbolName = symbolInfo.Name,
-                SenderId = sf.Id,
-                IsHighRisk = isHighRisk
+                SenderId = sf.Id
             });
         }
 

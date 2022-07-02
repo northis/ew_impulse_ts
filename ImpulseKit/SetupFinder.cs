@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Config;
 using TradeKit.EventArgs;
@@ -144,6 +142,14 @@ namespace TradeKit
             }
 
             return isInitialMove;
+        }
+
+        /// <summary>
+        /// Resets the setup
+        /// </summary>
+        public void ResetSetup()
+        {
+            State.IsInSetup = false;
         }
 
         /// <summary>

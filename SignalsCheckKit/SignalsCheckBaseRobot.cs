@@ -5,13 +5,17 @@ namespace SignalsCheckKit
     public class SignalsCheckBaseRobot : Robot
     {
         private const string BOT_NAME = "SignalsCheckRobot";
+        private const double RISK_DEPOSIT_PERCENT = 5;
+
         [Parameter("SignalHistoryFilePath", DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
-        private const double RISK_DEPOSIT_PERCENT = 5;
+
         [Parameter("UseUtc", DefaultValue = true)]
         public bool UseUtc { get; set; }
+
         [Parameter("UseOneTP", DefaultValue = true)]
         public bool UseOneTP { get; set; }
+
         [Parameter("UseBreakeven", DefaultValue = true)]
         public bool UseBreakeven { get; set; }
 
@@ -55,6 +59,8 @@ namespace SignalsCheckKit
                 .TakeWhile(a => a.Key <= barDateTime)
                 .ToList();
 
+            bool gotSignal = false;
+            List<TradeResult> result = new List<TradeResult>();
             foreach (KeyValuePair<DateTime, Signal> matchedSignal in matchedSignals)
             {
                 Signal signal = matchedSignal.Value;
@@ -71,13 +77,30 @@ namespace SignalsCheckKit
                         break;
                     }
 
+                    gotSignal = true;
+
                     double tp = signal.TakeProfits[i];
                     double tpP = Math.Abs(priceNow - tp) / Symbol.PipSize;
                     double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
-                    ExecuteMarketOrder(type, Symbol.Name, volume, BOT_NAME, slP, tpP);
+                    result.Add(ExecuteMarketOrder(type, Symbol.Name, volume, BOT_NAME, slP, tpP));
                 }
 
                 m_Signals.Remove(matchedSignal.Key);
+            }
+
+            if (!gotSignal)
+            {
+                return;
+            }
+
+            foreach (Position? position in Positions.Where(a => a.Label == BOT_NAME))
+            {
+                if (result.Any(a => a.Position.Id == position.Id))
+                {
+                    continue;
+                }
+
+                position.Close();
             }
         }
 
