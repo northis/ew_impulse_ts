@@ -238,8 +238,8 @@ namespace TradeKit
                 return;
             }
             
-            DateTime setupStart = bars.OpenTimes[e.StopLoss.Index].ToLocalTime();
-            DateTime setupEnd = bars.OpenTimes[e.TakeProfit.Index].ToLocalTime();
+            DateTime setupStart = bars.OpenTimes[e.StopLoss.Index];
+            DateTime setupEnd = bars.OpenTimes[e.Level.Index] + TimeFrameHelper.TimeFrames[bars.TimeFrame].TimeSpan * 2;
             Symbol symbol = m_SymbolsMap[sf.Id];
 
             double tp = e.TakeProfit.Price;
@@ -274,7 +274,8 @@ namespace TradeKit
             
             if (!isSetupInDay)
             {
-                Print("A risky signal, the setup contains a trade session change");
+                Print(
+                    $"A risky signal, the setup contains a trade session change: {symbol.Name}, {sf.State.TimeFrame}, {setupStart:s}-{setupEnd:s}");
                 return;
             }
 

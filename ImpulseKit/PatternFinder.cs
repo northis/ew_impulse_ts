@@ -36,7 +36,7 @@ namespace TradeKit
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsZigzag(Extremum start, Extremum end, double deviation)
+        public bool IsZigzag(Extremum start, Extremum end, double deviation)
         {
             var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
@@ -45,6 +45,35 @@ namespace TradeKit
             NormalizeExtrema(extrema, start, end);
             int count = extrema.Count;
             if (count == ZIGZAG_EXTREMA_COUNT)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Determines whether the flat is found.
+        /// </summary>
+        /// <param name="finder">The finder.</param>
+        /// <param name="bWaveStartIndex">Start index of the B wave.</param>
+        /// <param name="isUpC">if set to <c>true</c> the wave C is up.</param>
+        /// <param name="bars">The bars.</param>
+        /// <returns>
+        ///   <c>true</c> if the flat is found; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsFlatFound(ExtremumFinder finder, int bWaveStartIndex, bool isUpC, IBarsProvider bars)
+        {
+            var extrema = finder.ToExtremaList();
+            if (bWaveStartIndex < 2)
+            {
+                return false;
+            }
+
+            int bWaveEndIndex = bWaveStartIndex + 1;
+            Extremum bWaveEnd = extrema.ElementAt(bWaveEndIndex);
+            Extremum aWaveEnd = extrema.ElementAt(bWaveStartIndex);
+            if (IsZigzag(aWaveEnd, bWaveEnd, finder.DeviationPercent))
             {
                 return true;
             }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.Config;
@@ -19,7 +20,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
-        private const double TRIGGER_LEVEL_RATIO = 0.5;
+        private const double TRIGGER_LEVEL_RATIO = 0.6;
         
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -54,7 +55,6 @@ namespace TradeKit
         {
             return symbolName + timeFrame;
         }
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
@@ -101,18 +101,25 @@ namespace TradeKit
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
         /// <param name="finder">The extremum finder instance.</param>
+        /// <param name="edgeIndex">The edge extremum index.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
         private bool IsInitialMovement(
-            double startValue, double endValue, int startIndex, ExtremumFinder finder)
+            double startValue, 
+            double endValue, 
+            int startIndex, 
+            ExtremumFinder finder, 
+            out int? edgeIndex)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
+            edgeIndex = null;
             bool isImpulseUp = endValue > startValue;
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                double curValue = finder.Extrema.ElementAt(curIndex).Value.Value;
+                var edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
+                double curValue = edgeExtremum.Value;
                 if (isImpulseUp)
                 {
                     if (curValue <= startValue)
@@ -122,6 +129,7 @@ namespace TradeKit
 
                     if (curValue > endValue)
                     {
+                        edgeIndex = curIndex;
                         isInitialMove = true;
                         break;
                     }
@@ -136,22 +144,14 @@ namespace TradeKit
 
                 if (curValue < endValue)
                 {
+                    edgeIndex = curIndex;
                     isInitialMove = true;
                     break;
                 }
             }
-
             return isInitialMove;
         }
-
-        /// <summary>
-        /// Resets the setup
-        /// </summary>
-        public void ResetSetup()
-        {
-            State.IsInSetup = false;
-        }
-
+        
         /// <summary>
         /// Determines whether the data for specified index contains a trade setup.
         /// </summary>
@@ -205,10 +205,10 @@ namespace TradeKit
                         // The setup is no longer valid, TP or SL is already hit.
                     }
                 }
-
+                
                 bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startIndex, finder);
-                if (!isInitialMove)
+                    startValue, endValue, startIndex, finder, out int? edgeIndex);
+                if (!isInitialMove || !edgeIndex.HasValue)
                 {
                     // The move (impulse candidate) is no longer initial.
                     return;
@@ -265,7 +265,12 @@ namespace TradeKit
                     // Wait for the next bar
                     return;
                 }
-                
+
+                if (m_PatternFinder.IsFlatFound(finder, edgeIndex.Value, isImpulseUp, BarsProvider))
+                {
+                    return;
+                }
+
                 double realPrice;
                 double? actualCurrentPrice = isImpulseUp ? currentPriceAsk : currentPriceBid;
                 if (triggerLevel >= low && triggerLevel <= high)

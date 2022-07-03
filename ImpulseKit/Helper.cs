@@ -13,6 +13,5 @@
         public const double PERCENT_ALLOWANCE_TP = 0;
         public const double PERCENT_CORRECTION_DEF = 150;
         public const double MAX_SPREAD_RATIO = 0.2;
-        public const double MAX_5_OVER_3_RATIO = 0.1;
     }
 }
