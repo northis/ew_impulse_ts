@@ -79,6 +79,55 @@ namespace TradeKit
             }
 
             return false;
+            //if (!isZigzagB)
+            //{
+            //    return false;
+            //}
+
+            //DateTime startDateTime = extrema[0].OpenTime;
+            //for (double dv = finder.DeviationPercent; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
+            //{
+            //    var innerExtrema = new ExtremumFinder(dv, bars);
+            //    innerExtrema.Calculate(startDateTime, aWaveEnd.OpenTime);
+            //    List<Extremum> innerList = innerExtrema.ToExtremaList();
+            //    if (innerList.Count <= SIMPLE_EXTREMA_COUNT)
+            //    {
+            //        continue;
+            //    }
+
+            //    bool isZz = false;
+            //    for (double dvInner = dv; dvInner >= Helper.DEVIATION_LOW; dvInner -= Helper.DEVIATION_STEP)
+            //    {
+            //        if (IsZigzag(innerList[^2], innerList[^1], dvInner))
+            //        {
+            //            isZz = true;
+            //            break;
+            //        }
+            //    }
+
+            //    if (!isZz)
+            //    {
+            //        continue;
+            //    }
+
+            //    int aStartIndex = innerList.Count - 2;
+            //    for (int i = aStartIndex; i >= 0; i--)
+            //    {
+            //        Extremum preFlat = innerList.ElementAt(i);
+            //        double preFlatValue = preFlat.Value;
+            //        if (isUpC && preFlatValue < bWaveEnd.Value || !isUpC && preFlatValue > bWaveEnd.Value)
+            //        {
+            //            break;
+            //        }
+
+            //        if (isUpC && preFlatValue > aWaveEnd.Value || !isUpC && preFlatValue < aWaveEnd.Value)
+            //        {
+            //            return true;
+            //        }
+            //    }
+            //}
+
+            //return false;
         }
 
         /// <summary>
