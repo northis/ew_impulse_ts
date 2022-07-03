@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
@@ -14,6 +13,18 @@ namespace TradeKit
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
         private const double RISK_DEPOSIT_PERCENT = 5;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this bot can trade.
+        /// </summary>
+        [Parameter(nameof(RiskPercentFromDeposit), DefaultValue = RISK_DEPOSIT_PERCENT)]
+        public double RiskPercentFromDeposit { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this bot can trade.
+        /// </summary>
+        [Parameter(nameof(AllowToTrade), DefaultValue = false)]
+        public bool AllowToTrade { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use the symbols list.
@@ -300,7 +311,7 @@ namespace TradeKit
             Print($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
 
-            if (IsBacktesting)
+            if (IsBacktesting || AllowToTrade)
             {
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
@@ -308,12 +319,11 @@ namespace TradeKit
                 double slP = Math.Round(Math.Abs(priceNow - sl) / symbolInfo.PipSize);
                 double tpP = Math.Round(Math.Abs(priceNow - tp) / symbolInfo.PipSize);
                 
-                double volume = s.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
+                double volume = s.GetVolume(RiskPercentFromDeposit, Account.Balance, slP);
                 ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
-                return;
             }
 
-            if (!m_TelegramReporter.IsReady)
+            if (IsBacktesting || !m_TelegramReporter.IsReady)
             {
                 return;
             }
