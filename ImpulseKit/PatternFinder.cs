@@ -35,9 +35,9 @@ namespace TradeKit
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsZigzag(Extremum start, Extremum end, double devStartMax, double devEndMin)
+        public bool IsZigzag(Extremum start, Extremum end, int devStartMax, int devEndMin)
         {
-            for (double dv = devStartMax; dv >= devEndMin; dv -= Helper.DEVIATION_STEP)
+            for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.DEVIATION_STEP)
             {
                 if (IsZigzag(start, end, dv))
                 {
@@ -53,13 +53,13 @@ namespace TradeKit
         /// </summary>
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
-        /// <param name="deviation">The deviation percent</param>
+        /// <param name="scale">The deviation percent</param>
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsZigzag(Extremum start, Extremum end, double deviation)
+        public bool IsZigzag(Extremum start, Extremum end, int scale)
         {
-            var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
+            var minorExtremumFinder = new ExtremumFinder(scale, m_BarsProvider);
             minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
             List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
 
@@ -80,7 +80,7 @@ namespace TradeKit
             Extremum second = extrema[1];
             Extremum subLast = extrema[^2];
             Extremum last = extrema[^1];
-            bool isUp = first > last;
+            bool isUp = first < last;
 
             if (isUp && second > subLast || !isUp && second < subLast)
             {
@@ -139,7 +139,7 @@ namespace TradeKit
         /// </returns>
         private bool IsImpulseInner(
             Extremum start, Extremum end,
-            double deviation, out List<Extremum> extrema,
+            int deviation, out List<Extremum> extrema,
             bool allowSimple = true)
         {
             var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
@@ -229,8 +229,8 @@ namespace TradeKit
                 {
                     return false;
                 }
-
-                for (double dv = Helper.DEVIATION_MAX; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
+                
+                for (int dv = deviation; dv  >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
                     if (IsZigzag(firstItem, firstWaveEnd, dv) ||
                         IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
@@ -241,7 +241,7 @@ namespace TradeKit
                 }
 
                 bool ok1 = false, ok3 = false, ok5 = false;
-                for (double dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
+                for (int dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
                     if (IsImpulseInner(firstItem, firstWaveEnd, dv, out _))
                     {
@@ -347,13 +347,10 @@ namespace TradeKit
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsImpulse(
-            Extremum start, Extremum end, double deviation, out List<Extremum> extrema)
+        public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            for (double dv = deviation;
-                 dv >= Helper.DEVIATION_LOW;
-                 dv -= Helper.DEVIATION_STEP)
+            for (int dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
             {
                 bool isSimpleImpulse = IsImpulseInner(start, end, dv, out extrema, false);
                 if (isSimpleImpulse)

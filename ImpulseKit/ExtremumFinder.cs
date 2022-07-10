@@ -11,7 +11,7 @@ namespace TradeKit
     {
         private Extremum m_Extremum;
         private int m_ExtremumIndex;
-        private readonly double m_DeviationPercent;
+        private readonly int m_ScaleRate;
         private readonly IBarsProvider m_BarsProvider;
         private bool m_IsUpDirection;
 
@@ -22,8 +22,8 @@ namespace TradeKit
         {
             get
             {
-                double percentRate = m_IsUpDirection ? -0.01 : 0.01;
-                return m_Extremum.Value * (1.0 + m_DeviationPercent * percentRate);
+                double percentRate = m_IsUpDirection ? -0.0001 : 0.0001;
+                return m_Extremum.Value * (1.0 + m_ScaleRate * percentRate);
             }
         }
         
@@ -54,15 +54,15 @@ namespace TradeKit
         /// Gets the collection of extrema found.
         /// </summary>
         public SortedDictionary<int, Extremum> Extrema { get; }
-        
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
         /// </summary>
-        /// <param name="deviationPercent">The deviation percent.</param>
+        /// <param name="scaleRate">The scale (zoom) to find zigzags.</param>
         /// <param name="barsProvider">The source bars provider.</param>
-        public ExtremumFinder(double deviationPercent, IBarsProvider barsProvider)
+        public ExtremumFinder(int scaleRate, IBarsProvider barsProvider)
         {
-            m_DeviationPercent = deviationPercent;
+            m_ScaleRate = scaleRate;
             m_BarsProvider = barsProvider;
             Extrema = new SortedDictionary<int, Extremum>();
         }
@@ -70,7 +70,7 @@ namespace TradeKit
         /// <summary>
         /// Gets the deviation percent.
         /// </summary>
-        public double DeviationPercent => m_DeviationPercent;
+        public int ScaleRate => m_ScaleRate;
 
         /// <summary>
         /// Gets all the extrema as array.
@@ -127,7 +127,7 @@ namespace TradeKit
                 BarTimeFrame = m_BarsProvider.TimeFrame
             };
 
-            if (m_IsUpDirection ? high >= m_Extremum.Value : low <= m_Extremum.Value)
+            if (m_IsUpDirection ? high > m_Extremum.Value : low < m_Extremum.Value)
             {
                 var newExtremum = new Extremum
                 {
@@ -139,7 +139,7 @@ namespace TradeKit
                 return;
             }
 
-            if (m_IsUpDirection ? low <= DeviationPrice : high >= DeviationPrice)
+            if (m_IsUpDirection ? low < DeviationPrice : high > DeviationPrice)
             {
                 var extremum = new Extremum
                 {

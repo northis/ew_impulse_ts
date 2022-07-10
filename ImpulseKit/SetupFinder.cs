@@ -74,7 +74,7 @@ namespace TradeKit
             m_Symbol = symbol;
             BarsProvider = mainBarsProvider;
             State = state;
-            for (double d = Helper.DEVIATION_MAX; d >= Helper.DEVIATION_MIN; d -= Helper.DEVIATION_STEP)
+            for (int d = Helper.DEVIATION_MAX; d >= Helper.DEVIATION_MIN; d -= Helper.DEVIATION_STEP)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(d, BarsProvider));
             }
@@ -241,9 +241,8 @@ namespace TradeKit
                 }
 
                 m_PreFinder = null;
-
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, finder.DeviationPercent, out List<Extremum> outExtrema);
+                    startItem.Value, endItem.Value, finder.ScaleRate, out List<Extremum> outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -271,7 +270,7 @@ namespace TradeKit
                 //    KeyValuePair<int, Extremum> beforeStartItem 
                 //        = extrema.ElementAt(startIndex - 1);
                 //    if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value, 
-                //            finder.DeviationPercent, Helper.DEVIATION_LOW))
+                //            finder.ScaleRate, Helper.DEVIATION_LOW))
                 //    {
                 //        Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
                 //        return;

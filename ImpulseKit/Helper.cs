@@ -2,10 +2,10 @@
 {
     public static class Helper
     {
-        public const double DEVIATION_STEP = 0.01;
-        public const double DEVIATION_MAX = 0.4;
-        public const double DEVIATION_MIN = 0.1;
-        public const double DEVIATION_LOW = 0.01;
+        public const int DEVIATION_STEP = 1;
+        public const int DEVIATION_MAX = 40;
+        public const int DEVIATION_MIN = 10;
+        public const int DEVIATION_LOW = 1;
         public const double MINIMUM_BARS_IN_IMPULSE = 10;
         public const double BARS_DEPTH = 700;
         public const int EXTREMA_MAX = 100;
