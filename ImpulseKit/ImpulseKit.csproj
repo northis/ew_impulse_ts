@@ -37,6 +37,7 @@
     <Compile Include="ImpulseFinderBaseIndicator.cs" />
     <Compile Include="ImpulseSignalerBaseRobot.cs" />
     <Compile Include="LevelItem.cs" />
+    <Compile Include="Logger.cs" />
     <Compile Include="PatternFinder.cs" />
     <Compile Include="SetupFinder.cs" />
     <Compile Include="SymbolExtension.cs" />

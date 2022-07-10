@@ -21,6 +21,7 @@ namespace TradeKit
         protected override void Initialize()
         {
             base.Initialize();
+            Logger.SetWrite(a => Print(a));
             if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
             {
                 throw new NotSupportedException(
@@ -56,7 +57,7 @@ namespace TradeKit
             Chart.DrawIcon($"SL{levelIndex}", ChartIconType.Star, levelIndex
                 , e.Level.Price, Color.LightCoral);
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Print($"SL hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
+            Logger.Write($"SL hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
@@ -66,7 +67,7 @@ namespace TradeKit
             Chart.DrawIcon($"TP{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.LightGreen);
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Print($"TP hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
+            Logger.Write($"TP hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         private void OnEnter(object sender, EventArgs.SignalEventArgs e)
@@ -89,7 +90,7 @@ namespace TradeKit
             }
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Print($"New setup found! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
+            Logger.Write($"New setup found! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
         /// <summary>
@@ -102,7 +103,7 @@ namespace TradeKit
             if (IsLastBar && !m_IsInitialized)
             {
                 m_IsInitialized = true;
-                Print($"History ok, index {index}");
+                Logger.Write($"History ok, index {index}");
             }
         }
     }

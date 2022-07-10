@@ -82,6 +82,7 @@ namespace TradeKit
 
         protected override void OnStart()
         {
+            Logger.SetWrite(a => Print(a));
             m_SetupFindersMap = new Dictionary<string, SetupFinder>();
             m_BarsMap = new Dictionary<string, Bars>();
             m_BarsInitMap = new Dictionary<string, bool>();
@@ -132,14 +133,14 @@ namespace TradeKit
                     m_SetupFindersMap[key] = sf;
                     m_BarsInitMap[key] = false;
                     finders.Add(sf);
-                    Print($"Symbol {symbolName}, time frame {timeFrame.Name} is added");
+                    Logger.Write($"Symbol {symbolName}, time frame {timeFrame.Name} is added");
                 }
 
                 m_SymbolFindersMap[symbolName] = finders.ToArray();
             }
 
             m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId);
-            Print($"OnStart is OK, is telegram ready: {m_TelegramReporter.IsReady}");
+            Logger.Write($"OnStart is OK, is telegram ready: {m_TelegramReporter.IsReady}");
         }
 
         private void OnTick(SymbolTickEventArgs obj)
@@ -230,7 +231,7 @@ namespace TradeKit
             }
 
             m_StopCount++;
-            Print($"SL hit! {price}");
+            Logger.Write($"SL hit! {price}");
             CloseSymbolPositions(setupId);
             if (IsBacktesting || !m_TelegramReporter.IsReady)
             {
@@ -248,7 +249,7 @@ namespace TradeKit
             }
 
             m_TakeCount++;
-            Print($"TP hit! {price}");
+            Logger.Write($"TP hit! {price}");
             CloseSymbolPositions(setupId);
             if (IsBacktesting || !m_TelegramReporter.IsReady)
             {
@@ -283,7 +284,7 @@ namespace TradeKit
             if (isLong && symbol.Ask >= tp || 
                 spread > 0 && Math.Abs(sl - tp) / spread < Helper.MAX_SPREAD_RATIO)
             {
-                Print("Big spread, ignore the signal");
+                Logger.Write("Big spread, ignore the signal");
                 return;
             }
 
@@ -307,7 +308,7 @@ namespace TradeKit
             
             if (!isSetupInDay)
             {
-                Print(
+                Logger.Write(
                     $"A risky signal, the setup contains a trade session change: {symbol.Name}, {sf.State.TimeFrame}, {setupStart:s}-{setupEnd:s}");
                 return;
             }
@@ -322,7 +323,7 @@ namespace TradeKit
                 if (Math.Abs(finder.State.SetupStartPrice - e.StopLoss.Price) < double.Epsilon &&
                     Math.Abs(finder.State.SetupEndPrice - e.TakeProfit.Price) < double.Epsilon)
                 {
-                    Print($"Already got this setup in on {finder.State.Symbol} - {finder.State.TimeFrame}");
+                    Logger.Write($"Already got this setup in on {finder.State.Symbol} - {finder.State.TimeFrame}");
                     return;
                 }
             }
@@ -330,7 +331,7 @@ namespace TradeKit
             m_EnterCount++;
             m_PositionFinderMap[sf.Id] = true;
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
-            Print($"New setup found! {price}");
+            Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
 
             if (IsBacktesting || AllowToTrade)
@@ -381,7 +382,7 @@ namespace TradeKit
                 m_SymbolsMap[sf.Id].Tick -= OnTick;
             }
 
-            Print($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
+            Logger.Write($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
         }
     }
 }

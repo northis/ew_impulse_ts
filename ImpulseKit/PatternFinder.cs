@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 
 namespace TradeKit
 {
@@ -26,6 +25,28 @@ namespace TradeKit
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
         }
+        /// <summary>
+        /// Determines whether the specified interval has a zigzag.
+        /// </summary>
+        /// <param name="start">The start extremum.</param>
+        /// <param name="end">The end extremum.</param>
+        /// <param name="devStartMax">The deviation percent - start of the range</param>
+        /// <param name="devEndMin">The deviation percent - end of the range</param>
+        /// <returns>
+        ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsZigzag(Extremum start, Extremum end, double devStartMax, double devEndMin)
+        {
+            for (double dv = devStartMax; dv >= devEndMin; dv -= Helper.DEVIATION_STEP)
+            {
+                if (IsZigzag(start, end, dv))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// Determines whether the specified interval has a zigzag.
@@ -33,93 +54,38 @@ namespace TradeKit
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
         /// <param name="deviation">The deviation percent</param>
-        /// <param name="extrema">The extrema result.</param>
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsZigzag(Extremum start, Extremum end, double deviation, out List<Extremum> extrema)
+        public bool IsZigzag(Extremum start, Extremum end, double deviation)
         {
             var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
-            extrema = minorExtremumFinder.ToExtremaList();
+            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
 
             NormalizeExtrema(extrema, start, end);
             int count = extrema.Count;
+
+            if (count < ZIGZAG_EXTREMA_COUNT)
+            {
+                return false;
+            }
+
             if (count == ZIGZAG_EXTREMA_COUNT)
             {
                 return true;
             }
 
-            return false;
-        }
+            Extremum first = extrema[0];
+            Extremum second = extrema[1];
+            Extremum subLast = extrema[^2];
+            Extremum last = extrema[^1];
+            bool isUp = first > last;
 
-        /// <summary>
-        /// Determines whether the flat is found.
-        /// </summary>
-        /// <param name="startC">The start c wave.</param>
-        /// <param name="endC">The end c wave.</param>
-        /// <param name="edgeExtremum">The edge extremum.</param>
-        /// <param name="finder">The finder (original).</param>
-        /// <returns>
-        ///   <c>true</c> if the flat is found; otherwise, <c>false</c>.
-        /// </returns>
-        public bool IsFlatFound(
-            Extremum startC, Extremum endC, Extremum edgeExtremum, ExtremumFinder finder)
-        {
-            bool isImpulseUp = startC.Value < endC.Value;
-
-            // Check for extended flat first
-            Extremum startA = null;
-            Extremum startB = null;
-            double flatDeviation = finder.DeviationPercent;
-            for (double dv = flatDeviation;
-                 dv >= Helper.DEVIATION_LOW;
-                 dv -= Helper.DEVIATION_STEP)
+            if (isUp && second > subLast || !isUp && second < subLast)
             {
-                if (IsZigzag(edgeExtremum, startC, dv, out List<Extremum> extrema)
-                    && extrema.Count >= ZIGZAG_EXTREMA_COUNT)
-                {
-                    startA = extrema[^3];
-                    startB = extrema[^2];
-                    flatDeviation = dv;
-                    break;
-                }
+                return true;
             }
-
-            bool isExtendedFlatMinZigzagFound = startA?.Value != null && startB?.Value != null;
-            bool isWaveAFits = isExtendedFlatMinZigzagFound &&
-                               (isImpulseUp && startA.Value < endC.Value ||
-                               isImpulseUp && startA.Value > endC.Value);
-
-            if (isWaveAFits)
-            {
-                bool isZigzagA = false;
-                bool isZigzagB = false;
-                for (double dv = flatDeviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
-                {
-                    if (IsZigzag(startA, startB, dv, out _))
-                    {
-                        isZigzagA = true;
-                    }
-
-                    if (IsZigzag(startB, startC, dv, out _))
-                    {
-                        isZigzagB = true;
-                    }
-
-                    if (isZigzagA && isZigzagB)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            if (!isExtendedFlatMinZigzagFound)
-            {
-                return false;
-            }
-
-            // Check for the running flat
 
             return false;
         }
@@ -160,7 +126,7 @@ namespace TradeKit
         }
 
         /// <summary>
-        /// Determines whether the specified extrema is an simple impulse.
+        /// Determines whether the specified extrema is an impulse.
         /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
         /// </summary>
         /// <param name="start">The start extremum.</param>
@@ -171,7 +137,7 @@ namespace TradeKit
         /// <returns>
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSimpleImpulse(
+        private bool IsImpulseInner(
             Extremum start, Extremum end,
             double deviation, out List<Extremum> extrema,
             bool allowSimple = true)
@@ -266,48 +232,28 @@ namespace TradeKit
 
                 for (double dv = Helper.DEVIATION_MAX; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
-                    if (IsZigzag(firstItem, firstWaveEnd, dv, out _) ||
-                        IsZigzag(secondWaveEnd, thirdWaveEnd, dv, out _) ||
-                        IsZigzag(fourthWaveEnd, fifthWaveEnd, dv, out _))
+                    if (IsZigzag(firstItem, firstWaveEnd, dv) ||
+                        IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
+                        IsZigzag(fourthWaveEnd, fifthWaveEnd, dv))
                     {
                         return false;
                     }
                 }
 
-                //bool isCorrectionOk = false;
-                //for (double dv = Helper.DEVIATION_MAX;
-                //     dv >= Helper.DEVIATION_LOW;
-                //     dv -= Helper.DEVIATION_STEP)
-                //{
-
-                //    if (IsZigzag(firstWaveEnd, secondWaveEnd, dv) ||
-                //        IsZigzag(thirdWaveEnd, fourthWaveEnd, dv))
-                //    {
-                //        isCorrectionOk = true;
-                //        break;
-                //    }
-                //}
-
-                //if (!isCorrectionOk)
-                //{
-                //    return false;
-                //}
-
                 bool ok1 = false, ok3 = false, ok5 = false;
-                
                 for (double dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
-                    if (IsSimpleImpulse(firstItem, firstWaveEnd, dv, out _))
+                    if (IsImpulseInner(firstItem, firstWaveEnd, dv, out _))
                     {
                         ok1 = true;
                     }
 
-                    if (IsSimpleImpulse(secondWaveEnd, thirdWaveEnd, dv, out _))
+                    if (IsImpulseInner(secondWaveEnd, thirdWaveEnd, dv, out _))
                     {
                         ok3 = true;
                     }
                     
-                    if(IsSimpleImpulse(fourthWaveEnd, fifthWaveEnd, dv, out _))
+                    if(IsImpulseInner(fourthWaveEnd, fifthWaveEnd, dv, out _))
                     {
                         ok5 = true;
                     }
@@ -317,13 +263,6 @@ namespace TradeKit
                         return true;
                     }
                 }
-
-                //if (IsZigzag(firstItem.OpenTime, firstWaveEnd.OpenTime, deviation) ||
-                //    IsZigzag(secondWaveEnd.OpenTime, thirdWaveEnd.OpenTime, deviation) ||
-                //    IsZigzag(fourthWaveEnd.OpenTime, fifthWaveEnd.OpenTime, deviation))
-                //{
-                //    return false;
-                //}
 
                 return false;
             }
@@ -416,7 +355,7 @@ namespace TradeKit
                  dv >= Helper.DEVIATION_LOW;
                  dv -= Helper.DEVIATION_STEP)
             {
-                bool isSimpleImpulse = IsSimpleImpulse(start, end, dv, out extrema, false);
+                bool isSimpleImpulse = IsImpulseInner(start, end, dv, out extrema, false);
                 if (isSimpleImpulse)
                 {
                     return true;

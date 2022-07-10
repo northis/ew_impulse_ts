@@ -104,7 +104,6 @@ namespace TradeKit
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
         /// <param name="finder">The extremum finder instance.</param>
-        /// <param name="edgeExtremum">The edge extremum.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
@@ -112,16 +111,14 @@ namespace TradeKit
             double startValue, 
             double endValue, 
             int startIndex, 
-            ExtremumFinder finder,
-            out Extremum edgeExtremum)
+            ExtremumFinder finder)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
-            edgeExtremum = null;
             bool isImpulseUp = endValue > startValue;
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
+                Extremum edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
                 double curValue = edgeExtremum.Value;
                 if (isImpulseUp)
                 {
@@ -150,6 +147,7 @@ namespace TradeKit
                     break;
                 }
             }
+
             return isInitialMove;
         }
         
@@ -186,6 +184,7 @@ namespace TradeKit
             {
                 if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
+                    //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
                     return;
                 }
 
@@ -205,8 +204,7 @@ namespace TradeKit
                     }
                 }
                 
-                bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startIndex, finder, out Extremum edgeExtremum);
+                bool isInitialMove = IsInitialMovement(startValue, endValue, startIndex, finder);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
@@ -249,6 +247,7 @@ namespace TradeKit
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
+                    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
                     return;
                 }
 
@@ -265,10 +264,19 @@ namespace TradeKit
                     return;
                 }
 
-                if (m_PatternFinder.IsFlatFound(startItem.Value, endItem.Value, edgeExtremum, finder))
-                {
-                    return;
-                }
+                //if (startIndex > 0)
+                //{
+                //    // We want to check the previous movement - if it is a zigzag, this is may be
+                //    // a flat or a running triangle.
+                //    KeyValuePair<int, Extremum> beforeStartItem 
+                //        = extrema.ElementAt(startIndex - 1);
+                //    if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value, 
+                //            finder.DeviationPercent, Helper.DEVIATION_LOW))
+                //    {
+                //        Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
+                //        return;
+                //    }
+                //}
 
                 double realPrice;
                 if (triggerLevel >= low && triggerLevel <= high)
@@ -313,6 +321,7 @@ namespace TradeKit
                     (realPrice <= State.SetupEndPrice || realPrice >= State.SetupStartPrice))
                 {
                     // TP or SL is already hit, cannot use this signal
+                    Logger.Write($"{m_Symbol}, {State.TimeFrame}: TP or SL is already hit, cannot use this signal");
                     return;
                 }
 
@@ -342,6 +351,7 @@ namespace TradeKit
 
                     if (index - startIndex > Helper.BARS_DEPTH)
                     {
+                        //Logger.Write($"{m_Symbol}, {State.TimeFrame}: maximum bar depth is exceeded");
                         break;
                     }
 
@@ -409,8 +419,19 @@ namespace TradeKit
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.Calculate(index);
-            }
 
+                if (finder.Extrema.Count > Helper.EXTREMA_MAX)
+                {
+                    int[] oldKeys = finder.Extrema.Keys
+                        .Take(finder.Extrema.Count - Helper.EXTREMA_MAX)
+                        .ToArray();
+                    foreach (int oldKey in oldKeys)
+                    {
+                        finder.Extrema.Remove(oldKey);
+                    }
+                }
+            }
+            
             CheckSetup(null);
         }
 
