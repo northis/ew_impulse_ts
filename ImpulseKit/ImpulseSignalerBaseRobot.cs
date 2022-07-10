@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
@@ -41,7 +42,7 @@ namespace TradeKit
         /// <summary>
         /// Gets or sets the time frames we should use.
         /// </summary>
-        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute,Minute3,Minute5,Minute10,Minute15")]
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute3,Minute5,Minute10,Minute15")]
         public string TimeFramesToProceed { get; set; }
 
         /// <summary>
@@ -102,6 +103,8 @@ namespace TradeKit
                     continue;
                 }
 
+                var minorBarProvider = new CTraderBarsProvider(
+                    MarketData.GetBars(TimeFrame.Minute, symbolName));
                 var finders = new List<SetupFinder>();
                 foreach (string timeFrameStr in timeFrames)
                 {
@@ -119,7 +122,8 @@ namespace TradeKit
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
                     var barsProvider = new CTraderBarsProvider(bars);
                     Symbol symbolEntity = Symbols.GetSymbol(symbolName);
-                    var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state, symbolEntity);
+                    var sf = new SetupFinder(
+                        Helper.PERCENT_CORRECTION_DEF, barsProvider, minorBarProvider, state, symbolEntity);
                     string key = sf.Id;
                     m_BarsMap[key] = bars;
                     m_BarsMap[key].BarOpened += BarOpened;
@@ -147,7 +151,7 @@ namespace TradeKit
             
             foreach (SetupFinder sf in finders)
             {
-                sf.CheckTick(obj.Bid, obj.Ask);
+                sf.CheckTick(obj.Bid);
             }
         }
 
@@ -185,6 +189,23 @@ namespace TradeKit
             m_BarsInitMap[finderId] = true;
         }
 
+        /// <summary>
+        /// Closes the symbol positions.
+        /// </summary>
+        /// <param name="setupId">Id of the symbol.</param>
+        private void CloseSymbolPositions(string setupId)
+        {
+            string symbolName = m_SetupFindersMap[setupId].State.Symbol;
+            Position[] positionsToClose = Positions
+                .Where(a => a.Label == BOT_NAME && a.SymbolName == symbolName)
+                .ToArray();
+
+            foreach (Position positionToClose in positionsToClose)
+            {
+                positionToClose.Close();
+            }
+        }
+
         private bool HandleClose(object sender, EventArgs.LevelEventArgs e, 
             out string price, out string setupId)
         {
@@ -197,7 +218,6 @@ namespace TradeKit
             }
 
             GetEventStrings(sender, e.Level, out price, out SymbolInfo _);
-
             m_PositionFinderMap[sf.Id] = false;
             return isInPosition;
         }
@@ -211,6 +231,7 @@ namespace TradeKit
 
             m_StopCount++;
             Print($"SL hit! {price}");
+            CloseSymbolPositions(setupId);
             if (IsBacktesting || !m_TelegramReporter.IsReady)
             {
                 return;
@@ -228,6 +249,7 @@ namespace TradeKit
 
             m_TakeCount++;
             Print($"TP hit! {price}");
+            CloseSymbolPositions(setupId);
             if (IsBacktesting || !m_TelegramReporter.IsReady)
             {
                 return;
@@ -318,8 +340,9 @@ namespace TradeKit
                 
                 double slP = Math.Round(Math.Abs(priceNow - sl) / symbolInfo.PipSize);
                 double tpP = Math.Round(Math.Abs(priceNow - tp) / symbolInfo.PipSize);
-                
-                double volume = s.GetVolume(RiskPercentFromDeposit, Account.Balance, slP);
+                double volP = Math.Round(Math.Abs(sl - tp) / symbolInfo.PipSize / 2);
+
+                double volume = s.GetVolume(RiskPercentFromDeposit, Account.Balance, Math.Min(volP, slP));
                 ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
             }
 

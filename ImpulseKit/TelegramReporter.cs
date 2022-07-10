@@ -123,8 +123,8 @@ namespace TradeKit
                 tradeType = "SELL";
             }
 
-            double sl = signalEventArgs.StopLoss.Price + (isLong ? 0 : spread);
-            double tp = signalEventArgs.TakeProfit.Price + (isLong ? 0 : spread);
+            double sl = signalEventArgs.StopLoss.Price;
+            double tp = signalEventArgs.TakeProfit.Price;
 
             double nom = Math.Abs(price - sl);
             double den = Math.Abs(price - tp);

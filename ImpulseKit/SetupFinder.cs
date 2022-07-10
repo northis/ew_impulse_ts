@@ -20,7 +20,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
-        private const double TRIGGER_LEVEL_RATIO = 0.6;
+        private const double TRIGGER_LEVEL_RATIO = 0.61;
         
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -60,23 +60,26 @@ namespace TradeKit
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="mainBarsProvider">The main bars provider.</param>
+        /// <param name="minorBarsProvider">The minor bars provider.</param>
         /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         public SetupFinder(
-            double correctionAllowancePercent, IBarsProvider barsProvider, SymbolState state, Symbol symbol)
+            double correctionAllowancePercent, 
+            IBarsProvider mainBarsProvider, 
+            IBarsProvider minorBarsProvider, 
+            SymbolState state, 
+            Symbol symbol)
         {
             m_Symbol = symbol;
-            BarsProvider = barsProvider;
+            BarsProvider = mainBarsProvider;
             State = state;
-            for (double d = Helper.DEVIATION_MAX;
-                 d >= Helper.DEVIATION_MIN;
-                 d -= Helper.DEVIATION_STEP)
+            for (double d = Helper.DEVIATION_MAX; d >= Helper.DEVIATION_MIN; d -= Helper.DEVIATION_STEP)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(d, BarsProvider));
             }
 
-            m_PatternFinder = new PatternFinder(correctionAllowancePercent, barsProvider);
+            m_PatternFinder = new PatternFinder(correctionAllowancePercent, minorBarsProvider);
         }
 
         /// <summary>
@@ -101,7 +104,7 @@ namespace TradeKit
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
         /// <param name="finder">The extremum finder instance.</param>
-        /// <param name="edgeIndex">The edge extremum index.</param>
+        /// <param name="edgeExtremum">The edge extremum.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
@@ -109,16 +112,16 @@ namespace TradeKit
             double startValue, 
             double endValue, 
             int startIndex, 
-            ExtremumFinder finder, 
-            out int? edgeIndex)
+            ExtremumFinder finder,
+            out Extremum edgeExtremum)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
-            edgeIndex = null;
+            edgeExtremum = null;
             bool isImpulseUp = endValue > startValue;
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                var edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
+                edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
                 double curValue = edgeExtremum.Value;
                 if (isImpulseUp)
                 {
@@ -129,7 +132,6 @@ namespace TradeKit
 
                     if (curValue > endValue)
                     {
-                        edgeIndex = curIndex;
                         isInitialMove = true;
                         break;
                     }
@@ -144,7 +146,6 @@ namespace TradeKit
 
                 if (curValue < endValue)
                 {
-                    edgeIndex = curIndex;
                     isInitialMove = true;
                     break;
                 }
@@ -158,12 +159,10 @@ namespace TradeKit
         /// <param name="index">Index of the current candle.</param>
         /// <param name="finder">The extremum finder instance.</param>
         /// <param name="currentPriceBid">The current price (Bid).</param>
-        /// <param name="currentPriceAsk">The current price (Ask).</param>
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSetup(int index, ExtremumFinder finder, 
-            double? currentPriceBid = null, double? currentPriceAsk = null)
+        private bool IsSetup(int index, ExtremumFinder finder, double? currentPriceBid = null)
         {
             SortedDictionary<int, Extremum> extrema = finder.Extrema;
             int count = extrema.Count;
@@ -207,8 +206,8 @@ namespace TradeKit
                 }
                 
                 bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startIndex, finder, out int? edgeIndex);
-                if (!isInitialMove || !edgeIndex.HasValue)
+                    startValue, endValue, startIndex, finder, out Extremum edgeExtremum);
+                if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
                     return;
@@ -266,24 +265,23 @@ namespace TradeKit
                     return;
                 }
 
-                if (m_PatternFinder.IsFlatFound(finder, edgeIndex.Value, isImpulseUp, BarsProvider))
+                if (m_PatternFinder.IsFlatFound(startItem.Value, endItem.Value, edgeExtremum, finder))
                 {
                     return;
                 }
 
                 double realPrice;
-                double? actualCurrentPrice = isImpulseUp ? currentPriceAsk : currentPriceBid;
                 if (triggerLevel >= low && triggerLevel <= high)
                 {
-                    realPrice = actualCurrentPrice ?? triggerLevel;
+                    realPrice = currentPriceBid ?? triggerLevel;
                 }
                 else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
                 {
-                    realPrice = actualCurrentPrice ?? low;
+                    realPrice = currentPriceBid ?? low;
                 }
                 else
                 {
-                    realPrice = actualCurrentPrice ?? high;
+                    realPrice = currentPriceBid ?? high;
                 }
 
                 State.TriggerLevel = realPrice;
@@ -304,9 +302,9 @@ namespace TradeKit
                 else
                 {
                     State.SetupStartPrice = Math.Round(
-                        startValue + startAllowance + m_Symbol.Spread, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                        startValue + startAllowance, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                     State.SetupEndPrice = Math.Round(
-                        endValue + endAllowance + m_Symbol.Spread, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                        endValue + endAllowance, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                 }
 
                 if (isImpulseUp && 
@@ -420,15 +418,14 @@ namespace TradeKit
         /// Checks the tick.
         /// </summary>
         /// <param name="bid">The price (bid).</param>
-        /// <param name="ask">The price (ask).</param>
-        public void CheckTick(double bid, double ask)
+        public void CheckTick(double bid)
         {
             if (m_PreFinder == null)
             {
                 return;
             }
 
-            IsSetup(m_LastBarIndex, m_PreFinder, bid, ask);
+            IsSetup(m_LastBarIndex, m_PreFinder, bid);
         }
 
         private void CheckSetup(double? price)

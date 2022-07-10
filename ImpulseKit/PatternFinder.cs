@@ -33,14 +33,15 @@ namespace TradeKit
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
         /// <param name="deviation">The deviation percent</param>
+        /// <param name="extrema">The extrema result.</param>
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsZigzag(Extremum start, Extremum end, double deviation)
+        public bool IsZigzag(Extremum start, Extremum end, double deviation, out List<Extremum> extrema)
         {
             var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
             minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
-            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
+            extrema = minorExtremumFinder.ToExtremaList();
 
             NormalizeExtrema(extrema, start, end);
             int count = extrema.Count;
@@ -55,28 +56,70 @@ namespace TradeKit
         /// <summary>
         /// Determines whether the flat is found.
         /// </summary>
-        /// <param name="finder">The finder.</param>
-        /// <param name="bWaveStartIndex">Start index of the B wave.</param>
-        /// <param name="isUpC">if set to <c>true</c> the wave C is up.</param>
-        /// <param name="bars">The bars.</param>
+        /// <param name="startC">The start c wave.</param>
+        /// <param name="endC">The end c wave.</param>
+        /// <param name="edgeExtremum">The edge extremum.</param>
+        /// <param name="finder">The finder (original).</param>
         /// <returns>
         ///   <c>true</c> if the flat is found; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsFlatFound(ExtremumFinder finder, int bWaveStartIndex, bool isUpC, IBarsProvider bars)
+        public bool IsFlatFound(
+            Extremum startC, Extremum endC, Extremum edgeExtremum, ExtremumFinder finder)
         {
-            var extrema = finder.ToExtremaList();
-            if (bWaveStartIndex < 2)
+            bool isImpulseUp = startC.Value < endC.Value;
+
+            // Check for extended flat first
+            Extremum startA = null;
+            Extremum startB = null;
+            double flatDeviation = finder.DeviationPercent;
+            for (double dv = flatDeviation;
+                 dv >= Helper.DEVIATION_LOW;
+                 dv -= Helper.DEVIATION_STEP)
+            {
+                if (IsZigzag(edgeExtremum, startC, dv, out List<Extremum> extrema)
+                    && extrema.Count >= ZIGZAG_EXTREMA_COUNT)
+                {
+                    startA = extrema[^3];
+                    startB = extrema[^2];
+                    flatDeviation = dv;
+                    break;
+                }
+            }
+
+            bool isExtendedFlatMinZigzagFound = startA?.Value != null && startB?.Value != null;
+            bool isWaveAFits = isExtendedFlatMinZigzagFound &&
+                               (isImpulseUp && startA.Value < endC.Value ||
+                               isImpulseUp && startA.Value > endC.Value);
+
+            if (isWaveAFits)
+            {
+                bool isZigzagA = false;
+                bool isZigzagB = false;
+                for (double dv = flatDeviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
+                {
+                    if (IsZigzag(startA, startB, dv, out _))
+                    {
+                        isZigzagA = true;
+                    }
+
+                    if (IsZigzag(startB, startC, dv, out _))
+                    {
+                        isZigzagB = true;
+                    }
+
+                    if (isZigzagA && isZigzagB)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (!isExtendedFlatMinZigzagFound)
             {
                 return false;
             }
 
-            int bWaveEndIndex = bWaveStartIndex + 1;
-            Extremum bWaveEnd = extrema.ElementAt(bWaveEndIndex);
-            Extremum aWaveEnd = extrema.ElementAt(bWaveStartIndex);
-            if (IsZigzag(aWaveEnd, bWaveEnd, finder.DeviationPercent))
-            {
-                return true;
-            }
+            // Check for the running flat
 
             return false;
         }
@@ -223,9 +266,9 @@ namespace TradeKit
 
                 for (double dv = Helper.DEVIATION_MAX; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
-                    if (IsZigzag(firstItem, firstWaveEnd, dv) ||
-                        IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
-                        IsZigzag(fourthWaveEnd, fifthWaveEnd, dv))
+                    if (IsZigzag(firstItem, firstWaveEnd, dv, out _) ||
+                        IsZigzag(secondWaveEnd, thirdWaveEnd, dv, out _) ||
+                        IsZigzag(fourthWaveEnd, fifthWaveEnd, dv, out _))
                     {
                         return false;
                     }
@@ -250,11 +293,26 @@ namespace TradeKit
                 //    return false;
                 //}
 
+                bool ok1 = false, ok3 = false, ok5 = false;
+                
                 for (double dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
                 {
-                    if (IsSimpleImpulse(firstItem, firstWaveEnd, dv, out _) &&
-                        IsSimpleImpulse(secondWaveEnd, thirdWaveEnd, dv, out _) &&
-                        IsSimpleImpulse(fourthWaveEnd, fifthWaveEnd, dv, out _))
+                    if (IsSimpleImpulse(firstItem, firstWaveEnd, dv, out _))
+                    {
+                        ok1 = true;
+                    }
+
+                    if (IsSimpleImpulse(secondWaveEnd, thirdWaveEnd, dv, out _))
+                    {
+                        ok3 = true;
+                    }
+                    
+                    if(IsSimpleImpulse(fourthWaveEnd, fifthWaveEnd, dv, out _))
+                    {
+                        ok5 = true;
+                    }
+
+                    if (ok1 && ok3 && ok5)
                     {
                         return true;
                     }
