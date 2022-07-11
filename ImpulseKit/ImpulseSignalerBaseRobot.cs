@@ -123,8 +123,8 @@ namespace TradeKit
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
                     var barsProvider = new CTraderBarsProvider(bars);
                     Symbol symbolEntity = Symbols.GetSymbol(symbolName);
-                    var sf = new SetupFinder(
-                        Helper.PERCENT_CORRECTION_DEF, barsProvider, minorBarProvider, state, symbolEntity);
+                    var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, 
+                        barsProvider, minorBarProvider, state, symbolEntity);
                     string key = sf.Id;
                     m_BarsMap[key] = bars;
                     m_BarsMap[key].BarOpened += BarOpened;
@@ -341,9 +341,10 @@ namespace TradeKit
                 
                 double slP = Math.Round(Math.Abs(priceNow - sl) / symbolInfo.PipSize);
                 double tpP = Math.Round(Math.Abs(priceNow - tp) / symbolInfo.PipSize);
-                double volP = Math.Round(Math.Abs(sl - tp) / symbolInfo.PipSize / 2);
+                double volP =
+                    Math.Round(Math.Abs(sl - tp) / symbolInfo.PipSize / 2);
 
-                double volume = s.GetVolume(RiskPercentFromDeposit, Account.Balance, Math.Min(volP, slP));
+                double volume = s.GetVolume(RiskPercentFromDeposit, Account.Balance, volP);
                 ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
             }
 

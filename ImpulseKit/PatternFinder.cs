@@ -180,11 +180,6 @@ namespace TradeKit
                     return false;
                 }
 
-                if (Math.Abs(thirdWaveEnd.Value - fifthWaveEnd.Value) < double.Epsilon)
-                {
-                    return false;
-                }
-
                 double minSeconds = Helper.CORRECTION_BAR_MIN *
                                     TimeFrameHelper.TimeFrames[secondWaveEnd.BarTimeFrame].TimeSpan.TotalSeconds;
 
@@ -220,6 +215,14 @@ namespace TradeKit
 
                 if (firstWaveLength <= 0 || thirdWaveLength <= 0 || fifthWaveLength <= 0)
                 {
+                    return false;
+                }
+
+                if (Math.Abs(thirdWaveEnd.Value - fifthWaveEnd.Value) / fifthWaveLength <
+                    Helper.THIRD_FIFTH_BREAK_MIN_RATIO)
+                {
+                    // We don't want to use impulse with short 5th wave, cause this is can be
+                    // not accurate data from the market data provider.
                     return false;
                 }
 

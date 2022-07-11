@@ -20,7 +20,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
-        private const double TRIGGER_LEVEL_RATIO = 0.61;
+        private const double TRIGGER_LEVEL_RATIO = 0.62;
         
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -65,10 +65,10 @@ namespace TradeKit
         /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         public SetupFinder(
-            double correctionAllowancePercent, 
-            IBarsProvider mainBarsProvider, 
-            IBarsProvider minorBarsProvider, 
-            SymbolState state, 
+            double correctionAllowancePercent,
+            IBarsProvider mainBarsProvider,
+            IBarsProvider minorBarsProvider,
+            SymbolState state,
             Symbol symbol)
         {
             m_Symbol = symbol;
@@ -263,19 +263,19 @@ namespace TradeKit
                     return;
                 }
 
-                //if (startIndex > 0)
-                //{
-                //    // We want to check the previous movement - if it is a zigzag, this is may be
-                //    // a flat or a running triangle.
-                //    KeyValuePair<int, Extremum> beforeStartItem 
-                //        = extrema.ElementAt(startIndex - 1);
-                //    if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value, 
-                //            finder.ScaleRate, Helper.DEVIATION_LOW))
-                //    {
-                //        Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
-                //        return;
-                //    }
-                //}
+                if (startIndex > 0)
+                {
+                    // We want to check the previous movement - if it is a zigzag, this is may be
+                    // a flat or a running triangle.
+                    KeyValuePair<int, Extremum> beforeStartItem
+                        = extrema.ElementAt(startIndex - 1);
+                    if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
+                            finder.ScaleRate, Helper.DEVIATION_LOW))
+                    {
+                        Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
+                        return;
+                    }
+                }
 
                 double realPrice;
                 if (triggerLevel >= low && triggerLevel <= high)
