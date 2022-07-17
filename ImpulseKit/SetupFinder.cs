@@ -20,8 +20,8 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
-        private const double TRIGGER_LEVEL_RATIO = 0.62;
-        
+        private const double TRIGGER_LEVEL_RATIO = 0.4;
+
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
         // We want to collect at lease this amount of extrema
@@ -61,13 +61,11 @@ namespace TradeKit
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="minorBarsProvider">The minor bars provider.</param>
         /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         public SetupFinder(
             double correctionAllowancePercent,
             IBarsProvider mainBarsProvider,
-            IBarsProvider minorBarsProvider,
             SymbolState state,
             Symbol symbol)
         {
@@ -79,7 +77,7 @@ namespace TradeKit
                 m_ExtremumFinders.Add(new ExtremumFinder(d, BarsProvider));
             }
 
-            m_PatternFinder = new PatternFinder(correctionAllowancePercent, minorBarsProvider);
+            m_PatternFinder = new PatternFinder(correctionAllowancePercent, mainBarsProvider);
         }
 
         /// <summary>
@@ -219,12 +217,14 @@ namespace TradeKit
                     bool gotSetup;
                     if (isImpulseUp)
                     {
-                        triggerLevel = endValue - triggerSize;
+                        triggerLevel = Math.Round(
+                            endValue - triggerSize, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                         gotSetup = low <= triggerLevel && low > startValue;
                     }
                     else
                     {
-                        triggerLevel = endValue + triggerSize;
+                        triggerLevel = Math.Round(
+                            endValue + triggerSize, m_Symbol.Digits, MidpointRounding.ToZero);
                         gotSetup = high >= triggerLevel && high < startValue;
                     }
 

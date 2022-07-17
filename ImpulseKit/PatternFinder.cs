@@ -285,58 +285,6 @@ namespace TradeKit
                 return false;
             }
 
-            int[] impulseStartIndices = {1, 5, 7, 9, 15, 17, 21};
-            int[] correctionStartIndices = { 1, 3, 9 };
-            int minWaveRest = count - ZIGZAG_EXTREMA_COUNT;
-
-            foreach (int firstIndex in impulseStartIndices)
-            {
-                if (firstIndex > minWaveRest)
-                {
-                    return false;
-                }
-                firstWaveEnd = extrema[firstIndex];
-
-                foreach (int correctionSecondIndex in correctionStartIndices)
-                {
-                    int secondIndex = firstIndex + correctionSecondIndex;
-                    if (secondIndex > minWaveRest - 1)
-                    {
-                        return false;
-                    }
-                    secondWaveEnd = extrema[secondIndex];
-
-                    foreach (int impulseThirdIndex in impulseStartIndices)
-                    {
-                        int thirdIndex =  secondIndex + impulseThirdIndex;
-                        if (thirdIndex > minWaveRest - 2)
-                        {
-                            return false;
-                        }
-                        
-                        thirdWaveEnd = extrema[thirdIndex];
-
-                        // TODO add triangle (5)
-                        foreach (int correctionFourthIndex in correctionStartIndices)
-                        {
-                            int fourthIndex = thirdIndex + correctionFourthIndex;
-                            if (fourthIndex > minWaveRest - 3)
-                            {
-                                return false;
-                            }
-
-                            fourthWaveEnd = extrema[fourthIndex];
-
-                            bool res = CheckWaves();
-                            if (res)
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-
             return false;
         }
 
@@ -353,16 +301,16 @@ namespace TradeKit
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            for (int dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
-            {
-                bool isSimpleImpulse = IsImpulseInner(start, end, dv, out extrema, false);
-                if (isSimpleImpulse)
-                {
-                    return true;
-                }
-            }
+            //for (int dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
+            //{
+            //    bool isSimpleImpulse = IsImpulseInner(start, end, dv, out extrema, false);
+            //    if (isSimpleImpulse)
+            //    {
+            //        return true;
+            //    }
+            //}
 
-            return false;
+            return IsImpulseInner(start, end, Helper.DEVIATION_LOW, out extrema);
         }
     }
 }
