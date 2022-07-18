@@ -13,6 +13,7 @@ namespace TradeKit
     /// </summary>
     public class SetupFinder
     {
+        private readonly int m_ZoomMin;
         private readonly Symbol m_Symbol;
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
@@ -20,7 +21,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
-        private const double TRIGGER_LEVEL_RATIO = 0.4;
+        private const double TRIGGER_LEVEL_RATIO = 0.45;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -60,24 +61,25 @@ namespace TradeKit
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
+        /// <param name="zoomMax">The zoom (resolution) max.</param>
+        /// <param name="zoomMin">The zoom (resolution) min.</param>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         public SetupFinder(
             double correctionAllowancePercent,
+            int zoomMax,
+            int zoomMin,
             IBarsProvider mainBarsProvider,
             SymbolState state,
             Symbol symbol)
         {
+            m_ZoomMin = zoomMin;
             m_Symbol = symbol;
             BarsProvider = mainBarsProvider;
             State = state;
-            for (int d = Helper.DEVIATION_MAX; d >= Helper.DEVIATION_MIN; d -= Helper.DEVIATION_STEP)
-            {
-                m_ExtremumFinders.Add(new ExtremumFinder(d, BarsProvider));
-            }
-
-            m_PatternFinder = new PatternFinder(correctionAllowancePercent, mainBarsProvider);
+            m_ExtremumFinders.Add(new ExtremumFinder(zoomMax, BarsProvider));
+            m_PatternFinder = new PatternFinder(correctionAllowancePercent, mainBarsProvider, zoomMin);
         }
 
         /// <summary>
@@ -270,7 +272,7 @@ namespace TradeKit
                     KeyValuePair<int, Extremum> beforeStartItem
                         = extrema.ElementAt(startIndex - 1);
                     if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
-                            finder.ScaleRate, Helper.DEVIATION_LOW))
+                            finder.ScaleRate, m_ZoomMin))
                     {
                         Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
                         return;
@@ -300,14 +302,18 @@ namespace TradeKit
 
                 State.SetupStartIndex = startItem.Key;
                 State.SetupEndIndex = endItem.Key;
+
+                double setupLength = Math.Abs(startValue - endValue);
                 
                 if (isImpulseUp)
                 {
+                    endValue = startValue + setupLength;
                     State.SetupStartPrice = Math.Round(startValue - startAllowance, m_Symbol.Digits, MidpointRounding.ToZero);
                     State.SetupEndPrice = Math.Round(endValue - endAllowance, m_Symbol.Digits, MidpointRounding.ToZero);
                 }
                 else
                 {
+                    endValue = startValue - setupLength;
                     State.SetupStartPrice = Math.Round(
                         startValue + startAllowance, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                     State.SetupEndPrice = Math.Round(

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
@@ -13,19 +12,34 @@ namespace TradeKit
     public class ImpulseSignalerBaseRobot : Robot
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
-        private const double RISK_DEPOSIT_PERCENT = 5;
+        private const double RISK_DEPOSIT_PERCENT = 0.5;
+        private const double RISK_DEPOSIT_PERCENT_MAX = 5;
+
+        private double m_CurrentRisk = RISK_DEPOSIT_PERCENT;
 
         /// <summary>
-        /// Gets or sets a value indicating whether this bot can trade.
+        /// Gets or sets the risk percent from deposit (regular).
         /// </summary>
         [Parameter(nameof(RiskPercentFromDeposit), DefaultValue = RISK_DEPOSIT_PERCENT)]
         public double RiskPercentFromDeposit { get; set; }
+
+        /// <summary>
+        /// Gets or sets the risk percent from deposit (maximum).
+        /// </summary>
+        [Parameter(nameof(RiskPercentFromDepositMax), DefaultValue = RISK_DEPOSIT_PERCENT_MAX)]
+        public double RiskPercentFromDepositMax { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can trade.
         /// </summary>
         [Parameter(nameof(AllowToTrade), DefaultValue = false)]
         public bool AllowToTrade { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should increase the volume every SL hit.
+        /// </summary>
+        [Parameter(nameof(UseProgressiveVolume), DefaultValue = false)]
+        public bool UseProgressiveVolume { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use the symbols list.
@@ -38,6 +52,30 @@ namespace TradeKit
         /// </summary>
         [Parameter(nameof(UseTimeFramesList), DefaultValue = false)]
         public bool UseTimeFramesList { get; set; }
+
+        /// <summary>
+        /// Gets or sets the percent correction.
+        /// </summary>
+        [Parameter(nameof(PercentCorrection), DefaultValue = Helper.PERCENT_CORRECTION_DEF, MaxValue = 400, MinValue = 110)]
+        public int PercentCorrection { get; set; }
+
+        /// <summary>
+        /// Gets or sets the major zoom (scale).
+        /// </summary>
+        [Parameter(nameof(MajorZoom), 
+            DefaultValue = Helper.ZOOM_MAX, 
+            MaxValue = 100, 
+            MinValue = Helper.ZOOM_MIN)]
+        public int MajorZoom { get; set; }
+
+        /// <summary>
+        /// Gets or sets the major zoom (scale).
+        /// </summary>
+        [Parameter(nameof(MinorZoom),
+            DefaultValue = Helper.ZOOM_MIN,
+            MaxValue = Helper.ZOOM_MAX,
+            MinValue = 1)]
+        public int MinorZoom { get; set; }
 
         /// <summary>
         /// Gets or sets the time frames we should use.
@@ -90,6 +128,8 @@ namespace TradeKit
             m_SymbolFindersMap = new Dictionary<string, SetupFinder[]>();
             m_PositionFinderMap = new Dictionary<string, bool>();
 
+            m_CurrentRisk = RiskPercentFromDeposit;
+
             string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
                 ? new[] { SymbolName }
                 : SplitString(SymbolsToProceed);
@@ -121,7 +161,8 @@ namespace TradeKit
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
                     var barsProvider = new CTraderBarsProvider(bars);
                     Symbol symbolEntity = Symbols.GetSymbol(symbolName);
-                    var sf = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, barsProvider, state, symbolEntity);
+                    var sf = new SetupFinder(
+                        PercentCorrection, MajorZoom, MinorZoom, barsProvider, state, symbolEntity);
                     string key = sf.Id;
                     m_BarsMap[key] = bars;
                     m_BarsMap[key].BarOpened += BarOpened;
@@ -136,8 +177,37 @@ namespace TradeKit
                 m_SymbolFindersMap[symbolName] = finders.ToArray();
             }
 
+            Positions.Closed += OnPositionsClosed;
+
             m_TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId);
             Logger.Write($"OnStart is OK, is telegram ready: {m_TelegramReporter.IsReady}");
+        }
+
+        private double GetCurrentRisk
+        {
+            get
+            {
+                if (UseProgressiveVolume)
+                {
+                    return m_CurrentRisk;
+                }
+
+                return RiskPercentFromDeposit;
+            }
+        }
+
+        private void OnPositionsClosed(PositionClosedEventArgs obj)
+        {
+            if (obj.Reason == PositionCloseReason.StopLoss)
+            {
+                UpRisk();
+                return;
+            }
+
+            if (obj.Reason == PositionCloseReason.TakeProfit)
+            {
+                DownRisk();
+            }
         }
 
         private void OnTick(SymbolTickEventArgs obj)
@@ -151,6 +221,28 @@ namespace TradeKit
             {
                 sf.CheckTick(obj.Bid);
             }
+        }
+
+        private void UpRisk()
+        {
+            if (m_CurrentRisk >= RiskPercentFromDepositMax)
+            {
+                m_CurrentRisk = RiskPercentFromDepositMax;
+                return;
+            }
+
+            m_CurrentRisk += RISK_DEPOSIT_PERCENT;
+        }
+
+        private void DownRisk()
+        {
+            if (m_CurrentRisk <= RiskPercentFromDeposit)
+            {
+                m_CurrentRisk = RiskPercentFromDeposit;
+                return;
+            }
+
+            m_CurrentRisk -= RISK_DEPOSIT_PERCENT;
         }
 
         private void BarOpened(BarOpenedEventArgs obj)
@@ -300,7 +392,8 @@ namespace TradeKit
                     .Add(safeTimeDurationStart);
                 DateTime sessionEndTime = setupDayStart
                     .AddDays((int)session.EndDay)
-                    .Add(session.EndTime);
+                    .Add(session.EndTime)
+                    .Add(-safeTimeDurationStart);
 
                 if (setupStart > sessionDateTime && setupEnd < sessionEndTime)
                 {
@@ -347,7 +440,8 @@ namespace TradeKit
 
                 if (slP > 0)
                 {
-                    double volume = s.GetVolume(RiskPercentFromDeposit, Account.Balance, slP);
+                    double volP = Math.Round(Math.Abs(tp - sl) / symbolInfo.PipSize / 2);
+                    double volume = s.GetVolume(GetCurrentRisk, Account.Balance, volP);
                     TradeResult order = ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
 
                     if (order?.IsSuccessful == true)
@@ -391,6 +485,7 @@ namespace TradeKit
                 sf.OnTakeProfit -= OnTakeProfit;
                 m_BarsMap[sf.Id].BarOpened -= BarOpened;
                 m_SymbolsMap[sf.Id].Tick -= OnTick;
+                Positions.Closed -= OnPositionsClosed;
             }
 
             Logger.Write($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");

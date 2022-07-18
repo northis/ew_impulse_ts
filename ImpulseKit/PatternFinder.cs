@@ -9,6 +9,7 @@ namespace TradeKit
     /// </summary>
     public class PatternFinder
     {
+        private readonly int m_ZoomMin;
         private readonly double m_CorrectionAllowancePercent;
         private readonly IBarsProvider m_BarsProvider;
         private const int IMPULSE_EXTREMA_COUNT = 6;
@@ -20,8 +21,10 @@ namespace TradeKit
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        public PatternFinder(double correctionAllowancePercent, IBarsProvider barsProvider)
+        /// <param name="zoomMin">The zoom minimum.</param>
+        public PatternFinder(double correctionAllowancePercent, IBarsProvider barsProvider, int zoomMin)
         {
+            m_ZoomMin = zoomMin;
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
         }
@@ -37,7 +40,7 @@ namespace TradeKit
         /// </returns>
         public bool IsZigzag(Extremum start, Extremum end, int devStartMax, int devEndMin)
         {
-            for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.DEVIATION_STEP)
+            for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.ZOOM_STEP)
             {
                 if (IsZigzag(start, end, dv))
                 {
@@ -233,7 +236,7 @@ namespace TradeKit
                     return false;
                 }
                 
-                for (int dv = deviation; dv  >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
+                for (int dv = deviation; dv  >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
                 {
                     if (IsZigzag(firstItem, firstWaveEnd, dv) ||
                         IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
@@ -244,7 +247,7 @@ namespace TradeKit
                 }
 
                 bool ok1 = false, ok3 = false, ok5 = false;
-                for (int dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
+                for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
                 {
                     if (IsImpulseInner(firstItem, firstWaveEnd, dv, out _))
                     {
@@ -300,17 +303,7 @@ namespace TradeKit
         /// </returns>
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
-            extrema = null;
-            //for (int dv = deviation; dv >= Helper.DEVIATION_LOW; dv -= Helper.DEVIATION_STEP)
-            //{
-            //    bool isSimpleImpulse = IsImpulseInner(start, end, dv, out extrema, false);
-            //    if (isSimpleImpulse)
-            //    {
-            //        return true;
-            //    }
-            //}
-
-            return IsImpulseInner(start, end, Helper.DEVIATION_LOW, out extrema);
+            return IsImpulseInner(start, end, m_ZoomMin, out extrema);
         }
     }
 }

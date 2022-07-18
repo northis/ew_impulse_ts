@@ -16,6 +16,30 @@ namespace TradeKit
         private bool m_IsInitialized;
 
         /// <summary>
+        /// Gets or sets the percent correction.
+        /// </summary>
+        [Parameter(nameof(PercentCorrection), DefaultValue = Helper.PERCENT_CORRECTION_DEF, MaxValue = 400, MinValue = 110)]
+        public int PercentCorrection { get; set; }
+
+        /// <summary>
+        /// Gets or sets the major zoom (scale).
+        /// </summary>
+        [Parameter(nameof(MajorZoom),
+            DefaultValue = Helper.ZOOM_MAX,
+            MaxValue = 100,
+            MinValue = Helper.ZOOM_MIN)]
+        public int MajorZoom { get; set; }
+
+        /// <summary>
+        /// Gets or sets the major zoom (scale).
+        /// </summary>
+        [Parameter(nameof(MinorZoom),
+            DefaultValue = Helper.ZOOM_MIN,
+            MaxValue = Helper.ZOOM_MAX,
+            MinValue = 1)]
+        public int MinorZoom { get; set; }
+
+        /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
         protected override void Initialize()
@@ -35,7 +59,8 @@ namespace TradeKit
             };
 
             m_BarsProvider = new CTraderBarsProvider(Bars);
-            m_SetupFinder = new SetupFinder(Helper.PERCENT_CORRECTION_DEF, m_BarsProvider, state, Symbol);
+            m_SetupFinder = new SetupFinder(
+                PercentCorrection, MajorZoom, MinorZoom, m_BarsProvider, state, Symbol);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
