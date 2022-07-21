@@ -54,33 +54,9 @@ namespace TradeKit
         public bool UseTimeFramesList { get; set; }
 
         /// <summary>
-        /// Gets or sets the percent correction.
-        /// </summary>
-        [Parameter(nameof(PercentCorrection), DefaultValue = Helper.PERCENT_CORRECTION_DEF, MaxValue = 400, MinValue = 110)]
-        public int PercentCorrection { get; set; }
-
-        /// <summary>
-        /// Gets or sets the major zoom (scale).
-        /// </summary>
-        [Parameter(nameof(MajorZoom), 
-            DefaultValue = Helper.ZOOM_MAX, 
-            MaxValue = 100, 
-            MinValue = Helper.ZOOM_MIN)]
-        public int MajorZoom { get; set; }
-
-        /// <summary>
-        /// Gets or sets the major zoom (scale).
-        /// </summary>
-        [Parameter(nameof(MinorZoom),
-            DefaultValue = Helper.ZOOM_MIN,
-            MaxValue = Helper.ZOOM_MAX,
-            MinValue = 1)]
-        public int MinorZoom { get; set; }
-
-        /// <summary>
         /// Gets or sets the time frames we should use.
         /// </summary>
-        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute3,Minute5,Minute10,Minute15")]
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute5,Minute10,Minute15,Minute20,Minute30,Minute45")]
         public string TimeFramesToProceed { get; set; }
 
         /// <summary>
@@ -161,8 +137,7 @@ namespace TradeKit
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
                     var barsProvider = new CTraderBarsProvider(bars);
                     Symbol symbolEntity = Symbols.GetSymbol(symbolName);
-                    var sf = new SetupFinder(
-                        PercentCorrection, MajorZoom, MinorZoom, barsProvider, state, symbolEntity);
+                    var sf = new SetupFinder(barsProvider, state, symbolEntity);
                     string key = sf.Id;
                     m_BarsMap[key] = bars;
                     m_BarsMap[key].BarOpened += BarOpened;

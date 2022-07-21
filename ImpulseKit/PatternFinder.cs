@@ -303,6 +303,15 @@ namespace TradeKit
         /// </returns>
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
+            extrema = null;
+            for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
+            {
+                if (IsZigzag(start, end, dv))
+                {
+                    return false;
+                }
+            }
+
             return IsImpulseInner(start, end, m_ZoomMin, out extrema);
         }
     }

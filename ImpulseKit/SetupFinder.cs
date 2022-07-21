@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Config;
 using TradeKit.EventArgs;
@@ -21,7 +22,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
-        private const double TRIGGER_LEVEL_RATIO = 0.45;
+        private const double TRIGGER_LEVEL_RATIO = 0.5;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -60,26 +61,29 @@ namespace TradeKit
         /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
-        /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
-        /// <param name="zoomMax">The zoom (resolution) max.</param>
-        /// <param name="zoomMin">The zoom (resolution) min.</param>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         public SetupFinder(
-            double correctionAllowancePercent,
-            int zoomMax,
-            int zoomMin,
             IBarsProvider mainBarsProvider,
             SymbolState state,
             Symbol symbol)
         {
-            m_ZoomMin = zoomMin;
+            m_ZoomMin = Helper.ZOOM_MIN;
             m_Symbol = symbol;
             BarsProvider = mainBarsProvider;
             State = state;
+            int zoomMax = GetZoomByTimeFrame(state.TimeFrame);
             m_ExtremumFinders.Add(new ExtremumFinder(zoomMax, BarsProvider));
-            m_PatternFinder = new PatternFinder(correctionAllowancePercent, mainBarsProvider, zoomMin);
+            m_PatternFinder = new PatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, m_ZoomMin);
+        }
+
+        private int GetZoomByTimeFrame(string tfString)
+        {
+            TimeFrameInfo tf = TimeFrameHelper.TimeFrames[TimeFrame.Parse(tfString)];
+            double minutes = tf.TimeSpan.TotalMinutes;
+            int zoom = Convert.ToInt32(45 /Math.Log10(minutes));
+            return zoom;
         }
 
         /// <summary>
