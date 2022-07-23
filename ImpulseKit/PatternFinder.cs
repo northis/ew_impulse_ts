@@ -304,15 +304,19 @@ namespace TradeKit
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
-            {
-                if (IsZigzag(start, end, dv))
-                {
-                    return false;
-                }
-            }
+            //if (IsZigzag(start, end, deviation, m_ZoomMin))
+            //{
+            //    return false;
+            //}
+            //for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
+            //{
+            //    if (IsImpulseInner(start, end, dv, out extrema, false))
+            //    {
+            //        return true;
+            //    }
+            //}
 
-            return IsImpulseInner(start, end, m_ZoomMin, out extrema);
+            return true;//IsImpulseInner(start, end, m_ZoomMin, out extrema);
         }
     }
 }

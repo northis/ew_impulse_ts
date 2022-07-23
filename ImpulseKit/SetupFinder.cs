@@ -73,17 +73,13 @@ namespace TradeKit
             m_Symbol = symbol;
             BarsProvider = mainBarsProvider;
             State = state;
-            int zoomMax = GetZoomByTimeFrame(state.TimeFrame);
-            m_ExtremumFinders.Add(new ExtremumFinder(zoomMax, BarsProvider));
-            m_PatternFinder = new PatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, m_ZoomMin);
-        }
 
-        private int GetZoomByTimeFrame(string tfString)
-        {
-            TimeFrameInfo tf = TimeFrameHelper.TimeFrames[TimeFrame.Parse(tfString)];
-            double minutes = tf.TimeSpan.TotalMinutes;
-            int zoom = Convert.ToInt32(45 /Math.Log10(minutes));
-            return zoom;
+            for (int i = 40; i < 60; i++)
+            {
+                m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
+            }
+
+            m_PatternFinder = new PatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, m_ZoomMin);
         }
 
         /// <summary>
@@ -186,7 +182,7 @@ namespace TradeKit
             bool isInSetupBefore = State.IsInSetup;
             void CheckImpulse()
             {
-                if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
+                if (endItem.Key- startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
                     //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
                     return;
