@@ -235,8 +235,8 @@ namespace TradeKit
                 {
                     return false;
                 }
-                
-                for (int dv = deviation; dv  >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
+
+                for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
                 {
                     if (IsZigzag(firstItem, firstWaveEnd, dv) ||
                         IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
@@ -258,8 +258,8 @@ namespace TradeKit
                     {
                         ok3 = true;
                     }
-                    
-                    if(IsImpulseInner(fourthWaveEnd, fifthWaveEnd, dv, out _))
+
+                    if (IsImpulseInner(fourthWaveEnd, fifthWaveEnd, dv, out _))
                     {
                         ok5 = true;
                     }
@@ -270,7 +270,7 @@ namespace TradeKit
                     }
                 }
 
-                return false;
+                return true;
             }
             
             if (countRest == 0)
@@ -304,19 +304,19 @@ namespace TradeKit
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            //if (IsZigzag(start, end, deviation, m_ZoomMin))
-            //{
-            //    return false;
-            //}
-            //for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
-            //{
-            //    if (IsImpulseInner(start, end, dv, out extrema, false))
-            //    {
-            //        return true;
-            //    }
-            //}
+            if (IsZigzag(start, end, deviation, m_ZoomMin))
+            {
+                return false;
+            }
+            for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
+            {
+                if (IsImpulseInner(start, end, dv, out extrema, false))
+                {
+                    return true;
+                }
+            }
 
-            return true;//IsImpulseInner(start, end, m_ZoomMin, out extrema);
+            return true;// IsImpulseInner(start, end, m_ZoomMin, out extrema);
         }
     }
 }

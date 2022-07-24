@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
+using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using TradeKit.Config;
 using TradeKit.EventArgs;
@@ -22,7 +23,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
-        private const double TRIGGER_LEVEL_RATIO = 0.5;
+        private const double TRIGGER_LEVEL_RATIO = 0.55;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -74,7 +75,7 @@ namespace TradeKit
             BarsProvider = mainBarsProvider;
             State = state;
 
-            for (int i = 40; i < 60; i++)
+            for (int i = 20; i < 30; i++)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
@@ -182,8 +183,10 @@ namespace TradeKit
             bool isInSetupBefore = State.IsInSetup;
             void CheckImpulse()
             {
-                if (endItem.Key- startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
+
+                if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
+                    //Debugger.Launch();
                     //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
                     return;
                 }

@@ -13,7 +13,7 @@ namespace TradeKit
     public class ImpulseSignalerBaseRobot : Robot
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
-        private const double RISK_DEPOSIT_PERCENT = 0.5;
+        private const double RISK_DEPOSIT_PERCENT = 1;
         private const double RISK_DEPOSIT_PERCENT_MAX = 5;
 
         private double m_CurrentRisk = RISK_DEPOSIT_PERCENT;
@@ -408,6 +408,7 @@ namespace TradeKit
 
             if (IsBacktesting || AllowToTrade)
             {
+                //isLong = !isLong;
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
                 
@@ -418,12 +419,16 @@ namespace TradeKit
                 {
                     double volP = Math.Round(Math.Abs(tp - sl) / symbolInfo.PipSize / 2);
                     double volume = s.GetVolume(GetCurrentRisk, Account.Balance, volP);
-                    TradeResult order = ExecuteMarketOrder(type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
+                    TradeResult order = ExecuteMarketOrder(
+                    type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
+                    //type, symbolInfo.Name, volume, BOT_NAME, tpP, slP);
 
                     if (order?.IsSuccessful == true)
                     {
                         order.Position.ModifyTakeProfitPrice(tp);
                         order.Position.ModifyStopLossPrice(sl);
+                        //order.Position.ModifyTakeProfitPrice(sl);
+                        //order.Position.ModifyStopLossPrice(tp);
                     }
                 }
             }
