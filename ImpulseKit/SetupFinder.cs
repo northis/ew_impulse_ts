@@ -22,7 +22,7 @@ namespace TradeKit
         private int m_LastBarIndex;
         ExtremumFinder m_PreFinder;
 
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.236;
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.2;
         private const double TRIGGER_LEVEL_RATIO = 0.55;
 
         private const int IMPULSE_END_NUMBER = 1;
@@ -75,7 +75,7 @@ namespace TradeKit
             BarsProvider = mainBarsProvider;
             State = state;
 
-            for (int i = 20; i < 30; i++)
+            for (int i = 40; i < 50; i++)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
@@ -117,6 +117,7 @@ namespace TradeKit
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
+
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
                 Extremum edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
@@ -128,7 +129,7 @@ namespace TradeKit
                         break;
                     }
 
-                    if (curValue > endValue)
+                    if (curValue - endValue >0)
                     {
                         isInitialMove = true;
                         break;
@@ -142,7 +143,7 @@ namespace TradeKit
                     break;
                 }
 
-                if (curValue < endValue)
+                if (curValue - endValue < 0)
                 {
                     isInitialMove = true;
                     break;
@@ -275,6 +276,8 @@ namespace TradeKit
                     KeyValuePair<int, Extremum> beforeStartItem
                         = extrema.ElementAt(startIndex - 1);
                     if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
+                            finder.ScaleRate, m_ZoomMin) ||
+                        m_PatternFinder.IsDoubleZigzag(beforeStartItem.Value, startItem.Value,
                             finder.ScaleRate, m_ZoomMin))
                     {
                         Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");

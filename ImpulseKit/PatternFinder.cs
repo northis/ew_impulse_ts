@@ -51,6 +51,44 @@ namespace TradeKit
             return false;
         }
 
+        public bool IsDoubleZigzag(Extremum start, Extremum end, int devStartMax, int devEndMin)
+        {
+            bool isUp = start < end;
+            for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.ZOOM_STEP)
+            {
+                List<Extremum> extrema = GetNormalizedExtrema(start, end, dv);
+                int count = extrema.Count;
+
+                if (count < ZIGZAG_EXTREMA_COUNT)
+                {
+                    continue;
+                }
+
+                bool isSimpleOverlap = isUp && extrema[1] > extrema[^2] ||
+                                       !isUp && extrema[1] < extrema[^2];
+                
+                if (isSimpleOverlap &&
+                    IsZigzag(extrema[0], extrema[1], dv, devEndMin) && 
+                    IsZigzag(extrema[^2], extrema[^1], dv, devEndMin))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private List<Extremum> GetNormalizedExtrema(Extremum start, Extremum end, int scale)
+        {
+            var minorExtremumFinder = new ExtremumFinder(scale, m_BarsProvider);
+            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
+            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
+
+            NormalizeExtrema(extrema, start, end);
+
+            return extrema;
+        }
+
         /// <summary>
         /// Determines whether the specified interval has a zigzag.
         /// </summary>
@@ -62,11 +100,7 @@ namespace TradeKit
         /// </returns>
         public bool IsZigzag(Extremum start, Extremum end, int scale)
         {
-            var minorExtremumFinder = new ExtremumFinder(scale, m_BarsProvider);
-            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
-            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
-
-            NormalizeExtrema(extrema, start, end);
+            List<Extremum> extrema = GetNormalizedExtrema(start, end, scale);
             int count = extrema.Count;
 
             if (count < ZIGZAG_EXTREMA_COUNT)
@@ -304,17 +338,22 @@ namespace TradeKit
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            if (IsZigzag(start, end, deviation, m_ZoomMin))
+            if (IsDoubleZigzag(start, end, deviation, m_ZoomMin))
             {
                 return false;
             }
-            for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
-            {
-                if (IsImpulseInner(start, end, dv, out extrema, false))
-                {
-                    return true;
-                }
-            }
+
+            //if (IsZigzag(start, end, deviation, m_ZoomMin))
+            //{
+            //    return false;
+            //}
+            //for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
+            //{
+            //    if (IsImpulseInner(start, end, dv, out extrema, false))
+            //    {
+            //        return true;
+            //    }
+            //}
 
             return true;// IsImpulseInner(start, end, m_ZoomMin, out extrema);
         }
