@@ -3,7 +3,7 @@ using cAlgo.API.Internals;
 
 namespace TradeKit
 {
-    public static class SymbolExtensions
+    public static class Extensions
     {
         /// <summary>
         /// Returns the amount of volume based on your provided risk percentage and stop loss

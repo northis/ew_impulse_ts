@@ -21,6 +21,18 @@ namespace TradeKit
         double GetHighPrice(int index);
 
         /// <summary>
+        /// Gets the open price of the candle by the <see cref="index" /> specified.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        double GetOpenPrice(int index);
+
+        /// <summary>
+        /// Gets the close price of the candle by the <see cref="index" /> specified.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        double GetClosePrice(int index);
+
+        /// <summary>
         /// Gets the open time of the candle by the <see cref="index"/> specified
         /// </summary>
         /// <param name="index">The index.</param>

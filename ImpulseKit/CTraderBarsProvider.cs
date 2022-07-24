@@ -1,6 +1,5 @@
 ﻿using System;
 using cAlgo.API;
-using cAlgo.API.Internals;
 
 namespace TradeKit
 {
@@ -38,7 +37,25 @@ namespace TradeKit
         {
             return m_Bars.HighPrices[index];
         }
-        
+
+        /// <summary>
+        /// Gets the open price of the candle by the <see cref="index" /> specified.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        public double GetOpenPrice(int index)
+        {
+            return m_Bars.OpenPrices[index];
+        }
+
+        /// <summary>
+        /// Gets the close price of the candle by the <see cref="index" /> specified.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        public double GetClosePrice(int index)
+        {
+            return m_Bars.ClosePrices[index];
+        }
+
         /// <summary>
         /// Gets the open time of the candle by the <see cref="index" /> specified
         /// </summary>

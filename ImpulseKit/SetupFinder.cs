@@ -75,7 +75,7 @@ namespace TradeKit
             BarsProvider = mainBarsProvider;
             State = state;
 
-            for (int i = 40; i < 50; i++)
+            for (int i = 25; i < 30; i++)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }

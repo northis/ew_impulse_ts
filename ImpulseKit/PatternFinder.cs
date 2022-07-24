@@ -338,10 +338,27 @@ namespace TradeKit
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            if (IsDoubleZigzag(start, end, deviation, m_ZoomMin))
-            {
-                return false;
-            }
+            //if (IsDoubleZigzag(start, end, deviation, m_ZoomMin))
+            //{
+            //    return false;
+            //}
+
+            //bool isUp = start < end;
+
+            //int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
+            //int endIndex = m_BarsProvider.GetIndexByTime(end.OpenTime);
+            //for (int i = startIndex; i <= endIndex; i++)
+            //{
+            //    double openPrice = m_BarsProvider.GetOpenPrice(i);
+            //    double closePrice = m_BarsProvider.GetClosePrice(i);
+
+            //    if (openPrice < closePrice != isUp)
+            //    {
+            //        //Debugger.Launch();
+            //        return false;
+            //    }
+            //}
+
 
             //if (IsZigzag(start, end, deviation, m_ZoomMin))
             //{
@@ -355,7 +372,7 @@ namespace TradeKit
             //    }
             //}
 
-            return true;// IsImpulseInner(start, end, m_ZoomMin, out extrema);
+            return IsImpulseInner(start, end, m_ZoomMin, out extrema);
         }
     }
 }
