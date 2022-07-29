@@ -23,7 +23,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.2;
-        private const double TRIGGER_LEVEL_RATIO = 0.55;
+        private const double TRIGGER_LEVEL_RATIO = 0.3;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -75,7 +75,7 @@ namespace TradeKit
             BarsProvider = mainBarsProvider;
             State = state;
 
-            for (int i = 25; i < 30; i++)
+            for (int i = 35; i <= 50; i+=10)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }

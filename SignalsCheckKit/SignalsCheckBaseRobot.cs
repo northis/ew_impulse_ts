@@ -5,7 +5,7 @@ namespace SignalsCheckKit
     public class SignalsCheckBaseRobot : Robot
     {
         private const string BOT_NAME = "SignalsCheckRobot";
-        private const double RISK_DEPOSIT_PERCENT = 5;
+        private const double RISK_DEPOSIT_PERCENT = 1;
 
         [Parameter("SignalHistoryFilePath", DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
@@ -68,7 +68,7 @@ namespace SignalsCheckKit
                 double priceNow = signal.IsLong ? Symbol.Ask : Symbol.Bid;
 
                 double slUnits = Math.Abs(priceNow - signal.StopLoss);
-                double slP = slUnits / Symbol.PipSize;
+                double slP = Symbol.NormalizeVolumeInUnits(slUnits / Symbol.PipSize);
 
                 for (var i = 0; i < signal.TakeProfits.Length; i++)
                 {
@@ -81,8 +81,11 @@ namespace SignalsCheckKit
 
                     double tp = signal.TakeProfits[i];
                     double tpP = Math.Abs(priceNow - tp) / Symbol.PipSize;
-                    double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
-                    result.Add(ExecuteMarketOrder(type, Symbol.Name, volume, BOT_NAME, slP, tpP));
+                    double volume = 35;
+                    TradeResult order =
+                        ExecuteMarketOrder(type, Symbol.Name, volume, BOT_NAME, slP, tpP);
+                    result.Add(order);
+                    ModifyPosition(order.Position, signal.StopLoss, tp);
                 }
 
                 m_Signals.Remove(matchedSignal.Key);

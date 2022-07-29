@@ -62,11 +62,13 @@ namespace TradeKit
         /// </summary>
         /// <param name="scaleRate">The scale (zoom) to find zigzags.</param>
         /// <param name="barsProvider">The source bars provider.</param>
-        public ExtremumFinder(int scaleRate, IBarsProvider barsProvider)
+        /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
+        public ExtremumFinder(int scaleRate, IBarsProvider barsProvider, bool isUpDirection = false)
         {
             m_ScaleRate = scaleRate;
             m_BarsProvider = barsProvider;
             Extrema = new SortedDictionary<int, Extremum>();
+            m_IsUpDirection = isUpDirection;
         }
 
         /// <summary>

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace TradeKit
 {
@@ -80,7 +79,8 @@ namespace TradeKit
 
         private List<Extremum> GetNormalizedExtrema(Extremum start, Extremum end, int scale)
         {
-            var minorExtremumFinder = new ExtremumFinder(scale, m_BarsProvider);
+            bool isUp = start < end;
+            var minorExtremumFinder = new ExtremumFinder(scale, m_BarsProvider, isUp);
             minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
             List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
 
@@ -160,6 +160,39 @@ namespace TradeKit
                     extrema.Add(end);
                 }
             }
+
+            if (extrema.Count < ZIGZAG_EXTREMA_COUNT)
+            {
+                return;
+            }
+
+            // We want to leave only true extrema
+            Extremum current = start;
+            bool direction = start > end;
+            List<Extremum> toDelete = null;
+            for (int i = 1; i < extrema.Count; i++)
+            {
+                Extremum extremum = extrema[i];
+                bool newDirection = current < extremum;
+                if (direction == newDirection)
+                {
+                    toDelete ??= new List<Extremum>();
+                    toDelete.Add(current);
+                }
+
+                direction = newDirection;
+                current = extremum;
+            }
+
+            if (toDelete == null)
+            {
+                return;
+            }
+
+            foreach (Extremum toDeleteItem in toDelete)
+            {
+                extrema.Remove(toDeleteItem);
+            }
         }
 
         /// <summary>
@@ -179,10 +212,7 @@ namespace TradeKit
             int deviation, out List<Extremum> extrema,
             bool allowSimple = true)
         {
-            var minorExtremumFinder = new ExtremumFinder(deviation, m_BarsProvider);
-            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
-            extrema = minorExtremumFinder.ToExtremaList();
-            NormalizeExtrema(extrema, start, end);
+            extrema = GetNormalizedExtrema(start, end, deviation);
 
             int count = extrema.Count;
             if (count < SIMPLE_EXTREMA_COUNT)
@@ -213,14 +243,6 @@ namespace TradeKit
                 double secondWaveDuration = (secondWaveEnd.OpenTime - firstWaveEnd.OpenTime).TotalSeconds;
                 double fourthWaveDuration = (fourthWaveEnd.OpenTime - thirdWaveEnd.OpenTime).TotalSeconds;
                 if (secondWaveDuration <= 0 || fourthWaveDuration <= 0)
-                {
-                    return false;
-                }
-
-                double minSeconds = Helper.CORRECTION_BAR_MIN *
-                                    TimeFrameHelper.TimeFrames[secondWaveEnd.BarTimeFrame].TimeSpan.TotalSeconds;
-
-                if (secondWaveDuration < minSeconds)
                 {
                     return false;
                 }
@@ -338,41 +360,27 @@ namespace TradeKit
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            //if (IsDoubleZigzag(start, end, deviation, m_ZoomMin))
-            //{
-            //    return false;
-            //}
+            if (IsDoubleZigzag(start, end, deviation, 1))
+            {
+                return false;
+            }
 
-            //bool isUp = start < end;
+            if (IsZigzag(start, end, deviation, 1))
+            {
+                return false;
+            }
+            
+            for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
+            {
+                // Debugger.Launch();
 
-            //int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
-            //int endIndex = m_BarsProvider.GetIndexByTime(end.OpenTime);
-            //for (int i = startIndex; i <= endIndex; i++)
-            //{
-            //    double openPrice = m_BarsProvider.GetOpenPrice(i);
-            //    double closePrice = m_BarsProvider.GetClosePrice(i);
+                if (IsImpulseInner(start, end, dv, out extrema, false))
+                {
+                    return true;
+                }
+            }
 
-            //    if (openPrice < closePrice != isUp)
-            //    {
-            //        //Debugger.Launch();
-            //        return false;
-            //    }
-            //}
-
-
-            //if (IsZigzag(start, end, deviation, m_ZoomMin))
-            //{
-            //    return false;
-            //}
-            //for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
-            //{
-            //    if (IsImpulseInner(start, end, dv, out extrema, false))
-            //    {
-            //        return true;
-            //    }
-            //}
-
-            return IsImpulseInner(start, end, m_ZoomMin, out extrema);
+            return false;
         }
     }
 }

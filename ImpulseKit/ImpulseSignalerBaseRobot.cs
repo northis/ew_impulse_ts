@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
@@ -408,7 +407,6 @@ namespace TradeKit
 
             if (IsBacktesting || AllowToTrade)
             {
-                //isLong = !isLong;
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
                 
@@ -421,14 +419,11 @@ namespace TradeKit
                     double volume = s.GetVolume(GetCurrentRisk, Account.Balance, volP);
                     TradeResult order = ExecuteMarketOrder(
                     type, symbolInfo.Name, volume, BOT_NAME, slP, tpP);
-                    //type, symbolInfo.Name, volume, BOT_NAME, tpP, slP);
 
                     if (order?.IsSuccessful == true)
                     {
                         order.Position.ModifyTakeProfitPrice(tp);
                         order.Position.ModifyStopLossPrice(sl);
-                        //order.Position.ModifyTakeProfitPrice(sl);
-                        //order.Position.ModifyStopLossPrice(tp);
                     }
                 }
             }
