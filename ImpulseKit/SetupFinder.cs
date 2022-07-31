@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using cAlgo.API;
-using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using TradeKit.Config;
 using TradeKit.EventArgs;
@@ -23,7 +20,7 @@ namespace TradeKit
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.2;
-        private const double TRIGGER_LEVEL_RATIO = 0.3;
+        private const double TRIGGER_LEVEL_RATIO = 0.5;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -75,7 +72,7 @@ namespace TradeKit
             BarsProvider = mainBarsProvider;
             State = state;
 
-            for (int i = 35; i <= 50; i+=10)
+            for (int i = 30; i <= 50; i+=5)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
@@ -276,12 +273,12 @@ namespace TradeKit
                     KeyValuePair<int, Extremum> beforeStartItem
                         = extrema.ElementAt(startIndex - 1);
                     if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
-                            finder.ScaleRate, m_ZoomMin) ||
+                            finder.ScaleRate, m_ZoomMin)/* ||
                         m_PatternFinder.IsDoubleZigzag(beforeStartItem.Value, startItem.Value,
-                            finder.ScaleRate, m_ZoomMin))
-                    {
+                            finder.ScaleRate, m_ZoomMin)*/)
+                    { 
                         Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
-                       // return;
+                       return;
                     }
                 }
 

@@ -286,6 +286,12 @@ namespace TradeKit
                     return false;
                 }
 
+                if (Math.Abs(secondWaveEnd - firstItem) / firstWaveLength < Helper.SECOND_WAVE_PULLBACK_MIN_RATIO)
+                {
+                    // The 2nd wave is too close to the impulse beginning
+                    return false;
+                }
+
                 // Check the 3rd wave length
                 if (thirdWaveLength < firstWaveLength &&
                     thirdWaveLength < fifthWaveLength)
@@ -303,7 +309,7 @@ namespace TradeKit
                 if (!hasExtendedWave)
                 {
                     Logger.Write("No extended wave in impulse");
-                    //return false;
+                    return false;
                 }
 
                 for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
@@ -374,16 +380,17 @@ namespace TradeKit
         public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
         {
             extrema = null;
-            if (IsDoubleZigzag(start, end, deviation, 1))
-            {
-                return false;
-            }
+            //if (IsDoubleZigzag(start, end, deviation, 1))
+            //{
+            //    return false;
+            //}
 
-            if (IsZigzag(start, end, deviation, 1))
-            {
-                return false;
-            }
-            
+            //if (IsZigzag(start, end, deviation, 1))
+            //{
+            //    return false;
+            //}
+            //return IsImpulseInner(start, end, m_ZoomMin, out extrema);
+
             for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
             {
                 // Debugger.Launch();
