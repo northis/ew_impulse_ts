@@ -14,6 +14,7 @@ namespace TradeKit
         private const int IMPULSE_EXTREMA_COUNT = 6;
         private const int SIMPLE_EXTREMA_COUNT = 2;
         private const int ZIGZAG_EXTREMA_COUNT = 4;
+        private const double FIBONACCI = 1.618;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PatternFinder"/> class.
@@ -290,6 +291,19 @@ namespace TradeKit
                     thirdWaveLength < fifthWaveLength)
                 {
                     return false;
+                }
+
+                bool hasExtendedWave = firstWaveLength > thirdWaveLength * FIBONACCI ||
+                                       thirdWaveLength > firstWaveLength * FIBONACCI ||
+                                       fifthWaveLength > thirdWaveLength * FIBONACCI ||
+                                       thirdWaveLength > fifthWaveLength * FIBONACCI ||
+                                       firstWaveLength > fifthWaveLength * FIBONACCI ||
+                                       fifthWaveLength > firstWaveLength * FIBONACCI;
+
+                if (!hasExtendedWave)
+                {
+                    Logger.Write("No extended wave in impulse");
+                    //return false;
                 }
 
                 for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)

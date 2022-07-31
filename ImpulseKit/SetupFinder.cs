@@ -281,7 +281,7 @@ namespace TradeKit
                             finder.ScaleRate, m_ZoomMin))
                     {
                         Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
-                        return;
+                       // return;
                     }
                 }
 
