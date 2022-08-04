@@ -10,10 +10,9 @@ namespace TradeKit
     /// <summary>
     /// Class contains the logic of trade setups searching.
     /// </summary>
-    public class SetupFinder
+    public class SetupFinder : BaseSetupFinder
     {
         private readonly int m_ZoomMin;
-        private readonly Symbol m_Symbol;
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         private int m_LastBarIndex;
@@ -32,31 +31,6 @@ namespace TradeKit
         private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 2;
 
         /// <summary>
-        /// Gets the state.
-        /// </summary>
-        public SymbolState State { get; }
-
-        /// <summary>
-        /// Gets the bars provider.
-        /// </summary>
-        public IBarsProvider BarsProvider { get; }
-
-        /// <summary>
-        /// Gets the identifier of this setup finder.
-        /// </summary>
-        public string Id => GetId(State.Symbol, State.TimeFrame);
-
-        /// <summary>
-        /// Gets the identifier.
-        /// </summary>
-        /// <param name="symbolName">Name of the symbol.</param>
-        /// <param name="timeFrame">The time frame.</param>
-        public static string GetId(string symbolName, string timeFrame)
-        {
-            return symbolName + timeFrame;
-        }
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="SetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
@@ -65,12 +39,9 @@ namespace TradeKit
         public SetupFinder(
             IBarsProvider mainBarsProvider,
             SymbolState state,
-            Symbol symbol)
+            Symbol symbol):base(mainBarsProvider, state, symbol)
         {
             m_ZoomMin = Helper.ZOOM_MIN;
-            m_Symbol = symbol;
-            BarsProvider = mainBarsProvider;
-            State = state;
 
             for (int i = 30; i <= 50; i+=5)
             {
@@ -79,21 +50,6 @@ namespace TradeKit
 
             m_PatternFinder = new PatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, m_ZoomMin);
         }
-
-        /// <summary>
-        /// Occurs on stop loss.
-        /// </summary>
-        public event EventHandler<LevelEventArgs> OnStopLoss;
-
-        /// <summary>
-        /// Occurs when on take profit.
-        /// </summary>
-        public event EventHandler<LevelEventArgs> OnTakeProfit;
-
-        /// <summary>
-        /// Occurs when a new setup is found.
-        /// </summary>
-        public event EventHandler<SignalEventArgs> OnEnter;
 
         /// <summary>
         /// Determines whether the movement from <see cref="startValue"/> to <see cref="endValue"/> is initial. We use current bar position and <see cref="IMPULSE_START_NUMBER"/> to rewind the bars to the past.
@@ -221,13 +177,13 @@ namespace TradeKit
                     if (isImpulseUp)
                     {
                         triggerLevel = Math.Round(
-                            endValue - triggerSize, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                            endValue - triggerSize, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                         gotSetup = low <= triggerLevel && low > startValue;
                     }
                     else
                     {
                         triggerLevel = Math.Round(
-                            endValue + triggerSize, m_Symbol.Digits, MidpointRounding.ToZero);
+                            endValue + triggerSize, Symbol.Digits, MidpointRounding.ToZero);
                         gotSetup = high >= triggerLevel && high < startValue;
                     }
 
@@ -277,7 +233,7 @@ namespace TradeKit
                         m_PatternFinder.IsDoubleZigzag(beforeStartItem.Value, startItem.Value,
                             finder.ScaleRate, m_ZoomMin)*/)
                     { 
-                        Logger.Write($"{m_Symbol}, {State.TimeFrame}: zigzag before the impulse");
+                        Logger.Write($"{Symbol}, {State.TimeFrame}: zigzag before the impulse");
                        return;
                     }
                 }
@@ -311,16 +267,16 @@ namespace TradeKit
                 if (isImpulseUp)
                 {
                     endValue = startValue + setupLength;
-                    State.SetupStartPrice = Math.Round(startValue - startAllowance, m_Symbol.Digits, MidpointRounding.ToZero);
-                    State.SetupEndPrice = Math.Round(endValue - endAllowance, m_Symbol.Digits, MidpointRounding.ToZero);
+                    State.SetupStartPrice = Math.Round(startValue - startAllowance, Symbol.Digits, MidpointRounding.ToZero);
+                    State.SetupEndPrice = Math.Round(endValue - endAllowance, Symbol.Digits, MidpointRounding.ToZero);
                 }
                 else
                 {
                     endValue = startValue - setupLength;
                     State.SetupStartPrice = Math.Round(
-                        startValue + startAllowance, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                        startValue + startAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                     State.SetupEndPrice = Math.Round(
-                        endValue + endAllowance, m_Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                        endValue + endAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                 }
 
                 if (isImpulseUp && 
@@ -329,15 +285,14 @@ namespace TradeKit
                     (realPrice <= State.SetupEndPrice || realPrice >= State.SetupStartPrice))
                 {
                     // TP or SL is already hit, cannot use this signal
-                    Logger.Write($"{m_Symbol}, {State.TimeFrame}: TP or SL is already hit, cannot use this signal");
+                    Logger.Write($"{Symbol}, {State.TimeFrame}: TP or SL is already hit, cannot use this signal");
                     return;
                 }
 
                 var tpArg = new LevelItem(State.SetupEndPrice, State.SetupEndIndex);
                 var slArg = new LevelItem(State.SetupStartPrice, State.SetupStartIndex);
-                
-                OnEnter?.Invoke(this,
-                    new SignalEventArgs(
+
+                OnEnterInvoke(new SignalEventArgs(
                         new LevelItem(realPrice, index),
                         tpArg,
                         slArg,
@@ -399,8 +354,7 @@ namespace TradeKit
             if (isProfitHit)
             {
                 State.IsInSetup = false;
-                OnTakeProfit?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(State.SetupEndPrice, index),
+                OnTakeProfitInvoke(new LevelEventArgs(new LevelItem(State.SetupEndPrice, index),
                         new LevelItem(State.TriggerLevel, State.TriggerBarIndex)));
             }
 
@@ -409,8 +363,7 @@ namespace TradeKit
             if (isStopHit)
             {
                 State.IsInSetup = false;
-                OnStopLoss?.Invoke(this,
-                    new LevelEventArgs(new LevelItem(State.SetupStartPrice, index),
+                OnStopLossInvoke(new LevelEventArgs(new LevelItem(State.SetupStartPrice, index),
                         new LevelItem(State.TriggerLevel, State.TriggerBarIndex)));
             }
 
@@ -421,7 +374,7 @@ namespace TradeKit
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
         /// </summary>
         /// <param name="index">The index of bar to calculate.</param>
-        public void CheckBar(int index)
+        public override void CheckBar(int index)
         {
             m_LastBarIndex = index;
             foreach (ExtremumFinder finder in m_ExtremumFinders)
@@ -440,14 +393,14 @@ namespace TradeKit
                 }
             }
             
-            CheckSetup(null);
+            CheckSetup();
         }
 
         /// <summary>
         /// Checks the tick.
         /// </summary>
         /// <param name="bid">The price (bid).</param>
-        public void CheckTick(double bid)
+        public override void CheckTick(double bid)
         {
             if (m_PreFinder == null)
             {
@@ -457,7 +410,7 @@ namespace TradeKit
             IsSetup(m_LastBarIndex, m_PreFinder, bid);
         }
 
-        private void CheckSetup(double? price)
+        private void CheckSetup()
         {
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {

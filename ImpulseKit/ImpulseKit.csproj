@@ -26,6 +26,7 @@
     <PackageReference Include="Telegram.Bot" Version="17.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BaseRobot.cs" />
     <Compile Include="Config\SymbolState.cs" />
     <Compile Include="CTraderBarsProvider.cs" />
     <Compile Include="EventArgs\SignalEventArgs.cs" />
@@ -35,10 +36,12 @@
     <Compile Include="Helper.cs" />
     <Compile Include="IBarsProvider.cs" />
     <Compile Include="ImpulseFinderBaseIndicator.cs" />
+    <Compile Include="RateSignalerBaseRobot.cs" />
     <Compile Include="ImpulseSignalerBaseRobot.cs" />
     <Compile Include="LevelItem.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="PatternFinder.cs" />
+    <Compile Include="BaseSetupFinder.cs" />
     <Compile Include="SetupFinder.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="TelegramReporter.cs" />
