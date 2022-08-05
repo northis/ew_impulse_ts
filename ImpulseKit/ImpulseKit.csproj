@@ -42,7 +42,7 @@
     <Compile Include="Logger.cs" />
     <Compile Include="PatternFinder.cs" />
     <Compile Include="BaseSetupFinder.cs" />
-    <Compile Include="SetupFinder.cs" />
+    <Compile Include="ImpulseSetupFinder.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="TelegramReporter.cs" />
     <Compile Include="TimeFrameHelper.cs" />

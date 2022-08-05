@@ -6,6 +6,7 @@ using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Internals;
 using TradeKit.Config;
+using TradeKit.EventArgs;
 
 namespace TradeKit
 {
@@ -289,10 +290,10 @@ namespace TradeKit
             }
         }
 
-        private bool HandleClose(object sender, EventArgs.LevelEventArgs e,
+        private bool HandleClose(object sender, LevelEventArgs e,
             out string price, out string setupId)
         {
-            SetupFinder sf = (SetupFinder)sender;
+            ImpulseSetupFinder sf = (ImpulseSetupFinder)sender;
             setupId = sf.Id;
             price = null;
             if (!m_PositionFinderMap.TryGetValue(sf.Id, out bool isInPosition))
@@ -305,7 +306,7 @@ namespace TradeKit
             return isInPosition;
         }
 
-        private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
+        private void OnStopLoss(object sender, LevelEventArgs e)
         {
             if (!HandleClose(sender, e, out string price, out string setupId))
             {
@@ -323,7 +324,7 @@ namespace TradeKit
             TelegramReporter.ReportStopLoss(setupId);
         }
 
-        private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
+        private void OnTakeProfit(object sender, LevelEventArgs e)
         {
             if (!HandleClose(sender, e, out string price, out string setupId))
             {
@@ -341,7 +342,17 @@ namespace TradeKit
             TelegramReporter.ReportTakeProfit(setupId);
         }
 
-        private void OnEnter(object sender, EventArgs.SignalEventArgs e)
+        /// <summary>
+        /// Determines whether the specified setup finder already has same setup active.
+        /// </summary>
+        /// <param name="setupFinder">The setup finder.</param>
+        /// <param name="signal">The <see cref="SignalEventArgs"/> instance containing the event data.</param>
+        /// <returns>
+        ///   <c>true</c> if the specified setup finder already has same setup active; otherwise, <c>false</c>.
+        /// </returns>
+        protected abstract bool HasSameSetupActive(T setupFinder, SignalEventArgs signal);
+
+        private void OnEnter(object sender, SignalEventArgs e)
         {
             var sf = (T)sender;
             if (!m_SymbolFindersMap.TryGetValue(sf.State.Symbol, out T[] finders))
@@ -413,8 +424,7 @@ namespace TradeKit
                     continue;
                 }
 
-                if (Math.Abs(finder.State.SetupStartPrice - e.StopLoss.Price) < double.Epsilon &&
-                    Math.Abs(finder.State.SetupEndPrice - e.TakeProfit.Price) < double.Epsilon)
+                if (HasSameSetupActive(finder,e))
                 {
                     Logger.Write($"Already got this setup in on {finder.State.Symbol} - {finder.State.TimeFrame}");
                     return;
@@ -437,8 +447,7 @@ namespace TradeKit
 
                 if (slP > 0)
                 {
-                    double volP = Math.Round(Math.Abs(tp - sl) / symbolInfo.PipSize / 2);
-                    double volume = s.GetVolume(GetCurrentRisk, Account.Balance, volP);
+                    double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
                     TradeResult order = ExecuteMarketOrder(
                     type, symbolInfo.Name, volume, GetBotName(), slP, tpP);
 

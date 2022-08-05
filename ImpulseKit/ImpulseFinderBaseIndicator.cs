@@ -11,7 +11,7 @@ namespace TradeKit
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class ImpulseFinderBaseIndicator : Indicator
     {
-        private SetupFinder m_SetupFinder;
+        private ImpulseSetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
         private bool m_IsInitialized;
 
@@ -35,7 +35,7 @@ namespace TradeKit
             };
 
             m_BarsProvider = new CTraderBarsProvider(Bars);
-            m_SetupFinder = new SetupFinder(m_BarsProvider, state, Symbol);
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, state, Symbol);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;

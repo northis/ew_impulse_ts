@@ -8,9 +8,9 @@ using TradeKit.EventArgs;
 namespace TradeKit
 {
     /// <summary>
-    /// Class contains the logic of trade setups searching.
+    /// Class contains the EW impulse logic of trade setups searching.
     /// </summary>
-    public class SetupFinder : BaseSetupFinder
+    public class ImpulseSetupFinder : BaseSetupFinder
     {
         private readonly int m_ZoomMin;
         private readonly PatternFinder m_PatternFinder;
@@ -30,13 +30,24 @@ namespace TradeKit
         // 4. The previous extremum (to find out, weather this impulse is an initial one or not).
         private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 2;
 
+        public int SetupStartIndex { get; set; }
+        public int SetupEndIndex { get; set; }
+        
+        public double SetupStartPrice { get; set; }
+        
+        public double SetupEndPrice { get; set; }
+        
+        public double TriggerLevel { get; set; }
+        
+        public int TriggerBarIndex { get; set; }
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="SetupFinder"/> class.
+        /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
-        public SetupFinder(
+        public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider,
             SymbolState state,
             Symbol symbol):base(mainBarsProvider, state, symbol)
@@ -209,8 +220,8 @@ namespace TradeKit
                     return;
                 }
 
-                if (State.SetupStartIndex == startItem.Key ||
-                    State.SetupEndIndex == endItem.Key)
+                if (SetupStartIndex == startItem.Key ||
+                    SetupEndIndex == endItem.Key)
                 {
                     // Cannot use the same impulse twice.
                     return;
@@ -252,45 +263,45 @@ namespace TradeKit
                     realPrice = currentPriceBid ?? high;
                 }
 
-                State.TriggerLevel = realPrice;
-                State.TriggerBarIndex = index;
+                TriggerLevel = realPrice;
+                TriggerBarIndex = index;
                 State.IsInSetup = true;
                 
                 double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
                 double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
-                State.SetupStartIndex = startItem.Key;
-                State.SetupEndIndex = endItem.Key;
+                SetupStartIndex = startItem.Key;
+                SetupEndIndex = endItem.Key;
 
                 double setupLength = Math.Abs(startValue - endValue);
                 
                 if (isImpulseUp)
                 {
                     endValue = startValue + setupLength;
-                    State.SetupStartPrice = Math.Round(startValue - startAllowance, Symbol.Digits, MidpointRounding.ToZero);
-                    State.SetupEndPrice = Math.Round(endValue - endAllowance, Symbol.Digits, MidpointRounding.ToZero);
+                    SetupStartPrice = Math.Round(startValue - startAllowance, Symbol.Digits, MidpointRounding.ToZero);
+                    SetupEndPrice = Math.Round(endValue - endAllowance, Symbol.Digits, MidpointRounding.ToZero);
                 }
                 else
                 {
                     endValue = startValue - setupLength;
-                    State.SetupStartPrice = Math.Round(
+                    SetupStartPrice = Math.Round(
                         startValue + startAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
-                    State.SetupEndPrice = Math.Round(
+                    SetupEndPrice = Math.Round(
                         endValue + endAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                 }
 
                 if (isImpulseUp && 
-                    (realPrice>= State.SetupEndPrice || realPrice <= State.SetupStartPrice) ||
+                    (realPrice>= SetupEndPrice || realPrice <= SetupStartPrice) ||
                     !isImpulseUp &&
-                    (realPrice <= State.SetupEndPrice || realPrice >= State.SetupStartPrice))
+                    (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice))
                 {
                     // TP or SL is already hit, cannot use this signal
                     Logger.Write($"{Symbol}, {State.TimeFrame}: TP or SL is already hit, cannot use this signal");
                     return;
                 }
 
-                var tpArg = new LevelItem(State.SetupEndPrice, State.SetupEndIndex);
-                var slArg = new LevelItem(State.SetupStartPrice, State.SetupStartIndex);
+                var tpArg = new LevelItem(SetupEndPrice, SetupEndIndex);
+                var slArg = new LevelItem(SetupStartPrice, SetupStartIndex);
 
                 OnEnterInvoke(new SignalEventArgs(
                         new LevelItem(realPrice, index),
@@ -347,24 +358,24 @@ namespace TradeKit
                 return false;
             }
 
-            bool isImpulseUp = State.SetupEndPrice > State.SetupStartPrice;
-            bool isProfitHit = isImpulseUp && high >= State.SetupEndPrice
-                               || !isImpulseUp && low <= State.SetupEndPrice;
+            bool isImpulseUp = SetupEndPrice > SetupStartPrice;
+            bool isProfitHit = isImpulseUp && high >= SetupEndPrice
+                               || !isImpulseUp && low <= SetupEndPrice;
 
             if (isProfitHit)
             {
                 State.IsInSetup = false;
-                OnTakeProfitInvoke(new LevelEventArgs(new LevelItem(State.SetupEndPrice, index),
-                        new LevelItem(State.TriggerLevel, State.TriggerBarIndex)));
+                OnTakeProfitInvoke(new LevelEventArgs(new LevelItem(SetupEndPrice, index),
+                        new LevelItem(TriggerLevel, TriggerBarIndex)));
             }
 
-            bool isStopHit = isImpulseUp && low <= State.SetupStartPrice
-                             || !isImpulseUp && high >= State.SetupStartPrice;
+            bool isStopHit = isImpulseUp && low <= SetupStartPrice
+                             || !isImpulseUp && high >= SetupStartPrice;
             if (isStopHit)
             {
                 State.IsInSetup = false;
-                OnStopLossInvoke(new LevelEventArgs(new LevelItem(State.SetupStartPrice, index),
-                        new LevelItem(State.TriggerLevel, State.TriggerBarIndex)));
+                OnStopLossInvoke(new LevelEventArgs(new LevelItem(SetupStartPrice, index),
+                        new LevelItem(TriggerLevel, TriggerBarIndex)));
             }
 
             return State.IsInSetup;

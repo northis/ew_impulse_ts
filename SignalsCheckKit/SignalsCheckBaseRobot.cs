@@ -81,7 +81,7 @@ namespace SignalsCheckKit
 
                     double tp = signal.TakeProfits[i];
                     double tpP = Math.Abs(priceNow - tp) / Symbol.PipSize;
-                    double volume = 35;
+                    double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
                     TradeResult order =
                         ExecuteMarketOrder(type, Symbol.Name, volume, BOT_NAME, slP, tpP);
                     result.Add(order);
