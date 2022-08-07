@@ -4,9 +4,9 @@ using cAlgo.API;
 namespace TradeKit.AlgoBase
 {
     /// <summary>
-    /// Contains the extremum point data
+    /// Contains the bar point data
     /// </summary>
-    public class Extremum : IComparable
+    public class BarPoint : IComparable
     {
         /// <summary>
         /// Gets or sets the value of the extremum.
@@ -23,40 +23,40 @@ namespace TradeKit.AlgoBase
         /// </summary>
         public TimeFrame BarTimeFrame { get; set; }
 
-        public static bool operator >=(Extremum a, Extremum b)
+        public static bool operator >=(BarPoint a, BarPoint b)
         {
             return a.Value >= b.Value;
         }
 
-        public static bool operator <=(Extremum a, Extremum b)
+        public static bool operator <=(BarPoint a, BarPoint b)
         {
             return a.Value <= b.Value;
         }
 
-        public static bool operator >(Extremum a, Extremum b)
+        public static bool operator >(BarPoint a, BarPoint b)
         {
             return a.Value > b.Value;
         }
 
-        public static bool operator <(Extremum a, Extremum b)
+        public static bool operator <(BarPoint a, BarPoint b)
         {
             return a.Value < b.Value;
         }
-        public static double operator +(Extremum a, Extremum b)
+        public static double operator +(BarPoint a, BarPoint b)
         {
             return a.Value + b.Value;
         }
-        public static double operator -(Extremum a, Extremum b)
+        public static double operator -(BarPoint a, BarPoint b)
         {
             return a.Value - b.Value;
         }
 
-        public static bool operator ==(Extremum a, Extremum b)
+        public static bool operator ==(BarPoint a, BarPoint b)
         {
             return Math.Abs(a-b) < double.Epsilon;
         }
 
-        public static bool operator !=(Extremum a, Extremum b)
+        public static bool operator !=(BarPoint a, BarPoint b)
         {
             return !(a == b);
         }
@@ -71,7 +71,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public int CompareTo(object obj)
         {
-            Extremum compareExtremum = (Extremum)obj;
+            BarPoint compareExtremum = (BarPoint)obj;
             if (this == compareExtremum)
             {
                 return 0;

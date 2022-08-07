@@ -10,7 +10,7 @@ namespace TradeKit.AlgoBase
     /// </summary>
     public class ExtremumFinder
     {
-        private Extremum m_Extremum;
+        private BarPoint m_Extremum;
         private int m_ExtremumIndex;
         private readonly int m_ScaleRate;
         private readonly IBarsProvider m_BarsProvider;
@@ -33,7 +33,7 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="index">The index.</param>
         /// <param name="extremum">The extremum object - the price and the timestamp.</param>
-        private void MoveExtremum(int index, Extremum extremum)
+        private void MoveExtremum(int index, BarPoint extremum)
         {
             Extrema.Remove(m_ExtremumIndex);
             SetExtremum(index, extremum);
@@ -44,7 +44,7 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="index">The index.</param>
         /// <param name="extremum">The extremum object - the price and the timestamp.</param>
-        private void SetExtremum(int index, Extremum extremum)
+        private void SetExtremum(int index, BarPoint extremum)
         {
             m_ExtremumIndex = index;
             m_Extremum = extremum;
@@ -54,7 +54,7 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Gets the collection of extrema found.
         /// </summary>
-        public SortedDictionary<int, Extremum> Extrema { get; }
+        public SortedDictionary<int, BarPoint> Extrema { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
@@ -66,7 +66,7 @@ namespace TradeKit.AlgoBase
         {
             m_ScaleRate = scaleRate;
             m_BarsProvider = barsProvider;
-            Extrema = new SortedDictionary<int, Extremum>();
+            Extrema = new SortedDictionary<int, BarPoint>();
             m_IsUpDirection = isUpDirection;
         }
 
@@ -78,7 +78,7 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Gets all the extrema as array.
         /// </summary>
-        public List<Extremum> ToExtremaList()
+        public List<BarPoint> ToExtremaList()
         {
             return Extrema.Select(a => a.Value).ToList();
         }
@@ -123,7 +123,7 @@ namespace TradeKit.AlgoBase
             double high = m_BarsProvider.GetHighPrice(index);
             DateTime openTime = m_BarsProvider.GetOpenTime(index);
 
-            m_Extremum ??= new Extremum
+            m_Extremum ??= new BarPoint
             {
                 OpenTime = openTime,
                 Value = high,
@@ -132,7 +132,7 @@ namespace TradeKit.AlgoBase
 
             if (m_IsUpDirection ? high > m_Extremum.Value : low < m_Extremum.Value)
             {
-                var newExtremum = new Extremum
+                var newExtremum = new BarPoint
                 {
                     OpenTime = openTime,
                     Value = m_IsUpDirection ? high : low,
@@ -144,7 +144,7 @@ namespace TradeKit.AlgoBase
 
             if (m_IsUpDirection ? low < DeviationPrice : high > DeviationPrice)
             {
-                var extremum = new Extremum
+                var extremum = new BarPoint
                 {
                     OpenTime = openTime,
                     Value = m_IsUpDirection ? low : high,

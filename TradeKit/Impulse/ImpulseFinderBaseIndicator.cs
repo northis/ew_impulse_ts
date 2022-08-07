@@ -70,17 +70,17 @@ namespace TradeKit.Impulse
             Logger.Write($"TP hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
         }
 
-        private void OnEnter(object sender, EventArgs.SignalEventArgs e)
+        private void OnEnter(object sender, EventArgs.ImpulseSignalEventArgs e)
         {
             int levelIndex = e.Level.Index;
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
             if (e.Waves is { Count: > 0 })
             {
-                Extremum start = e.Waves[0];
-                Extremum[] rest = e.Waves.ToArray()[1..];
+                BarPoint start = e.Waves[0];
+                BarPoint[] rest = e.Waves.ToArray()[1..];
                 for (var index = 0; index < rest.Length; index++)
                 {
-                    Extremum wave = rest[index];
+                    BarPoint wave = rest[index];
                     int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
                     int endIndex = m_BarsProvider.GetIndexByTime(wave.OpenTime);
                     Chart.DrawTrendLine($"Impulse{levelIndex}+{index}", 

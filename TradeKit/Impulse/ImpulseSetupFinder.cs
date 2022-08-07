@@ -11,7 +11,7 @@ namespace TradeKit.Impulse
     /// <summary>
     /// Class contains the EW impulse logic of trade setups searching.
     /// </summary>
-    public class ImpulseSetupFinder : BaseSetupFinder
+    public class ImpulseSetupFinder : BaseSetupFinder<ImpulseSignalEventArgs>
     {
         private readonly int m_ZoomMin;
         private readonly PatternFinder m_PatternFinder;
@@ -55,7 +55,9 @@ namespace TradeKit.Impulse
         {
             m_ZoomMin = Helper.ZOOM_MIN;
 
-            for (int i = 30; i <= 50; i+=5)
+            for (int i = Helper.MIN_IMPULSE_SCALE; 
+                 i <= Helper.MAX_IMPULSE_SCALE; 
+                 i+= Helper.STEP_IMPULSE_SCALE)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
@@ -85,7 +87,7 @@ namespace TradeKit.Impulse
 
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                Extremum edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
+                BarPoint edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
                 double curValue = edgeExtremum.Value;
                 if (isImpulseUp)
                 {
@@ -129,7 +131,7 @@ namespace TradeKit.Impulse
         /// </returns>
         private bool IsSetup(int index, ExtremumFinder finder, double? currentPriceBid = null)
         {
-            SortedDictionary<int, Extremum> extrema = finder.Extrema;
+            SortedDictionary<int, BarPoint> extrema = finder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
@@ -141,9 +143,9 @@ namespace TradeKit.Impulse
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
-            KeyValuePair<int, Extremum> startItem = extrema
+            KeyValuePair<int, BarPoint> startItem = extrema
                 .ElementAt(startIndex);
-            KeyValuePair<int, Extremum> endItem = extrema
+            KeyValuePair<int, BarPoint> endItem = extrema
                 .ElementAt(endIndex);
             
             bool isInSetupBefore = State.IsInSetup;
@@ -213,7 +215,7 @@ namespace TradeKit.Impulse
 
                 m_PreFinder = null;
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, finder.ScaleRate, out List<Extremum> outExtrema);
+                    startItem.Value, endItem.Value, finder.ScaleRate, out List<BarPoint> outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -238,7 +240,7 @@ namespace TradeKit.Impulse
                 {
                     // We want to check the previous movement - if it is a zigzag, this is may be
                     // a flat or a running triangle.
-                    KeyValuePair<int, Extremum> beforeStartItem
+                    KeyValuePair<int, BarPoint> beforeStartItem
                         = extrema.ElementAt(startIndex - 1);
                     if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
                             finder.ScaleRate, m_ZoomMin)/* ||
@@ -304,7 +306,7 @@ namespace TradeKit.Impulse
                 var tpArg = new LevelItem(SetupEndPrice, SetupEndIndex);
                 var slArg = new LevelItem(SetupStartPrice, SetupStartIndex);
 
-                OnEnterInvoke(new SignalEventArgs(
+                OnEnterInvoke(new ImpulseSignalEventArgs(
                         new LevelItem(realPrice, index),
                         tpArg,
                         slArg,

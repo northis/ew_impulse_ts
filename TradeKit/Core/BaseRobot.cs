@@ -11,7 +11,7 @@ using TradeKit.Telegram;
 
 namespace TradeKit.Core
 {
-    public abstract class BaseRobot<T> : Robot where T: BaseSetupFinder
+    public abstract class BaseRobot<T,TK> : Robot where T: BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
@@ -250,7 +250,7 @@ namespace TradeKit.Core
                 return;
             }
 
-            string finderId = BaseSetupFinder.GetId(bars.SymbolName, bars.TimeFrame.Name);
+            string finderId = BaseSetupFinder<TK>.GetId(bars.SymbolName, bars.TimeFrame.Name);
             if (!m_SetupFindersMap.TryGetValue(finderId, out T sf))
             {
                 return;
@@ -347,13 +347,13 @@ namespace TradeKit.Core
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
         /// <param name="setupFinder">The setup finder.</param>
-        /// <param name="signal">The <see cref="SignalEventArgs"/> instance containing the event data.</param>
+        /// <param name="signal">The <see cref="TK"/> instance containing the event data.</param>
         /// <returns>
         ///   <c>true</c> if the specified setup finder already has same setup active; otherwise, <c>false</c>.
         /// </returns>
-        protected abstract bool HasSameSetupActive(T setupFinder, SignalEventArgs signal);
+        protected abstract bool HasSameSetupActive(T setupFinder, TK signal);
 
-        private void OnEnter(object sender, SignalEventArgs e)
+        private void OnEnter(object sender, TK e)
         {
             var sf = (T)sender;
             if (!m_SymbolFindersMap.TryGetValue(sf.State.Symbol, out T[] finders))

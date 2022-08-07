@@ -39,7 +39,7 @@ namespace TradeKit.AlgoBase
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsZigzag(Extremum start, Extremum end, int devStartMax, int devEndMin)
+        public bool IsZigzag(BarPoint start, BarPoint end, int devStartMax, int devEndMin)
         {
             for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.ZOOM_STEP)
             {
@@ -52,12 +52,12 @@ namespace TradeKit.AlgoBase
             return false;
         }
 
-        public bool IsDoubleZigzag(Extremum start, Extremum end, int devStartMax, int devEndMin)
+        public bool IsDoubleZigzag(BarPoint start, BarPoint end, int devStartMax, int devEndMin)
         {
             bool isUp = start < end;
             for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.ZOOM_STEP)
             {
-                List<Extremum> extrema = GetNormalizedExtrema(start, end, dv);
+                List<BarPoint> extrema = GetNormalizedExtrema(start, end, dv);
                 int count = extrema.Count;
 
                 if (count < ZIGZAG_EXTREMA_COUNT)
@@ -79,12 +79,12 @@ namespace TradeKit.AlgoBase
             return false;
         }
 
-        private List<Extremum> GetNormalizedExtrema(Extremum start, Extremum end, int scale)
+        private List<BarPoint> GetNormalizedExtrema(BarPoint start, BarPoint end, int scale)
         {
             bool isUp = start < end;
             var minorExtremumFinder = new ExtremumFinder(scale, m_BarsProvider, isUp);
             minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
-            List<Extremum> extrema = minorExtremumFinder.ToExtremaList();
+            List<BarPoint> extrema = minorExtremumFinder.ToExtremaList();
 
             NormalizeExtrema(extrema, start, end);
 
@@ -100,9 +100,9 @@ namespace TradeKit.AlgoBase
         /// <returns>
         ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsZigzag(Extremum start, Extremum end, int scale)
+        public bool IsZigzag(BarPoint start, BarPoint end, int scale)
         {
-            List<Extremum> extrema = GetNormalizedExtrema(start, end, scale);
+            List<BarPoint> extrema = GetNormalizedExtrema(start, end, scale);
             int count = extrema.Count;
 
             if (count < ZIGZAG_EXTREMA_COUNT)
@@ -115,10 +115,10 @@ namespace TradeKit.AlgoBase
                 return true;
             }
 
-            Extremum first = extrema[0];
-            Extremum second = extrema[1];
-            Extremum subLast = extrema[^2];
-            Extremum last = extrema[^1];
+            BarPoint first = extrema[0];
+            BarPoint second = extrema[1];
+            BarPoint subLast = extrema[^2];
+            BarPoint last = extrema[^1];
             bool isUp = first < last;
 
             if (isUp && second > subLast || !isUp && second < subLast)
@@ -135,7 +135,7 @@ namespace TradeKit.AlgoBase
         /// <param name="extrema">The extrema.</param>
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
-        private void NormalizeExtrema(List<Extremum> extrema, Extremum start, Extremum end)
+        private void NormalizeExtrema(List<BarPoint> extrema, BarPoint start, BarPoint end)
         {
             if (extrema.Count == 0)
             {
@@ -169,16 +169,16 @@ namespace TradeKit.AlgoBase
             }
 
             // We want to leave only true extrema
-            Extremum current = start;
+            BarPoint current = start;
             bool direction = start > end;
-            List<Extremum> toDelete = null;
+            List<BarPoint> toDelete = null;
             for (int i = 1; i < extrema.Count; i++)
             {
-                Extremum extremum = extrema[i];
+                BarPoint extremum = extrema[i];
                 bool newDirection = current < extremum;
                 if (direction == newDirection)
                 {
-                    toDelete ??= new List<Extremum>();
+                    toDelete ??= new List<BarPoint>();
                     toDelete.Add(current);
                 }
 
@@ -191,7 +191,7 @@ namespace TradeKit.AlgoBase
                 return;
             }
 
-            foreach (Extremum toDeleteItem in toDelete)
+            foreach (BarPoint toDeleteItem in toDelete)
             {
                 extrema.Remove(toDeleteItem);
             }
@@ -210,8 +210,8 @@ namespace TradeKit.AlgoBase
         ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
         /// </returns>
         private bool IsImpulseInner(
-            Extremum start, Extremum end,
-            int deviation, out List<Extremum> extrema,
+            BarPoint start, BarPoint end,
+            int deviation, out List<BarPoint> extrema,
             bool allowSimple = true)
         {
             extrema = GetNormalizedExtrema(start, end, deviation);
@@ -232,12 +232,12 @@ namespace TradeKit.AlgoBase
                 return false;
             }
 
-            Extremum firstItem = extrema[0];
-            Extremum firstWaveEnd;
-            Extremum secondWaveEnd;
-            Extremum thirdWaveEnd;
-            Extremum fourthWaveEnd;
-            Extremum fifthWaveEnd= extrema[^1];
+            BarPoint firstItem = extrema[0];
+            BarPoint firstWaveEnd;
+            BarPoint secondWaveEnd;
+            BarPoint thirdWaveEnd;
+            BarPoint fourthWaveEnd;
+            BarPoint fifthWaveEnd= extrema[^1];
             int countRest = count - IMPULSE_EXTREMA_COUNT;
 
             bool CheckWaves()
@@ -378,7 +378,7 @@ namespace TradeKit.AlgoBase
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsImpulse(Extremum start, Extremum end, int deviation, out List<Extremum> extrema)
+        public bool IsImpulse(BarPoint start, BarPoint end, int deviation, out List<BarPoint> extrema)
         {
             extrema = null;
             //if (IsDoubleZigzag(start, end, deviation, 1))

@@ -7,7 +7,7 @@ namespace TradeKit.Core
     /// <summary>
     /// Class contains the logic of trade setups searching.
     /// </summary>
-    public abstract class BaseSetupFinder
+    public abstract class BaseSetupFinder<T> where T: SignalEventArgs
     {
         protected readonly Symbol Symbol;
 
@@ -37,7 +37,7 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="BaseSetupFinder"/> class.
+        /// Initializes a new instance of the <see cref="BaseSetupFinder{T}"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="state">The state.</param>
@@ -65,7 +65,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Occurs when a new setup is found.
         /// </summary>
-        public event EventHandler<SignalEventArgs> OnEnter;
+        public event EventHandler<T> OnEnter;
 
         /// <summary>
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
@@ -100,8 +100,8 @@ namespace TradeKit.Core
         /// <summary>
         /// Raises the <see cref="E:OnEnter" /> event.
         /// </summary>
-        /// <param name="e">The <see cref="SignalEventArgs"/> instance containing the event data.</param>
-        protected void OnEnterInvoke(SignalEventArgs e)
+        /// <param name="e">The <see cref="T"/> instance containing the event data.</param>
+        protected void OnEnterInvoke(T e)
         {
             OnEnter?.Invoke(this, e);
         }

@@ -6,7 +6,7 @@ using TradeKit.EventArgs;
 
 namespace TradeKit.Impulse
 {
-    public class ImpulseSignalerBaseRobot : BaseRobot<ImpulseSetupFinder>
+    public class ImpulseSignalerBaseRobot : BaseRobot<ImpulseSetupFinder, ImpulseSignalEventArgs>
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
 
@@ -28,7 +28,7 @@ namespace TradeKit.Impulse
             var sf = new ImpulseSetupFinder(barsProvider, state, symbolEntity);
             return sf;
         }
-
+        
         /// <summary>
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
@@ -38,7 +38,7 @@ namespace TradeKit.Impulse
         ///   <c>true</c> if the specified setup finder already has same setup active; otherwise, <c>false</c>.
         /// </returns>
         protected override bool HasSameSetupActive(
-            ImpulseSetupFinder finder, SignalEventArgs signal)
+            ImpulseSetupFinder finder, ImpulseSignalEventArgs signal)
         {
             if (Math.Abs(finder.SetupStartPrice - signal.StopLoss.Price) < double.Epsilon &&
                 Math.Abs(finder.SetupEndPrice - signal.TakeProfit.Price) < double.Epsilon)
