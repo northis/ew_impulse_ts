@@ -277,7 +277,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Closes the symbol positions.
         /// </summary>
-        /// <param name="setupId">Id of the symbol.</param>
+        /// <param name="setupId">Id of the setup finder.</param>
         private void CloseSymbolPositions(string setupId)
         {
             string symbolName = m_SetupFindersMap[setupId].State.Symbol;
@@ -291,10 +291,10 @@ namespace TradeKit.Core
             }
         }
 
-        private bool HandleClose(object sender, LevelEventArgs e,
+        protected bool HandleClose(object sender, LevelEventArgs e,
             out string price, out string setupId)
         {
-            ImpulseSetupFinder sf = (ImpulseSetupFinder)sender;
+            T sf = (T)sender;
             setupId = sf.Id;
             price = null;
             if (!m_PositionFinderMap.TryGetValue(sf.Id, out bool isInPosition))
@@ -306,8 +306,8 @@ namespace TradeKit.Core
             m_PositionFinderMap[sf.Id] = false;
             return isInPosition;
         }
-
-        private void OnStopLoss(object sender, LevelEventArgs e)
+        
+        protected void OnStopLoss(object sender, LevelEventArgs e)
         {
             if (!HandleClose(sender, e, out string price, out string setupId))
             {
@@ -325,7 +325,7 @@ namespace TradeKit.Core
             TelegramReporter.ReportStopLoss(setupId);
         }
 
-        private void OnTakeProfit(object sender, LevelEventArgs e)
+        protected void OnTakeProfit(object sender, LevelEventArgs e)
         {
             if (!HandleClose(sender, e, out string price, out string setupId))
             {

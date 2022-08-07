@@ -53,6 +53,11 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Occurs when a new setup is found.
+        /// </summary>
+        public event EventHandler<T> OnEnter;
+
+        /// <summary>
         /// Occurs on stop loss.
         /// </summary>
         public event EventHandler<LevelEventArgs> OnStopLoss;
@@ -61,23 +66,6 @@ namespace TradeKit.Core
         /// Occurs when on take profit.
         /// </summary>
         public event EventHandler<LevelEventArgs> OnTakeProfit;
-
-        /// <summary>
-        /// Occurs when a new setup is found.
-        /// </summary>
-        public event EventHandler<T> OnEnter;
-
-        /// <summary>
-        /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
-        /// </summary>
-        /// <param name="index">The index of bar to calculate.</param>
-        public abstract void CheckBar(int index);
-
-        /// <summary>
-        /// Checks the tick.
-        /// </summary>
-        /// <param name="bid">The price (bid).</param>
-        public abstract void CheckTick(double bid);
 
         /// <summary>
         /// Raises the <see cref="E:OnStopLoss" /> event.
@@ -97,6 +85,18 @@ namespace TradeKit.Core
             OnTakeProfit?.Invoke(this, e);
         }
 
+        /// <summary>
+        /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
+        /// </summary>
+        /// <param name="index">The index of bar to calculate.</param>
+        public abstract void CheckBar(int index);
+
+        /// <summary>
+        /// Checks the tick.
+        /// </summary>
+        /// <param name="bid">The price (bid).</param>
+        public abstract void CheckTick(double bid);
+        
         /// <summary>
         /// Raises the <see cref="E:OnEnter" /> event.
         /// </summary>

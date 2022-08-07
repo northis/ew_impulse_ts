@@ -19,5 +19,6 @@
         public const int MAX_IMPULSE_SCALE = 50;
         public const int STEP_IMPULSE_SCALE = 5;
         public const double TRIGGER_SPEED_PERCENT = 0.1;
+        public const double SPEED_TP_SL_RATIO = 3;
     }
 }

@@ -28,7 +28,7 @@ namespace TradeKit.Impulse
             var sf = new ImpulseSetupFinder(barsProvider, state, symbolEntity);
             return sf;
         }
-        
+
         /// <summary>
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
