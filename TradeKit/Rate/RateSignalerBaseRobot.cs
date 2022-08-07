@@ -40,6 +40,12 @@ namespace TradeKit.Rate
         /// </summary>
         [Parameter(nameof(SpeedTpSlRatio), DefaultValue = Helper.SPEED_TP_SL_RATIO)]
         public double SpeedTpSlRatio { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the trade volume.
+        /// </summary>
+        [Parameter(nameof(TradeVolume), MinValue = 0, MaxValue = 1000, DefaultValue = 0)]
+        public int TradeVolume { get; set; }
 
         /// <summary>
         /// Creates the setup finder and returns it.
@@ -69,6 +75,16 @@ namespace TradeKit.Rate
         {
             bool res = setupFinder.LastEntry?.Index == signal.Level.Index;
             return res;
+        }
+
+        /// <summary>
+        /// Gets the volume.
+        /// </summary>
+        /// <param name="symbol">The symbol.</param>
+        /// <param name="slPoints">The sl points.</param>
+        protected override double GetVolume(Symbol symbol, double slPoints)
+        {
+            return TradeVolume == 0 ? base.GetVolume(symbol, slPoints) : TradeVolume;
         }
     }
 }

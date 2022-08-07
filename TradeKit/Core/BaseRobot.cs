@@ -449,7 +449,7 @@ namespace TradeKit.Core
 
                 if (slP > 0)
                 {
-                    double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
+                    double volume = GetVolume(symbol, slP);
                     TradeResult order = ExecuteMarketOrder(
                     type, symbolInfo.Name, volume, GetBotName(), slP, tpP);
 
@@ -475,6 +475,12 @@ namespace TradeKit.Core
                 SymbolName = symbolInfo.Name,
                 SenderId = sf.Id
             });
+        }
+
+        protected virtual double GetVolume(Symbol symbol, double slPoints)
+        {
+            double volume = symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slPoints);
+            return volume;
         }
 
         private void GetEventStrings(object sender, LevelItem level, out string price, out SymbolInfo symbolInfo)

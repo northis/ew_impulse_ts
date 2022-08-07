@@ -12,10 +12,7 @@ namespace TradeKit.Rate
     public class RateSetupFinder : BaseSetupFinder<SignalEventArgs>
     {
         private readonly IBarsProvider m_MainBarsProvider;
-        private readonly SymbolState m_State;
-        private readonly Symbol m_Symbol;
         private readonly int m_MaxBarSpeed;
-        private readonly int m_MinBarSpeed;
         private readonly double m_SpeedPercent;
         private readonly double m_SpeedTpSlRatio;
         private readonly PriceSpeedChecker m_PriceSpeedCheckerMajor;
@@ -47,10 +44,7 @@ namespace TradeKit.Rate
             : base(mainBarsProvider, state, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
-            m_State = state;
-            m_Symbol = symbol;
             m_MaxBarSpeed = maxBarSpeed;
-            m_MinBarSpeed = minBarSpeed;
             m_SpeedPercent = speedPercent;
             m_SpeedTpSlRatio = speedTpSlRatio;
             m_PriceSpeedCheckerMajor = new PriceSpeedChecker(
@@ -89,7 +83,7 @@ namespace TradeKit.Rate
                 return;
             }
 
-            m_PriceSpeedCheckerMajor.Calculate(m_LastBar, bid);
+            //m_PriceSpeedCheckerMajor.Calculate(m_LastBar, bid);
             m_PriceSpeedCheckerMinor.Calculate(m_LastBar, bid);
             ProcessSetup();
         }
