@@ -39,21 +39,19 @@ namespace TradeKit.AlgoBase
         /// <param name="currentPrice">The current price.</param>
         public void Calculate(int indexBar, double? currentPrice = null)
         {
-            if (currentPrice == null)
-            {
-                currentPrice = m_BarsProvider.GetClosePrice(indexBar);
-                Values[indexBar] = new BarPoint
-                {
-                    BarTimeFrame = m_BarsProvider.TimeFrame, 
-                    OpenTime = m_BarsProvider.GetOpenTime(indexBar),
-                    Value = currentPrice.Value
-                };
-            }
+            currentPrice ??= m_BarsProvider.GetClosePrice(indexBar);
 
             int barsAgo = Math.Min(indexBar, m_Period);
 
             double agoPrice = m_BarsProvider.GetClosePrice(indexBar - barsAgo);
-            Speed = 100 * (currentPrice.Value - agoPrice) / agoPrice;
+            double speed = 100 * (currentPrice.Value - agoPrice) / agoPrice;
+            Values[indexBar] = new BarPoint
+            {
+                BarTimeFrame = m_BarsProvider.TimeFrame,
+                OpenTime = m_BarsProvider.GetOpenTime(indexBar),
+                Value = speed
+            };
+            Speed = speed;
         }
 
         class DescendingComparer<T> : IComparer<T> where T : IComparable<T>

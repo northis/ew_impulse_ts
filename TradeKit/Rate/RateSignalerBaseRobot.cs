@@ -18,6 +18,30 @@ namespace TradeKit.Rate
         }
 
         /// <summary>
+        /// Gets or sets the maximum bar speed.
+        /// </summary>
+        [Parameter(nameof(MaxBarSpeed), DefaultValue = Helper.MAX_BAR_SPEED_DEFAULT)]
+        public int MaxBarSpeed { get; set; }
+
+        /// <summary>
+        /// Gets or sets the minimum bar speed.
+        /// </summary>
+        [Parameter(nameof(MinBarSpeed), DefaultValue = Helper.MIN_BAR_SPEED_DEFAULT)]
+        public int MinBarSpeed { get; set; }
+
+        /// <summary>
+        /// Gets or sets the speed percent.
+        /// </summary>
+        [Parameter(nameof(SpeedPercent), DefaultValue = Helper.TRIGGER_SPEED_PERCENT)]
+        public double SpeedPercent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the speed tp/sl ratio.
+        /// </summary>
+        [Parameter(nameof(SpeedTpSlRatio), DefaultValue = Helper.SPEED_TP_SL_RATIO)]
+        public double SpeedTpSlRatio { get; set; }
+
+        /// <summary>
         /// Creates the setup finder and returns it.
         /// </summary>
         /// <param name="bars">The bars.</param>
@@ -27,7 +51,8 @@ namespace TradeKit.Rate
             Bars bars, SymbolState state, Symbol symbolEntity)
         {
             var barsProvider = new CTraderBarsProvider(bars);
-            var sf = new RateSetupFinder(barsProvider, state, symbolEntity);
+            var sf = new RateSetupFinder(barsProvider, state, symbolEntity, MaxBarSpeed, MinBarSpeed, SpeedPercent,
+                SpeedTpSlRatio);
             return sf;
         }
 
@@ -35,7 +60,7 @@ namespace TradeKit.Rate
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
         /// <param name="setupFinder">The setup finder.</param>
-        /// <param name="signal">The <see cref="!:TK" /> instance containing the event data.</param>
+        /// <param name="signal">The <see cref="SignalEventArgs" /> instance containing the event data.</param>
         /// <returns>
         /// <c>true</c> if the specified setup finder already has same setup active; otherwise, <c>false</c>.
         /// </returns>
