@@ -126,7 +126,7 @@ namespace TradeKit.Core
                 return;
             }
             
-            m_CurrentRisk += RISK_DEPOSIT_PERCENT;
+            m_CurrentRisk += RiskPercentFromDeposit;
         }
 
         protected void DownRisk()
@@ -137,7 +137,7 @@ namespace TradeKit.Core
                 return;
             }
 
-            m_CurrentRisk -= RISK_DEPOSIT_PERCENT;
+            m_CurrentRisk -= RiskPercentFromDeposit;
         }
 
         private string[] SplitString(string str)
@@ -479,7 +479,7 @@ namespace TradeKit.Core
 
         protected virtual double GetVolume(Symbol symbol, double slPoints)
         {
-            double volume = symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slPoints);
+            double volume = symbol.GetVolume(RiskPercentFromDeposit, Account.Balance, slPoints);
             return volume;
         }
 
