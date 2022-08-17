@@ -9,7 +9,10 @@ namespace TradeKit.Core
     /// </summary>
     public abstract class BaseSetupFinder<T> where T: SignalEventArgs
     {
-        protected readonly Symbol Symbol;
+        /// <summary>
+        /// Gets the symbol.
+        /// </summary>
+        public Symbol Symbol { get; }
 
         /// <summary>
         /// Gets the state.

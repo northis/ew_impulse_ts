@@ -1,17 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Internals;
 using TradeKit.EventArgs;
-using TradeKit.Impulse;
 using TradeKit.Telegram;
 
 namespace TradeKit.Core
 {
+    /// <summary>
+    /// Base (ro)bot with common operations for trading
+    /// </summary>
+    /// <typeparam name="T">Type of <see cref="BaseSetupFinder{TK}"/></typeparam>
+    /// <typeparam name="TK">The type of <see cref="SignalEventArgs"/> - what type of signals supports this bot.</typeparam>
+    /// <seealso cref="Robot" />
     public abstract class BaseRobot<T,TK> : Robot where T: BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
@@ -104,7 +108,10 @@ namespace TradeKit.Core
         /// Gets the name of the bot.
         /// </summary>
         public abstract string GetBotName();
-
+        
+        /// <summary>
+        /// Gets the get current risk.
+        /// </summary>
         protected double GetCurrentRisk
         {
             get
@@ -118,6 +125,9 @@ namespace TradeKit.Core
             }
         }
 
+        /// <summary>
+        /// Ups the risk.
+        /// </summary>
         protected void UpRisk()
         {
             if (m_CurrentRisk >= RiskPercentFromDepositMax)
@@ -129,6 +139,9 @@ namespace TradeKit.Core
             m_CurrentRisk += RiskPercentFromDeposit;
         }
 
+        /// <summary>
+        /// Downs the risk.
+        /// </summary>
         protected void DownRisk()
         {
             if (m_CurrentRisk <= RiskPercentFromDeposit)
@@ -145,6 +158,20 @@ namespace TradeKit.Core
             return str.Split(new[] { '|', ',', ';', }, StringSplitOptions.RemoveEmptyEntries);
         }
 
+        /// <summary>
+        /// Called when cBot is being started. Override this method to initialize cBot, create nested indicators, etc.
+        /// </summary>
+        /// <example>
+        ///   <code>
+        /// protected override void OnStart()
+        /// {
+        /// //This method is invoked when the cBot is started.
+        /// }
+        /// </code>
+        /// </example>
+        /// <signature>
+        ///   <code>public void OnStart()</code>
+        /// </signature>
         protected override void OnStart()
         {
             Logger.SetWrite(a => Print(a));
@@ -292,6 +319,13 @@ namespace TradeKit.Core
             }
         }
 
+        /// <summary>
+        /// Handles the close.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        /// <param name="price">The price.</param>
+        /// <param name="setupId">The setup identifier.</param>
         protected bool HandleClose(object sender, LevelEventArgs e,
             out string price, out string setupId)
         {
@@ -326,6 +360,11 @@ namespace TradeKit.Core
             TelegramReporter.ReportStopLoss(setupId);
         }
 
+        /// <summary>
+        /// Called when on take profit. hit
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnTakeProfit(object sender, LevelEventArgs e)
         {
             if (!HandleClose(sender, e, out string price, out string setupId))
@@ -354,6 +393,56 @@ namespace TradeKit.Core
         /// </returns>
         protected abstract bool HasSameSetupActive(T setupFinder, TK signal);
 
+        /// <summary>
+        /// Determines whether the interval has a trade break inside.
+        /// </summary>
+        /// <param name="dateStart">The interval start.</param>
+        /// <param name="dateEnd">The interval end.</param>
+        /// <param name="symbol">The symbol to check the interval against.</param>
+        /// <returns>
+        ///   <c>true</c> if the interval has a trade break inside; otherwise, <c>false</c>.
+        /// </returns>
+        protected static bool HasTradeBreakInside(
+            DateTime dateStart, DateTime dateEnd, Symbol symbol)
+        {
+            IReadonlyList<TradingSession> sessions = symbol.MarketHours.Sessions;
+            TimeSpan safeTimeDurationStart = TimeSpan.FromHours(1);
+
+            DateTime setupDayStart = dateStart
+                .Subtract(dateStart.TimeOfDay)
+                .AddDays(-(int)dateStart.DayOfWeek);
+            bool isSetupInDay = !sessions.Any();
+            foreach (TradingSession session in sessions)
+            {
+                DateTime sessionDateTime = setupDayStart
+                    .AddDays((int)session.StartDay)
+                    .Add(session.StartTime)
+                    .Add(safeTimeDurationStart);
+                DateTime sessionEndTime = setupDayStart
+                    .AddDays((int)session.EndDay)
+                    .Add(session.EndTime)
+                    .Add(-safeTimeDurationStart);
+
+                if (dateStart > sessionDateTime && dateEnd < sessionEndTime)
+                {
+                    isSetupInDay = true;
+                    break;
+                }
+            }
+
+            return !isSetupInDay;
+        }
+
+        /// <summary>
+        /// Determines whether <see cref="signal"/> and <see cref="setupFinder"/> can contain an overnight signal.
+        /// </summary>
+        /// <param name="signal">The signal.</param>
+        /// <param name="setupFinder">The setup finder.</param>
+        protected virtual bool IsOvernightTrade(TK signal, T setupFinder)
+        {
+            return false;
+        }
+
         private void OnEnter(object sender, TK e)
         {
             var sf = (T)sender;
@@ -367,8 +456,6 @@ namespace TradeKit.Core
                 return;
             }
 
-            DateTime setupStart = bars.OpenTimes[e.StopLoss.Index];
-            DateTime setupEnd = bars.OpenTimes[e.Level.Index] + TimeFrameHelper.TimeFrames[bars.TimeFrame].TimeSpan * 2;
             Symbol symbol = m_SymbolsMap[sf.Id];
 
             double tp = e.TakeProfit.Price;
@@ -385,38 +472,9 @@ namespace TradeKit.Core
                     return;
             }
 
-            IReadonlyList<TradingSession> sessions = symbol.MarketHours.Sessions;
-            TimeSpan safeTimeDurationStart = TimeSpan.FromHours(1);
-
-            DateTime setupDayStart = setupStart
-                .Subtract(setupStart.TimeOfDay)
-                .AddDays(-(int)setupStart.DayOfWeek);
-            bool isSetupInDay = !sessions.Any();
-            foreach (TradingSession session in sessions)
+            if (!AllowOvernightTrade && IsOvernightTrade(e, sf))
             {
-                DateTime sessionDateTime = setupDayStart
-                    .AddDays((int)session.StartDay)
-                    .Add(session.StartTime)
-                    .Add(safeTimeDurationStart);
-                DateTime sessionEndTime = setupDayStart
-                    .AddDays((int)session.EndDay)
-                    .Add(session.EndTime)
-                    .Add(-safeTimeDurationStart);
-
-                if (setupStart > sessionDateTime && setupEnd < sessionEndTime)
-                {
-                    isSetupInDay = true;
-                    break;
-                }
-            }
-
-            if (!isSetupInDay)
-            {
-                Logger.Write(
-                    $"A risky signal, the setup contains a trade session change: {symbol.Name}, {sf.State.TimeFrame}, {setupStart:s}-{setupEnd:s}");
-
-                if (!AllowOvernightTrade)
-                    return;
+                return;
             }
 
             foreach (T finder in finders)
@@ -477,6 +535,11 @@ namespace TradeKit.Core
             });
         }
 
+        /// <summary>
+        /// Gets the volume.
+        /// </summary>
+        /// <param name="symbol">The symbol.</param>
+        /// <param name="slPoints">The sl points.</param>
         protected virtual double GetVolume(Symbol symbol, double slPoints)
         {
             double volume = symbol.GetVolume(RiskPercentFromDeposit, Account.Balance, slPoints);
@@ -488,9 +551,23 @@ namespace TradeKit.Core
             var sf = (T)sender;
             symbolInfo = Symbols.GetSymbolInfo(sf.State.Symbol);
             string priceFmt = level.Price.ToString($"F{symbolInfo.Digits}", CultureInfo.InvariantCulture);
-            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index):s}) - {sf.State.Symbol}";
+            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index.GetValueOrDefault()):s}) - {sf.State.Symbol}";
         }
 
+        /// <summary>
+        /// Called when cBot is stopped.
+        /// </summary>
+        /// <example>
+        ///   <code>
+        /// protected override void OnStop()
+        /// {
+        /// //This method is called when the cBot is stopped
+        /// }
+        /// </code>
+        /// </example>
+        /// <signature>
+        ///   <code>public void OnStop()</code>
+        /// </signature>
         protected override void OnStop()
         {
             base.OnStop();

@@ -3,9 +3,9 @@
 namespace TradeKit.Signals
 {
     /// <summary>
-    /// Trade signal entity
+    /// Trade signal entity parsed from signal channels
     /// </summary>
-    public class Signal
+    public class ParsedSignal
     {
         /// <summary>
         /// Gets or sets the name of the symbol.

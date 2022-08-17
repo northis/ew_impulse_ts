@@ -28,13 +28,15 @@ namespace TradeKit.Signals
 
         private const int RECT_WIDTH_BARS = 10;
 
-        private Dictionary<DateTime,Signal> m_Signals = new();
+        private Dictionary<DateTime,ParsedSignal> m_Signals = new();
 
         /// <inheritdoc />
         protected override void Initialize()
         {
             base.Initialize();
-            m_Signals = SignalParser.ParseSignals(SymbolName, SignalHistoryFilePath, UseUtc);
+
+            //TODO
+            //m_Signals = SignalParser.ParseSignals(SymbolName, SignalHistoryFilePath, UseUtc);
         }
 
         /// <inheritdoc />
@@ -48,14 +50,14 @@ namespace TradeKit.Signals
             DateTime prevBarDateTime = Bars[index - 1].OpenTime;
             DateTime barDateTime = Bars[index].OpenTime;
 
-            List<KeyValuePair<DateTime, Signal>> matchedSignals = m_Signals
+            List<KeyValuePair<DateTime, ParsedSignal>> matchedSignals = m_Signals
                 .SkipWhile(a => a.Key < prevBarDateTime)
                 .TakeWhile(a => a.Key <= barDateTime)
                 .ToList();
 
-            foreach (KeyValuePair<DateTime, Signal> matchedSignal in matchedSignals)
+            foreach (KeyValuePair<DateTime, ParsedSignal> matchedSignal in matchedSignals)
             {
-                Signal signal = matchedSignal.Value;
+                ParsedSignal signal = matchedSignal.Value;
                 double price = signal.Price ?? Bars[index].Open;
                 int rectIndex = index + RECT_WIDTH_BARS;
 

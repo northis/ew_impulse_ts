@@ -30,6 +30,28 @@ namespace TradeKit.Impulse
         }
 
         /// <summary>
+        /// Determines whether <see cref="signal"/> and <see cref="setupFinder"/> can contain an overnight signal.
+        /// </summary>
+        /// <param name="signal">The signal.</param>
+        /// <param name="setupFinder">The setup finder.</param>
+        protected override bool IsOvernightTrade(
+            ImpulseSignalEventArgs signal, ImpulseSetupFinder setupFinder)
+        {
+            if (!signal.StopLoss.Index.HasValue || !signal.Level.Index.HasValue)
+            {
+                return false;
+            }
+
+            IBarsProvider bp = setupFinder.BarsProvider; 
+            DateTime setupStart = bp.GetOpenTime(signal.StopLoss.Index.Value);
+            DateTime setupEnd = bp.GetOpenTime(signal.Level.Index.Value) + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
+            Logger.Write(
+                $"A risky signal, the setup contains a trade session change: {bp.Symbol}, {setupFinder.State.TimeFrame}, {setupStart:s}-{setupEnd:s}");
+
+            return HasTradeBreakInside(setupStart, setupEnd, setupFinder.Symbol);
+        }
+
+        /// <summary>
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
         /// <param name="finder"></param>

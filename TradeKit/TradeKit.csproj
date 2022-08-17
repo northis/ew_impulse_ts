@@ -39,6 +39,8 @@
     <Compile Include="Impulse\ImpulseFinderBaseIndicator.cs" />
     <Compile Include="AlgoBase\PriceSpeedChecker.cs" />
     <Compile Include="Rate\RateSetupFinder.cs" />
+    <Compile Include="Signals\ParseSetupFinder.cs" />
+    <Compile Include="Signals\ParsedSignal.cs" />
     <Compile Include="Telegram\TelegramExportJson.cs" />
     <Compile Include="Telegram\TelegramHistorySignal.cs" />
     <Compile Include="Telegram\TelegramTextItemConverter.cs" />
@@ -50,8 +52,6 @@
     <Compile Include="Core\BaseSetupFinder.cs" />
     <Compile Include="Impulse\ImpulseSetupFinder.cs" />
     <Compile Include="Core\Extensions.cs" />
-    <Compile Include="Signals\Signal.cs" />
-    <Compile Include="Signals\SignalParser.cs" />
     <Compile Include="Signals\SignalsCheckBaseRobot.cs" />
     <Compile Include="Signals\SignalsCheckIndicatorBase.cs" />
     <Compile Include="Telegram\TelegramReporter.cs" />

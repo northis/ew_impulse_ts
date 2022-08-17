@@ -52,27 +52,42 @@ namespace TradeKit.Impulse
 
         private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
         {
-            int levelIndex = e.Level.Index;
-            Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.Index, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightCoral, 2);
+            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
+            {
+                return;
+            }
+
+            int levelIndex = e.Level.Index.Value;
+            Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.Index.Value, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightCoral, 2);
             Chart.DrawIcon($"SL{levelIndex}", ChartIconType.Star, levelIndex
                 , e.Level.Price, Color.LightCoral);
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Logger.Write($"SL hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
+            Logger.Write($"SL hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
         private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
-            int levelIndex = e.Level.Index;
-            Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.Index, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightGreen, 2);
+            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
+            {
+                return;
+            }
+
+            int levelIndex = e.Level.Index.Value;
+            Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.Index.Value, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightGreen, 2);
             Chart.DrawIcon($"TP{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.LightGreen);
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Logger.Write($"TP hit! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
+            Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
         private void OnEnter(object sender, EventArgs.ImpulseSignalEventArgs e)
         {
-            int levelIndex = e.Level.Index;
+            if (!e.Level.Index.HasValue)
+            {
+                return;
+            }
+
+            int levelIndex = e.Level.Index.Value;
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
             if (e.Waves is { Count: > 0 })
             {
@@ -90,7 +105,7 @@ namespace TradeKit.Impulse
             }
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Logger.Write($"New setup found! Price:{priceFmt} ({Bars[e.Level.Index].OpenTime:s})");
+            Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
         /// <summary>

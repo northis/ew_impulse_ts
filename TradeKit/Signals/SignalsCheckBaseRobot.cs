@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
+using cAlgo.API.Internals;
 using TradeKit.Core;
+using TradeKit.EventArgs;
 
 namespace TradeKit.Signals
 {
@@ -10,15 +12,14 @@ namespace TradeKit.Signals
     /// Robot for history trading the signals from the file
     /// </summary>
     /// <seealso cref="cAlgo.API.Robot" />
-    public class SignalsCheckBaseRobot : Robot
+    public class SignalsCheckBaseRobot : BaseRobot<ParseSetupFinder, SignalEventArgs>
     {
         private const string BOT_NAME = "SignalsCheckRobot";
-        private const double RISK_DEPOSIT_PERCENT = 1;
 
         /// <summary>
         /// Gets or sets the signal history file path.
         /// </summary>
-        [Parameter("SignalHistoryFilePath", DefaultValue = "")]
+        [Parameter(nameof(SignalHistoryFilePath), DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
 
         /// <summary>
@@ -27,7 +28,7 @@ namespace TradeKit.Signals
         /// <value>
         ///   <c>true</c> if the date in the file is in UTC; otherwise, <c>false</c> and local time will be used.
         /// </value>
-        [Parameter("UseUtc", DefaultValue = true)]
+        [Parameter(nameof(UseUtc), DefaultValue = true)]
         public bool UseUtc { get; set; }
 
         /// <summary>
@@ -36,7 +37,7 @@ namespace TradeKit.Signals
         /// <value>
         ///   <c>true</c> if we should use one tp; otherwise, <c>false</c>.
         /// </value>
-        [Parameter("UseOneTP", DefaultValue = true)]
+        [Parameter(nameof(UseOneTP), DefaultValue = true)]
         public bool UseOneTP { get; set; }
 
         /// <summary>
@@ -48,14 +49,41 @@ namespace TradeKit.Signals
         [Parameter("UseBreakeven", DefaultValue = true)]
         public bool UseBreakeven { get; set; }
 
-        private Dictionary<DateTime, Signal> m_Signals = new();
+
+        /// <inheritdoc/>
+        public override string GetBotName()
+        {
+            return BOT_NAME;
+        }
 
         /// <inheritdoc/>
         protected override void OnStart()
         {
             base.OnStart();
-            m_Signals = SignalParser.ParseSignals(SymbolName, SignalHistoryFilePath, UseUtc);
             Positions.Closed += OnPositionClosed;
+        }
+
+        protected override ParseSetupFinder CreateSetupFinder(Bars bars, SymbolState state, Symbol symbolEntity)
+        {
+            var barsProvider = new CTraderBarsProvider(bars);
+            var sf = new ParseSetupFinder(
+                barsProvider, state, symbolEntity, SignalHistoryFilePath, UseUtc, UseOneTP);
+            return sf;
+        }
+
+        /// <summary>
+        /// Determines whether the specified setup finder already has same setup active.
+        /// </summary>
+        /// <param name="setupFinder">The setup finder.</param>
+        /// <param name="signal">The <see cref="SignalEventArgs" /> instance containing the event data.</param>
+        /// <returns>
+        /// <c>true</c> if the specified setup finder already has same setup active; otherwise, <c>false</c>.
+        /// </returns>
+        protected override bool HasSameSetupActive(
+            ParseSetupFinder setupFinder, SignalEventArgs signal)
+        {
+            bool res = setupFinder.LastEntry?.Index == signal.Level.Index;
+            return res;
         }
 
         private void OnPositionClosed(PositionClosedEventArgs obj)
@@ -80,61 +108,6 @@ namespace TradeKit.Signals
             if (index < 2)
             {
                 return;
-            }
-
-            DateTime prevBarDateTime = Bars[index - 1].OpenTime;
-            DateTime barDateTime = Bars[index].OpenTime;
-
-            List<KeyValuePair<DateTime, Signal>> matchedSignals = m_Signals
-                .SkipWhile(a => a.Key < prevBarDateTime)
-                .TakeWhile(a => a.Key <= barDateTime)
-                .ToList();
-
-            bool gotSignal = false;
-            List<TradeResult> result = new List<TradeResult>();
-            foreach (KeyValuePair<DateTime, Signal> matchedSignal in matchedSignals)
-            {
-                Signal signal = matchedSignal.Value;
-                TradeType type = signal.IsLong ? TradeType.Buy : TradeType.Sell;
-                double priceNow = signal.IsLong ? Symbol.Ask : Symbol.Bid;
-
-                double slUnits = Math.Abs(priceNow - signal.StopLoss);
-                double slP = Symbol.NormalizeVolumeInUnits(slUnits / Symbol.PipSize);
-
-                for (var i = 0; i < signal.TakeProfits.Length; i++)
-                {
-                    if (UseOneTP && i > 0)
-                    {
-                        break;
-                    }
-
-                    gotSignal = true;
-
-                    double tp = signal.TakeProfits[i];
-                    double tpP = Math.Abs(priceNow - tp) / Symbol.PipSize;
-                    double volume = Symbol.GetVolume(RISK_DEPOSIT_PERCENT, Account.Balance, slP);
-                    TradeResult order =
-                        ExecuteMarketOrder(type, Symbol.Name, volume, BOT_NAME, slP, tpP);
-                    result.Add(order);
-                    ModifyPosition(order.Position, signal.StopLoss, tp);
-                }
-
-                m_Signals.Remove(matchedSignal.Key);
-            }
-
-            if (!gotSignal)
-            {
-                return;
-            }
-
-            foreach (Position? position in Positions.Where(a => a.Label == BOT_NAME))
-            {
-                if (result.Any(a => a.Position.Id == position.Id))
-                {
-                    continue;
-                }
-
-                position.Close();
             }
         }
     }
