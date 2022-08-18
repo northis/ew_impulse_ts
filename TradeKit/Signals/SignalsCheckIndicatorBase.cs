@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using cAlgo.API;
+using TradeKit.Core;
+using TradeKit.EventArgs;
 
 namespace TradeKit.Signals
 {
@@ -28,53 +28,53 @@ namespace TradeKit.Signals
 
         private const int RECT_WIDTH_BARS = 10;
 
-        private Dictionary<DateTime,ParsedSignal> m_Signals = new();
+        private ParseSetupFinder m_ParseSetupFinder;
+        private CTraderBarsProvider m_BarsProvider;
 
         /// <inheritdoc />
         protected override void Initialize()
         {
             base.Initialize();
+            Logger.SetWrite(a => Print(a));
+            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
+            {
+                throw new NotSupportedException(
+                    $"Time frame {TimeFrame} isn't supported.");
+            }
 
-            //TODO
-            //m_Signals = SignalParser.ParseSignals(SymbolName, SignalHistoryFilePath, UseUtc);
+            var state = new SymbolState
+            {
+                Symbol = SymbolName,
+                TimeFrame = TimeFrame.Name
+            };
+
+            m_BarsProvider = new CTraderBarsProvider(Bars);
+            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, state, Symbol, SignalHistoryFilePath, UseUtc, false);
+            m_ParseSetupFinder.OnEnter += OnEnter;
+        }
+
+        private void OnEnter(object sender, SignalEventArgs e)
+        {
+            int? index = e.Level.Index;
+            if (!index.HasValue)
+            {
+                return;
+            }
+
+            double price = e.Level.Price;
+            int rectIndex = index.Value + RECT_WIDTH_BARS;
+            Chart.DrawRectangle($"{index} {index.Value} sl",
+                index.Value, price, rectIndex, e.StopLoss.Price, Color.Red, 1, LineStyle.Dots);
+
+            double tpPrice = e.TakeProfit.Price;
+            Chart.DrawRectangle($"{index} {index.Value} tp {tpPrice}",
+                index.Value, price, rectIndex, tpPrice, Color.Green, 1, LineStyle.Dots);
         }
 
         /// <inheritdoc />
         public override void Calculate(int index)
         {
-            if (index < 2)
-            {
-                return;
-            }
-
-            DateTime prevBarDateTime = Bars[index - 1].OpenTime;
-            DateTime barDateTime = Bars[index].OpenTime;
-
-            List<KeyValuePair<DateTime, ParsedSignal>> matchedSignals = m_Signals
-                .SkipWhile(a => a.Key < prevBarDateTime)
-                .TakeWhile(a => a.Key <= barDateTime)
-                .ToList();
-
-            foreach (KeyValuePair<DateTime, ParsedSignal> matchedSignal in matchedSignals)
-            {
-                ParsedSignal signal = matchedSignal.Value;
-                double price = signal.Price ?? Bars[index].Open;
-                int rectIndex = index + RECT_WIDTH_BARS;
-
-                Chart.DrawRectangle($"{index} {matchedSignal.Key} sl",
-                    index, price, rectIndex, signal.StopLoss, Color.Red, 1, LineStyle.Dots);
-
-                for (int i = 0; i < signal.TakeProfits.Length; i++)
-                {
-                    double tpPrice = signal.TakeProfits[i];
-                    Chart.DrawRectangle($"{index} {matchedSignal.Key} tp {i}",
-                        index, price, rectIndex, tpPrice, Color.Green, 1, LineStyle.Dots);
-
-                    price = tpPrice;
-                }
-
-                m_Signals.Remove(matchedSignal.Key);
-            }
+            m_ParseSetupFinder.CheckBar(index);
         }
     }
 }
