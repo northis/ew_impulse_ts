@@ -30,7 +30,24 @@ namespace TradeKit.Signals
 
         private static readonly Dictionary<string, string> SYMBOL_REGEX_MAP = new()
         {
-            {"XAUUSD", @"(gold)|(xau[\s\\\/-]*usd)"}
+            {"XAUUSD", @"(gold)|(xau[\s\\\/-]*usd)"},
+            {"XAUEUR", @"(xau[\s\\\/-]*eur)"},
+            {"XAGUSD", @"(silver)|(xag[\s\\\/-]*usd)"},
+            {"XAGEUR", @"(xag[\s\\\/-]*eur)"},
+            {"EURUSD", @"(eur[\s\\\/-]*usd)"},
+            {"GBPUSD", @"(gbp[\s\\\/-]*usd)"},
+            {"USDJPY", @"(usd[\s\\\/-]*jpy)"},
+            {"USDCAD", @"(usd[\s\\\/-]*cad)"},
+            {"AUDUSD", @"(aud[\s\\\/-]*usd)"},
+            {"NZDUSD", @"(nzd[\s\\\/-]*usd)"},
+            {"USDCHF", @"(usd[\s\\\/-]*chf)"},
+            {"GBPAUD", @"(gbp[\s\\\/-]*aud)"},
+            {"EURAUD", @"(eur[\s\\\/-]*aud)"},
+            {"GBPJPY", @"(gbp[\s\\\/-]*jpy)"},
+            {"EURJPY", @"(eur[\s\\\/-]*jpy)"},
+            {"CHFJPY", @"(chf[\s\\\/-]*jpy)"},
+            {"AUDCHF", @"(aud[\s\\\/-]*chf)"},
+            {"NZDCHF", @"(nzd[\s\\\/-]*chf)"},
         };
 
         private readonly Dictionary<DateTime, ParsedSignal> m_Signals;

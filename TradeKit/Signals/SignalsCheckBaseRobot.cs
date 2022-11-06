@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
@@ -21,6 +21,18 @@ namespace TradeKit.Signals
         /// </summary>
         [Parameter(nameof(SignalHistoryFilePath), DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
+
+        /// <summary>
+        /// Gets or sets the history folder path for bulk analyzing.
+        /// </summary>
+        [Parameter(nameof(BulkHistoryFolderPath), DefaultValue = "")]
+        public string BulkHistoryFolderPath { get; set; }
+
+        /// <summary>
+        /// Gets or sets the file index starting from 0: 0,1,2...
+        /// </summary>
+        [Parameter(nameof(ZeroBasedFileIndexAsc), DefaultValue = 0)]
+        public int ZeroBasedFileIndexAsc { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the date in the file is in UTC.
@@ -49,7 +61,6 @@ namespace TradeKit.Signals
         [Parameter("UseBreakeven", DefaultValue = true)]
         public bool UseBreakeven { get; set; }
 
-
         /// <inheritdoc/>
         public override string GetBotName()
         {
@@ -65,9 +76,41 @@ namespace TradeKit.Signals
 
         protected override ParseSetupFinder CreateSetupFinder(Bars bars, SymbolState state, Symbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(bars);
+            CTraderBarsProvider barsProvider = new CTraderBarsProvider(bars);
+
+            string path;
+            if (string.IsNullOrEmpty(SignalHistoryFilePath))
+            {
+                if (!Directory.Exists(BulkHistoryFolderPath))
+                {
+                    throw new InvalidOperationException(
+                        $"No folder {SignalHistoryFilePath} found!");
+                }
+
+                string[] files = Directory.GetFiles(BulkHistoryFolderPath)
+                    .OrderBy(a => a)
+                    .ToArray();
+                if (ZeroBasedFileIndexAsc < 0 || ZeroBasedFileIndexAsc >= files.Length)
+                {
+                    throw new InvalidOperationException("Bad file index!");
+                }
+
+                path = Path.Combine(BulkHistoryFolderPath, files[ZeroBasedFileIndexAsc]);
+            }
+            else
+            {
+                path = SignalHistoryFilePath;
+            }
+
+            if (!File.Exists(path))
+            {
+                return new NullParseSetupFinder(barsProvider, state, symbolEntity);
+            }
+
+            Logger.Write($"Using path {path}");
+
             var sf = new ParseSetupFinder(
-                barsProvider, state, symbolEntity, SignalHistoryFilePath, UseUtc, UseOneTP);
+                barsProvider, state, symbolEntity, path, UseUtc, UseOneTP);
             return sf;
         }
 
