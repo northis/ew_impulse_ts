@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using Plotly.NET;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.InputFiles;
 using TradeKit.EventArgs;
 
 namespace TradeKit.Telegram
@@ -13,6 +15,7 @@ namespace TradeKit.Telegram
     /// </summary>
     public class TelegramReporter
     {
+        private readonly bool m_ReportClose;
         private readonly TelegramBotClient m_TelegramBotClient;
         private readonly ChatId m_TelegramChatId;
         private readonly Dictionary<string, int> m_SignalPostIds;
@@ -25,8 +28,10 @@ namespace TradeKit.Telegram
         /// </summary>
         /// <param name="botToken">The bot token.</param>
         /// <param name="chatId">The chat identifier.</param>
-        public TelegramReporter(string botToken, string chatId)
+        /// <param name="reportClose">If true - the close messages will be posted (tp hit)</param>
+        public TelegramReporter(string botToken, string chatId, bool reportClose = true)
         {
+            m_ReportClose = reportClose;
             m_SignalPostIds = new Dictionary<string, int>();
             if (string.IsNullOrEmpty(botToken))
             {
@@ -68,7 +73,8 @@ namespace TradeKit.Telegram
         /// <param name="finderId">The finder identifier.</param>
         public void ReportStopLoss(string finderId)
         {
-            ReportClose(finderId, "SL hit");
+            if (m_ReportClose)
+                ReportClose(finderId, "SL hit");
         }
 
         /// <summary>
@@ -77,7 +83,8 @@ namespace TradeKit.Telegram
         /// <param name="finderId">The finder identifier.</param>
         public void ReportTakeProfit(string finderId)
         {
-            ReportClose(finderId, "TP hit");
+            if (m_ReportClose)
+                ReportClose(finderId, "TP hit");
         }
 
         /// <summary>
@@ -141,6 +148,7 @@ namespace TradeKit.Telegram
             }
 
             string alert = sb.ToString();
+            
             Message msgRes = m_TelegramBotClient
                 .SendTextMessageAsync(m_TelegramChatId, alert)
                 .Result;
@@ -157,7 +165,7 @@ namespace TradeKit.Telegram
         public bool IsReady { get; set; }
 
         /// <summary>
-        /// 
+        /// <see cref="EventArgs"/> for signal
         /// </summary>
         public class SignalArgs
         {
@@ -190,6 +198,11 @@ namespace TradeKit.Telegram
             /// Gets or sets the amount of digits for the <see cref="SymbolName"/>.
             /// </summary>
             public int Digits { get; set; }
+
+            /// <summary>
+            /// Gets or sets the image of signal (a .png file). Can be null
+            /// </summary>
+            public string PlotImagePath { get; set; }
         }
     }
 }

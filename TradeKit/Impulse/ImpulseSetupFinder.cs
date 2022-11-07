@@ -13,7 +13,6 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : BaseSetupFinder<ImpulseSignalEventArgs>
     {
-        private readonly int m_ZoomMin;
         private readonly PatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         private int m_LastBarIndex;
@@ -53,7 +52,7 @@ namespace TradeKit.Impulse
             SymbolState state,
             Symbol symbol):base(mainBarsProvider, state, symbol)
         {
-            m_ZoomMin = Helper.ZOOM_MIN;
+            var zoomMin = Helper.ZOOM_MIN;
 
             for (int i = Helper.MIN_IMPULSE_SCALE; 
                  i <= Helper.MAX_IMPULSE_SCALE; 
@@ -62,7 +61,7 @@ namespace TradeKit.Impulse
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
 
-            m_PatternFinder = new PatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, m_ZoomMin);
+            m_PatternFinder = new PatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, zoomMin);
         }
 
         /// <summary>
@@ -236,21 +235,21 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                if (startIndex > 0)
-                {
-                    // We want to check the previous movement - if it is a zigzag, this is may be
-                    // a flat or a running triangle.
-                    KeyValuePair<int, BarPoint> beforeStartItem
-                        = extrema.ElementAt(startIndex - 1);
-                    if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
-                            finder.ScaleRate, m_ZoomMin)/* ||
-                        m_PatternFinder.IsDoubleZigzag(beforeStartItem.Value, startItem.Value,
-                            finder.ScaleRate, m_ZoomMin)*/)
-                    { 
-                        Logger.Write($"{Symbol}, {State.TimeFrame}: zigzag before the impulse");
-                       return;
-                    }
-                }
+                //if (startIndex > 0)
+                //{
+                //    // We want to check the previous movement - if it is a zigzag, this is may be
+                //    // a flat or a running triangle.
+                //    KeyValuePair<int, BarPoint> beforeStartItem
+                //        = extrema.ElementAt(startIndex - 1);
+                //    if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
+                //            finder.ScaleRate, m_ZoomMin)/* ||
+                //        m_PatternFinder.IsDoubleZigzag(beforeStartItem.Value, startItem.Value,
+                //            finder.ScaleRate, m_ZoomMin)*/)
+                //    { 
+                //        Logger.Write($"{Symbol}, {State.TimeFrame}: zigzag before the impulse");
+                //       return;
+                //    }
+                //}
 
                 double realPrice;
                 if (triggerLevel >= low && triggerLevel <= high)

@@ -1,12 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Internals;
+using Microsoft.FSharp.Core;
+using Plotly.NET;
+using Plotly.NET.ImageExport;
+using Plotly.NET.LayoutObjects;
+using Plotly.NET.TraceObjects;
 using TradeKit.EventArgs;
 using TradeKit.Telegram;
+using Color = Plotly.NET.Color;
 
 namespace TradeKit.Core
 {
@@ -16,7 +24,8 @@ namespace TradeKit.Core
     /// <typeparam name="T">Type of <see cref="BaseSetupFinder{TK}"/></typeparam>
     /// <typeparam name="TK">The type of <see cref="SignalEventArgs"/> - what type of signals supports this bot.</typeparam>
     /// <seealso cref="Robot" />
-    public abstract class BaseRobot<T,TK> : Robot where T: BaseSetupFinder<TK> where TK : SignalEventArgs
+    public abstract class BaseRobot<T,TK> : 
+        Robot where T: BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
@@ -79,6 +88,12 @@ namespace TradeKit.Core
         /// </summary>
         [Parameter(nameof(UseTimeFramesList), DefaultValue = false)]
         public bool UseTimeFramesList { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating we should post the close messages like "tp/sl hit".
+        /// </summary>
+        [Parameter(nameof(UseTimeFramesList), DefaultValue = true)]
+        public bool PostCloseMessages { get; set; }
 
         /// <summary>
         /// Gets or sets the time frames we should use.
@@ -229,7 +244,7 @@ namespace TradeKit.Core
             }
 
             Positions.Closed += OnPositionsClosed;
-            TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId);
+            TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, PostCloseMessages);
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
         }
 
@@ -444,18 +459,18 @@ namespace TradeKit.Core
         }
 
         private void OnEnter(object sender, TK e)
-        {
+        { 
             var sf = (T)sender;
             if (!m_SymbolFindersMap.TryGetValue(sf.State.Symbol, out T[] finders))
             {
                 return;
             }
-
+            
             if (!m_BarsMap.TryGetValue(sf.Id, out Bars bars))
             {
                 return;
             }
-
+            
             Symbol symbol = m_SymbolsMap[sf.Id];
 
             double tp = e.TakeProfit.Price;
@@ -519,9 +534,18 @@ namespace TradeKit.Core
                 }
             }
 
+            Debugger.Launch();
             if (IsBacktesting || !TelegramReporter.IsReady)
             {
                 return;
+            }
+
+            int earlyBar = Math.Min(e.StopLoss.Index.GetValueOrDefault(),
+                e.TakeProfit.Index.GetValueOrDefault());
+            string plotImagePath = null;
+            if (earlyBar > 0)
+            {
+                plotImagePath = SavePlotImage(bars, earlyBar);
             }
 
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
@@ -531,8 +555,49 @@ namespace TradeKit.Core
                 Digits = symbolInfo.Digits,
                 SignalEventArgs = e,
                 SymbolName = symbolInfo.Name,
-                SenderId = sf.Id
+                SenderId = sf.Id,
+                PlotImagePath = plotImagePath
             });
+        }
+
+        private string SavePlotImage(Bars bars, int startIndex)
+        {
+            int barsCount = bars.Count - startIndex;
+            if (barsCount <= 0)
+            {
+                return null;
+            }
+            
+            var o = new double[barsCount];
+            var h = new double[barsCount];
+            var c = new double[barsCount];
+            var l = new double[barsCount];
+            var d = new DateTime[barsCount];
+            for (int i = startIndex; i < bars.Count; i++)
+            {
+                Bar bar = bars[i];
+                int barIndex = i - startIndex;
+                o[barIndex] = bar.Open;
+                h[barIndex] = bar.High;
+                l[barIndex] = bar.Low;
+                c[barIndex] = bar.Close;
+                d[barIndex] = bar.OpenTime;
+            }
+
+            GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
+                    <double, double, double, double, DateTime, string>(o, h, l, c, d,
+                        IncreasingColor: new FSharpOption<Color>(Color.fromHex("#00FF00")),
+                        DecreasingColor: new FSharpOption<Color>(Color.fromHex("#FF0000")),
+                        Name: bars.SymbolName, Opacity: new FSharpOption<double>(0.8),
+                        ShowLegend: new FSharpOption<bool>(false))
+                .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName}")
+                .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)));
+
+            Directory.CreateDirectory(Helper.DirectoryToSaveImages);
+            string outPath = Path.Combine(
+                Helper.DirectoryToSaveImages, $"{Path.GetRandomFileName()}.png");
+            candlestickChart.SavePNG(outPath,null, 1000, 1000);
+            return outPath;
         }
 
         /// <summary>

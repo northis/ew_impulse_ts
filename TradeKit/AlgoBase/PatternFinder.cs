@@ -395,8 +395,8 @@ namespace TradeKit.AlgoBase
             for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
             {
                 // Debugger.Launch();
-
-                if (IsImpulseInner(start, end, dv, out extrema, false))
+                // Simple version with true by default
+                if (IsImpulseInner(start, end, dv, out extrema))
                 {
                     return true;
                 }

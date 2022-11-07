@@ -11,7 +11,7 @@ namespace TradeKit.Signals
     /// <summary>
     /// Robot for history trading the signals from the file
     /// </summary>
-    /// <seealso cref="cAlgo.API.Robot" />
+    /// <seealso cref="Robot" />
     public class SignalsCheckBaseRobot : BaseRobot<ParseSetupFinder, SignalEventArgs>
     {
         private const string BOT_NAME = "SignalsCheckRobot";
@@ -58,7 +58,7 @@ namespace TradeKit.Signals
         /// <value>
         ///   <c>true</c> if  we should use breakeven; otherwise, <c>false</c>.
         /// </value>
-        [Parameter("UseBreakeven", DefaultValue = true)]
+        [Parameter(nameof(UseBreakeven), DefaultValue = true)]
         public bool UseBreakeven { get; set; }
 
         /// <inheritdoc/>

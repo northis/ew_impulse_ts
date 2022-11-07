@@ -1,7 +1,16 @@
-﻿namespace TradeKit.Core
+﻿using System;
+using System.IO;
+
+namespace TradeKit.Core
 {
     public static class Helper
     {
+        static Helper()
+        {
+            DirectoryToSaveImages =
+                Path.Combine(Environment.CurrentDirectory, "TradeKitTelegramSend");
+        }
+
         public const int ZOOM_STEP = 1;
         public const int ZOOM_MIN = 1;
         public const double MINIMUM_BARS_IN_IMPULSE = 2;
@@ -13,13 +22,18 @@
         public const double MAX_SPREAD_RATIO = 0.15;
         public const double THIRD_FIFTH_BREAK_MIN_RATIO = 0.05;
         public const double SECOND_WAVE_PULLBACK_MIN_RATIO = 0.05;
-        public const int MIN_IMPULSE_SCALE = 30;
-        public const int MAX_IMPULSE_SCALE = 50;
+        public const int MIN_IMPULSE_SCALE = 50;
+        public const int MAX_IMPULSE_SCALE = 70;
         public const int STEP_IMPULSE_SCALE = 5;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;
         public const double TRIGGER_SPEED_PERCENT = 0.2;
         public const double SPEED_TP_SL_RATIO = 2;
+
+        /// <summary>
+        /// Gets the directory to save images.
+        /// </summary>
+        public static string DirectoryToSaveImages { get; }
     }
 }
