@@ -396,7 +396,7 @@ namespace TradeKit.AlgoBase
             {
                 // Debugger.Launch();
                 // Simple version with true by default
-                if (IsImpulseInner(start, end, dv, out extrema))
+                if (IsImpulseInner(start, end, dv, out extrema,false))
                 {
                     return true;
                 }

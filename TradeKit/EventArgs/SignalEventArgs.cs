@@ -1,4 +1,5 @@
-﻿using TradeKit.Core;
+﻿using System;
+using TradeKit.Core;
 
 namespace TradeKit.EventArgs
 {
@@ -14,11 +15,14 @@ namespace TradeKit.EventArgs
         /// <param name="level">The level.</param>
         /// <param name="takeProfit">The take profit level.</param>
         /// <param name="stopLoss">The stop loss.</param>
-        public SignalEventArgs(LevelItem level, LevelItem takeProfit, LevelItem stopLoss)
+        /// <param name="startViewBarTime">The bar time we should visually analyze the chart from. Optional</param>
+        public SignalEventArgs(
+            LevelItem level, LevelItem takeProfit, LevelItem stopLoss, DateTime startViewBarTime = default)
         {
             Level = level;
             TakeProfit = takeProfit;
             StopLoss = stopLoss;
+            StartViewBarTime = startViewBarTime;
         }
 
         /// <summary>
@@ -35,5 +39,10 @@ namespace TradeKit.EventArgs
         /// Gets the stop loss level.
         /// </summary>
         public LevelItem StopLoss { get; }
+
+        /// <summary>
+        /// Gets the start bar time we should visually analyze the chart from.
+        /// </summary>
+        public DateTime StartViewBarTime { get; }
     }
 }

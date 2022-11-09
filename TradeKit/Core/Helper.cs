@@ -22,8 +22,8 @@ namespace TradeKit.Core
         public const double MAX_SPREAD_RATIO = 0.15;
         public const double THIRD_FIFTH_BREAK_MIN_RATIO = 0.05;
         public const double SECOND_WAVE_PULLBACK_MIN_RATIO = 0.05;
-        public const int MIN_IMPULSE_SCALE = 50;
-        public const int MAX_IMPULSE_SCALE = 70;
+        public const int MIN_IMPULSE_SCALE = 15;
+        public const int MAX_IMPULSE_SCALE = 40;
         public const int STEP_IMPULSE_SCALE = 5;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;

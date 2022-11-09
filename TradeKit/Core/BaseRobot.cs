@@ -11,10 +11,11 @@ using Microsoft.FSharp.Core;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
-using Plotly.NET.TraceObjects;
 using TradeKit.EventArgs;
 using TradeKit.Telegram;
 using Color = Plotly.NET.Color;
+using Line = Plotly.NET.Line;
+using Shape = Plotly.NET.LayoutObjects.Shape;
 
 namespace TradeKit.Core
 {
@@ -35,6 +36,7 @@ namespace TradeKit.Core
         private Dictionary<string, T[]> m_SymbolFindersMap;
         private Dictionary<string, Bars> m_BarsMap;
         private Dictionary<string, Symbol> m_SymbolsMap;
+        private Dictionary<Symbol, Bars> m_PlotSymbolsBarsMap;
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, bool> m_PositionFinderMap;
         private int m_EnterCount;
@@ -92,7 +94,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets a value indicating we should post the close messages like "tp/sl hit".
         /// </summary>
-        [Parameter(nameof(UseTimeFramesList), DefaultValue = true)]
+        [Parameter(nameof(PostCloseMessages), DefaultValue = true)]
         public bool PostCloseMessages { get; set; }
 
         /// <summary>
@@ -196,6 +198,7 @@ namespace TradeKit.Core
             m_SymbolsMap = new Dictionary<string, Symbol>();
             m_SymbolFindersMap = new Dictionary<string, T[]>();
             m_PositionFinderMap = new Dictionary<string, bool>();
+            m_PlotSymbolsBarsMap = new Dictionary<Symbol, Bars>();
             m_CurrentRisk = RiskPercentFromDeposit;
 
             string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
@@ -211,6 +214,9 @@ namespace TradeKit.Core
                 {
                     continue;
                 }
+                Symbol symbolEntity = Symbols.GetSymbol(symbolName);
+                m_PlotSymbolsBarsMap[symbolEntity] =
+                    MarketData.GetBars(TimeFrame.Minute5, symbolName);
 
                 var finders = new List<T>();
                 foreach (string timeFrameStr in timeFrames)
@@ -227,7 +233,6 @@ namespace TradeKit.Core
                     };
 
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
-                    Symbol symbolEntity = Symbols.GetSymbol(symbolName);
                     T sf = CreateSetupFinder(bars, state, symbolEntity);
                     string key = sf.Id;
                     m_BarsMap[key] = bars;
@@ -534,35 +539,47 @@ namespace TradeKit.Core
                 }
             }
 
-            Debugger.Launch();
-            if (IsBacktesting || !TelegramReporter.IsReady)
+            //Debugger.Launch();
+            //if (IsBacktesting || !TelegramReporter.IsReady)
+            //{
+            //    return;
+            //}
+
+            if (!m_PlotSymbolsBarsMap.TryGetValue(s, out Bars barsToView) ||
+                e.StartViewBarTime == default)
             {
                 return;
             }
-
-            int earlyBar = Math.Min(e.StopLoss.Index.GetValueOrDefault(),
-                e.TakeProfit.Index.GetValueOrDefault());
+            
+            int earlyBar = Math.Max(0,
+                barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime) - 1);
             string plotImagePath = null;
             if (earlyBar > 0)
             {
-                plotImagePath = SavePlotImage(bars, earlyBar);
+                plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
             }
 
-            TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
-            {
-                Ask = s.Ask,
-                Bid = s.Bid,
-                Digits = symbolInfo.Digits,
-                SignalEventArgs = e,
-                SymbolName = symbolInfo.Name,
-                SenderId = sf.Id,
-                PlotImagePath = plotImagePath
-            });
+            //TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
+            //{
+            //    Ask = s.Ask,
+            //    Bid = s.Bid,
+            //    Digits = symbolInfo.Digits,
+            //    SignalEventArgs = e,
+            //    SymbolName = symbolInfo.Name,
+            //    SenderId = sf.Id,
+            //    PlotImagePath = plotImagePath
+            //});
+
+            //foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+            //{
+            //    File.Delete(file);
+            //}
         }
 
-        private string SavePlotImage(Bars bars, int startIndex)
+        private string SavePlotImage(Bars bars, int startIndex, double tp, double sl)
         {
-            int barsCount = bars.Count - startIndex;
+            int lastIndex = bars.Count - 1;
+            int barsCount = lastIndex - startIndex;
             if (barsCount <= 0)
             {
                 return null;
@@ -573,7 +590,7 @@ namespace TradeKit.Core
             var c = new double[barsCount];
             var l = new double[barsCount];
             var d = new DateTime[barsCount];
-            for (int i = startIndex; i < bars.Count; i++)
+            for (int i = startIndex; i < lastIndex; i++)
             {
                 Bar bar = bars[i];
                 int barIndex = i - startIndex;
@@ -584,20 +601,52 @@ namespace TradeKit.Core
                 d[barIndex] = bar.OpenTime;
             }
 
+            Color blackColor = Color.fromARGB(230, 22, 26, 37);
+            Color whiteColor = Color.fromARGB(230, 209, 212, 220);
+            Color shortColor = Color.fromHex("#EF5350");
+            Color longColor = Color.fromHex("#26A69A");
+
             GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
                     <double, double, double, double, DateTime, string>(o, h, l, c, d,
-                        IncreasingColor: new FSharpOption<Color>(Color.fromHex("#00FF00")),
-                        DecreasingColor: new FSharpOption<Color>(Color.fromHex("#FF0000")),
-                        Name: bars.SymbolName, Opacity: new FSharpOption<double>(0.8),
+                        IncreasingColor: new FSharpOption<Color>(longColor),
+                        DecreasingColor: new FSharpOption<Color>(shortColor),
+                        Name: bars.SymbolName,
                         ShowLegend: new FSharpOption<bool>(false))
                 .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName}")
-                .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)));
+                .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
+                .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
+                .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
+                .WithConfig(Config.init(
+                    StaticPlot: new FSharpOption<bool>(true)))
+                .WithLayout(Layout.init<string>(
+                    PlotBGColor: new FSharpOption<Color>(blackColor),
+                    PaperBGColor: new FSharpOption<Color>(blackColor),
+                    Font: new FSharpOption<Font>(Font.init(
+                        Color: new FSharpOption<Color>(whiteColor)))))
+                .WithLayoutGrid(LayoutGrid.init(
+                    Rows: new FSharpOption<int>(0),
+                    Columns: new FSharpOption<int>(0),
+                    XGap: new FSharpOption<double>(0),
+                    YGap: new FSharpOption<double>(0)));
+
+            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] {new(d[0], tp), new(d[^1], tp)},
+                FillColor: new FSharpOption<Color>(longColor),
+                ShowLegend: new FSharpOption<bool>(false),
+                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
+            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] {new(d[0], sl), new(d[^1], sl)},
+                FillColor: new FSharpOption<Color>(shortColor), 
+                ShowLegend: new FSharpOption<bool>(false),
+                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
+
+            GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
+                new[] {candlestickChart, tpLine, slLine });
 
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            string outPath = Path.Combine(
-                Helper.DirectoryToSaveImages, $"{Path.GetRandomFileName()}.png");
-            candlestickChart.SavePNG(outPath,null, 1000, 1000);
-            return outPath;
+            string outPath = Path.Combine(Helper.DirectoryToSaveImages, Path.GetRandomFileName());
+            resultChart.SavePNG(outPath, null, 1000, 1000);
+            return $"{outPath}.png";
         }
 
         /// <summary>

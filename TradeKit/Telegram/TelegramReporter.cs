@@ -148,10 +148,21 @@ namespace TradeKit.Telegram
             }
 
             string alert = sb.ToString();
-            
-            Message msgRes = m_TelegramBotClient
-                .SendTextMessageAsync(m_TelegramChatId, alert)
-                .Result;
+            Message msgRes;
+
+            if (string.IsNullOrEmpty(signalArgs.PlotImagePath))
+            {
+                msgRes = m_TelegramBotClient
+                    .SendTextMessageAsync(m_TelegramChatId, alert)
+                    .Result;
+            }
+            else
+            {
+                msgRes = m_TelegramBotClient
+                    .SendPhotoAsync(m_TelegramChatId,
+                        new InputMedia(signalArgs.PlotImagePath), alert)
+                    .Result;
+            }
 
             m_SignalPostIds[signalArgs.SenderId] = msgRes.MessageId;
         }

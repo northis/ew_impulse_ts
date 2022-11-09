@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
@@ -304,12 +305,13 @@ namespace TradeKit.Impulse
 
                 var tpArg = new LevelItem(SetupEndPrice, SetupEndIndex);
                 var slArg = new LevelItem(SetupStartPrice, SetupStartIndex);
-
+                DateTime viewDateTime = extrema.ElementAt(startIndex - 1).Value.OpenTime;
                 OnEnterInvoke(new ImpulseSignalEventArgs(
-                        new LevelItem(realPrice, index),
-                        tpArg,
-                        slArg,
-                        outExtrema));
+                    new LevelItem(realPrice, index),
+                    tpArg,
+                    slArg,
+                    outExtrema,
+                    viewDateTime));
                 // Here we should give a trade signal.
             }
 
