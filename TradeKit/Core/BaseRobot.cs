@@ -14,8 +14,6 @@ using Plotly.NET.LayoutObjects;
 using TradeKit.EventArgs;
 using TradeKit.Telegram;
 using Color = Plotly.NET.Color;
-using Line = Plotly.NET.Line;
-using Shape = Plotly.NET.LayoutObjects.Shape;
 
 namespace TradeKit.Core
 {
@@ -216,7 +214,7 @@ namespace TradeKit.Core
                 }
                 Symbol symbolEntity = Symbols.GetSymbol(symbolName);
                 m_PlotSymbolsBarsMap[symbolEntity] =
-                    MarketData.GetBars(TimeFrame.Minute5, symbolName);
+                    MarketData.GetBars(TimeFrame.Minute, symbolName);
 
                 var finders = new List<T>();
                 foreach (string timeFrameStr in timeFrames)
@@ -516,7 +514,6 @@ namespace TradeKit.Core
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
-
             if (IsBacktesting || AllowToTrade)
             {
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
@@ -539,11 +536,11 @@ namespace TradeKit.Core
                 }
             }
 
-            //Debugger.Launch();
-            //if (IsBacktesting || !TelegramReporter.IsReady)
-            //{
-            //    return;
-            //}
+
+            if (IsBacktesting || !TelegramReporter.IsReady)
+            {
+                return;
+            }
 
             if (!m_PlotSymbolsBarsMap.TryGetValue(s, out Bars barsToView) ||
                 e.StartViewBarTime == default)
@@ -551,6 +548,11 @@ namespace TradeKit.Core
                 return;
             }
             
+            foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+            {
+                File.Delete(file);
+            }
+
             int earlyBar = Math.Max(0,
                 barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime) - 1);
             string plotImagePath = null;
@@ -559,21 +561,16 @@ namespace TradeKit.Core
                 plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
             }
 
-            //TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
-            //{
-            //    Ask = s.Ask,
-            //    Bid = s.Bid,
-            //    Digits = symbolInfo.Digits,
-            //    SignalEventArgs = e,
-            //    SymbolName = symbolInfo.Name,
-            //    SenderId = sf.Id,
-            //    PlotImagePath = plotImagePath
-            //});
-
-            //foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
-            //{
-            //    File.Delete(file);
-            //}
+            TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
+            {
+                Ask = s.Ask,
+                Bid = s.Bid,
+                Digits = symbolInfo.Digits,
+                SignalEventArgs = e,
+                SymbolName = symbolInfo.Name,
+                SenderId = sf.Id,
+                PlotImagePath = plotImagePath
+            });
         }
 
         private string SavePlotImage(Bars bars, int startIndex, double tp, double sl)
@@ -601,8 +598,8 @@ namespace TradeKit.Core
                 d[barIndex] = bar.OpenTime;
             }
 
-            Color blackColor = Color.fromARGB(230, 22, 26, 37);
-            Color whiteColor = Color.fromARGB(230, 209, 212, 220);
+            Color blackColor = Color.fromARGB(255, 22, 26, 37);
+            Color whiteColor = Color.fromARGB(255, 209, 212, 220);
             Color shortColor = Color.fromHex("#EF5350");
             Color longColor = Color.fromHex("#26A69A");
 
@@ -612,7 +609,8 @@ namespace TradeKit.Core
                         DecreasingColor: new FSharpOption<Color>(shortColor),
                         Name: bars.SymbolName,
                         ShowLegend: new FSharpOption<bool>(false))
-                .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName}")
+                .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName}", 
+                    new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
                 .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
                 .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
                 .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
@@ -641,7 +639,7 @@ namespace TradeKit.Core
                 LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
 
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-                new[] {candlestickChart, tpLine, slLine });
+                new[] {candlestickChart, slLine, tpLine });
 
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
             string outPath = Path.Combine(Helper.DirectoryToSaveImages, Path.GetRandomFileName());
