@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using cAlgo.API;
 using cAlgo.API.Internals;
 using Newtonsoft.Json;
 using TradeKit.Core;
@@ -97,42 +96,6 @@ namespace TradeKit.Signals
         /// </summary>
         private void ProcessSetup()
         {
-            if (State.IsInSetup)
-            {
-                //Debugger.Launch();
-                //if (m_IsUp && m_PriceSpeedCheckerMinor.Speed <= 0)
-                //{
-                //    State.IsInSetup = false;
-
-                //    if (LastEntry.Price < m_LastPrice)
-                //        OnTakeProfitInvoke(
-                //            new LevelEventArgs(
-                //                LastEntry,
-                //                new LevelItem(m_LastPrice, m_LastBar)));
-                //    else
-                //        OnStopLossInvoke(
-                //            new LevelEventArgs(
-                //                LastEntry,
-                //                new LevelItem(m_LastPrice, m_LastBar)));
-                //}
-                //else if (!m_IsUp && m_PriceSpeedCheckerMinor.Speed >= 0)
-                //{
-                //    State.IsInSetup = false;
-                //    if (LastEntry.Price > m_LastPrice)
-                //        OnStopLossInvoke(
-                //            new LevelEventArgs(
-                //                LastEntry,
-                //                new LevelItem(m_LastPrice, m_LastBar)));
-                //    else
-                //        OnTakeProfitInvoke(
-                //            new LevelEventArgs(
-                //                LastEntry,
-                //                new LevelItem(m_LastPrice, m_LastBar)));
-                //}
-
-                //return;
-            }
-
             DateTime prevBarDateTime = BarsProvider.GetOpenTime(m_LastBar - 1);
             DateTime barDateTime = BarsProvider.GetOpenTime(m_LastBar);
 
@@ -140,16 +103,10 @@ namespace TradeKit.Signals
                 .SkipWhile(a => a.Key < prevBarDateTime)
                 .TakeWhile(a => a.Key <= barDateTime)
                 .ToList();
-
-            List<TradeResult> result = new List<TradeResult>();
+            
             foreach (KeyValuePair<DateTime, ParsedSignal> matchedSignal in matchedSignals)
             {
                 ParsedSignal signal = matchedSignal.Value;
-                TradeType type = signal.IsLong ? TradeType.Buy : TradeType.Sell;
-                double priceNow = signal.IsLong ? Symbol.Ask : Symbol.Bid;
-
-                double slUnits = Math.Abs(priceNow - signal.StopLoss);
-                double slP = Symbol.NormalizeVolumeInUnits(slUnits / Symbol.PipSize);
 
                 LastEntry = new LevelItem(m_LastPrice, m_LastBar);
 
@@ -159,6 +116,7 @@ namespace TradeKit.Signals
                     {
                         break;
                     }
+
                     double tp = signal.TakeProfits[i];
 
                     State.IsInSetup = true;

@@ -536,29 +536,29 @@ namespace TradeKit.Core
                 }
             }
 
-
+            string plotImagePath = null;
             if (IsBacktesting || !TelegramReporter.IsReady)
             {
-                return;
-            }
 
-            if (!m_PlotSymbolsBarsMap.TryGetValue(s, out Bars barsToView) ||
-                e.StartViewBarTime == default)
-            {
-                return;
-            }
-            
-            foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
-            {
-                File.Delete(file);
-            }
+                if (!m_PlotSymbolsBarsMap.TryGetValue(s, out Bars barsToView) ||
+                    e.StartViewBarTime == default)
+                {
+                    return;
+                }
 
-            int earlyBar = Math.Max(0,
-                barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime) - 1);
-            string plotImagePath = null;
-            if (earlyBar > 0)
-            {
-                plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
+                Directory.CreateDirectory(Helper.DirectoryToSaveImages);
+                //foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+                //{
+                //    File.Delete(file);
+                //}
+
+                int firstIndex = barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime);
+                int earlyBar = Math.Max(0, firstIndex - (barsToView.Count - firstIndex) / 2);
+                if (earlyBar > 0)
+                {
+                    plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
+                }
+                return;
             }
 
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
@@ -642,7 +642,10 @@ namespace TradeKit.Core
                 new[] {candlestickChart, slLine, tpLine });
 
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            string outPath = Path.Combine(Helper.DirectoryToSaveImages, Path.GetRandomFileName());
+            int unixTimestamp = (int)d[^1].Date.ToUniversalTime()
+                .Subtract(DateTime.UnixEpoch).TotalSeconds;
+            string outPath = Path.Combine(Helper.DirectoryToSaveImages,
+                $"{unixTimestamp}.{bars.SymbolName}.{bars.TimeFrame.ShortName}");
             resultChart.SavePNG(outPath, null, 1000, 1000);
             return $"{outPath}.png";
         }
@@ -654,7 +657,7 @@ namespace TradeKit.Core
         /// <param name="slPoints">The sl points.</param>
         protected virtual double GetVolume(Symbol symbol, double slPoints)
         {
-            double volume = symbol.GetVolume(RiskPercentFromDeposit, Account.Balance, slPoints);
+            double volume = symbol.GetVolume(GetCurrentRisk, Account.Balance, slPoints);
             return volume;
         }
 

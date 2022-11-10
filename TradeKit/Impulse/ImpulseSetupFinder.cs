@@ -305,7 +305,7 @@ namespace TradeKit.Impulse
 
                 var tpArg = new LevelItem(SetupEndPrice, SetupEndIndex);
                 var slArg = new LevelItem(SetupStartPrice, SetupStartIndex);
-                DateTime viewDateTime = extrema.ElementAt(startIndex - 1).Value.OpenTime;
+                DateTime viewDateTime = startItem.Value.OpenTime;
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new LevelItem(realPrice, index),
                     tpArg,

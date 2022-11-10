@@ -87,7 +87,6 @@ namespace TradeKit.AlgoBase
             List<BarPoint> extrema = minorExtremumFinder.ToExtremaList();
 
             NormalizeExtrema(extrema, start, end);
-
             return extrema;
         }
 
@@ -381,17 +380,27 @@ namespace TradeKit.AlgoBase
         public bool IsImpulse(BarPoint start, BarPoint end, int deviation, out List<BarPoint> extrema)
         {
             extrema = null;
-            if (IsDoubleZigzag(start, end, deviation, 1))
+            //if (IsDoubleZigzag(start, end, deviation, 1))
+            //{
+            //    return false;
+            //}
+
+            //if (IsZigzag(start, end, deviation, 1))
+            //{
+            //    return false;
+            //}
+
+            for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
             {
-                return false;
+                // Debugger.Launch();
+
+                if (IsImpulseInner(start, end, dv, out extrema, false))
+                {
+                    return true;
+                }
             }
 
-            if (IsZigzag(start, end, deviation, 1))
-            {
-                return false;
-            }
-
-            return IsImpulseInner(start, end, deviation, out extrema);
+            return false;
         }
     }
 }
