@@ -34,7 +34,6 @@ namespace TradeKit.Core
         private Dictionary<string, T[]> m_SymbolFindersMap;
         private Dictionary<string, Bars> m_BarsMap;
         private Dictionary<string, Symbol> m_SymbolsMap;
-        private Dictionary<Symbol, Bars> m_PlotSymbolsBarsMap;
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, bool> m_PositionFinderMap;
         private int m_EnterCount;
@@ -196,7 +195,6 @@ namespace TradeKit.Core
             m_SymbolsMap = new Dictionary<string, Symbol>();
             m_SymbolFindersMap = new Dictionary<string, T[]>();
             m_PositionFinderMap = new Dictionary<string, bool>();
-            m_PlotSymbolsBarsMap = new Dictionary<Symbol, Bars>();
             m_CurrentRisk = RiskPercentFromDeposit;
 
             string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
@@ -215,15 +213,13 @@ namespace TradeKit.Core
 
                 Symbol symbolEntity = Symbols.GetSymbol(symbolName);
                 var finders = new List<T>();
-                var timeFrameEntities = new List<TimeFrame>();
                 foreach (string timeFrameStr in timeFrames)
                 {
                     if (!TimeFrame.TryParse(timeFrameStr, out TimeFrame timeFrame))
                     {
                         continue;
                     }
-
-                    timeFrameEntities.Add(timeFrame);
+                    
                     var state = new SymbolState
                     {
                         Symbol = symbolName,
@@ -242,31 +238,33 @@ namespace TradeKit.Core
                     finders.Add(sf);
                     Logger.Write($"Symbol {symbolName}, time frame {timeFrame.Name} is added");
                 }
-
-                TimeFrame minTimeFrame = timeFrameEntities.Min() ?? timeFrameEntities.First();
-                if (TimeFrameHelper.TimeFrames.TryGetValue(minTimeFrame, out TimeFrameInfo tfInfo))
-                {
-                    TimeFrame lowerTf = TimeFrameHelper.FavoriteTimeFrames
-                        .OrderBy(a => a.Value.TimeSpan)
-                        .TakeWhile(a => a.Value.TimeSpan < tfInfo.TimeSpan)
-                        .Select(a => a.Key)
-                        .LastOrDefault();
-
-                    if (lowerTf != null)
-                    {
-                        minTimeFrame = lowerTf;
-                    }
-                }
-
-                m_PlotSymbolsBarsMap[symbolEntity] =
-                    MarketData.GetBars(minTimeFrame, symbolName);
-
+                
                 m_SymbolFindersMap[symbolName] = finders.ToArray();
             }
 
             Positions.Closed += OnPositionsClosed;
             TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, PostCloseMessages);
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
+        }
+
+        private TimeFrame GetViewTimeFrame(TimeFrame mainTimeFrame)
+        {
+            TimeFrame minTimeFrame = mainTimeFrame;
+            if (TimeFrameHelper.TimeFrames.TryGetValue(minTimeFrame, out TimeFrameInfo tfInfo))
+            {
+                TimeFrame lowerTf = TimeFrameHelper.FavoriteTimeFrames
+                    .OrderBy(a => a.Value.TimeSpan)
+                    .TakeWhile(a => a.Value.TimeSpan < tfInfo.TimeSpan)
+                    .Select(a => a.Key)
+                    .LastOrDefault();
+
+                if (lowerTf != null)
+                {
+                    minTimeFrame = lowerTf;
+                }
+            }
+
+            return minTimeFrame;
         }
 
         /// <summary>
@@ -554,28 +552,25 @@ namespace TradeKit.Core
                 }
             }
 
-            //if (IsBacktesting)
-            //{
-            //    return;
-            //}
-
-            if (!m_PlotSymbolsBarsMap.TryGetValue(s, out Bars barsToView) ||
-                e.StartViewBarTime == default)
+            if (IsBacktesting)
             {
                 return;
             }
 
+            Bars barsToView = MarketData.GetBars(
+                GetViewTimeFrame(bars.TimeFrame), bars.SymbolName);
+
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            //foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
-            //{
-            //    File.Delete(file);
-            //}
+            foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+            {
+                File.Delete(file);
+            }
 
             int firstIndex = barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime);
             int earlyBar = Math.Max(0, firstIndex - 5);
             string plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
 
-            if (IsBacktesting)
+            if (!TelegramReporter.IsReady)
             {
                 return;
             }
@@ -654,13 +649,6 @@ namespace TradeKit.Core
                 .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
                 .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
                 .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
-                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
-                    {
-                        Rangebreak.init<string, string>(new FSharpOption<bool>(true),
-                            Values: new FSharpOption<IEnumerable<string>>(
-                                rangeBreaks.Select(a => a.ToString("O"))))
-                    })))
                 .WithConfig(Config.init(
                     StaticPlot: new FSharpOption<bool>(true)))
                 .WithLayout(Layout.init<string>(
@@ -672,8 +660,20 @@ namespace TradeKit.Core
                     Rows: new FSharpOption<int>(0),
                     Columns: new FSharpOption<int>(0),
                     XGap: new FSharpOption<double>(0),
-                    YGap: new FSharpOption<double>(0)));
-
+                    YGap: new FSharpOption<double>(0)))
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
+                        {
+                            Rangebreak.init<string, string>(
+                                new FSharpOption<bool>(rangeBreaks.Any()),
+                                // TODO
+                                //Values: new FSharpOption<IEnumerable<string>>(
+                                //    rangeBreaks.Select(a => a.ToString("O"))))
+                                Bounds: new FSharpOption<Tuple<string, string>>(
+                                    new Tuple<string, string>("sat", "sun")))
+                        }
+                    )));
+            
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] {new(d[0], tp), new(d[^1], tp)},
                 FillColor: new FSharpOption<Color>(longColor),
@@ -686,7 +686,7 @@ namespace TradeKit.Core
                 LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
 
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-                new[] {candlestickChart, slLine, tpLine });
+                new[] {candlestickChart, slLine, tpLine});
             
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
             int unixTimestamp = (int)d[^1].Date.ToUniversalTime()

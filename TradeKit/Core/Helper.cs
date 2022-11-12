@@ -13,7 +13,7 @@ namespace TradeKit.Core
 
         public const int ZOOM_STEP = 1;
         public const int ZOOM_MIN = 1;
-        public const double MINIMUM_BARS_IN_IMPULSE = 2;
+        public const double MINIMUM_BARS_IN_IMPULSE = 5;
         public const double BARS_DEPTH = 100;
         public const int EXTREMA_MAX = 100;
         public const double PERCENT_ALLOWANCE_SL = 2;
