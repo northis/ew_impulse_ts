@@ -31,11 +31,24 @@ namespace TradeKit.Core
 
             TimeFrames = timeFramesArray.ToDictionary(
                 a => a.TimeFrame, a => a);
+
+            FavoriteTimeFrames = timeFramesArray.Where(a =>
+                    a.TimeFrame == TimeFrame.Minute || 
+                    a.TimeFrame == TimeFrame.Minute5 ||
+                    a.TimeFrame == TimeFrame.Minute15 || 
+                    a.TimeFrame == TimeFrame.Minute30 ||
+                    a.TimeFrame == TimeFrame.Hour)
+                    .ToDictionary(a => a.TimeFrame, a => a);
         }
 
         /// <summary>
         /// Gets the supported time frames.
         /// </summary>
         public static Dictionary<TimeFrame, TimeFrameInfo> TimeFrames { get; }
+
+        /// <summary>
+        /// Gets the favorite time frames.
+        /// </summary>
+        public static Dictionary<TimeFrame, TimeFrameInfo> FavoriteTimeFrames { get; }
     }
 }

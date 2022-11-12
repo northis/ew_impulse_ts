@@ -380,17 +380,17 @@ namespace TradeKit.AlgoBase
         public bool IsImpulse(BarPoint start, BarPoint end, int deviation, out List<BarPoint> extrema)
         {
             extrema = null;
-            if (IsDoubleZigzag(start, end, deviation, m_ZoomMin))
-            {
-                return false;
-            }
+            //if (IsDoubleZigzag(start, end, deviation, m_ZoomMin))
+            //{
+            //    return false;
+            //}
 
-            if (IsZigzag(start, end, deviation, m_ZoomMin))
-            {
-                return false;
-            }
+            //if (IsZigzag(start, end, deviation, m_ZoomMin))
+            //{
+            //    return false;
+            //}
 
-            return true; // IsImpulseInner(start, end, deviation, out extrema);
+            return IsImpulseInner(start, end, deviation, out extrema);
 
             //for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
             //{
