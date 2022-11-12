@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using Plotly.NET;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.InputFiles;
 using TradeKit.EventArgs;
+using File = System.IO.File;
 
 namespace TradeKit.Telegram
 {
@@ -158,9 +160,12 @@ namespace TradeKit.Telegram
             }
             else
             {
+                using FileStream fileStream = File.Open(signalArgs.PlotImagePath, FileMode.Open);
+                string fileName = Path.GetFileName(signalArgs.PlotImagePath)
+                                  ?? Guid.NewGuid().ToString();
+
                 msgRes = m_TelegramBotClient
-                    .SendPhotoAsync(m_TelegramChatId,
-                        new InputMedia(signalArgs.PlotImagePath), alert)
+                    .SendPhotoAsync(m_TelegramChatId, new InputMedia(fileStream, fileName), alert)
                     .Result;
             }
 

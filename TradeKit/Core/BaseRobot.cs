@@ -536,7 +536,6 @@ namespace TradeKit.Core
                 }
             }
 
-            string plotImagePath = null;
             if (IsBacktesting || !TelegramReporter.IsReady)
             {
                 return;
@@ -555,11 +554,9 @@ namespace TradeKit.Core
             }
 
             int firstIndex = barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime);
+
             int earlyBar = Math.Max(0, firstIndex - (barsToView.Count - firstIndex) / 2);
-            if (earlyBar > 0)
-            {
-                plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
-            }
+            string plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
 
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
