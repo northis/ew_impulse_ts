@@ -552,28 +552,41 @@ namespace TradeKit.Core
                 }
             }
 
-            if (IsBacktesting)
-            {
-                return;
-            }
-
-            Bars barsToView = MarketData.GetBars(
-                GetViewTimeFrame(bars.TimeFrame), bars.SymbolName);
+            //if (IsBacktesting)
+            //{
+            //    return;
+            //}
 
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+            TimeFrame viewTf = GetViewTimeFrame(bars.TimeFrame);
+            bool useSubView = viewTf != bars.TimeFrame;
+            string[] plotImagePathArray = new string[useSubView ? 2 : 1];
+
+            Bars barsToView = MarketData.GetBars(viewTf, bars.SymbolName);
+            int GetEarlyBar(Bars inBars)
             {
-                File.Delete(file);
+                int firstIndex = inBars.OpenTimes.GetIndexByTime(e.StartViewBarTime);
+                int earlyBar = Math.Max(0, firstIndex - 5);// 5 bars as margin
+                return earlyBar;
             }
 
-            int firstIndex = barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime);
-            int earlyBar = Math.Max(0, firstIndex - 5);
-            string plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
-
-            if (!TelegramReporter.IsReady)
+            plotImagePathArray[0] = SavePlotImage(
+                barsToView, GetEarlyBar(barsToView), tp, sl);
+            if (useSubView)
             {
+                plotImagePathArray[1] = SavePlotImage(bars, GetEarlyBar(bars), tp, sl);
+            }
+
+            //foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+            //{
+            //    File.Delete(file);
+            //}
+
+
+            //if (!TelegramReporter.IsReady)
+            //{
                 return;
-            }
+            //}
 
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
@@ -583,7 +596,7 @@ namespace TradeKit.Core
                 SignalEventArgs = e,
                 SymbolName = symbolInfo.Name,
                 SenderId = sf.Id,
-                PlotImagePath = plotImagePath
+                PlotImagePathArray = plotImagePathArray
             });
         }
 
@@ -596,15 +609,15 @@ namespace TradeKit.Core
                 return null;
             }
 
-            bool useRangeBreaks = TimeFrameHelper.TimeFrames
-                .TryGetValue(bars.TimeFrame, out TimeFrameInfo timeFrameInfo);
+            //bool useRangeBreaks = TimeFrameHelper.TimeFrames
+            //    .TryGetValue(bars.TimeFrame, out TimeFrameInfo timeFrameInfo);
 
             var o = new double[barsCount];
             var h = new double[barsCount];
             var c = new double[barsCount];
             var l = new double[barsCount];
             var d = new DateTime[barsCount];
-            var rangeBreaks = new List<DateTime>();
+            //var rangeBreaks = new List<DateTime>();
             for (int i = startIndex; i < lastIndex; i++)
             {
                 Bar bar = bars[i];
@@ -615,24 +628,24 @@ namespace TradeKit.Core
                 c[barIndex] = bar.Close;
                 d[barIndex] = bar.OpenTime;
 
-                if (!useRangeBreaks || i == startIndex)
-                {
-                    continue;
-                }
+                //if (!useRangeBreaks || i == startIndex)
+                //{
+                //    continue;
+                //}
 
-                DateTime prevDateTime = bars[i - 1].OpenTime;
-                DateTime currentDateTime = bar.OpenTime;
-                TimeSpan diffToPrevious = currentDateTime - prevDateTime;
-                if (i != startIndex && diffToPrevious > timeFrameInfo.TimeSpan)
-                {
-                    while (currentDateTime >= prevDateTime)
-                    {
-                        prevDateTime = prevDateTime.Add(timeFrameInfo.TimeSpan);
-                        rangeBreaks.Add(prevDateTime);
-                    }
-                }
+                //DateTime prevDateTime = bars[i - 1].OpenTime;
+                //DateTime currentDateTime = bar.OpenTime;
+                //TimeSpan diffToPrevious = currentDateTime - prevDateTime;
+                //if (i != startIndex && diffToPrevious > timeFrameInfo.TimeSpan)
+                //{
+                //    while (currentDateTime >= prevDateTime)
+                //    {
+                //        prevDateTime = prevDateTime.Add(timeFrameInfo.TimeSpan);
+                //        rangeBreaks.Add(prevDateTime);
+                //    }
+                //}
             }
-
+            
             Color blackColor = Color.fromARGB(255, 22, 26, 37);
             Color whiteColor = Color.fromARGB(255, 209, 212, 220);
             Color shortColor = Color.fromHex("#EF5350");
@@ -643,14 +656,28 @@ namespace TradeKit.Core
                         IncreasingColor: new FSharpOption<Color>(longColor),
                         DecreasingColor: new FSharpOption<Color>(shortColor),
                         Name: bars.SymbolName,
-                        ShowLegend: new FSharpOption<bool>(false))
-                .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName}",
+                        ShowLegend: new FSharpOption<bool>(false));
+            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] {new(d[0], tp), new(d[^1], tp)},
+                LineColor: new FSharpOption<Color>(longColor),
+                ShowLegend: new FSharpOption<bool>(false),
+                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
+            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] {new(d[0], sl), new(d[^1], sl)},
+                LineColor: new FSharpOption<Color>(shortColor), 
+                ShowLegend: new FSharpOption<bool>(false),
+                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
+
+            GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
+                    new[] {slLine, candlestickChart, tpLine})
+                .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName} {d[^1]:u}",
                     new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
                 .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
                 .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
                 .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
                 .WithConfig(Config.init(
-                    StaticPlot: new FSharpOption<bool>(true)))
+                    StaticPlot: new FSharpOption<bool>(true),
+                    Responsive: new FSharpOption<bool>(false)))
                 .WithLayout(Layout.init<string>(
                     PlotBGColor: new FSharpOption<Color>(blackColor),
                     PaperBGColor: new FSharpOption<Color>(blackColor),
@@ -661,32 +688,18 @@ namespace TradeKit.Core
                     Columns: new FSharpOption<int>(0),
                     XGap: new FSharpOption<double>(0),
                     YGap: new FSharpOption<double>(0)))
-                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
-                        {
-                            Rangebreak.init<string, string>(
-                                new FSharpOption<bool>(rangeBreaks.Any()),
-                                // TODO
-                                //Values: new FSharpOption<IEnumerable<string>>(
-                                //    rangeBreaks.Select(a => a.ToString("O"))))
-                                Bounds: new FSharpOption<Tuple<string, string>>(
-                                    new Tuple<string, string>("sat", "sun")))
-                        }
-                    )));
-            
-            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] {new(d[0], tp), new(d[^1], tp)},
-                FillColor: new FSharpOption<Color>(longColor),
-                ShowLegend: new FSharpOption<bool>(false),
-                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
-            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] {new(d[0], sl), new(d[^1], sl)},
-                FillColor: new FSharpOption<Color>(shortColor), 
-                ShowLegend: new FSharpOption<bool>(false),
-                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
-
-            GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-                new[] {candlestickChart, slLine, tpLine});
+                //.WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                //    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
+                //        {
+                //            Rangebreak.init<string, string>(
+                //                new FSharpOption<bool>(rangeBreaks.Any()),
+                //                Values: new FSharpOption<IEnumerable<string>>(
+                //                    rangeBreaks.Select(a => a.ToString("O"))))
+                //            //Bounds: new FSharpOption<Tuple<string, string>>(
+                //            //    new Tuple<string, string>("sat", "sun")))
+                //        }
+                //    )))
+                ;
             
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
             int unixTimestamp = (int)d[^1].Date.ToUniversalTime()

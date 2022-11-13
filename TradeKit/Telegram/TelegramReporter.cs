@@ -150,9 +150,10 @@ namespace TradeKit.Telegram
             }
 
             string alert = sb.ToString();
-            Message msgRes;
+            Message msgRes = null;
 
-            if (string.IsNullOrEmpty(signalArgs.PlotImagePath))
+            if (signalArgs.PlotImagePathArray==null ||
+                signalArgs.PlotImagePathArray.Length ==0)
             {
                 msgRes = m_TelegramBotClient
                     .SendTextMessageAsync(m_TelegramChatId, alert)
@@ -160,16 +161,27 @@ namespace TradeKit.Telegram
             }
             else
             {
-                using FileStream fileStream = File.Open(signalArgs.PlotImagePath, FileMode.Open);
-                string fileName = Path.GetFileName(signalArgs.PlotImagePath)
-                                  ?? Guid.NewGuid().ToString();
+                for (int i = 0; i < signalArgs.PlotImagePathArray.Length; i++)
+                {
+                    string currentPath = signalArgs.PlotImagePathArray[i];
+                    using FileStream fileStream = File.Open(currentPath, FileMode.Open);
+                    string fileName = Path.GetFileName(currentPath);
+                    bool isFirst = i == 0;
 
-                msgRes = m_TelegramBotClient
-                    .SendPhotoAsync(m_TelegramChatId, new InputMedia(fileStream, fileName), alert)
-                    .Result;
+                    Message localMsgRes = m_TelegramBotClient
+                        .SendPhotoAsync(m_TelegramChatId,
+                            new InputMedia(fileStream, fileName), isFirst ? alert : null,
+                            disableNotification: !isFirst, 
+                            replyToMessageId: msgRes?.MessageId)
+                        .Result;
+
+                    if (isFirst)
+                        msgRes = localMsgRes;
+                }
             }
 
-            m_SignalPostIds[signalArgs.SenderId] = msgRes.MessageId;
+            if (msgRes != null)
+                m_SignalPostIds[signalArgs.SenderId] = msgRes.MessageId;
         }
 
         /// <summary>
@@ -218,7 +230,7 @@ namespace TradeKit.Telegram
             /// <summary>
             /// Gets or sets the image of signal (a .png file). Can be null
             /// </summary>
-            public string PlotImagePath { get; set; }
+            public string[] PlotImagePathArray { get; set; }
         }
     }
 }
