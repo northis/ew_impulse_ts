@@ -552,41 +552,28 @@ namespace TradeKit.Core
                 }
             }
 
-            //if (IsBacktesting)
-            //{
-            //    return;
-            //}
+            if (IsBacktesting)
+            {
+                return;
+            }
+
+            Bars barsToView = MarketData.GetBars(
+                GetViewTimeFrame(bars.TimeFrame), bars.SymbolName);
 
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            TimeFrame viewTf = GetViewTimeFrame(bars.TimeFrame);
-            bool useSubView = viewTf != bars.TimeFrame;
-            string[] plotImagePathArray = new string[useSubView ? 2 : 1];
-
-            Bars barsToView = MarketData.GetBars(viewTf, bars.SymbolName);
-            int GetEarlyBar(Bars inBars)
+            foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
             {
-                int firstIndex = inBars.OpenTimes.GetIndexByTime(e.StartViewBarTime);
-                int earlyBar = Math.Max(0, firstIndex - 5);// 5 bars as margin
-                return earlyBar;
+                File.Delete(file);
             }
 
-            plotImagePathArray[0] = SavePlotImage(
-                barsToView, GetEarlyBar(barsToView), tp, sl);
-            if (useSubView)
+            int firstIndex = barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime);
+            int earlyBar = Math.Max(0, firstIndex - 5);// 5 bars as margin
+            string plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
+
+            if (!TelegramReporter.IsReady)
             {
-                plotImagePathArray[1] = SavePlotImage(bars, GetEarlyBar(bars), tp, sl);
-            }
-
-            //foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
-            //{
-            //    File.Delete(file);
-            //}
-
-
-            //if (!TelegramReporter.IsReady)
-            //{
                 return;
-            //}
+            }
 
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
@@ -596,7 +583,7 @@ namespace TradeKit.Core
                 SignalEventArgs = e,
                 SymbolName = symbolInfo.Name,
                 SenderId = sf.Id,
-                PlotImagePathArray = plotImagePathArray
+                PlotImagePath = plotImagePath
             });
         }
 
@@ -608,7 +595,8 @@ namespace TradeKit.Core
             {
                 return null;
             }
-
+            // TODO uncomment if you wanna use overnight signals, but plots can be
+            // strange - without some bars
             //bool useRangeBreaks = TimeFrameHelper.TimeFrames
             //    .TryGetValue(bars.TimeFrame, out TimeFrameInfo timeFrameInfo);
 

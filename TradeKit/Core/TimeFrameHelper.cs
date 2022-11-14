@@ -35,9 +35,7 @@ namespace TradeKit.Core
             FavoriteTimeFrames = timeFramesArray.Where(a =>
                     a.TimeFrame == TimeFrame.Minute || 
                     a.TimeFrame == TimeFrame.Minute5 ||
-                    a.TimeFrame == TimeFrame.Minute15 || 
-                    a.TimeFrame == TimeFrame.Minute30 ||
-                    a.TimeFrame == TimeFrame.Hour)
+                    a.TimeFrame == TimeFrame.Minute15)
                     .ToDictionary(a => a.TimeFrame, a => a);
         }
 
