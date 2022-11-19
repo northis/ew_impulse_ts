@@ -14,6 +14,7 @@ namespace TradeKit.Signals
 {
     public class ParseSetupFinder : BaseSetupFinder<SignalEventArgs>
     {
+        private readonly IBarsProvider m_MainBarsProvider;
         private readonly string m_SignalHistoryFilePath;
         private readonly bool m_UseUtc;
         private readonly bool m_UseOneTp;
@@ -55,6 +56,7 @@ namespace TradeKit.Signals
             string signalHistoryFilePath, bool useUtc, bool useOneTp) 
             : base(mainBarsProvider, state, symbol)
         {
+            m_MainBarsProvider = mainBarsProvider;
             m_SignalHistoryFilePath = signalHistoryFilePath;
             m_UseUtc = useUtc;
             m_UseOneTp = useOneTp;
@@ -62,7 +64,6 @@ namespace TradeKit.Signals
         }
 
         private int m_LastBar;
-        private int m_LastSignalBar;
         private double m_LastPrice;
 
         /// <summary>
@@ -77,6 +78,7 @@ namespace TradeKit.Signals
         public override void CheckBar(int index)
         {
             m_LastBar = index;
+            m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
             ProcessSetup();
         }
 

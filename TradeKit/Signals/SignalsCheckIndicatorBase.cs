@@ -61,14 +61,15 @@ namespace TradeKit.Signals
                 return;
             }
 
+            
             double price = e.Level.Price;
             int rectIndex = index.Value + RECT_WIDTH_BARS;
             Chart.DrawRectangle($"{index} {index.Value} sl",
-                index.Value, price, rectIndex, e.StopLoss.Price, Color.Red, 1, LineStyle.Dots);
+                index.Value, price, rectIndex, e.StopLoss.Price, Color.Red, 1, LineStyle.Lines);
 
             double tpPrice = e.TakeProfit.Price;
             Chart.DrawRectangle($"{index} {index.Value} tp {tpPrice}",
-                index.Value, price, rectIndex, tpPrice, Color.Green, 1, LineStyle.Dots);
+                index.Value, price, rectIndex, tpPrice, Color.Green, 1, LineStyle.Lines);
         }
 
         /// <inheritdoc />
