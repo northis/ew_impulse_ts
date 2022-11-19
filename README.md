@@ -30,3 +30,7 @@ Can be easily connected to your cTrader terminal.
 
     [ ![Bot in work](images/rateSignalerBot_preview.png) ](images/rateSignalerBot.png)
 
+## Telegram reporting
+
+![Bot in work](images/telegramSignalsBot.png)
+
