@@ -8,6 +8,10 @@ Can be easily connected to your cTrader terminal.
 6. PROFIT!
 
 ## Elliott Wave Impulse Trading System (bot & indicator)
+Setup principle is to find an initial impulse (wave 1 or wave A) and trade the next wave from the pullback.
+
+![Setup](images/ew_setup.png)
+
 - indicator `ImpulseFinderIndicator.csproj`
 
     [ ![Indicator in work](images/impulseFinderInd_preview.png) ](images/impulseFinderInd.png)
