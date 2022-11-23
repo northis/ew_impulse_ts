@@ -28,6 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Core\BaseRobot.cs" />
+    <Compile Include="Core\ChartItem.cs" />
     <Compile Include="Signals\NullParseSetupFinder.cs" />
     <Compile Include="Core\SymbolState.cs" />
     <Compile Include="Core\CTraderBarsProvider.cs" />

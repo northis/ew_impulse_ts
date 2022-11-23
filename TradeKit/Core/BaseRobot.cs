@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -28,6 +27,12 @@ namespace TradeKit.Core
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
+        protected const string CHART_FILE_TYPE_EXTENSION = ".png";
+        protected const int CHART_BARS_MARGIN_COUNT = 10;
+        protected const int CHART_HEIGHT = 1000;
+        protected const int CHART_WIDTH = 1000;
+        protected const string FIRST_CHART_FILE_POSTFIX = ".01";
+        protected const string SECOND_CHART_FILE_POSTFIX = ".02";
         private double m_CurrentRisk = RISK_DEPOSIT_PERCENT;
         protected TelegramReporter TelegramReporter;
         private Dictionary<string, T> m_SetupFindersMap;
@@ -36,9 +41,12 @@ namespace TradeKit.Core
         private Dictionary<string, Symbol> m_SymbolsMap;
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, bool> m_PositionFinderMap;
+        private Dictionary<string, ChartItem> m_ChartFileFinderMap;
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
+
+        #region User properties
 
         /// <summary>
         /// Gets or sets the risk percent from deposit (regular).
@@ -89,6 +97,12 @@ namespace TradeKit.Core
         public bool UseTimeFramesList { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating we should save .png files of the charts for manual analysis.
+        /// </summary>
+        [Parameter(nameof(SaveChartForManualAnalysis), DefaultValue = false)]
+        public bool SaveChartForManualAnalysis { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating we should post the close messages like "tp/sl hit".
         /// </summary>
         [Parameter(nameof(PostCloseMessages), DefaultValue = true)]
@@ -117,6 +131,8 @@ namespace TradeKit.Core
         /// </summary>
         [Parameter("ChatId", DefaultValue = null)]
         public string ChatId { get; set; }
+
+        #endregion
 
         /// <summary>
         /// Gets the name of the bot.
@@ -195,6 +211,7 @@ namespace TradeKit.Core
             m_SymbolsMap = new Dictionary<string, Symbol>();
             m_SymbolFindersMap = new Dictionary<string, T[]>();
             m_PositionFinderMap = new Dictionary<string, bool>();
+            m_ChartFileFinderMap = new Dictionary<string, ChartItem>();
             m_CurrentRisk = RiskPercentFromDeposit;
 
             string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
@@ -240,6 +257,11 @@ namespace TradeKit.Core
                 }
                 
                 m_SymbolFindersMap[symbolName] = finders.ToArray();
+            }
+
+            if (SaveChartForManualAnalysis)
+            {
+                Logger.Write($"Your charts will be in this folder: {Helper.DirectoryToSaveImages}");
             }
 
             Positions.Closed += OnPositionsClosed;
@@ -291,49 +313,63 @@ namespace TradeKit.Core
 
         private void OnTick(SymbolTickEventArgs obj)
         {
-            if (!m_SymbolFindersMap.TryGetValue(obj.SymbolName, out T[] finders))
+            try
             {
-                return;
-            }
+                if (!m_SymbolFindersMap.TryGetValue(obj.SymbolName, out T[] finders))
+                {
+                    return;
+                }
 
-            foreach (T sf in finders)
+                foreach (T sf in finders)
+                {
+                    sf.CheckTick(obj.Bid);
+                }
+            }
+            catch (Exception ex)
             {
-                sf.CheckTick(obj.Bid);
+               Logger.Write($"{nameof(OnTick)}: {ex.Message}");
             }
         }
 
         private void BarOpened(BarOpenedEventArgs obj)
         {
-            Bars bars = obj.Bars;
-            int prevCount = bars.Count - 1;
-            int index = prevCount - 1;
-            if (index < 0)
+            try
             {
-                return;
-            }
+                Bars bars = obj.Bars;
+                int prevCount = bars.Count - 1;
+                int index = prevCount - 1;
+                if (index < 0)
+                {
+                    return;
+                }
 
-            string finderId = BaseSetupFinder<TK>.GetId(bars.SymbolName, bars.TimeFrame.Name);
-            if (!m_SetupFindersMap.TryGetValue(finderId, out T sf))
+                string finderId = BaseSetupFinder<TK>.GetId(bars.SymbolName, bars.TimeFrame.Name);
+                if (!m_SetupFindersMap.TryGetValue(finderId, out T sf))
+                {
+                    return;
+                }
+
+                if (m_BarsInitMap[finderId])
+                {
+                    sf.CheckBar(index);
+                    return;
+                }
+
+                for (int i = 0; i < prevCount; i++)
+                {
+                    sf.CheckBar(i);
+                }
+
+                sf.OnEnter += OnEnter;
+                sf.OnStopLoss += OnStopLoss;
+                sf.OnTakeProfit += OnTakeProfit;
+                sf.State.IsInSetup = false;
+                m_BarsInitMap[finderId] = true;
+            }
+            catch (Exception ex)
             {
-                return;
+                Logger.Write($"{nameof(BarOpened)}: {ex.Message}");
             }
-
-            if (m_BarsInitMap[finderId])
-            {
-                sf.CheckBar(index);
-                return;
-            }
-
-            for (int i = 0; i < prevCount; i++)
-            {
-                sf.CheckBar(i);
-            }
-
-            sf.OnEnter += OnEnter;
-            sf.OnStopLoss += OnStopLoss;
-            sf.OnTakeProfit += OnTakeProfit;
-            sf.State.IsInSetup = false;
-            m_BarsInitMap[finderId] = true;
         }
 
         /// <summary>
@@ -382,16 +418,35 @@ namespace TradeKit.Core
             {
                 return;
             }
-
+            
             m_StopCount++;
             Logger.Write($"SL hit! {price}");
             CloseSymbolPositions(setupId);
+            ShowResultChart(sender);
+
             if (IsBacktesting || !TelegramReporter.IsReady)
             {
                 return;
             }
 
             TelegramReporter.ReportStopLoss(setupId);
+        }
+
+        /// <summary>
+        /// Generates the second result chart for the setup finder
+        /// </summary>
+        /// <param name="setupFinder">The setup finder we want to check. See <see cref="T"/></param>
+        private void ShowResultChart(object setupFinder)
+        {
+            if (!SaveChartForManualAnalysis || 
+                setupFinder is not T sf ||
+                !m_ChartFileFinderMap.TryGetValue(sf.Id, out ChartItem ci))
+            {
+                return;
+            }
+            
+            SavePlotImage(m_BarsMap[sf.Id], ci, true);
+            m_ChartFileFinderMap.Remove(sf.Id);
         }
 
         /// <summary>
@@ -409,6 +464,8 @@ namespace TradeKit.Core
             m_TakeCount++;
             Logger.Write($"TP hit! {price}");
             CloseSymbolPositions(setupId);
+            ShowResultChart(sender);
+
             if (IsBacktesting || !TelegramReporter.IsReady)
             {
                 return;
@@ -530,6 +587,7 @@ namespace TradeKit.Core
             GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
             Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
+
             if (IsBacktesting || AllowToTrade)
             {
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
@@ -552,23 +610,26 @@ namespace TradeKit.Core
                 }
             }
 
-            if (IsBacktesting)
+            if (IsBacktesting && !SaveChartForManualAnalysis)
             {
                 return;
             }
-
-            Bars barsToView = MarketData.GetBars(
-                GetViewTimeFrame(bars.TimeFrame), bars.SymbolName);
-
+            
             Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+            if (!SaveChartForManualAnalysis)
             {
-                File.Delete(file);
+                foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
+                {
+                    File.Delete(file);
+                }
             }
 
-            int firstIndex = barsToView.OpenTimes.GetIndexByTime(e.StartViewBarTime);
-            int earlyBar = Math.Max(0, firstIndex - 5);// 5 bars as margin
-            string plotImagePath = SavePlotImage(barsToView, earlyBar, tp, sl);
+            var ci = new ChartItem(e.StartViewBarTime, tp, sl);
+            string plotImagePath = SavePlotImage(bars, ci);
+            if (SaveChartForManualAnalysis)
+            {
+                m_ChartFileFinderMap[sf.Id] = ci;
+            }
 
             if (!TelegramReporter.IsReady)
             {
@@ -587,36 +648,49 @@ namespace TradeKit.Core
             });
         }
 
-        private string SavePlotImage(Bars bars, int startIndex, double tp, double sl)
+        /// <summary>
+        /// Generates PNG chart from params passed
+        /// </summary>
+        /// <param name="barsIn">The chart bars</param>
+        /// <param name="ci">Chart parameters</param>
+        /// <param name="secondShow">True if we want to see the result of the first trade</param>
+        /// <returns>Path to the png file</returns>
+        private string SavePlotImage(Bars barsIn, ChartItem ci, bool secondShow = false)
         {
+            Bars bars = MarketData.GetBars(GetViewTimeFrame(barsIn.TimeFrame), barsIn.SymbolName);
+            int firstIndex = bars.OpenTimes.GetIndexByTime(ci.StartViewBarTime);
+            int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
+
             int lastIndex = bars.Count - 1;
-            int barsCount = lastIndex - startIndex;
+            int barsCount = lastIndex - earlyBar;
             if (barsCount <= 0)
             {
                 return null;
             }
-            // TODO uncomment if you wanna use overnight signals, but plots can be
-            // strange - without some bars
-            //bool useRangeBreaks = TimeFrameHelper.TimeFrames
-            //    .TryGetValue(bars.TimeFrame, out TimeFrameInfo timeFrameInfo);
+
+            bool useCommonTimeFrame = TimeFrameHelper.TimeFrames
+                .TryGetValue(bars.TimeFrame, out TimeFrameInfo timeFrameInfo);
 
             var o = new double[barsCount];
             var h = new double[barsCount];
             var c = new double[barsCount];
             var l = new double[barsCount];
             var d = new DateTime[barsCount];
+
+            // TODO uncomment if you wanna use overnight signals, but plots can be
+            // strange - without some bars
             //var rangeBreaks = new List<DateTime>();
-            for (int i = startIndex; i < lastIndex; i++)
+            for (int i = earlyBar; i < lastIndex; i++)
             {
                 Bar bar = bars[i];
-                int barIndex = i - startIndex;
+                int barIndex = i - earlyBar;
                 o[barIndex] = bar.Open;
                 h[barIndex] = bar.High;
                 l[barIndex] = bar.Low;
                 c[barIndex] = bar.Close;
                 d[barIndex] = bar.OpenTime;
 
-                //if (!useRangeBreaks || i == startIndex)
+                //if (!useRangeBreaks || i == earlyBar)
                 //{
                 //    continue;
                 //}
@@ -624,7 +698,7 @@ namespace TradeKit.Core
                 //DateTime prevDateTime = bars[i - 1].OpenTime;
                 //DateTime currentDateTime = bar.OpenTime;
                 //TimeSpan diffToPrevious = currentDateTime - prevDateTime;
-                //if (i != startIndex && diffToPrevious > timeFrameInfo.TimeSpan)
+                //if (i != ci.StopLoss && diffToPrevious > timeFrameInfo.TimeSpan)
                 //{
                 //    while (currentDateTime >= prevDateTime)
                 //    {
@@ -633,7 +707,12 @@ namespace TradeKit.Core
                 //    }
                 //}
             }
-            
+
+            DateTime lastOpenDateTime = d[^1];
+            DateTime lastCloseDateTime = useCommonTimeFrame
+                ? lastOpenDateTime + timeFrameInfo.TimeSpan
+                : lastOpenDateTime;
+
             Color blackColor = Color.fromARGB(255, 22, 26, 37);
             Color whiteColor = Color.fromARGB(255, 209, 212, 220);
             Color shortColor = Color.fromHex("#EF5350");
@@ -646,36 +725,36 @@ namespace TradeKit.Core
                         Name: bars.SymbolName,
                         ShowLegend: new FSharpOption<bool>(false));
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] {new(d[0], tp), new(d[^1], tp)},
+                new Tuple<DateTime, double>[] {new(d[0], ci.TakeProfit), new(lastOpenDateTime, ci.TakeProfit) },
                 LineColor: new FSharpOption<Color>(longColor),
                 ShowLegend: new FSharpOption<bool>(false),
                 LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] {new(d[0], sl), new(d[^1], sl)},
+                new Tuple<DateTime, double>[] {new(d[0], ci.StopLoss), new(lastOpenDateTime, ci.StopLoss) },
                 LineColor: new FSharpOption<Color>(shortColor), 
                 ShowLegend: new FSharpOption<bool>(false),
                 LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
 
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-                    new[] {slLine, candlestickChart, tpLine})
-                .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName} {d[^1]:u}",
-                    new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
-                .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
-                .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
-                .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
-                .WithConfig(Config.init(
-                    StaticPlot: new FSharpOption<bool>(true),
-                    Responsive: new FSharpOption<bool>(false)))
-                .WithLayout(Layout.init<string>(
-                    PlotBGColor: new FSharpOption<Color>(blackColor),
-                    PaperBGColor: new FSharpOption<Color>(blackColor),
-                    Font: new FSharpOption<Font>(Font.init(
-                        Color: new FSharpOption<Color>(whiteColor)))))
-                .WithLayoutGrid(LayoutGrid.init(
-                    Rows: new FSharpOption<int>(0),
-                    Columns: new FSharpOption<int>(0),
-                    XGap: new FSharpOption<double>(0),
-                    YGap: new FSharpOption<double>(0)))
+                        new[] {slLine, candlestickChart, tpLine})
+                    .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName} {lastCloseDateTime:u} ",
+                        new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
+                    .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
+                    .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
+                    .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
+                    .WithConfig(Config.init(
+                        StaticPlot: new FSharpOption<bool>(true),
+                        Responsive: new FSharpOption<bool>(false)))
+                    .WithLayout(Layout.init<string>(
+                        PlotBGColor: new FSharpOption<Color>(blackColor),
+                        PaperBGColor: new FSharpOption<Color>(blackColor),
+                        Font: new FSharpOption<Font>(Font.init(
+                            Color: new FSharpOption<Color>(whiteColor)))))
+                    .WithLayoutGrid(LayoutGrid.init(
+                        Rows: new FSharpOption<int>(0),
+                        Columns: new FSharpOption<int>(0),
+                        XGap: new FSharpOption<double>(0),
+                        YGap: new FSharpOption<double>(0)))
                 //.WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
                 //    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
                 //        {
@@ -689,13 +768,15 @@ namespace TradeKit.Core
                 //    )))
                 ;
             
-            Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            int unixTimestamp = (int)d[^1].Date.ToUniversalTime()
-                .Subtract(DateTime.UnixEpoch).TotalSeconds;
+            string fileName = ci.StartViewBarTime.ToString("s").Replace(":", "-");
+            string postfix = string.Empty;
+            if (SaveChartForManualAnalysis) 
+                postfix = secondShow ? SECOND_CHART_FILE_POSTFIX : FIRST_CHART_FILE_POSTFIX;
+
             string outPath = Path.Combine(Helper.DirectoryToSaveImages,
-                $"{unixTimestamp}.{bars.SymbolName}.{bars.TimeFrame.ShortName}");
-            resultChart.SavePNG(outPath, null, 1000, 1000);
-            return $"{outPath}.png";
+                $"{fileName}.{bars.SymbolName}.{bars.TimeFrame.ShortName}{postfix}");
+            resultChart.SavePNG(outPath, null, CHART_WIDTH, CHART_HEIGHT);
+            return $"{outPath}{CHART_FILE_TYPE_EXTENSION}";
         }
 
         /// <summary>

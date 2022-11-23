@@ -7,7 +7,7 @@ namespace TradeKit.Core
     /// <summary>
     /// Class contains the logic of trade setups searching.
     /// </summary>
-    public abstract class BaseSetupFinder<T> where T: SignalEventArgs
+    public abstract class BaseSetupFinder<T> where T : SignalEventArgs
     {
         /// <summary>
         /// Gets the symbol.
@@ -23,7 +23,7 @@ namespace TradeKit.Core
         /// Gets the bars provider.
         /// </summary>
         public IBarsProvider BarsProvider { get; }
-        
+
         /// <summary>
         /// Gets the identifier of this setup finder.
         /// </summary>
@@ -99,7 +99,7 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="bid">The price (bid).</param>
         public abstract void CheckTick(double bid);
-        
+
         /// <summary>
         /// Raises the <see cref="E:OnEnter" /> event.
         /// </summary>
