@@ -7,7 +7,7 @@ namespace TradeKit.AlgoBase
     /// <summary>
     /// Contains pattern-finding logic for the Elliott Waves structures.
     /// </summary>
-    public class PatternFinder
+    public class ElliottWavePatternFinder
     {
         private readonly int m_ZoomMin;
         private readonly double m_CorrectionAllowancePercent;
@@ -18,17 +18,19 @@ namespace TradeKit.AlgoBase
         private const double FIBONACCI = 1.618;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PatternFinder"/> class.
+        /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="zoomMin">The zoom minimum.</param>
-        public PatternFinder(double correctionAllowancePercent, IBarsProvider barsProvider, int zoomMin)
+        public ElliottWavePatternFinder(
+            double correctionAllowancePercent, IBarsProvider barsProvider, int zoomMin)
         {
             m_ZoomMin = zoomMin;
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
         }
+
         /// <summary>
         /// Determines whether the specified interval has a zigzag.
         /// </summary>

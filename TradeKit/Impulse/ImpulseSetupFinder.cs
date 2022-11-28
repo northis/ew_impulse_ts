@@ -14,7 +14,7 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : BaseSetupFinder<ImpulseSignalEventArgs>
     {
-        private readonly PatternFinder m_PatternFinder;
+        private readonly ElliottWavePatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         private int m_LastBarIndex;
         ExtremumFinder m_PreFinder;
@@ -62,7 +62,7 @@ namespace TradeKit.Impulse
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
 
-            m_PatternFinder = new PatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, zoomMin);
+            m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, zoomMin);
         }
 
         /// <summary>
