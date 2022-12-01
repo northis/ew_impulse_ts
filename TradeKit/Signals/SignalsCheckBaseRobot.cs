@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using cAlgo.API;
@@ -77,7 +78,6 @@ namespace TradeKit.Signals
         protected override ParseSetupFinder CreateSetupFinder(Bars bars, SymbolState state, Symbol symbolEntity)
         {
             CTraderBarsProvider barsProvider = new CTraderBarsProvider(bars);
-
             string path;
             if (string.IsNullOrEmpty(SignalHistoryFilePath))
             {

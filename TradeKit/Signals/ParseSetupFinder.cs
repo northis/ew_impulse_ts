@@ -171,7 +171,7 @@ namespace TradeKit.Signals
             {
                 return res;
             }
-
+            
             foreach (TelegramHistorySignal historyItem in history)
             {
                 string textAll = string.Concat(historyItem.Text);
@@ -182,18 +182,19 @@ namespace TradeKit.Signals
                 }
 
                 Match signal = Regex.Match(textAll, SIGNAL_REGEX, RegexOptions.IgnoreCase);
-                if (!signal.Success)
-                {
-                    continue;
-                }
-
                 DateTime utcDateTime = m_UseUtc ? historyItem.Date : historyItem.Date.ToUniversalTime();
                 var signalOut = new ParsedSignal { DateTime = utcDateTime, SymbolName = State.Symbol };
-                if (double.TryParse(signal.Groups[2].Value,
-                        NUMBER_STYLES, CultureInfo.InvariantCulture, out double enterPrice))
-                    signalOut.Price = enterPrice;
+                bool isTrueSignal = false;
 
-                signalOut.IsLong = signal.Groups[1].Value?.ToLowerInvariant() == "buy";
+                if (signal.Success)
+                {
+                    if (double.TryParse(signal.Groups[2].Value,
+                            NUMBER_STYLES, CultureInfo.InvariantCulture, out double enterPrice))
+                        signalOut.Price = enterPrice;
+
+                    signalOut.IsLong = signal.Groups[1].Value?.ToLowerInvariant() == "buy";
+                    isTrueSignal = true;
+                }
 
                 Match sl = Regex.Match(textAll, SL_REGEX, RegexOptions.IgnoreCase);
                 if (!sl.Success)
@@ -226,6 +227,12 @@ namespace TradeKit.Signals
                 }
 
                 signalOut.TakeProfits = tpList.ToArray();
+
+                if (!isTrueSignal)
+                {
+                    signalOut.IsLong = tpList[0] > slPrice;
+                }
+
                 res[signalOut.DateTime] = signalOut;
             }
 
