@@ -88,7 +88,7 @@ namespace TradeKit.AlgoBase
             minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
             List<BarPoint> extrema = minorExtremumFinder.ToExtremaList();
 
-            NormalizeExtrema(extrema, start, end);
+            extrema.NormalizeExtrema(start, end);
             return extrema;
         }
 
@@ -128,74 +128,6 @@ namespace TradeKit.AlgoBase
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// Normalizes the extrema.
-        /// </summary>
-        /// <param name="extrema">The extrema.</param>
-        /// <param name="start">The start extremum.</param>
-        /// <param name="end">The end extremum.</param>
-        private void NormalizeExtrema(List<BarPoint> extrema, BarPoint start, BarPoint end)
-        {
-            if (extrema.Count == 0)
-            {
-                extrema.Add(start);
-                extrema.Add(end);
-            }
-            else
-            {
-                if (extrema[0].OpenTime == start.OpenTime)
-                {
-                    extrema[0].Value = start.Value;
-                }
-                else
-                {
-                    extrema.Insert(0, start);
-                }
-
-                if (extrema[^1].OpenTime == end.OpenTime)
-                {
-                    extrema[^1].Value = end.Value;
-                }
-                else
-                {
-                    extrema.Add(end);
-                }
-            }
-
-            if (extrema.Count < ZIGZAG_EXTREMA_COUNT)
-            {
-                return;
-            }
-
-            // We want to leave only true extrema
-            BarPoint current = start;
-            bool direction = start > end;
-            List<BarPoint> toDelete = null;
-            for (int i = 1; i < extrema.Count; i++)
-            {
-                BarPoint extremum = extrema[i];
-                bool newDirection = current < extremum;
-                if (direction == newDirection)
-                {
-                    toDelete ??= new List<BarPoint>();
-                    toDelete.Add(current);
-                }
-
-                direction = newDirection;
-                current = extremum;
-            }
-
-            if (toDelete == null)
-            {
-                return;
-            }
-
-            foreach (BarPoint toDeleteItem in toDelete)
-            {
-                extrema.Remove(toDeleteItem);
-            }
         }
 
         /// <summary>
