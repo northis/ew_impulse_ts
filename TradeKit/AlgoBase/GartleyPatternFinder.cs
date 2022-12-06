@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using ICSharpCode.SharpZipLib;
 using TradeKit.Core;
 
 namespace TradeKit.AlgoBase
 {
     internal class GartleyPatternFinder
     {
-        private readonly double m_ShadowAllowance;
+        private readonly double m_ShadowAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
         private readonly int m_Scale;
         private const int GARTLEY_EXTREMA_COUNT = 6;
@@ -85,6 +86,8 @@ namespace TradeKit.AlgoBase
         private static readonly GartleyPattern[] PATTERNS;
         private readonly GartleyPattern[] m_RealPatterns;
 
+
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
         /// </summary>
@@ -98,7 +101,11 @@ namespace TradeKit.AlgoBase
             int scale,
             HashSet<GartleyPatternType> patterns = null)
         {
-            m_ShadowAllowance = shadowAllowance;
+            if (shadowAllowance is < 0 or > 100)
+                throw new ValueOutOfRangeException(
+                    $"{nameof(shadowAllowance)} should be between 0 and 100");
+
+            m_ShadowAllowanceRatio = shadowAllowance / 100 + 1;
             m_BarsProvider = barsProvider;
             m_Scale = scale;
             m_RealPatterns = patterns == null
@@ -112,11 +119,10 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="start">The point we want to start the search from.</param>
         /// <param name="end">The point we want to end the search from.</param>
-        /// <param name="scale">The deviation (scale) of extrema to use.</param>
         /// <returns>Gartley pattern or null</returns>
-        public List<GartleyItem> FindGartleyPatterns(DateTime start, DateTime end, int scale)
+        public List<GartleyItem> FindGartleyPatterns(DateTime start, DateTime end)
         {
-            ExtremumFinder extremaFinder = new (scale, m_BarsProvider);
+            ExtremumFinder extremaFinder = new (m_Scale, m_BarsProvider);
             extremaFinder.Calculate(start, end);
             KeyValuePair<int, BarPoint>[] extrema = extremaFinder.Extrema.ToArray();
             if (extrema.Length < GARTLEY_EXTREMA_COUNT)
@@ -180,7 +186,6 @@ namespace TradeKit.AlgoBase
                 lastExtremum = extrema[^i].Value;
             }
 
-
             return patterns?.ToList();
         }
 
@@ -214,8 +219,12 @@ namespace TradeKit.AlgoBase
                     double varA = varX + ratio * (isBull ? 1 : -1);
                     pointsA[i] = varA;
                 }
+                
+                // TODO We trust extrema, but maybe single bars should be taken into account
+                double bcIntervalExtrema = pointC.Value;
 
-                double bcIntervalExtrema = pointC.Value;// B-C overlap
+                double maxLimitB = pointsB.Max();
+                double minLimitB = pointsB.Min();
 
                 for (int i = indexC - 1; i < 0; i--)
                 {
@@ -223,6 +232,17 @@ namespace TradeKit.AlgoBase
                     int barIndex = extrema[i].Key;
                     double extremumVal = extremum.Value;
 
+                    bool isBullBreak = isBull && 
+                        (extremumVal > maxLimitB * m_ShadowAllowanceRatio || 
+                         extremumVal < minLimitB);
+                    bool isBearishBreak = !isBull &&
+                                       (extremumVal < minLimitB / m_ShadowAllowanceRatio ||
+                                        extremumVal > maxLimitB);
+                    if (isBullBreak || isBearishBreak)
+                    {
+                        // No B points are possible beyond this point
+                        break;
+                    }
 
                     List<double> bExtrema = null;
                     foreach (double pointB in pointsB)
@@ -235,11 +255,10 @@ namespace TradeKit.AlgoBase
                             }
 
                             double maxBody = m_BarsProvider.GetMaxBodyPrice(barIndex);
-                            if (maxBody > pointB)
+                            if (maxBody > pointB)// Ah, that is why we can use allowance for body
                             {
                                 continue;
                             }
-                            // check if the previous extrema overlap this one
 
                             bExtrema ??= new List<double>();
                             bExtrema.Add(pointB);
@@ -264,14 +283,19 @@ namespace TradeKit.AlgoBase
                         }
                     }
 
-
+                    if (bExtrema == null)
+                    {
+                        // No B points were found
+                        continue;
+                    }
+                    
+                    foreach (double bExtremum in bExtrema)
+                    {
+                        // Find here A and X points
+                    }
                 }
 
-                //if (isBull && varB >= varC || !isBull && varB <= varC)
-                //{
-                //    // check extrema until B exceeds CD range
-                //    continue;
-                //}
+
                 
             }
 
