@@ -11,6 +11,7 @@ namespace TradeKit.AlgoBase
         private readonly IBarsProvider m_BarsProvider;
         private readonly int m_Scale;
         private const int GARTLEY_EXTREMA_COUNT = 6;
+        private const int GARTLEY_EXTREMA_X_B_LAST_INDEX = 2;// 0-X, 1-A, 2-B
 
         private static readonly double[] LEVELS =
         {
@@ -82,7 +83,7 @@ namespace TradeKit.AlgoBase
         }
 
         private static readonly GartleyPattern[] PATTERNS;
-        private GartleyPattern[] m_RealPatterns;
+        private readonly GartleyPattern[] m_RealPatterns;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
@@ -117,7 +118,7 @@ namespace TradeKit.AlgoBase
         {
             ExtremumFinder extremaFinder = new (scale, m_BarsProvider);
             extremaFinder.Calculate(start, end);
-            BarPoint[] extrema = extremaFinder.Extrema.Select(a => a.Value).ToArray();
+            KeyValuePair<int, BarPoint>[] extrema = extremaFinder.Extrema.ToArray();
             if (extrema.Length < GARTLEY_EXTREMA_COUNT)
                 return null;
 
@@ -128,12 +129,12 @@ namespace TradeKit.AlgoBase
             int indexOffset = 1;
 
             //TODO check earlier extrema too, use depth to limit this search
-            BarPoint lastExtremum = extrema[^indexOffset];
+            BarPoint lastExtremum = extrema[^indexOffset].Value;
             BarPoint pointD = null;
             if (lastExtremum.OpenTime == end)
             {
                 indexOffset++;
-                lastExtremum = extrema[^indexOffset];
+                lastExtremum = extrema[^indexOffset].Value;
                 pointD = lastExtremum;
             }
 
@@ -157,13 +158,13 @@ namespace TradeKit.AlgoBase
             }
 
             HashSet<GartleyItem> patterns = null;
-            for (int i = extrema.Length - indexOffset; i < 0; i--)
+            for (int i = extrema.Length - indexOffset; i < GARTLEY_EXTREMA_X_B_LAST_INDEX; i--)
             {
                 pointD = lastExtremum;
                 double shadowD = m_BarsProvider.GetClosePrice(i);
 
                 List<GartleyItem> patternsIn =
-                    FindPatternC(extrema, indexOffset, i, isBull);
+                    FindPatternAgainstC(extrema, indexOffset, i, isBull);
                 if (patternsIn != null)
                 {
                     //check shadow against level
@@ -176,18 +177,18 @@ namespace TradeKit.AlgoBase
                     }
                 }
 
-                lastExtremum = extrema[^i];
+                lastExtremum = extrema[^i].Value;
             }
 
 
             return patterns?.ToList();
         }
 
-        List<GartleyItem> FindPatternC(
-            BarPoint[] extrema, int indexD, int indexC, bool isBull)
+        private List<GartleyItem> FindPatternAgainstC(
+            KeyValuePair<int, BarPoint>[] extrema, int indexD, int indexC, bool isBull)
         {
-            BarPoint pointC = extrema[indexC];
-            BarPoint pointD = extrema[indexD];
+            BarPoint pointC = extrema[indexC].Value;
+            BarPoint pointD = extrema[indexD].Value;
             double valCtoD = Math.Abs(pointC.Value - pointD.Value);
             double varC = pointC.Value;
 
@@ -214,6 +215,57 @@ namespace TradeKit.AlgoBase
                     pointsA[i] = varA;
                 }
 
+                double bcIntervalExtrema = pointC.Value;// B-C overlap
+
+                for (int i = indexC - 1; i < 0; i--)
+                {
+                    BarPoint extremum = extrema[i].Value;
+                    int barIndex = extrema[i].Key;
+                    double extremumVal = extremum.Value;
+
+
+                    List<double> bExtrema = null;
+                    foreach (double pointB in pointsB)
+                    {
+                        if (isBull)
+                        {
+                            if (extremumVal < pointB)
+                            {
+                                continue;
+                            }
+
+                            double maxBody = m_BarsProvider.GetMaxBodyPrice(barIndex);
+                            if (maxBody > pointB)
+                            {
+                                continue;
+                            }
+                            // check if the previous extrema overlap this one
+
+                            bExtrema ??= new List<double>();
+                            bExtrema.Add(pointB);
+                            // Got good B point
+                        }
+                        else
+                        {
+                            if (extremumVal > pointB)
+                            {
+                                continue;
+                            }
+
+                            double minBody = m_BarsProvider.GetMinBodyPrice(barIndex);
+                            if (minBody < pointB)
+                            {
+                                continue;
+                            }
+
+                            bExtrema ??= new List<double>();
+                            bExtrema.Add(pointB);
+                            // Got good B point
+                        }
+                    }
+
+
+                }
 
                 //if (isBull && varB >= varC || !isBull && varB <= varC)
                 //{

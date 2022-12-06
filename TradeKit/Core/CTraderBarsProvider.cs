@@ -57,6 +57,24 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Gets the max price of the candle body by the <see cref="index" /> specified.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        public double GetMaxBodyPrice(int index)
+        {
+            return Math.Max(GetClosePrice(index), GetOpenPrice(index));
+        }
+
+        /// <summary>
+        /// Gets the min price of the candle body by the <see cref="index" /> specified.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        public double GetMinBodyPrice(int index)
+        {
+            return Math.Min(GetClosePrice(index), GetOpenPrice(index));
+        }
+
+        /// <summary>
         /// Gets the open time of the candle by the <see cref="index" /> specified
         /// </summary>
         /// <param name="index">The index.</param>
