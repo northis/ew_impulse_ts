@@ -221,7 +221,6 @@ namespace TradeKit.AlgoBase
                 }
                 
                 // TODO We trust extrema, but maybe single bars should be taken into account
-                double bcIntervalExtrema = pointC.Value;
 
                 double maxLimitB = pointsB.Max();
                 double minLimitB = pointsB.Min();
@@ -292,6 +291,16 @@ namespace TradeKit.AlgoBase
                     foreach (double bExtremum in bExtrema)
                     {
                         // Find here A and X points
+
+                        foreach (double pointX in pointsX)
+                        {
+                            
+                        }
+
+                        if (pattern.XBValues.Length > 0)
+                        {
+
+                        }
                     }
                 }
 
@@ -300,6 +309,52 @@ namespace TradeKit.AlgoBase
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Creates the pattern if it is possible
+        /// </summary>
+        /// <param name="pattern">The Gartley pattern</param>
+        /// <param name="x">Point X</param>
+        /// <param name="a">Point A</param>
+        /// <param name="b">Point B</param>
+        /// <param name="c">Point C</param>
+        /// <param name="d">Point D</param>
+        /// <returns><see cref="GartleyItem"/> if it is valid or null if it doesn't</returns>
+        private GartleyItem CreatePattern(
+            GartleyPattern pattern, double x, double a, double b, double c, double d)
+        {
+            if (x == 0 || a == 0 || b == 0 || c == 0 || d == 0)
+                return null;
+
+            double xA = Math.Abs(a - x);
+            double aB = Math.Abs(b - a);
+            double cB = Math.Abs(c - b);
+            double cD = Math.Abs(c - d);
+            double xC = Math.Abs(c - x);
+
+            if (xA > 0 || aB > 0 || cB > 0 || cD > 0)
+                return null;
+
+            double xB = xA / aB;
+            double xD = cD / xA;
+            double bD = cD / cB;
+            double aC = xC / xA;
+
+            double valAc = pattern.ACValues.FirstOrDefault(
+                acVal => aC / acVal < m_ShadowAllowanceRatio);
+            double valBd = pattern.BDValues.FirstOrDefault(
+                bdVal => bD / bdVal < m_ShadowAllowanceRatio);
+            double valXd = pattern.XDValues.FirstOrDefault(
+                xdVal => xD / xdVal < m_ShadowAllowanceRatio);
+
+            if (valAc == 0 || valBd == 0 || valXd == 0)
+                return null;
+
+            double valXb = pattern.XBValues.FirstOrDefault(
+                xbVal => xB / xbVal < m_ShadowAllowanceRatio);
+
+            return null;//new GartleyItem(new LevelItem());
         }
     }
 }
