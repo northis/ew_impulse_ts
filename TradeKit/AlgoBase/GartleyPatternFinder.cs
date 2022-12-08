@@ -85,9 +85,7 @@ namespace TradeKit.AlgoBase
 
         private static readonly GartleyPattern[] PATTERNS;
         private readonly GartleyPattern[] m_RealPatterns;
-
-
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
         /// </summary>
@@ -122,55 +120,65 @@ namespace TradeKit.AlgoBase
         /// <returns>Gartley pattern or null</returns>
         public List<GartleyItem> FindGartleyPatterns(DateTime start, DateTime end)
         {
-            ExtremumFinder extremaFinder = new (m_Scale, m_BarsProvider);
-            extremaFinder.Calculate(start, end);
-            KeyValuePair<int, BarPoint>[] extrema = extremaFinder.Extrema.ToArray();
-            if (extrema.Length < GARTLEY_EXTREMA_COUNT)
+            int startIndex = m_BarsProvider.GetIndexByTime(start);
+
+            // the bar we want to analyze is closed right now
+            int endIndex = m_BarsProvider.GetIndexByTime(end) - 1;
+
+            if (endIndex - startIndex < GARTLEY_EXTREMA_COUNT)
                 return null;
+            
+            double max = m_BarsProvider.GetHighPrice(endIndex);
+            double min = m_BarsProvider.GetLowPrice(endIndex);
+            bool isBull = false;
 
-            int lastIndex = m_BarsProvider.GetIndexByTime(end);
-            double max = m_BarsProvider.GetHighPrice(lastIndex);
-            double min = m_BarsProvider.GetLowPrice(lastIndex);
-
-            int indexOffset = 1;
-
-            //TODO check earlier extrema too, use depth to limit this search
-            BarPoint lastExtremum = extrema[^indexOffset].Value;
-            BarPoint pointD = null;
-            if (lastExtremum.OpenTime == end)
-            {
-                indexOffset++;
-                lastExtremum = extrema[^indexOffset].Value;
-                pointD = lastExtremum;
-            }
-
-            bool isBull = max < lastExtremum.Value && min < lastExtremum.Value;
-            bool isBear = max > lastExtremum.Value && min > lastExtremum.Value;
-
-            if (isBull && isBear || !isBull && !isBear)
-            {
-                Logger.Write("Candle is too big for this scale");
-                return null;
-            }
-
-            if (pointD == null)
-            {
-                pointD = new BarPoint
-                {
-                    BarTimeFrame = m_BarsProvider.TimeFrame,
-                    OpenTime = end,
-                    Value = isBull ? min : max
-                };
-            }
-
+            BarIndexItem pointD = null;
             HashSet<GartleyItem> patterns = null;
-            for (int i = extrema.Length - indexOffset; i < GARTLEY_EXTREMA_X_B_LAST_INDEX; i--)
+            double shadowD = 0;
+            for (int i = endIndex - 1; i < startIndex; i--)
             {
-                pointD = lastExtremum;
-                double shadowD = m_BarsProvider.GetClosePrice(i);
+                double lMax = m_BarsProvider.GetHighPrice(i);
+                double lMin = m_BarsProvider.GetLowPrice(i);
 
-                List<GartleyItem> patternsIn =
-                    FindPatternAgainstC(extrema, indexOffset, i, isBull);
+                if (pointD == null)
+                {
+                    isBull = lMax > max;
+                    bool isBear = lMin < min;
+
+                    if (isBull && isBear)
+                    {
+                        Logger.Write("Candle is too big for this scale");
+                        return null;
+                    }
+
+                    if (!isBull && !isBear)
+                    {
+                        continue;
+                    }
+                    
+                    pointD = new BarIndexItem(
+                        m_BarsProvider.GetOpenTime(endIndex), endIndex, isBull ? min : max);
+                    shadowD = m_BarsProvider.GetClosePrice(pointD.Index);
+                }
+
+                max = Math.Max(max, lMax);
+                min = Math.Min(min, lMin);
+                double cValue;
+                if (isBull)
+                {
+                    if (lMax < max)
+                        continue;
+                    cValue = lMax;
+                }
+                else
+                {
+                    if (lMin > min)
+                        continue;
+                    cValue = lMin;
+                }
+
+                var pointC = new BarIndexItem(m_BarsProvider.GetOpenTime(i), i, cValue);
+                List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, shadowD, isBull);
                 if (patternsIn != null)
                 {
                     //check shadow against level
@@ -182,18 +190,14 @@ namespace TradeKit.AlgoBase
                         Logger.Write("Got the same Gartley pattern, ignore it");
                     }
                 }
-
-                lastExtremum = extrema[^i].Value;
             }
 
             return patterns?.ToList();
         }
 
         private List<GartleyItem> FindPatternAgainstC(
-            KeyValuePair<int, BarPoint>[] extrema, int indexD, int indexC, bool isBull)
+            BarIndexItem pointD, BarIndexItem pointC, double shadowD, bool isBull)
         {
-            BarPoint pointC = extrema[indexC].Value;
-            BarPoint pointD = extrema[indexD].Value;
             double valCtoD = Math.Abs(pointC.Value - pointD.Value);
             double varC = pointC.Value;
 
@@ -220,16 +224,14 @@ namespace TradeKit.AlgoBase
                     pointsA[i] = varA;
                 }
                 
-                // TODO We trust extrema, but maybe single bars should be taken into account
-
                 double maxLimitB = pointsB.Max();
                 double minLimitB = pointsB.Min();
 
-                for (int i = indexC - 1; i < 0; i--)
+                for (int i = pointC.Index - 1; i < 0; i--)
                 {
-                    BarPoint extremum = extrema[i].Value;
-                    int barIndex = extrema[i].Key;
-                    double extremumVal = extremum.Value;
+                    double extremumVal = isBull
+                        ? m_BarsProvider.GetLowPrice(i)
+                        : m_BarsProvider.GetHighPrice(i);
 
                     bool isBullBreak = isBull && 
                         (extremumVal > maxLimitB * m_ShadowAllowanceRatio || 
@@ -253,7 +255,7 @@ namespace TradeKit.AlgoBase
                                 continue;
                             }
 
-                            double maxBody = m_BarsProvider.GetMaxBodyPrice(barIndex);
+                            double maxBody = m_BarsProvider.GetMaxBodyPrice(i);
                             if (maxBody > pointB)// Ah, that is why we can use allowance for body
                             {
                                 continue;
@@ -270,7 +272,7 @@ namespace TradeKit.AlgoBase
                                 continue;
                             }
 
-                            double minBody = m_BarsProvider.GetMinBodyPrice(barIndex);
+                            double minBody = m_BarsProvider.GetMinBodyPrice(i);
                             if (minBody < pointB)
                             {
                                 continue;
