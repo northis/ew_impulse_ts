@@ -9,66 +9,246 @@ namespace TradeKit.AlgoBase
     public class BarPoint : IComparable
     {
         /// <summary>
-        /// Gets or sets the value of the extremum.
+        /// Initializes a new instance of the <see cref="BarPoint"/> class.
         /// </summary>
-        public double Value { get; set; }
+        /// <param name="value">The value.</param>
+        /// <param name="openTime">The open time.</param>
+        /// <param name="barTimeFrame">The bar time frame.</param>
+        /// <param name="barIndex">Index of the bar.</param>
+        public BarPoint(double value, DateTime openTime, TimeFrame barTimeFrame, int barIndex)
+        {
+            Value = value;
+            OpenTime = openTime;
+            BarTimeFrame = barTimeFrame;
+            BarIndex = barIndex;
+        }
+
+        /// <inheritdoc cref="object"/>
+        protected bool Equals(BarPoint other)
+        {
+            return Value.Equals(other.Value) && 
+                   OpenTime.Equals(other.OpenTime) && 
+                   Equals(BarTimeFrame, other.BarTimeFrame);
+        }
+
+        /// <inheritdoc cref="object"/>
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((BarPoint) obj);
+        }
+
+        /// <inheritdoc cref="object"/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Value, OpenTime, BarTimeFrame);
+        }
 
         /// <summary>
-        /// Gets or sets open time of the bar with this extremum.
+        /// Gets the value of the extremum.
         /// </summary>
-        public DateTime OpenTime { get; set; }
+        public double Value { get; }
 
         /// <summary>
-        /// Gets or sets time frame of the bar.
+        /// Gets open time of the bar with this extremum.
         /// </summary>
-        public TimeFrame BarTimeFrame { get; set; }
+        public DateTime OpenTime { get; }
 
+        /// <summary>
+        /// Gets time frame of the bar.
+        /// </summary>
+        public TimeFrame BarTimeFrame { get; }
+
+        /// <summary>
+        /// Gets the index of the bar.
+        /// </summary>
+        public int BarIndex { get; }
+
+        /// <summary>
+        /// Implements the operator &gt;=.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static bool operator >=(BarPoint a, BarPoint b)
         {
             return a.Value >= b.Value;
         }
 
+        /// <summary>
+        /// Implements the operator &lt;=.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static bool operator <=(BarPoint a, BarPoint b)
         {
             return a.Value <= b.Value;
         }
 
+        /// <summary>
+        /// Implements the operator &gt;.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static bool operator >(BarPoint a, BarPoint b)
         {
             return a.Value > b.Value;
         }
 
+        /// <summary>
+        /// Implements the operator &gt;.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
+        public static bool operator >(double a, BarPoint b)
+        {
+            return a > b.Value;
+        }
+
+        /// <summary>
+        /// Implements the operator &lt;.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static bool operator <(BarPoint a, BarPoint b)
         {
             return a.Value < b.Value;
         }
+
+        /// <summary>
+        /// Implements the operator &lt;.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
+        public static bool operator <(double a, BarPoint b)
+        {
+            return a < b.Value;
+        }
+
+        /// <summary>
+        /// Implements the operator +.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static double operator +(BarPoint a, BarPoint b)
         {
             return a.Value + b.Value;
         }
+
+        /// <summary>
+        /// Implements the operator +.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
+        public static double operator +(double a, BarPoint b)
+        {
+            return a + b.Value;
+        }
+
+        /// <summary>
+        /// Implements the operator -.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static double operator -(BarPoint a, BarPoint b)
         {
             return a.Value - b.Value;
         }
 
+        /// <summary>
+        /// Implements the operator -.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
+        public static double operator -(double a, BarPoint b)
+        {
+            return a - b.Value;
+        }
+
+        /// <summary>
+        /// Implements the operator ==.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static bool operator ==(BarPoint a, BarPoint b)
         {
             return Math.Abs(a-b) < double.Epsilon;
         }
 
+        /// <summary>
+        /// Implements the operator ==.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
+        public static bool operator ==(double a, BarPoint b)
+        {
+            return b!= null && Math.Abs(a - b.Value) < double.Epsilon;
+        }
+
+        /// <summary>
+        /// Implements the operator !=.
+        /// </summary>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
         public static bool operator !=(BarPoint a, BarPoint b)
         {
             return !(a == b);
         }
 
         /// <summary>
-        /// Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
+        /// Implements the operator !=.
         /// </summary>
-        /// <param name="obj">An object to compare with this instance.</param>
+        /// <param name="a">a.</param>
+        /// <param name="b">The b.</param>
         /// <returns>
-        /// A value that indicates the relative order of the objects being compared. The return value has these meanings:
-        /// <list type="table"><listheader><term> Value</term><description> Meaning</description></listheader><item><term> Less than zero</term><description> This instance precedes <paramref name="obj" /> in the sort order.</description></item><item><term> Zero</term><description> This instance occurs in the same position in the sort order as <paramref name="obj" />.</description></item><item><term> Greater than zero</term><description> This instance follows <paramref name="obj" /> in the sort order.</description></item></list>
+        /// The result of the operator.
         /// </returns>
+        public static bool operator !=(double a, BarPoint b)
+        {
+            return !(a == b);
+        }
+
+        /// <inheritdoc cref="IComparable"/>
         public int CompareTo(object obj)
         {
             BarPoint compareExtremum = (BarPoint)obj;
@@ -78,7 +258,6 @@ namespace TradeKit.AlgoBase
             }
 
             return this > compareExtremum ? 1 : -1;
-
         }
     }
 }

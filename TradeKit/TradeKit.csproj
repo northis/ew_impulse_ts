@@ -28,7 +28,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
-    <Compile Include="Core\BarIndexItem.cs" />
     <Compile Include="Core\BaseRobot.cs" />
     <Compile Include="Core\ChartItem.cs" />
     <Compile Include="Core\GartleyItem.cs" />

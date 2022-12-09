@@ -123,33 +123,26 @@ namespace TradeKit.AlgoBase
             double high = m_BarsProvider.GetHighPrice(index);
             DateTime openTime = m_BarsProvider.GetOpenTime(index);
 
-            m_Extremum ??= new BarPoint
-            {
-                OpenTime = openTime,
-                Value = high,
-                BarTimeFrame = m_BarsProvider.TimeFrame
-            };
+            m_Extremum ??= new BarPoint(high, openTime, m_BarsProvider.TimeFrame, index);
 
             if (m_IsUpDirection ? high > m_Extremum.Value : low < m_Extremum.Value)
             {
-                var newExtremum = new BarPoint
-                {
-                    OpenTime = openTime,
-                    Value = m_IsUpDirection ? high : low,
-                    BarTimeFrame = m_BarsProvider.TimeFrame
-                };
+                var newExtremum = new BarPoint(
+                    m_IsUpDirection ? high : low, 
+                    openTime, 
+                    m_BarsProvider.TimeFrame, 
+                    index);
                 MoveExtremum(index, newExtremum);
                 return;
             }
 
             if (m_IsUpDirection ? low < DeviationPrice : high > DeviationPrice)
             {
-                var extremum = new BarPoint
-                {
-                    OpenTime = openTime,
-                    Value = m_IsUpDirection ? low : high,
-                    BarTimeFrame = m_BarsProvider.TimeFrame
-                };
+                var extremum = new BarPoint(
+                    m_IsUpDirection ? low : high,
+                    openTime,
+                    m_BarsProvider.TimeFrame,
+                    index);
                 SetExtremum(index, extremum);
                 m_IsUpDirection = !m_IsUpDirection;
             }

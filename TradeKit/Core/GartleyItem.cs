@@ -6,14 +6,11 @@
         LevelItem ItemB,
         LevelItem ItemC,
         LevelItem ItemD,
-        LevelItem StopLoss,
-        LevelItem TakeProfit1,
-        LevelItem TakeProfit2,
+        double StopLoss,
+        double TakeProfit1,
+        double TakeProfit2,
         double XtoD,
         double AtoC,
         double BtoD,
-        double XtoB = 0)
-    {
-      
-    }
+        double XtoB = 0);
 }
