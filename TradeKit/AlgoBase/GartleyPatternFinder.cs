@@ -133,7 +133,7 @@ namespace TradeKit.AlgoBase
 
             BarPoint pointD = null;
             HashSet<GartleyItem> patterns = null;
-            for (int i = endIndex - 1; i < startIndex; i--)
+            for (int i = endIndex - 1; i >= startIndex; i--)
             {
                 double lMax = m_BarsProvider.GetHighPrice(i);
                 double lMin = m_BarsProvider.GetLowPrice(i);
@@ -204,6 +204,7 @@ namespace TradeKit.AlgoBase
         {
             double valCtoD = Math.Abs(pointC.Value - pointD.Value);
             double varC = pointC.Value;
+            List<GartleyItem> res = null;
 
             foreach (GartleyPattern pattern in m_RealPatterns)
             {
@@ -228,15 +229,10 @@ namespace TradeKit.AlgoBase
                     pointsA[i] = varA;
                 }
                 
-                double maxLimitB = pointsB.Max();
-                double minLimitB = pointsB.Min();
-
-                for (int i = pointC.BarIndex - 1; i < 0; i--)
+                for (int i = pointC.BarIndex - 1; i >= 0; i--)
                 {
                     double lMax = m_BarsProvider.GetHighPrice(i);
                     double lMin = m_BarsProvider.GetLowPrice(i);
-
-                    //double extremumVal = isBull ? lMin : lMax;
 
                     bool isBullBreak = isBull && (lMax > pointC || lMin < pointD);
                     bool isBearishBreak = !isBull && (lMax > pointD || lMin < pointC);
@@ -279,26 +275,105 @@ namespace TradeKit.AlgoBase
                         continue;
                     }
                     
-                    foreach (BarPoint bExtremum in bExtrema)
+                    foreach (BarPoint pointB in bExtrema)
                     {
-                        // Find here A and X points
-
-                        foreach (double pointX in pointsX)
+                        for (int j = pointB.BarIndex - 1; j >= 0; j--)
                         {
-                            
-                        }
+                            List<BarPoint> aExtrema = null;
+                            double aMax = m_BarsProvider.GetHighPrice(j);
+                            double aMin = m_BarsProvider.GetLowPrice(j);
 
-                        if (pattern.XBValues.Length > 0)
-                        {
+                            foreach (double pointA in pointsA)
+                            {
+                                if (isBull)
+                                {
+                                    if (aMax >= pointA && aMin <= pointA * m_ShadowAllowanceRatio)
+                                    {
+                                        aExtrema ??= new List<BarPoint>();
+                                        aExtrema.Add(new BarPoint(aMax,
+                                            m_BarsProvider.GetOpenTime(j),
+                                            m_BarsProvider.TimeFrame, j));
+                                        // Got good A point
+                                    }
 
+                                    continue;
+                                }
+
+                                if (aMin <= pointA && aMin >= pointA / m_ShadowAllowanceRatio)
+                                {
+                                    aExtrema ??= new List<BarPoint>();
+                                    aExtrema.Add(new BarPoint(aMin,
+                                        m_BarsProvider.GetOpenTime(j),
+                                        m_BarsProvider.TimeFrame, j));
+                                    // Got good A point
+                                }
+                            }
+
+                            if (aExtrema == null)
+                            {
+                                // No A points were found
+                                continue;
+                            }
+
+                            foreach (BarPoint pointA in aExtrema)
+                            {
+                                for (int k = pointA.BarIndex - 1; k >= 0; k--)
+                                {
+                                    List<BarPoint> xExtrema = null;
+                                    double xMax = m_BarsProvider.GetHighPrice(k);
+                                    double xMin = m_BarsProvider.GetLowPrice(k);
+
+                                    foreach (double pointX in pointsX)
+                                    {
+                                        if (isBull)
+                                        {
+                                            if (xMin <= pointX && xMin >= pointX / m_ShadowAllowanceRatio)
+                                            {
+                                                xExtrema ??= new List<BarPoint>();
+                                                xExtrema.Add(new BarPoint(xMin,
+                                                    m_BarsProvider.GetOpenTime(k),
+                                                    m_BarsProvider.TimeFrame, k));
+                                                // Got good X point
+                                            }
+
+                                            continue;
+                                        }
+
+                                        if (xMax >= pointX && xMax <= pointX * m_ShadowAllowanceRatio)
+                                        {
+                                            xExtrema ??= new List<BarPoint>();
+                                            xExtrema.Add(new BarPoint(xMax,
+                                                m_BarsProvider.GetOpenTime(k),
+                                                m_BarsProvider.TimeFrame, k));
+                                            // Got good X point
+                                        }
+                                    }
+
+                                    if (xExtrema == null)
+                                    {
+                                        // No X points were found
+                                        continue;
+                                    }
+
+                                    foreach (BarPoint pointX in xExtrema)
+                                    {
+                                        GartleyItem patternFound = CreatePattern(
+                                            pattern, pointX, pointA, pointB, pointC, pointD);
+
+                                        if (patternFound == null)
+                                            continue;
+
+                                        res ??= new List<GartleyItem>();
+                                        res.Add(patternFound);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-
-                
             }
 
-            return null;
+            return res;
         }
 
         /// <summary>
@@ -341,11 +416,24 @@ namespace TradeKit.AlgoBase
             if (valAc == 0 || valBd == 0 || valXd == 0)
                 return null;
 
-            double valXb = pattern.XBValues.FirstOrDefault(
-                xbVal => xB / xbVal < m_ShadowAllowanceRatio);
+            if (pattern.XBValues.Length > 0)
+            {
+                double valXb = pattern.XBValues.FirstOrDefault(
+                    xbVal => xB / xbVal < m_ShadowAllowanceRatio);
+
+                if (valXb == 0)
+                    return null;
+            }
+
             double shadowD = m_BarsProvider.GetClosePrice(d.BarIndex);
-            // check shadowD
             bool isBull = x < a;
+            double dLevel = (isBull ? 1 : -1) * xA / xD + a;
+
+            if (isBull && shadowD < dLevel || !isBull && shadowD > dLevel)
+            {
+                Logger.Write("Candle body doesn't fit."); // allowance?
+                return null;
+            }
 
             double slLen = cD * SL_RATIO;
             double tp1Len = cD * TP1_RATIO;
