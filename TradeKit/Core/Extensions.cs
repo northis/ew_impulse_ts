@@ -51,7 +51,7 @@ namespace TradeKit.Core
             {
                 if (extrema[0].OpenTime == start.OpenTime)
                 {
-                    extrema[0].Value = start.Value;
+                    extrema[0] = start;
                 }
                 else
                 {
@@ -60,7 +60,7 @@ namespace TradeKit.Core
 
                 if (extrema[^1].OpenTime == end.OpenTime)
                 {
-                    extrema[^1].Value = end.Value;
+                    extrema[^1] = end;
                 }
                 else
                 {

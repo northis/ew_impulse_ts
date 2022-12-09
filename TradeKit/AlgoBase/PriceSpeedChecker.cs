@@ -45,12 +45,7 @@ namespace TradeKit.AlgoBase
 
             double agoPrice = m_BarsProvider.GetClosePrice(indexBar - barsAgo);
             double speed = 100 * (currentPrice.Value - agoPrice) / agoPrice;
-            Values[indexBar] = new BarPoint
-            {
-                BarTimeFrame = m_BarsProvider.TimeFrame,
-                OpenTime = m_BarsProvider.GetOpenTime(indexBar),
-                Value = speed
-            };
+            Values[indexBar] = new BarPoint(speed, m_BarsProvider.GetOpenTime(indexBar), m_BarsProvider.TimeFrame, indexBar);
             Speed = speed;
         }
 
