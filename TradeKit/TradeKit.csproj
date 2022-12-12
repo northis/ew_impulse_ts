@@ -35,10 +35,11 @@
     <Compile Include="Core\GartleyPattern.cs" />
     <Compile Include="Core\GartleyPatternType.cs" />
     <Compile Include="Core\GartleySetupType.cs" />
+    <Compile Include="Core\SingleSetupFinder.cs" />
     <Compile Include="EventArgs\GartleySignalEventArgs.cs" />
     <Compile Include="Gartley\GartleySetupFinder.cs" />
+    <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
     <Compile Include="Signals\NullParseSetupFinder.cs" />
-    <Compile Include="Core\SymbolState.cs" />
     <Compile Include="Core\CTraderBarsProvider.cs" />
     <Compile Include="EventArgs\ImpulseSignalEventArgs.cs" />
     <Compile Include="EventArgs\SignalEventArgs.cs" />

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -12,7 +11,10 @@ namespace TradeKit.Gartley
     /// </summary>
     public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     {
-        private readonly ExtremumFinder m_ExtremumFinder;
+        private readonly IBarsProvider m_MainBarsProvider;
+        private readonly int m_BarsDepth;
+        private readonly GartleyPatternFinder m_PatternFinder;
+        private readonly HashSet<GartleyItem> m_Patterns;
         private int m_LastBarIndex;
 
         //X-A-B-C-D
@@ -22,18 +24,24 @@ namespace TradeKit.Gartley
         /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
-        /// <param name="zigzagScale">Zigzag scale (resolution)</param>
+        /// <param name="shadowAllowance">The correction allowance percent.</param>
+        /// <param name="barsDepth">How many bars we should analyze backwards.</param>
+        /// <param name="patterns">Patterns supported.</param>
         public GartleySetupFinder(
             IBarsProvider mainBarsProvider,
-            SymbolState state,
             Symbol symbol,
-            int zigzagScale) :base(mainBarsProvider, state, symbol)
+            double shadowAllowance,
+            int barsDepth,
+            HashSet<GartleyPatternType> patterns = null) : base(mainBarsProvider, symbol)
         {
-            m_ExtremumFinder = new ExtremumFinder(zigzagScale, BarsProvider);
+            m_MainBarsProvider = mainBarsProvider;
+            m_BarsDepth = barsDepth;
+            m_PatternFinder = new GartleyPatternFinder(
+                shadowAllowance, m_MainBarsProvider, patterns);
+            m_Patterns = new HashSet<GartleyItem>();
         }
-        
+
         /// <summary>
         /// Checks whether the data for specified index contains a trade setup.
         /// </summary>
@@ -41,8 +49,7 @@ namespace TradeKit.Gartley
         /// <param name="currentPriceBid">The current price (Bid).</param>
         private void CheckSetup(int index, double? currentPriceBid = null)
         {
-            SortedDictionary<int, BarPoint> extrema = m_ExtremumFinder.Extrema;
-            int count = extrema.Count;
+            int count = m_MainBarsProvider.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
                 return;
@@ -51,6 +58,7 @@ namespace TradeKit.Gartley
             double low = currentPriceBid ?? BarsProvider.GetLowPrice(index);
             double high = currentPriceBid ?? BarsProvider.GetHighPrice(index);
             
+            var getPattern = m_PatternFinder.FindGartleyPatterns()
             
             //TODO
             if (!State.IsInSetup)
@@ -83,18 +91,6 @@ namespace TradeKit.Gartley
         public override void CheckBar(int index)
         {
             m_LastBarIndex = index;
-            m_ExtremumFinder.Calculate(index);
-            if (m_ExtremumFinder.Extrema.Count > Helper.EXTREMA_MAX)
-            {
-                int[] oldKeys = m_ExtremumFinder.Extrema.Keys
-                    .Take(m_ExtremumFinder.Extrema.Count - Helper.EXTREMA_MAX)
-                    .ToArray();
-                foreach (int oldKey in oldKeys)
-                {
-                    m_ExtremumFinder.Extrema.Remove(oldKey);
-                }
-            }
-
             CheckSetup(m_LastBarIndex);
         }
 

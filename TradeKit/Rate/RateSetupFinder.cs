@@ -9,7 +9,7 @@ using TradeKit.EventArgs;
 
 namespace TradeKit.Rate
 {
-    public class RateSetupFinder : BaseSetupFinder<SignalEventArgs>
+    public class RateSetupFinder : SingleSetupFinder<SignalEventArgs>
     {
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly int m_MaxBarSpeed;
@@ -27,7 +27,6 @@ namespace TradeKit.Rate
         /// Initializes a new instance of the <see cref="RateSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         /// <param name="maxBarSpeed">The maximum bar speed.</param>
         /// <param name="minBarSpeed">The minimum bar speed.</param>
@@ -35,13 +34,12 @@ namespace TradeKit.Rate
         /// <param name="speedTpSlRatio">The speed tp sl ratio.</param>
         public RateSetupFinder(
             IBarsProvider mainBarsProvider, 
-            SymbolState state, 
             Symbol symbol,
             int maxBarSpeed,
             int minBarSpeed,
             double speedPercent,
             double speedTpSlRatio) 
-            : base(mainBarsProvider, state, symbol)
+            : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
             m_MaxBarSpeed = maxBarSpeed;
@@ -98,12 +96,12 @@ namespace TradeKit.Rate
                 return;
             }
 
-            if (State.IsInSetup)
+            if (IsInSetup)
             {
                 //Debugger.Launch();
                 if (m_IsUp && m_PriceSpeedCheckerMinor.Speed <= 0)
                 {
-                    State.IsInSetup = false;
+                    IsInSetup = false;
 
                     if (LastEntry.Price < m_LastPrice)
                         OnTakeProfitInvoke(
@@ -118,7 +116,7 @@ namespace TradeKit.Rate
                 }
                 else if(!m_IsUp && m_PriceSpeedCheckerMinor.Speed >= 0)
                 {
-                    State.IsInSetup = false;
+                    IsInSetup = false;
                     if (LastEntry.Price > m_LastPrice)
                         OnStopLossInvoke(
                             new LevelEventArgs(
@@ -166,7 +164,7 @@ namespace TradeKit.Rate
                 m_IsUp = isUp;
                 
                 LastEntry = new LevelItem(m_LastPrice, m_LastBar);
-                State.IsInSetup = true;
+                IsInSetup = true;
                 OnEnterInvoke(new SignalEventArgs(
                     LastEntry,
                     new LevelItem(tp, m_LastBar),

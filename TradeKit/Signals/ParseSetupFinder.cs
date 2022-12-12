@@ -12,7 +12,7 @@ using TradeKit.Telegram;
 
 namespace TradeKit.Signals
 {
-    public class ParseSetupFinder : BaseSetupFinder<SignalEventArgs>
+    public class ParseSetupFinder : SingleSetupFinder<SignalEventArgs>
     {
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly string m_SignalHistoryFilePath;
@@ -52,9 +52,9 @@ namespace TradeKit.Signals
 
         private readonly Dictionary<DateTime, ParsedSignal> m_Signals;
         public ParseSetupFinder(IBarsProvider mainBarsProvider, 
-            SymbolState state, Symbol symbol, 
+            Symbol symbol, 
             string signalHistoryFilePath, bool useUtc, bool useOneTp) 
-            : base(mainBarsProvider, state, symbol)
+            : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
             m_SignalHistoryFilePath = signalHistoryFilePath;
@@ -121,7 +121,7 @@ namespace TradeKit.Signals
 
                     double tp = signal.TakeProfits[i];
 
-                    State.IsInSetup = true;
+                    IsInSetup = true;
                     OnEnterInvoke(new SignalEventArgs(
                         LastEntry,
                         new LevelItem(tp),
@@ -139,7 +139,7 @@ namespace TradeKit.Signals
         public Dictionary<DateTime, ParsedSignal> ParseSignals()
         {
             var res = new Dictionary<DateTime, ParsedSignal>();
-            if (!SYMBOL_REGEX_MAP.TryGetValue(State.Symbol, out string symbolRegex))
+            if (!SYMBOL_REGEX_MAP.TryGetValue(Symbol.Name, out string symbolRegex))
             {
                 return res;
             }
@@ -183,7 +183,11 @@ namespace TradeKit.Signals
 
                 Match signal = Regex.Match(textAll, SIGNAL_REGEX, RegexOptions.IgnoreCase);
                 DateTime utcDateTime = m_UseUtc ? historyItem.Date : historyItem.Date.ToUniversalTime();
-                var signalOut = new ParsedSignal { DateTime = utcDateTime, SymbolName = State.Symbol };
+                var signalOut = new ParsedSignal
+                {
+                    DateTime = utcDateTime, 
+                    SymbolName = Symbol.Name
+                };
                 bool isTrueSignal = false;
 
                 if (signal.Success)

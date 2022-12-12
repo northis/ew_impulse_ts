@@ -237,14 +237,8 @@ namespace TradeKit.Core
                         continue;
                     }
                     
-                    var state = new SymbolState
-                    {
-                        Symbol = symbolName,
-                        TimeFrame = timeFrame.Name
-                    };
-
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
-                    T sf = CreateSetupFinder(bars, state, symbolEntity);
+                    T sf = CreateSetupFinder(bars, symbolEntity);
                     string key = sf.Id;
                     m_BarsMap[key] = bars;
                     m_BarsMap[key].BarOpened += BarOpened;
@@ -293,9 +287,8 @@ namespace TradeKit.Core
         /// Creates the setup finder and returns it.
         /// </summary>
         /// <param name="bars">The bars.</param>
-        /// <param name="state">The state.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
-        protected abstract T CreateSetupFinder(Bars bars, SymbolState state, Symbol symbolEntity);
+        protected abstract T CreateSetupFinder(Bars bars, Symbol symbolEntity);
 
         private void OnPositionsClosed(PositionClosedEventArgs obj)
         {

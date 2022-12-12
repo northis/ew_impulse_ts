@@ -17,7 +17,10 @@ namespace TradeKit.EventArgs
         /// <param name="stopLoss">The stop loss.</param>
         /// <param name="startViewBarTime">The bar time we should visually analyze the chart from. Optional</param>
         public SignalEventArgs(
-            LevelItem level, LevelItem takeProfit, LevelItem stopLoss, DateTime startViewBarTime = default)
+            LevelItem level, 
+            LevelItem takeProfit, 
+            LevelItem stopLoss, 
+            DateTime startViewBarTime = default)
         {
             Level = level;
             TakeProfit = takeProfit;

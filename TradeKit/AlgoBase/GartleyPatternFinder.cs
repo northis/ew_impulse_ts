@@ -93,7 +93,7 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="shadowAllowance">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        /// <param name="patterns">Patterns supported</param>
+        /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             double shadowAllowance, 
             IBarsProvider barsProvider, 

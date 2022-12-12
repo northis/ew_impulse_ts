@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
@@ -12,7 +11,7 @@ namespace TradeKit.Impulse
     /// <summary>
     /// Class contains the EW impulse logic of trade setups searching.
     /// </summary>
-    public class ImpulseSetupFinder : BaseSetupFinder<ImpulseSignalEventArgs>
+    public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
         private readonly ElliottWavePatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
@@ -46,12 +45,10 @@ namespace TradeKit.Impulse
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider,
-            SymbolState state,
-            Symbol symbol):base(mainBarsProvider, state, symbol)
+            Symbol symbol):base(mainBarsProvider, symbol)
         {
             var zoomMin = Helper.ZOOM_MIN;
 
@@ -148,7 +145,7 @@ namespace TradeKit.Impulse
             KeyValuePair<int, BarPoint> endItem = extrema
                 .ElementAt(endIndex);
             
-            bool isInSetupBefore = State.IsInSetup;
+            bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
 
@@ -268,7 +265,7 @@ namespace TradeKit.Impulse
 
                 TriggerLevel = realPrice;
                 TriggerBarIndex = index;
-                State.IsInSetup = true;
+                IsInSetup = true;
                 
                 double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
                 double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
@@ -299,7 +296,7 @@ namespace TradeKit.Impulse
                     (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice))
                 {
                     // TP or SL is already hit, cannot use this signal
-                    Logger.Write($"{Symbol}, {State.TimeFrame}: TP or SL is already hit, cannot use this signal");
+                    Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
                     return;
                 }
 
@@ -315,12 +312,12 @@ namespace TradeKit.Impulse
                 // Here we should give a trade signal.
             }
 
-            if (!State.IsInSetup)
+            if (!IsInSetup)
             {
                 for (;;)
                 {
                     CheckImpulse();
-                    if (State.IsInSetup)
+                    if (IsInSetup)
                     {
                         break;
                     }
@@ -352,7 +349,7 @@ namespace TradeKit.Impulse
                 }
             }
 
-            if (!State.IsInSetup)
+            if (!IsInSetup)
             {
                 return false;
             }
@@ -368,7 +365,7 @@ namespace TradeKit.Impulse
 
             if (isProfitHit)
             {
-                State.IsInSetup = false;
+                IsInSetup = false;
                 OnTakeProfitInvoke(new LevelEventArgs(new LevelItem(SetupEndPrice, index),
                         new LevelItem(TriggerLevel, TriggerBarIndex)));
             }
@@ -377,12 +374,12 @@ namespace TradeKit.Impulse
                              || !isImpulseUp && high >= SetupStartPrice;
             if (isStopHit)
             {
-                State.IsInSetup = false;
+                IsInSetup = false;
                 OnStopLossInvoke(new LevelEventArgs(new LevelItem(SetupStartPrice, index),
                         new LevelItem(TriggerLevel, TriggerBarIndex)));
             }
 
-            return State.IsInSetup;
+            return IsInSetup;
         }
 
         /// <summary>

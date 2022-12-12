@@ -19,13 +19,11 @@ namespace TradeKit.Impulse
         /// Creates the setup finder.
         /// </summary>
         /// <param name="bars">The bars.</param>
-        /// <param name="state">The state.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
-        protected override ImpulseSetupFinder CreateSetupFinder(
-            Bars bars, SymbolState state, Symbol symbolEntity)
+        protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(bars);
-            var sf = new ImpulseSetupFinder(barsProvider, state, symbolEntity);
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            var sf = new ImpulseSetupFinder(barsProvider, symbolEntity);
             return sf;
         }
 
@@ -46,7 +44,7 @@ namespace TradeKit.Impulse
             DateTime setupStart = bp.GetOpenTime(signal.StopLoss.Index.Value);
             DateTime setupEnd = bp.GetOpenTime(signal.Level.Index.Value) + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
             Logger.Write(
-                $"A risky signal, the setup contains a trade session change: {bp.Symbol}, {setupFinder.State.TimeFrame}, {setupStart:s}-{setupEnd:s}");
+                $"A risky signal, the setup contains a trade session change: {bp.Symbol}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
 
             return HasTradeBreakInside(setupStart, setupEnd, setupFinder.Symbol);
         }

@@ -42,11 +42,7 @@ namespace TradeKit.Signals
                     $"Time frame {TimeFrame} isn't supported.");
             }
 
-            var state = new SymbolState
-            {
-                Symbol = SymbolName,
-                TimeFrame = TimeFrame.Name
-            };
+            var state = new SymbolState(Symbol: SymbolName, TimeFrame: TimeFrame.Name);
 
             m_BarsProvider = new CTraderBarsProvider(Bars);
             m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, state, Symbol, SignalHistoryFilePath, UseUtc, false);

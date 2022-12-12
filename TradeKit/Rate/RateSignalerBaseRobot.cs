@@ -51,13 +51,12 @@ namespace TradeKit.Rate
         /// Creates the setup finder and returns it.
         /// </summary>
         /// <param name="bars">The bars.</param>
-        /// <param name="state">The state.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
         protected override RateSetupFinder CreateSetupFinder(
-            Bars bars, SymbolState state, Symbol symbolEntity)
+            Bars bars,  Symbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(bars);
-            var sf = new RateSetupFinder(barsProvider, state, symbolEntity, MaxBarSpeed, MinBarSpeed, SpeedPercent,
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            var sf = new RateSetupFinder(barsProvider, symbolEntity, MaxBarSpeed, MinBarSpeed, SpeedPercent,
                 SpeedTpSlRatio);
             return sf;
         }

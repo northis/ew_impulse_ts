@@ -6,10 +6,12 @@ namespace TradeKit.EventArgs
     public class GartleySignalEventArgs : SignalEventArgs
     {
         public GartleySignalEventArgs(
-            LevelItem level, 
+            LevelItem level,
             GartleyItem gartleyItem,
             DateTime startViewBarIndex)
-            :base(level, gartleyItem.TakeProfit1, gartleyItem.StopLoss, startViewBarIndex)
+            : base(level,
+                level with {Price = gartleyItem.TakeProfit1},
+                level with {Price = gartleyItem.StopLoss}, startViewBarIndex)
         {
             GartleyItem = gartleyItem;
         }

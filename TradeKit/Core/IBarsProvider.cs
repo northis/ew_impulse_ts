@@ -1,5 +1,6 @@
 ﻿using System;
 using cAlgo.API;
+using cAlgo.API.Internals;
 
 namespace TradeKit.Core
 {
@@ -78,7 +79,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the current symbol.
         /// </summary>
-        string Symbol { get; }
+        Symbol Symbol { get; }
 
         /// <summary>
         /// Gets the int index of bar (candle) by datetime.

@@ -1,4 +1,5 @@
 ﻿using System;
+using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.EventArgs;
 
@@ -15,9 +16,9 @@ namespace TradeKit.Core
         public Symbol Symbol { get; }
 
         /// <summary>
-        /// Gets the state.
+        /// Gets the time frame.
         /// </summary>
-        public SymbolState State { get; }
+        public TimeFrame TimeFrame { get; }
 
         /// <summary>
         /// Gets the bars provider.
@@ -27,7 +28,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the identifier of this setup finder.
         /// </summary>
-        public string Id => GetId(State.Symbol, State.TimeFrame);
+        public string Id => GetId(Symbol.Name, TimeFrame.Name);
 
         /// <summary>
         /// Gets the identifier.
@@ -43,16 +44,14 @@ namespace TradeKit.Core
         /// Initializes a new instance of the <see cref="BaseSetupFinder{T}"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="state">The state.</param>
         /// <param name="symbol">The symbol.</param>
         protected BaseSetupFinder(
             IBarsProvider mainBarsProvider,
-            SymbolState state,
             Symbol symbol)
         {
             Symbol = symbol;
             BarsProvider = mainBarsProvider;
-            State = state;
+            TimeFrame = mainBarsProvider.TimeFrame;
         }
 
         /// <summary>

@@ -1,18 +1,17 @@
 ﻿using System;
 using cAlgo.API;
-using TradeKit.AlgoBase;
 using TradeKit.Core;
 
-namespace TradeKit.Impulse
+namespace TradeKit.Gartley
 {
     /// <summary>
-    /// Indicator can find possible setups based on initial impulses (wave 1 or A)
+    /// Indicator can find possible setups based on Gartley patterns
     /// </summary>
     /// <seealso cref="Indicator" />
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-    public class ImpulseFinderBaseIndicator : Indicator
+    public class GartleyFinderBaseIndicator : Indicator
     {
-        private ImpulseSetupFinder m_SetupFinder;
+        private GartleySetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
         private bool m_IsInitialized;
 
@@ -30,7 +29,7 @@ namespace TradeKit.Impulse
             }
             
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, Symbol);
+            m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
@@ -74,7 +73,7 @@ namespace TradeKit.Impulse
             Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
-        private void OnEnter(object sender, EventArgs.ImpulseSignalEventArgs e)
+        private void OnEnter(object sender, EventArgs.GartleySignalEventArgs e)
         {
             if (!e.Level.Index.HasValue)
             {
@@ -83,20 +82,20 @@ namespace TradeKit.Impulse
 
             int levelIndex = e.Level.Index.Value;
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
-            if (e.Waves is { Count: > 0 })
-            {
-                BarPoint start = e.Waves[0];
-                BarPoint[] rest = e.Waves.ToArray()[1..];
-                for (var index = 0; index < rest.Length; index++)
-                {
-                    BarPoint wave = rest[index];
-                    int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
-                    int endIndex = m_BarsProvider.GetIndexByTime(wave.OpenTime);
-                    Chart.DrawTrendLine($"Impulse{levelIndex}+{index}", 
-                        startIndex, start.Value, endIndex, wave.Value, Color.LightBlue);
-                    start = wave;
-                }
-            }
+            //if (e.Waves is { Count: > 0 })
+            //{
+            //    BarPoint start = e.Waves[0];
+            //    BarPoint[] rest = e.Waves.ToArray()[1..];
+            //    for (var index = 0; index < rest.Length; index++)
+            //    {
+            //        BarPoint wave = rest[index];
+            //        int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
+            //        int endIndex = m_BarsProvider.GetIndexByTime(wave.OpenTime);
+            //        Chart.DrawTrendLine($"Impulse{levelIndex}+{index}", 
+            //            startIndex, start.Value, endIndex, wave.Value, Color.LightBlue);
+            //        start = wave;
+            //    }
+            //}
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");

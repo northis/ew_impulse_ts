@@ -1,5 +1,6 @@
 ﻿using System;
 using cAlgo.API;
+using cAlgo.API.Internals;
 
 namespace TradeKit.Core
 {
@@ -15,9 +16,11 @@ namespace TradeKit.Core
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
         /// </summary>
         /// <param name="bars">The bars.</param>
-        public CTraderBarsProvider(Bars bars)
+        /// <param name="symbolEntity">The symbol entity.</param>
+        public CTraderBarsProvider(Bars bars, Symbol symbolEntity)
         {
             m_Bars = bars;
+            Symbol = symbolEntity;
         }
 
         /// <summary>
@@ -117,7 +120,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the current symbol.
         /// </summary>
-        public string Symbol => m_Bars.SymbolName;
+        public Symbol Symbol { get; }
 
         /// <summary>
         /// Gets the int index of bar (candle) by datetime.
