@@ -114,16 +114,11 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Finds the gartley patterns or null if not found.
         /// </summary>
-        /// <param name="start">The point we want to start the search from.</param>
-        /// <param name="end">The point we want to end the search from.</param>
+        /// <param name="startIndex">The point we want to start the search from.</param>
+        /// <param name="endIndex">The point we want to end the search from.</param>
         /// <returns>Gartley pattern or null</returns>
-        public List<GartleyItem> FindGartleyPatterns(DateTime start, DateTime end)
+        public HashSet<GartleyItem> FindGartleyPatterns(int startIndex, int endIndex)
         {
-            int startIndex = m_BarsProvider.GetIndexByTime(start);
-
-            // the bar we want to analyze is closed right now
-            int endIndex = m_BarsProvider.GetIndexByTime(end) - 1;
-
             if (endIndex - startIndex < GARTLEY_EXTREMA_COUNT)
                 return null;
             
@@ -196,7 +191,7 @@ namespace TradeKit.AlgoBase
                 }
             }
 
-            return patterns?.ToList();
+            return patterns;
         }
 
         private List<GartleyItem> FindPatternAgainstC(

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -16,10 +17,7 @@ namespace TradeKit.Gartley
         private readonly GartleyPatternFinder m_PatternFinder;
         private readonly HashSet<GartleyItem> m_Patterns;
         private int m_LastBarIndex;
-
-        //X-A-B-C-D
-        private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 5;
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
         /// </summary>
@@ -49,39 +47,99 @@ namespace TradeKit.Gartley
         /// <param name="currentPriceBid">The current price (Bid).</param>
         private void CheckSetup(int index, double? currentPriceBid = null)
         {
-            int count = m_MainBarsProvider.Count;
-            if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
+            int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - m_BarsDepth);
+
+            HashSet<GartleyItem> localPatterns = null;
+            double close;
+            bool noOpenedPatterns = m_Patterns.Count == 0;
+
+            if (currentPriceBid.HasValue)
+            {
+                if (m_Patterns.Count == 0)
+                {
+                    return;
+                }
+
+                close = currentPriceBid.Value;
+            }
+            else
+            {
+                localPatterns = m_PatternFinder.FindGartleyPatterns(startIndex, index);
+                if (localPatterns == null && noOpenedPatterns)
+                {
+                    return;
+                }
+
+                close = BarsProvider.GetClosePrice(index);
+            }
+
+            if (noOpenedPatterns && localPatterns == null)
             {
                 return;
+            }
+
+            if (localPatterns != null)
+            {
+                foreach (GartleyItem localPattern in localPatterns)
+                {
+                    if (!m_Patterns.Add(localPattern))
+                        continue;
+
+                    DateTime startView = m_MainBarsProvider.GetOpenTime(
+                        localPattern.ItemX.Index ?? startIndex);
+                    OnEnterInvoke(new GartleySignalEventArgs(new LevelItem(close, index), localPattern, startView));
+                }
             }
 
             double low = currentPriceBid ?? BarsProvider.GetLowPrice(index);
             double high = currentPriceBid ?? BarsProvider.GetHighPrice(index);
-            
-            var getPattern = m_PatternFinder.FindGartleyPatterns()
-            
-            //TODO
-            if (!State.IsInSetup)
+
+            List<GartleyItem> toRemove = null;
+            foreach (GartleyItem pattern in m_Patterns)
+            {
+                if (localPatterns != null && localPatterns.Contains(pattern))
+                {
+                    continue;
+                }
+
+                bool isBull = pattern.ItemX.Price < pattern.ItemA.Price;
+                bool isClosed = false;
+                if (isBull && high >= pattern.TakeProfit1 ||
+                    !isBull && low <= pattern.TakeProfit1)
+                {
+                    OnTakeProfitInvoke(
+                        new LevelEventArgs(
+                            new LevelItem(pattern.TakeProfit1, index), pattern.ItemD));
+                    isClosed = true;
+                }
+
+                if (isBull && high <= pattern.StopLoss ||
+                    !isBull && low >= pattern.StopLoss)
+                {
+                    OnStopLossInvoke(
+                        new LevelEventArgs(
+                            new LevelItem(pattern.StopLoss, index), pattern.ItemD));
+                    isClosed = true;
+                }
+
+                if (!isClosed)
+                {
+                    return;
+                }
+
+                toRemove ??= new List<GartleyItem>();
+                toRemove.Add(pattern);
+            }
+
+            if (toRemove == null)
             {
                 return;
             }
-            
-            //bool isProfitHit = ;
 
-            //if (isProfitHit)
-            //{
-            //    State.IsInSetup = false;
-            //    OnTakeProfitInvoke(new LevelEventArgs(new LevelItem(SetupEndPrice, index),
-            //            new LevelItem(TriggerLevel, TriggerBarIndex)));
-            //}
-
-            //bool isStopHit =;
-            //if (isStopHit)
-            //{
-            //    State.IsInSetup = false;
-            //    OnStopLossInvoke(new LevelEventArgs(new LevelItem(SetupStartPrice, index),
-            //            new LevelItem(TriggerLevel, TriggerBarIndex)));
-            //}
+            foreach (GartleyItem toRemoveItem in toRemove)
+            {
+                m_Patterns.Remove(toRemoveItem);
+            }
         }
 
         /// <summary>
