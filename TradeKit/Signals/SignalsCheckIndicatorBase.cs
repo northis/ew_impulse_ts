@@ -11,7 +11,8 @@ namespace TradeKit.Signals
     /// <seealso cref="cAlgo.API.Indicator" />
     //[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class SignalsCheckIndicatorBase : Indicator
-    {  /// <summary>
+    {  
+        /// <summary>
         /// Gets or sets the signal history file path.
         /// </summary>
         [Parameter("SignalHistoryFilePath", DefaultValue = "")]
@@ -41,11 +42,9 @@ namespace TradeKit.Signals
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
             }
-
-            var state = new SymbolState(Symbol: SymbolName, TimeFrame: TimeFrame.Name);
-
-            m_BarsProvider = new CTraderBarsProvider(Bars);
-            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, state, Symbol, SignalHistoryFilePath, UseUtc, false);
+            
+            m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
+            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol, SignalHistoryFilePath, UseUtc, false);
             m_ParseSetupFinder.OnEnter += OnEnter;
         }
 

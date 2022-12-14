@@ -31,6 +31,9 @@ namespace TradeKit.Core
         public const double TRIGGER_SPEED_PERCENT = 0.2;
         public const double SPEED_TP_SL_RATIO = 2;
 
+        public const int GARTLEY_BARS_COUNT = 30;
+        public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 10;
+
         /// <summary>
         /// Gets the directory to save images.
         /// </summary>

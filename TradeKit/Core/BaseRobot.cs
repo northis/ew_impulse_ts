@@ -23,7 +23,7 @@ namespace TradeKit.Core
     /// <typeparam name="TK">The type of <see cref="SignalEventArgs"/> - what type of signals supports this bot.</typeparam>
     /// <seealso cref="Robot" />
     public abstract class BaseRobot<T,TK> : 
-        Robot where T: BaseSetupFinder<TK> where TK : SignalEventArgs
+        Robot where T: SingleSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
@@ -356,7 +356,7 @@ namespace TradeKit.Core
                 sf.OnEnter += OnEnter;
                 sf.OnStopLoss += OnStopLoss;
                 sf.OnTakeProfit += OnTakeProfit;
-                sf.State.IsInSetup = false;
+                sf.IsInSetup = false;
                 m_BarsInitMap[finderId] = true;
             }
             catch (Exception ex)
@@ -371,7 +371,7 @@ namespace TradeKit.Core
         /// <param name="setupId">Id of the setup finder.</param>
         private void CloseSymbolPositions(string setupId)
         {
-            string symbolName = m_SetupFindersMap[setupId].State.Symbol;
+            string symbolName = m_SetupFindersMap[setupId].Symbol.Name;
             Position[] positionsToClose = Positions
                 .Where(a => a.Label == GetBotName() && a.SymbolName == symbolName)
                 .ToArray();
@@ -400,7 +400,7 @@ namespace TradeKit.Core
                 return false;
             }
 
-            GetEventStrings(sender, e.Level, out price, out SymbolInfo _);
+            GetEventStrings(sender, e.Level, out price);
             m_PositionFinderMap[sf.Id] = false;
             return isInPosition;
         }
@@ -530,7 +530,7 @@ namespace TradeKit.Core
         private void OnEnter(object sender, TK e)
         { 
             var sf = (T)sender;
-            if (!m_SymbolFindersMap.TryGetValue(sf.State.Symbol, out T[] finders))
+            if (!m_SymbolFindersMap.TryGetValue(sf.Symbol.Name, out T[] finders))
             {
                 return;
             }
@@ -570,14 +570,14 @@ namespace TradeKit.Core
 
                 if (HasSameSetupActive(finder,e))
                 {
-                    Logger.Write($"Already got this setup in on {finder.State.Symbol} - {finder.State.TimeFrame}");
+                    Logger.Write($"Already got this setup in on {finder.Symbol.Name} - {finder.TimeFrame}");
                     return;
                 }
             }
 
             m_EnterCount++;
             m_PositionFinderMap[sf.Id] = true;
-            GetEventStrings(sender, e.Level, out string price, out SymbolInfo symbolInfo);
+            GetEventStrings(sender, e.Level, out string price);
             Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
 
@@ -586,14 +586,14 @@ namespace TradeKit.Core
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
 
-                double slP = Math.Round(Math.Abs(priceNow - sl) / symbolInfo.PipSize);
-                double tpP = Math.Round(Math.Abs(priceNow - tp) / symbolInfo.PipSize);
+                double slP = Math.Round(Math.Abs(priceNow - sl) / sf.Symbol.PipSize);
+                double tpP = Math.Round(Math.Abs(priceNow - tp) / sf.Symbol.PipSize);
 
                 if (slP > 0)
                 {
                     double volume = GetVolume(symbol, slP);
                     TradeResult order = ExecuteMarketOrder(
-                    type, symbolInfo.Name, volume, GetBotName(), slP, tpP);
+                    type, sf.Symbol.Name, volume, GetBotName(), slP, tpP);
 
                     if (order?.IsSuccessful == true)
                     {
@@ -633,9 +633,9 @@ namespace TradeKit.Core
             {
                 Ask = s.Ask,
                 Bid = s.Bid,
-                Digits = symbolInfo.Digits,
+                Digits = sf.Symbol.Digits,
                 SignalEventArgs = e,
-                SymbolName = symbolInfo.Name,
+                SymbolName = sf.Symbol.Name,
                 SenderId = sf.Id,
                 PlotImagePath = plotImagePath
             });
@@ -783,12 +783,11 @@ namespace TradeKit.Core
             return volume;
         }
 
-        private void GetEventStrings(object sender, LevelItem level, out string price, out SymbolInfo symbolInfo)
+        private void GetEventStrings(object sender, LevelItem level, out string price)
         {
             var sf = (T)sender;
-            symbolInfo = Symbols.GetSymbolInfo(sf.State.Symbol);
-            string priceFmt = level.Price.ToString($"F{symbolInfo.Digits}", CultureInfo.InvariantCulture);
-            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index.GetValueOrDefault()):s}) - {sf.State.Symbol}";
+            string priceFmt = level.Price.ToString($"F{sf.Symbol.Digits}", CultureInfo.InvariantCulture);
+            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index.GetValueOrDefault()):s}) - {sf.Symbol.Name}";
         }
 
         /// <summary>

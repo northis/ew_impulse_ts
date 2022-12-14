@@ -75,9 +75,9 @@ namespace TradeKit.Signals
             Positions.Closed += OnPositionClosed;
         }
 
-        protected override ParseSetupFinder CreateSetupFinder(Bars bars, SymbolState state, Symbol symbolEntity)
+        protected override ParseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            CTraderBarsProvider barsProvider = new CTraderBarsProvider(bars);
+            CTraderBarsProvider barsProvider = new CTraderBarsProvider(bars, symbolEntity);
             string path;
             if (string.IsNullOrEmpty(SignalHistoryFilePath))
             {
@@ -104,13 +104,12 @@ namespace TradeKit.Signals
 
             if (!File.Exists(path))
             {
-                return new NullParseSetupFinder(barsProvider, state, symbolEntity);
+                return new NullParseSetupFinder(barsProvider, symbolEntity);
             }
 
             Logger.Write($"Using path {path}");
 
-            var sf = new ParseSetupFinder(
-                barsProvider, state, symbolEntity, path, UseUtc, UseOneTP);
+            var sf = new ParseSetupFinder(barsProvider, symbolEntity, path, UseUtc, UseOneTP);
             return sf;
         }
 

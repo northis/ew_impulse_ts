@@ -8,7 +8,7 @@ namespace TradeKit.Signals
     /// </summary>
     public class NullParseSetupFinder : ParseSetupFinder
     {
-        public NullParseSetupFinder(IBarsProvider mainBarsProvider, SymbolState state, Symbol symbol) : base(mainBarsProvider, state, symbol, string.Empty,true,true)
+        public NullParseSetupFinder(IBarsProvider mainBarsProvider, Symbol symbol) : base(mainBarsProvider, symbol, string.Empty,true,true)
         {
         }
 

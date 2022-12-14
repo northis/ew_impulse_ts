@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using cAlgo.API;
 using TradeKit.Core;
 
@@ -8,12 +9,94 @@ namespace TradeKit.Gartley
     /// Indicator can find possible setups based on Gartley patterns
     /// </summary>
     /// <seealso cref="Indicator" />
-    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
     public class GartleyFinderBaseIndicator : Indicator
     {
         private GartleySetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
         private bool m_IsInitialized;
+
+        /// <summary>
+        /// Gets or sets the value how deep should we analyze the candles.
+        /// </summary>
+        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT)]
+        public int BarDepthCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the percent of the allowance for the relations calculation.
+        /// </summary>
+        [Parameter(nameof(BarAllowancePercent), DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50)]
+        public int BarAllowancePercent { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseGartley), DefaultValue = true)]
+        public bool UseGartley { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseButterfly), DefaultValue = true)]
+        public bool UseButterfly { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.SHARK"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseShark), DefaultValue = true)]
+        public bool UseShark { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.CRAB"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseCrab), DefaultValue = true)]
+        public bool UseCrab { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.BAT"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseBat), DefaultValue = true)]
+        public bool UseBat { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseAltBat), DefaultValue = true)]
+        public bool UseAltBat { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.CYPHER"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseCypher), DefaultValue = true)]
+        public bool UseCypher { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
+        /// </summary>
+        [Parameter(nameof(UseDeepCrab), DefaultValue = true)]
+        public bool UseDeepCrab { get; set; }
+
+        private HashSet<GartleyPatternType> GetPatternsType()
+        {
+            var res = new HashSet<GartleyPatternType>();
+            if (UseGartley)
+                res.Add(GartleyPatternType.GARTLEY);
+            if (UseButterfly)
+                res.Add(GartleyPatternType.BUTTERFLY);
+            if (UseShark)
+                res.Add(GartleyPatternType.SHARK);
+            if (UseCrab)
+                res.Add(GartleyPatternType.CRAB);
+            if (UseBat)
+                res.Add(GartleyPatternType.BAT);
+            if (UseAltBat)
+                res.Add(GartleyPatternType.ALT_BAT);
+            if (UseCypher)
+                res.Add(GartleyPatternType.CYPHER);
+            if (UseDeepCrab)
+                res.Add(GartleyPatternType.DEEP_CRAB);
+
+            return res;
+        }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -27,9 +110,11 @@ namespace TradeKit.Gartley
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
             }
-            
+
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
-            m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol);
+            HashSet<GartleyPatternType> patternTypes = GetPatternsType();
+            m_SetupFinder = new GartleySetupFinder(
+                m_BarsProvider, Symbol, BarAllowancePercent, BarDepthCount, patternTypes);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
