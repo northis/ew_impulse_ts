@@ -23,7 +23,7 @@ namespace TradeKit.Core
     /// <typeparam name="TK">The type of <see cref="SignalEventArgs"/> - what type of signals supports this bot.</typeparam>
     /// <seealso cref="Robot" />
     public abstract class BaseRobot<T,TK> : 
-        Robot where T: SingleSetupFinder<TK> where TK : SignalEventArgs
+        Robot where T: BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
@@ -356,7 +356,7 @@ namespace TradeKit.Core
                 sf.OnEnter += OnEnter;
                 sf.OnStopLoss += OnStopLoss;
                 sf.OnTakeProfit += OnTakeProfit;
-                sf.IsInSetup = false;
+                //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[finderId] = true;
             }
             catch (Exception ex)
