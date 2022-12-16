@@ -411,9 +411,10 @@ namespace TradeKit.AlgoBase
             if (valAc == 0 || valBd == 0 || valXd == 0)
                 return null;
 
+            double valXb = 0;
             if (pattern.XBValues.Length > 0)
             {
-                double valXb = pattern.XBValues.FirstOrDefault(
+                valXb = pattern.XBValues.FirstOrDefault(
                     xbVal => xB / xbVal < m_ShadowAllowanceRatio);
 
                 if (valXb == 0)
@@ -435,6 +436,7 @@ namespace TradeKit.AlgoBase
             double tp2Len = cD * TP2_RATIO;
 
             return new GartleyItem(
+                pattern.PatternType,
                 LevelItem.FromBarPoint(x),
                 LevelItem.FromBarPoint(a),
                 LevelItem.FromBarPoint(b),
@@ -443,7 +445,7 @@ namespace TradeKit.AlgoBase
                 isBull ? -slLen + d : slLen + d,
                 isBull ? tp1Len + d : -tp1Len + d,
                 isBull ? tp2Len + d : -tp2Len + d,
-                xD, aC, bD, xB);
+                xD, valXd, aC, valAc, bD, valBd, xB, valXb);
         }
     }
 }

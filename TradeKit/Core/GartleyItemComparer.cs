@@ -21,10 +21,10 @@ namespace TradeKit.Core
                    //Equals(x.StopLoss, y.StopLoss) &&
                    //Equals(x.TakeProfit1, y.TakeProfit1) && 
                    //Equals(x.TakeProfit2, y.TakeProfit2) &&
-                   x.XtoD.Equals(y.XtoD) && 
-                   x.AtoC.Equals(y.AtoC) && 
-                   x.BtoD.Equals(y.BtoD) && 
-                   x.XtoB.Equals(y.XtoB);
+                   x.XtoDActual.Equals(y.XtoDActual) && 
+                   x.AtoCActual.Equals(y.AtoCActual) && 
+                   x.BtoDActual.Equals(y.BtoDActual) && 
+                   x.XtoBActual.Equals(y.XtoBActual);
         }
 
         public int GetHashCode(GartleyItem obj)
@@ -38,10 +38,10 @@ namespace TradeKit.Core
             //hashCode.Add(obj.StopLoss);
             //hashCode.Add(obj.TakeProfit1);
             //hashCode.Add(obj.TakeProfit2);
-            hashCode.Add(obj.XtoD);
-            hashCode.Add(obj.AtoC);
-            hashCode.Add(obj.BtoD);
-            hashCode.Add(obj.XtoB);
+            hashCode.Add(obj.XtoDActual);
+            hashCode.Add(obj.AtoCActual);
+            hashCode.Add(obj.BtoDActual);
+            hashCode.Add(obj.XtoBActual);
             return hashCode.ToHashCode();
         }
     }

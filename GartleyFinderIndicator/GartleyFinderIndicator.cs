@@ -1,5 +1,5 @@
 ﻿using cAlgo.API;
-using TradeKit.Impulse;
+using TradeKit.Gartley;
 
 namespace GartleyFinderIndicator
 {
@@ -8,7 +8,7 @@ namespace GartleyFinderIndicator
     /// </summary>
     /// <seealso cref="Indicator" />
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-    public class GartleyFinderIndicator : ImpulseFinderBaseIndicator
+    public class GartleyFinderIndicator : GartleyFinderBaseIndicator
     {
 
     }

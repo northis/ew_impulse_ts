@@ -166,21 +166,58 @@ namespace TradeKit.Gartley
             }
 
             int levelIndex = e.Level.Index.Value;
-            Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
-            //if (e.Waves is { Count: > 0 })
-            //{
-            //    BarPoint start = e.Waves[0];
-            //    BarPoint[] rest = e.Waves.ToArray()[1..];
-            //    for (var index = 0; index < rest.Length; index++)
-            //    {
-            //        BarPoint wave = rest[index];
-            //        int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
-            //        int endIndex = m_BarsProvider.GetIndexByTime(wave.OpenTime);
-            //        Chart.DrawTrendLine($"Impulse{levelIndex}+{index}", 
-            //            startIndex, start.Value, endIndex, wave.Value, Color.LightBlue);
-            //        start = wave;
-            //    }
-            //}
+            int indexX = e.GartleyItem.ItemX.Index.GetValueOrDefault();
+            int indexA = e.GartleyItem.ItemA.Index.GetValueOrDefault();
+            int indexB = e.GartleyItem.ItemB.Index.GetValueOrDefault();
+            int indexC = e.GartleyItem.ItemC.Index.GetValueOrDefault();
+            int indexD = e.GartleyItem.ItemD.Index.GetValueOrDefault();
+            if (indexX == 0 || indexA == 0 || indexB == 0 || indexC == 0 || indexD == 0)
+                return;
+            
+            double valueX = e.GartleyItem.ItemX.Price;
+            double valueA = e.GartleyItem.ItemA.Price;
+            double valueB = e.GartleyItem.ItemB.Price;
+            double valueC = e.GartleyItem.ItemC.Price;
+            double valueD = e.GartleyItem.ItemD.Price;
+
+            bool isBull = valueX < valueA;
+            Color color = isBull ? Color.LightGreen : Color.LightCoral;
+            int thickness = 1;
+
+            Chart.DrawTriangle($"P1{levelIndex}", indexX, valueX, indexA, valueA, indexB, valueB, color, thickness);
+            Chart.DrawTriangle($"P2{levelIndex}", indexB, valueB, indexC, valueC, indexD, valueD, color, thickness);
+
+            ChartTrendLine xDLine =
+                Chart.DrawTrendLine($"XD{levelIndex}", indexX, valueX, indexD, valueD, color, thickness);
+            xDLine.LineStyle = LineStyle.Dots;
+            xDLine.Comment =
+                $"{e.GartleyItem.PatternType}{Environment.NewLine}{e.GartleyItem.XtoDActual:##.###} ({e.GartleyItem.XtoD:##.###})";
+            
+            ChartTrendLine xBLine =
+                Chart.DrawTrendLine($"XB{levelIndex}", indexX, valueX, indexB, valueB, color, thickness);
+            xBLine.LineStyle = LineStyle.Dots;
+
+            string xbLevel = e.GartleyItem.XtoB > 0 
+                ? $" ({e.GartleyItem.XtoB:##.###})" 
+                : string.Empty;
+            xBLine.Comment = $"{e.GartleyItem.XtoBActual}{xbLevel}";
+
+            ChartTrendLine bDLine =
+                Chart.DrawTrendLine($"BD{levelIndex}", indexB, valueB, indexD, valueD, color, thickness);
+            bDLine.LineStyle = LineStyle.Dots;
+            bDLine.Comment = $"{e.GartleyItem.BtoDActual:##.###} ({e.GartleyItem.BtoD:##.###})";
+
+            ChartTrendLine aCLine =
+                Chart.DrawTrendLine($"AC{levelIndex}", indexA, valueA, indexC, valueC, color, thickness);
+            aCLine.LineStyle = LineStyle.Dots;
+            aCLine.Comment = $"{e.GartleyItem.AtoCActual:##.###} ({e.GartleyItem.AtoC:##.###})";
+
+            int setupWidth = 5;
+            double closeD = m_BarsProvider.GetClosePrice(indexD);
+            Chart.DrawRectangle($"SL{levelIndex}", indexD, closeD, indexD + setupWidth,
+                e.GartleyItem.StopLoss, Color.DarkRed, thickness);
+            Chart.DrawRectangle($"TP{levelIndex}", indexD, closeD, indexD + setupWidth,
+                e.GartleyItem.TakeProfit1, Color.DarkGreen, thickness);
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");

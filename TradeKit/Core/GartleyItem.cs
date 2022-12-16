@@ -7,6 +7,7 @@ namespace TradeKit.Core
     /// </summary>
     /// <seealso cref="IEquatable&lt;GartleyItem&gt;" />
     public sealed record GartleyItem(
+        GartleyPatternType PatternType,
         LevelItem ItemX,
         LevelItem ItemA,
         LevelItem ItemB,
@@ -15,9 +16,13 @@ namespace TradeKit.Core
         double StopLoss,
         double TakeProfit1,
         double TakeProfit2,
+        double XtoDActual,
         double XtoD,
+        double AtoCActual,
         double AtoC,
+        double BtoDActual,
         double BtoD,
+        double XtoBActual,
         double XtoB = 0)
     {
         /// <summary>
