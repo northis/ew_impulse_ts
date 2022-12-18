@@ -25,6 +25,29 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Shows the text for <see cref="ChartTrendLine"/>.
+        /// </summary>
+        /// <param name="line">The line.</param>
+        /// <param name="chart">The chart.</param>
+        /// <param name="text">The text.</param>
+        /// <param name="isUp">if set to <c>true</c> text will show above the line.</param>
+        /// <param name="x1">The x1.</param>
+        /// <param name="x2">The x2.</param>
+        /// <returns><see cref="ChartTrendLine"/> object.</returns>
+        public static ChartTrendLine TextForLine(
+            this ChartTrendLine line, Chart chart, string text, bool isUp, int x1, int x2)
+        {
+            double max = Math.Max(line.Y1, line.Y2);
+            double min = Math.Min(line.Y1, line.Y2);
+            int maxX = Math.Max(x1, x2);
+            int minX = Math.Min(x1, x2);
+            double y = max - Convert.ToInt32((max - min) / 2);
+            int x = minX + Convert.ToInt32((maxX - minX) / 2);
+            chart.DrawText(line.Name + "Text", text, x, y, line.Color).ChartTextAlign(isUp);
+            return line;
+        }
+
+        /// <summary>
         /// Returns the amount of volume based on your provided risk percentage and stop loss
         /// </summary>
         /// <param name="symbol">The symbol</param>

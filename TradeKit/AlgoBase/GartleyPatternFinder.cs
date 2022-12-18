@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using ICSharpCode.SharpZipLib;
 using TradeKit.Core;
@@ -11,10 +12,10 @@ namespace TradeKit.AlgoBase
         private readonly double m_ShadowAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
         private const int GARTLEY_EXTREMA_COUNT = 6;
+        private const int PRE_X_EXTREMA_BARS_COUNT = 3;
         private const double SL_RATIO = 0.27;
         private const double TP1_RATIO = 0.382;
         private const double TP2_RATIO = 0.618;
-        private const int GARTLEY_EXTREMA_X_B_LAST_INDEX = 2;// 0-X, 1-A, 2-B
 
         private static readonly double[] LEVELS =
         {
@@ -128,7 +129,10 @@ namespace TradeKit.AlgoBase
 
             BarPoint pointD = null;
             HashSet<GartleyItem> patterns = null;
-            for (int i = endIndex - 1; i > startIndex; i--)
+            int nextDIndex = endIndex - 1;
+            double cMax = m_BarsProvider.GetHighPrice(nextDIndex);
+            double cMin = m_BarsProvider.GetLowPrice(nextDIndex);
+            for (int i = nextDIndex; i > startIndex; i--)
             {
                 double lMax = m_BarsProvider.GetHighPrice(i);
                 double lMin = m_BarsProvider.GetLowPrice(i);
@@ -140,7 +144,7 @@ namespace TradeKit.AlgoBase
 
                     if (isBull && isBear || !isBull && !isBear)
                     {
-                        Logger.Write("Candle is too big for this scale");
+                        //Logger.Write("Candle is too big");
                         return null;
                     }
 
@@ -154,20 +158,24 @@ namespace TradeKit.AlgoBase
                 {
                     if (lMin < pointD)
                     {
-                        Logger.Write($"Min ({lMin}) < D ({pointD.Value})");
+                        //Logger.Write($"Min ({lMin}) < D ({pointD.Value})");
                         return null;
                     }
 
+                    if (cMax > lMax)
+                        continue;
                     cValue = lMax;
                 }
                 else
                 {
                     if (lMax > pointD)
                     {
-                        Logger.Write($"Min ({lMax}) > D ({pointD.Value})");
+                        //Logger.Write($"Min ({lMax}) > D ({pointD.Value})");
                         return null;
                     }
 
+                    if (cMin < lMin)
+                        continue;
                     cValue = lMin;
                 }
 
@@ -176,15 +184,19 @@ namespace TradeKit.AlgoBase
                 List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull);
                 if (patternsIn != null)
                 {
-                    //check shadow against level
-
                     patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
                     foreach (GartleyItem patternIn in patternsIn)
                     {
-                        if (patterns.Add(patternIn)) continue;
-                        Logger.Write("Got the same Gartley pattern, ignore it");
+                        if (patterns.Add(patternIn))
+                        {
+                            continue;
+                        }
+                        //Logger.Write("Got the same Gartley pattern, ignore it");
                     }
                 }
+
+                cMax = Math.Max(cMax, lMax);
+                cMin = Math.Min(cMin, lMin);
             }
 
             return patterns;
@@ -223,8 +235,12 @@ namespace TradeKit.AlgoBase
                     double varA = varX + ratio * (isBull ? 1 : -1);
                     pointsA[i] = varA;
                 }
-                
-                for (int i = pointC.BarIndex - 1; i >= 0; i--)
+
+                int nextCIndex = pointC.BarIndex - 1;
+                double bMax = m_BarsProvider.GetHighPrice(nextCIndex);
+                double bMin = m_BarsProvider.GetLowPrice(nextCIndex);
+
+                for (int i = nextCIndex; i >= 0; i--)
                 {
                     double lMax = m_BarsProvider.GetHighPrice(i);
                     double lMin = m_BarsProvider.GetLowPrice(i);
@@ -242,18 +258,18 @@ namespace TradeKit.AlgoBase
                     {
                         if (isBull)
                         {
-                            if (lMin <= pointB && lMin >= pointB - allowance)
+                            if (lMin <= bMin && lMin <= pointB && lMin >= pointB - allowance)
                             {
                                 bExtrema ??= new List<BarPoint>();
                                 bExtrema.Add(new BarPoint(lMin,
-                                        m_BarsProvider.GetOpenTime(i),
-                                        m_BarsProvider.TimeFrame, i));
+                                    m_BarsProvider.GetOpenTime(i),
+                                    m_BarsProvider.TimeFrame, i));
                                 // Got good B point
                             }
                         }
                         else
                         {
-                            if (lMax >= pointB && lMin <= pointB + allowance)
+                            if (lMax >= bMax && lMax >= pointB && lMin <= pointB + allowance)
                             {
                                 bExtrema ??= new List<BarPoint>();
                                 bExtrema.Add(new BarPoint(lMax,
@@ -263,6 +279,9 @@ namespace TradeKit.AlgoBase
                             }
                         }
                     }
+                    
+                    bMax = Math.Max(bMax, lMax);
+                    bMin = Math.Min(bMin, lMin);
 
                     if (bExtrema == null)
                     {
@@ -275,16 +294,19 @@ namespace TradeKit.AlgoBase
 
                     foreach (BarPoint pointB in bExtrema)
                     {
-                        for (int j = pointB.BarIndex - 1; j >= 0; j--)
+                        int nextBIndex = pointB.BarIndex - 1;
+                        double aMax = m_BarsProvider.GetHighPrice(nextBIndex);
+                        double aMin = m_BarsProvider.GetLowPrice(nextBIndex);
+                        for (int j = nextBIndex; j >= 0; j--)
                         {
                             List<BarPoint> aExtrema = null;
-                            double aMax = m_BarsProvider.GetHighPrice(j);
-                            double aMin = m_BarsProvider.GetLowPrice(j);
+                            lMax = m_BarsProvider.GetHighPrice(j);
+                            lMin = m_BarsProvider.GetLowPrice(j);
 
                             isBullBreak = isBull && 
                                           (lMax > maxAPossible + allowance || lMin < pointB);
                             isBearishBreak = !isBull && 
-                                             (aMin < minAPossible - allowance || aMax > pointB);
+                                             (lMin < minAPossible - allowance || lMax > pointB);
                             if (isBullBreak || isBearishBreak)
                             {
                                 // No A points are possible beyond this point
@@ -295,7 +317,7 @@ namespace TradeKit.AlgoBase
                             {
                                 if (isBull)
                                 {
-                                    if (aMax >= pointA && aMin <= pointA + allowance)
+                                    if (lMax >= aMax && lMax >= pointA && lMax <= pointA + allowance)
                                     {
                                         aExtrema ??= new List<BarPoint>();
                                         aExtrema.Add(new BarPoint(aMax,
@@ -303,11 +325,9 @@ namespace TradeKit.AlgoBase
                                             m_BarsProvider.TimeFrame, j));
                                         // Got good A point
                                     }
-
-                                    continue;
                                 }
 
-                                if (aMin <= pointA && aMin >= pointA - allowance)
+                                if (lMin<= aMin && lMin <= pointA && lMin >= pointA - allowance)
                                 {
                                     aExtrema ??= new List<BarPoint>();
                                     aExtrema.Add(new BarPoint(aMin,
@@ -316,6 +336,9 @@ namespace TradeKit.AlgoBase
                                     // Got good A point
                                 }
                             }
+                            
+                            aMax = Math.Max(aMax, lMax);
+                            aMin = Math.Min(aMin, lMin);
 
                             if (aExtrema == null)
                             {
@@ -328,18 +351,21 @@ namespace TradeKit.AlgoBase
 
                             foreach (BarPoint pointA in aExtrema)
                             {
-                                for (int k = pointA.BarIndex - 1; k >= 0; k--)
+                                int nextXIndex = pointA.BarIndex - 1;
+                                double xMax = m_BarsProvider.GetHighPrice(nextXIndex);
+                                double xMin = m_BarsProvider.GetLowPrice(nextXIndex);
+                                for (int k = nextXIndex; k >= 0; k--)
                                 {
                                     List<BarPoint> xExtrema = null;
-                                    double xMax = m_BarsProvider.GetHighPrice(k);
-                                    double xMin = m_BarsProvider.GetLowPrice(k);
+                                    lMax = m_BarsProvider.GetHighPrice(k);
+                                    lMin = m_BarsProvider.GetLowPrice(k);
 
                                     isBullBreak = isBull &&
-                                                  (xMin < minXPossible - allowance ||
-                                                   xMax > pointA);
+                                                  (lMin < minXPossible - allowance ||
+                                                   lMax > pointA);
                                     isBearishBreak = !isBull &&
-                                                     (xMax > maxXPossible + allowance ||
-                                                      xMin < pointA);
+                                                     (lMax > maxXPossible + allowance ||
+                                                      lMin < pointA);
                                     if (isBullBreak || isBearishBreak)
                                     {
                                         // No X points are possible beyond this point
@@ -350,27 +376,28 @@ namespace TradeKit.AlgoBase
                                     {
                                         if (isBull)
                                         {
-                                            if (xMin <= pointX && xMin >= pointX - allowance)
+                                            if (lMin <= xMin && lMin <= pointX && lMin >= pointX - allowance)
                                             {
                                                 xExtrema ??= new List<BarPoint>();
-                                                xExtrema.Add(new BarPoint(xMin,
+                                                xExtrema.Add(new BarPoint(lMin,
                                                     m_BarsProvider.GetOpenTime(k),
                                                     m_BarsProvider.TimeFrame, k));
                                                 // Got good X point
                                             }
-
-                                            continue;
                                         }
 
-                                        if (xMax >= pointX && xMax <= pointX + allowance)
+                                        if (lMax >= xMax && lMax >= pointX && lMax <= pointX + allowance)
                                         {
                                             xExtrema ??= new List<BarPoint>();
-                                            xExtrema.Add(new BarPoint(xMax,
+                                            xExtrema.Add(new BarPoint(lMax,
                                                 m_BarsProvider.GetOpenTime(k),
                                                 m_BarsProvider.TimeFrame, k));
                                             // Got good X point
                                         }
                                     }
+                                    
+                                    xMax = Math.Max(xMax, lMax);
+                                    xMin = Math.Min(xMin, lMin);
 
                                     if (xExtrema == null)
                                     {
@@ -380,6 +407,22 @@ namespace TradeKit.AlgoBase
 
                                     foreach (BarPoint pointX in xExtrema)
                                     {
+                                        bool xNotExtrema = false;
+                                        for (int l = k;
+                                             l < Math.Max(k - PRE_X_EXTREMA_BARS_COUNT, 0);
+                                             l--)
+                                        {
+                                            if (isBull && m_BarsProvider.GetLowPrice(l) < pointX ||
+                                                !isBull && m_BarsProvider.GetHighPrice(l) > pointX)
+                                            {
+                                                xNotExtrema = true;
+                                                break;
+                                            }
+                                        }
+
+                                        if (xNotExtrema)
+                                            continue;
+
                                         GartleyItem patternFound = CreatePattern(
                                             pattern, pointX, pointA, pointB, pointC, pointD);
 
@@ -463,7 +506,7 @@ namespace TradeKit.AlgoBase
 
             if (isBull && shadowD < dLevel || !isBull && shadowD > dLevel)
             {
-                Logger.Write("Candle body doesn't fit."); // allowance?
+                //Logger.Write("Candle body doesn't fit."); // allowance?
                 return null;
             }
 
