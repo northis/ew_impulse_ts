@@ -15,6 +15,12 @@ namespace TradeKit.Gartley
         private GartleySetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
         private bool m_IsInitialized;
+        private Color m_SlColor;
+        private Color m_TpColor;
+        private Color m_BearColorFill;
+        private Color m_BullColorFill;
+        private Color m_BearColorBorder;
+        private Color m_BullColorBorder;
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
@@ -104,7 +110,6 @@ namespace TradeKit.Gartley
         /// </summary>
         protected override void Initialize()
         {
-            Debugger.Launch();
             base.Initialize();
             Logger.SetWrite(a => Print(a));
             if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
@@ -112,6 +117,13 @@ namespace TradeKit.Gartley
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
             }
+
+            m_SlColor = Color.FromHex("#50F00000");
+            m_TpColor = Color.FromHex("#5000F000");
+            m_BearColorFill = Color.FromHex("#50F08080");
+            m_BullColorFill = Color.FromHex("#5090EE90");
+            m_BearColorBorder = Color.FromHex("#F0F08080");
+            m_BullColorBorder = Color.FromHex("#F090EE90");
 
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
@@ -169,7 +181,8 @@ namespace TradeKit.Gartley
             int indexD = e.GartleyItem.ItemD.Index.GetValueOrDefault();
             if (indexX == 0 || indexA == 0 || indexB == 0 || indexC == 0 || indexD == 0)
                 return;
-            
+
+            string name = $"{levelIndex}{e.GartleyItem.PatternType}";
             double valueX = e.GartleyItem.ItemX.Price;
             double valueA = e.GartleyItem.ItemA.Price;
             double valueB = e.GartleyItem.ItemB.Price;
@@ -177,43 +190,69 @@ namespace TradeKit.Gartley
             double valueD = e.GartleyItem.ItemD.Price;
 
             bool isBull = valueX < valueA;
-            Color color = isBull ? Color.LightGreen : Color.LightCoral;
+            Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
+            Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
+
             int thickness = 1;
 
-            Chart.DrawTriangle($"P1{levelIndex}", indexX, valueX, indexA, valueA, indexB, valueB, color, thickness);
-            Chart.DrawTriangle($"P2{levelIndex}", indexB, valueB, indexC, valueC, indexD, valueD, color, thickness);
+            ChartTriangle p1 = 
+            Chart.DrawTriangle($"P1{name}", indexX, valueX, indexA, valueA, indexB, valueB, colorFill, 0);
+            p1.IsFilled = true;
 
-            ChartTrendLine xDLine =
-                Chart.DrawTrendLine($"XD{levelIndex}", indexX, valueX, indexD, valueD, color, thickness);
-            xDLine.LineStyle = LineStyle.Dots;
-            xDLine.Comment =
-                $"{e.GartleyItem.PatternType}{Environment.NewLine}{e.GartleyItem.XtoDActual:##.###} ({e.GartleyItem.XtoD:##.###})";
-            
-            ChartTrendLine xBLine =
-                Chart.DrawTrendLine($"XB{levelIndex}", indexX, valueX, indexB, valueB, color, thickness);
-            xBLine.LineStyle = LineStyle.Dots;
+            ChartTriangle p2 = 
+            Chart.DrawTriangle($"P2{name}", indexB, valueB, indexC, valueC, indexD, valueD, colorFill, 0);
+            p2.IsFilled = true;
 
-            string xbLevel = e.GartleyItem.XtoB > 0 
-                ? $" ({e.GartleyItem.XtoB:##.###})" 
+            Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD, colorBorder, thickness);
+
+            double xdTextPointY = isBull ? Math.Min(valueX, valueD) : Math.Max(valueX, valueD);
+            int xdTextPointX = indexX + Convert.ToInt32((indexD- indexX)/2);
+            Chart.DrawText($"XDText{name}", $"{e.GartleyItem.PatternType}{Environment.NewLine}{e.GartleyItem.XtoDActual:##.###} ({e.GartleyItem.XtoD:##.###})", xdTextPointX, xdTextPointY, colorBorder)
+                .ChartTextAlign(!isBull);
+
+            Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
+                .ChartTextAlign(!isBull);
+            Chart.DrawText($"AText{name}", "A", indexA, valueA, colorBorder)
+                .ChartTextAlign(isBull);
+            Chart.DrawText($"BText{name}", "B", indexB, valueB, colorBorder)
+                .ChartTextAlign(!isBull);
+            Chart.DrawText($"CText{name}", "C", indexC, valueC, colorBorder)
+                .ChartTextAlign(isBull);
+            Chart.DrawText($"DText{name}", "D", indexD, valueD, colorBorder)
+                .ChartTextAlign(!isBull);
+
+            Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, thickness);
+
+            string xbLevel = e.GartleyItem.XtoB > 0
+                ? $" ({e.GartleyItem.XtoB:0.###})"
                 : string.Empty;
-            xBLine.Comment = $"{e.GartleyItem.XtoBActual}{xbLevel}";
+
+            double xbMax = Math.Max(valueX, valueB);
+            double xbMin = Math.Min(valueX, valueB);
+            double xBTextPointY = xbMax - Convert.ToInt32((xbMax - xbMin) / 2);
+            int xBTextPointX = indexX + Convert.ToInt32((indexB - indexX) / 2);
+            Chart.DrawText($"XBText{name}", $"{e.GartleyItem.XtoBActual:0.###}{xbLevel}", xBTextPointX, xBTextPointY, colorBorder)
+                .ChartTextAlign(!isBull);
 
             ChartTrendLine bDLine =
-                Chart.DrawTrendLine($"BD{levelIndex}", indexB, valueB, indexD, valueD, color, thickness);
-            bDLine.LineStyle = LineStyle.Dots;
+                Chart.DrawTrendLine($"BD{name}", indexB, valueB, indexD, valueD, colorBorder, thickness);
             bDLine.Comment = $"{e.GartleyItem.BtoDActual:##.###} ({e.GartleyItem.BtoD:##.###})";
 
             ChartTrendLine aCLine =
-                Chart.DrawTrendLine($"AC{levelIndex}", indexA, valueA, indexC, valueC, color, thickness);
-            aCLine.LineStyle = LineStyle.Dots;
+                Chart.DrawTrendLine($"AC{name}", indexA, valueA, indexC, valueC, colorBorder, thickness);
             aCLine.Comment = $"{e.GartleyItem.AtoCActual:##.###} ({e.GartleyItem.AtoC:##.###})";
 
             int setupWidth = 5;
             double closeD = m_BarsProvider.GetClosePrice(indexD);
-            Chart.DrawRectangle($"SL{levelIndex}", indexD, closeD, indexD + setupWidth,
-                e.GartleyItem.StopLoss, Color.DarkRed, thickness);
-            Chart.DrawRectangle($"TP{levelIndex}", indexD, closeD, indexD + setupWidth,
-                e.GartleyItem.TakeProfit1, Color.DarkGreen, thickness);
+            
+            ChartRectangle slRect =
+                Chart.DrawRectangle($"SL{name}", indexD, closeD, indexD + setupWidth,
+                    e.GartleyItem.StopLoss, m_SlColor, 1);
+            slRect.IsFilled = true;
+            ChartRectangle tpRect =
+                Chart.DrawRectangle($"TP{name}", indexD, closeD, indexD + setupWidth,
+                    e.GartleyItem.TakeProfit1, m_TpColor, 1);
+            tpRect.IsFilled = true;
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");

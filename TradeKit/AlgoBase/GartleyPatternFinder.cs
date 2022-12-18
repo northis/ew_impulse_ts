@@ -233,7 +233,6 @@ namespace TradeKit.AlgoBase
                     bool isBearishBreak = !isBull && (lMax > pointD || lMin < pointC);
                     if (isBullBreak || isBearishBreak)
                     {
-                        // TODO check this after A and X
                         // No B points are possible beyond this point
                         break;
                     }
@@ -270,7 +269,10 @@ namespace TradeKit.AlgoBase
                         // No B points were found
                         continue;
                     }
-                    
+
+                    double maxAPossible = pointsA.Max();
+                    double minAPossible = pointsA.Min();
+
                     foreach (BarPoint pointB in bExtrema)
                     {
                         for (int j = pointB.BarIndex - 1; j >= 0; j--)
@@ -278,6 +280,16 @@ namespace TradeKit.AlgoBase
                             List<BarPoint> aExtrema = null;
                             double aMax = m_BarsProvider.GetHighPrice(j);
                             double aMin = m_BarsProvider.GetLowPrice(j);
+
+                            isBullBreak = isBull && 
+                                          (lMax > maxAPossible + allowance || lMin < pointB);
+                            isBearishBreak = !isBull && 
+                                             (aMin < minAPossible - allowance || aMax > pointB);
+                            if (isBullBreak || isBearishBreak)
+                            {
+                                // No A points are possible beyond this point
+                                break;
+                            }
 
                             foreach (double pointA in pointsA)
                             {
@@ -311,6 +323,9 @@ namespace TradeKit.AlgoBase
                                 continue;
                             }
 
+                            double maxXPossible = pointsX.Max();
+                            double minXPossible = pointsX.Min();
+
                             foreach (BarPoint pointA in aExtrema)
                             {
                                 for (int k = pointA.BarIndex - 1; k >= 0; k--)
@@ -318,6 +333,18 @@ namespace TradeKit.AlgoBase
                                     List<BarPoint> xExtrema = null;
                                     double xMax = m_BarsProvider.GetHighPrice(k);
                                     double xMin = m_BarsProvider.GetLowPrice(k);
+
+                                    isBullBreak = isBull &&
+                                                  (xMin < minXPossible - allowance ||
+                                                   xMax > pointA);
+                                    isBearishBreak = !isBull &&
+                                                     (xMax > maxXPossible + allowance ||
+                                                      xMin < pointA);
+                                    if (isBullBreak || isBearishBreak)
+                                    {
+                                        // No X points are possible beyond this point
+                                        break;
+                                    }
 
                                     foreach (double pointX in pointsX)
                                     {

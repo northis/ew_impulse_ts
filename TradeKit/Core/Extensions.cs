@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 
@@ -8,6 +9,21 @@ namespace TradeKit.Core
 {
     public static class Extensions
     {
+        /// <summary>
+        /// Aligns the <see cref="ChartText"/> item.
+        /// </summary>
+        /// <param name="textItem">The text item.</param>
+        /// <param name="isUp">Label location.</param>
+        /// <param name="horizontalAlignment">The horizontal alignment.</param>
+        /// <returns>The <see cref="ChartText"/> ite</returns>
+        public static ChartText ChartTextAlign(this ChartText textItem, bool isUp, 
+            HorizontalAlignment horizontalAlignment = HorizontalAlignment.Center)
+        {
+            textItem.HorizontalAlignment = horizontalAlignment;
+            textItem.VerticalAlignment = isUp ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+            return textItem;
+        }
+
         /// <summary>
         /// Returns the amount of volume based on your provided risk percentage and stop loss
         /// </summary>
