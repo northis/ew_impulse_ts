@@ -37,7 +37,7 @@ namespace TradeKit.Gartley
             m_BarsDepth = barsDepth;
             m_PatternFinder = new GartleyPatternFinder(
                 shadowAllowance, m_MainBarsProvider, patterns);
-            m_Patterns = new HashSet<GartleyItem>();
+            m_Patterns = new HashSet<GartleyItem>(new GartleyItemComparer());
         }
 
         /// <summary>

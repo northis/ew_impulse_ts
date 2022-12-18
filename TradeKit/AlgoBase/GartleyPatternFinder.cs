@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using ICSharpCode.SharpZipLib;
 using TradeKit.Core;
@@ -191,6 +190,7 @@ namespace TradeKit.AlgoBase
                         {
                             continue;
                         }
+
                         //Logger.Write("Got the same Gartley pattern, ignore it");
                     }
                 }

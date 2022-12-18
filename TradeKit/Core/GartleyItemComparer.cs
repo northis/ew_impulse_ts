@@ -4,7 +4,6 @@ using System.Collections.Generic;
 namespace TradeKit.Core
 {
     internal class GartleyItemComparer: IEqualityComparer<GartleyItem>
-
     {
         public bool Equals(GartleyItem x, GartleyItem y)
         {
@@ -13,23 +12,25 @@ namespace TradeKit.Core
             if (ReferenceEquals(y, null)) return false;
             if (x.GetType() != y.GetType()) return false;
 
-            return Equals(x.ItemX, y.ItemX) && 
-                   Equals(x.ItemA, y.ItemA) && 
+            return Equals(x.PatternType, y.PatternType) &&
+                   Equals(x.ItemX, y.ItemX) &&
+                   Equals(x.ItemA, y.ItemA) &&
                    Equals(x.ItemB, y.ItemB) &&
-                   Equals(x.ItemC, y.ItemC) && 
-                   //Equals(x.ItemD, y.ItemD) && 
-                   //Equals(x.StopLoss, y.StopLoss) &&
-                   //Equals(x.TakeProfit1, y.TakeProfit1) && 
-                   //Equals(x.TakeProfit2, y.TakeProfit2) &&
-                   x.XtoDActual.Equals(y.XtoDActual) && 
-                   x.AtoCActual.Equals(y.AtoCActual) && 
-                   x.BtoDActual.Equals(y.BtoDActual) && 
-                   x.XtoBActual.Equals(y.XtoBActual);
+                   Equals(x.ItemC, y.ItemC);
+            //Equals(x.ItemD, y.ItemD) && 
+            //Equals(x.StopLoss, y.StopLoss) &&
+            //Equals(x.TakeProfit1, y.TakeProfit1) && 
+            //Equals(x.TakeProfit2, y.TakeProfit2) &&
+            //x.XtoDActual.Equals(y.XtoDActual) && 
+            //x.AtoCActual.Equals(y.AtoCActual) && 
+            //x.BtoDActual.Equals(y.BtoDActual) && 
+            //x.XtoBActual.Equals(y.XtoBActual);
         }
 
         public int GetHashCode(GartleyItem obj)
         {
             var hashCode = new HashCode();
+            hashCode.Add(obj.PatternType);
             hashCode.Add(obj.ItemX);
             hashCode.Add(obj.ItemA);
             hashCode.Add(obj.ItemB);
@@ -38,10 +39,10 @@ namespace TradeKit.Core
             //hashCode.Add(obj.StopLoss);
             //hashCode.Add(obj.TakeProfit1);
             //hashCode.Add(obj.TakeProfit2);
-            hashCode.Add(obj.XtoDActual);
-            hashCode.Add(obj.AtoCActual);
-            hashCode.Add(obj.BtoDActual);
-            hashCode.Add(obj.XtoBActual);
+            //hashCode.Add(obj.XtoDActual);
+            //hashCode.Add(obj.AtoCActual);
+            //hashCode.Add(obj.BtoDActual);
+            //hashCode.Add(obj.XtoBActual);
             return hashCode.ToHashCode();
         }
     }

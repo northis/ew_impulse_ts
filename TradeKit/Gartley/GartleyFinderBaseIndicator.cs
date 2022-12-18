@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 
@@ -21,7 +20,6 @@ namespace TradeKit.Gartley
         private Color m_BullColorFill;
         private Color m_BearColorBorder;
         private Color m_BullColorBorder;
-        private const string RATIO_FORMAT = "0.###";
         private const int SETUP_WIDTH = 3;
         private const int LINE_WIDTH = 1;
 
@@ -205,7 +203,7 @@ namespace TradeKit.Gartley
             p2.IsFilled = true;
 
             Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.PatternType}{Environment.NewLine}{e.GartleyItem.XtoDActual.ToString(RATIO_FORMAT)} ({e.GartleyItem.XtoD.ToString(RATIO_FORMAT)})",
+                .TextForLine(Chart, $"{e.GartleyItem.PatternType}{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})",
                     !isBull, indexX, indexD);
 
             Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
@@ -220,18 +218,18 @@ namespace TradeKit.Gartley
                 .ChartTextAlign(!isBull);
 
             string xbLevel = e.GartleyItem.XtoB > 0
-                ? $" ({e.GartleyItem.XtoB.ToString(RATIO_FORMAT)})"
+                ? $" ({e.GartleyItem.XtoB.Ratio()})"
                 : string.Empty;
 
             Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.XtoBActual.ToString(RATIO_FORMAT)}{xbLevel}", !true, indexX, indexB);
+                .TextForLine(Chart, $"{e.GartleyItem.XtoBActual.Ratio()}{xbLevel}", !true, indexX, indexB);
 
             Chart.DrawTrendLine($"BD{name}", indexB, valueB, indexD, valueD, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.BtoDActual.ToString(RATIO_FORMAT)} ({e.GartleyItem.BtoD.ToString(RATIO_FORMAT)})",
+                .TextForLine(Chart, $"{e.GartleyItem.BtoDActual.Ratio()} ({e.GartleyItem.BtoD.Ratio()})",
                     true, indexB, indexD);
 
             Chart.DrawTrendLine($"AC{name}", indexA, valueA, indexC, valueC, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.AtoCActual.ToString(RATIO_FORMAT)} ({e.GartleyItem.AtoC.ToString(RATIO_FORMAT)})",
+                .TextForLine(Chart, $"{e.GartleyItem.AtoCActual.Ratio()} ({e.GartleyItem.AtoC.Ratio()})",
                     isBull, indexA, indexC);
             
             //double closeD = m_BarsProvider.GetClosePrice(indexD);

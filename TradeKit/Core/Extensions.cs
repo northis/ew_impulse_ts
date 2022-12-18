@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
@@ -9,6 +10,15 @@ namespace TradeKit.Core
 {
     public static class Extensions
     {
+        /// <summary>
+        /// Gets the string for the specified value for ratios from 0 to 9.
+        /// </summary>
+        /// <param name="val">The double value.</param>
+        public static string Ratio(this double val)
+        {
+            return val.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
         /// <summary>
         /// Aligns the <see cref="ChartText"/> item.
         /// </summary>
