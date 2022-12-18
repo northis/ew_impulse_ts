@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 
@@ -36,43 +37,43 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseButterfly), DefaultValue = true)]
+        [Parameter(nameof(UseButterfly), DefaultValue = false)]
         public bool UseButterfly { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.SHARK"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseShark), DefaultValue = true)]
+        [Parameter(nameof(UseShark), DefaultValue = false)]
         public bool UseShark { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCrab), DefaultValue = true)]
+        [Parameter(nameof(UseCrab), DefaultValue = false)]
         public bool UseCrab { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseBat), DefaultValue = true)]
+        [Parameter(nameof(UseBat), DefaultValue = false)]
         public bool UseBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseAltBat), DefaultValue = true)]
+        [Parameter(nameof(UseAltBat), DefaultValue = false)]
         public bool UseAltBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.CYPHER"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCypher), DefaultValue = true)]
+        [Parameter(nameof(UseCypher), DefaultValue = false)]
         public bool UseCypher { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseDeepCrab), DefaultValue = true)]
+        [Parameter(nameof(UseDeepCrab), DefaultValue = false)]
         public bool UseDeepCrab { get; set; }
 
         private HashSet<GartleyPatternType> GetPatternsType()
@@ -103,6 +104,7 @@ namespace TradeKit.Gartley
         /// </summary>
         protected override void Initialize()
         {
+            Debugger.Launch();
             base.Initialize();
             Logger.SetWrite(a => Print(a));
             if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
@@ -136,9 +138,6 @@ namespace TradeKit.Gartley
             }
 
             int levelIndex = e.Level.Index.Value;
-            Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.Index.Value, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightCoral, 2);
-            Chart.DrawIcon($"SL{levelIndex}", ChartIconType.Star, levelIndex
-                , e.Level.Price, Color.LightCoral);
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"SL hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
@@ -151,9 +150,6 @@ namespace TradeKit.Gartley
             }
 
             int levelIndex = e.Level.Index.Value;
-            Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.Index.Value, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightGreen, 2);
-            Chart.DrawIcon($"TP{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.LightGreen);
-
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }

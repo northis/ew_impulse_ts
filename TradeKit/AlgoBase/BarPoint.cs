@@ -76,6 +76,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator >=(BarPoint a, BarPoint b)
         {
+            if (a is null || b is null) return false;
             return a.Value >= b.Value;
         }
 
@@ -89,6 +90,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator <=(BarPoint a, BarPoint b)
         {
+            if (a is null || b is null) return false;
             return a.Value <= b.Value;
         }
 
@@ -102,6 +104,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator >(BarPoint a, BarPoint b)
         {
+            if (a is null || b is null) return false;
             return a.Value > b.Value;
         }
 
@@ -115,6 +118,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator >(double a, BarPoint b)
         {
+            if (b is null) return false;
             return a > b.Value;
         }
 
@@ -128,6 +132,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator <(BarPoint a, BarPoint b)
         {
+            if (a is null || b is null) return false;
             return a.Value < b.Value;
         }
 
@@ -141,6 +146,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator <(double a, BarPoint b)
         {
+            if (b is null) return false;
             return a < b.Value;
         }
 
@@ -154,6 +160,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static double operator +(BarPoint a, BarPoint b)
         {
+            if (a is null || b is null) return 0;
             return a.Value + b.Value;
         }
 
@@ -167,6 +174,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static double operator +(double a, BarPoint b)
         {
+            if (b is null) return a;
             return a + b.Value;
         }
 
@@ -180,6 +188,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static double operator -(BarPoint a, BarPoint b)
         {
+            if (a is null || b is null) return 0;
             return a.Value - b.Value;
         }
 
@@ -193,6 +202,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static double operator -(double a, BarPoint b)
         {
+            if (b is null) return a;
             return a - b.Value;
         }
 
@@ -206,7 +216,10 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator ==(BarPoint a, BarPoint b)
         {
-            return Math.Abs(a-b) < double.Epsilon;
+            if (a is null || b is null)
+                return false;
+
+            return Math.Abs(a - b) < double.Epsilon;
         }
 
         /// <summary>
@@ -219,7 +232,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public static bool operator ==(double a, BarPoint b)
         {
-            return b!= null && Math.Abs(a - b.Value) < double.Epsilon;
+            return b != null && Math.Abs(a - b.Value) < double.Epsilon;
         }
 
         /// <summary>

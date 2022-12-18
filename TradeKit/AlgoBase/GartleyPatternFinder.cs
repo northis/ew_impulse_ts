@@ -103,7 +103,7 @@ namespace TradeKit.AlgoBase
                 throw new ValueOutOfRangeException(
                     $"{nameof(shadowAllowance)} should be between 0 and 100");
 
-            m_ShadowAllowanceRatio = shadowAllowance / 100 + 1;
+            m_ShadowAllowanceRatio = shadowAllowance / 100;
             m_BarsProvider = barsProvider;
             m_RealPatterns = patterns == null
                 ? PATTERNS
@@ -121,38 +121,34 @@ namespace TradeKit.AlgoBase
         {
             if (endIndex - startIndex < GARTLEY_EXTREMA_COUNT)
                 return null;
-            
+
             double max = m_BarsProvider.GetHighPrice(endIndex);
             double min = m_BarsProvider.GetLowPrice(endIndex);
             bool isBull = false;
 
             BarPoint pointD = null;
             HashSet<GartleyItem> patterns = null;
-            for (int i = endIndex - 1; i >= startIndex; i--)
+            for (int i = endIndex - 1; i > startIndex; i--)
             {
                 double lMax = m_BarsProvider.GetHighPrice(i);
                 double lMin = m_BarsProvider.GetLowPrice(i);
 
-                if (pointD == null)
+                if (pointD is null)
                 {
                     isBull = lMax > max;
                     bool isBear = lMin < min;
 
-                    if (isBull && isBear)
+                    if (isBull && isBear || !isBull && !isBear)
                     {
                         Logger.Write("Candle is too big for this scale");
                         return null;
                     }
 
-                    if (!isBull && !isBear)
-                    {
-                        continue;
-                    }
-
                     pointD = new BarPoint(isBull ? min : max,
                         m_BarsProvider.GetOpenTime(endIndex), m_BarsProvider.TimeFrame, endIndex);
+                    continue;
                 }
-                
+
                 double cValue;
                 if (isBull)
                 {
@@ -175,7 +171,7 @@ namespace TradeKit.AlgoBase
                     cValue = lMin;
                 }
 
-                var pointC = new BarPoint(cValue, 
+                var pointC = new BarPoint(cValue,
                     m_BarsProvider.GetOpenTime(i), m_BarsProvider.TimeFrame, i);
                 List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull);
                 if (patternsIn != null)
@@ -197,7 +193,11 @@ namespace TradeKit.AlgoBase
         private List<GartleyItem> FindPatternAgainstC(
             BarPoint pointD, BarPoint pointC, bool isBull)
         {
+            if (pointC is null || pointD is null)
+                return null;
+
             double valCtoD = Math.Abs(pointC.Value - pointD.Value);
+            double allowance = valCtoD * m_ShadowAllowanceRatio;
             double varC = pointC.Value;
             List<GartleyItem> res = null;
 
@@ -233,6 +233,7 @@ namespace TradeKit.AlgoBase
                     bool isBearishBreak = !isBull && (lMax > pointD || lMin < pointC);
                     if (isBullBreak || isBearishBreak)
                     {
+                        // TODO check this after A and X
                         // No B points are possible beyond this point
                         break;
                     }
@@ -242,7 +243,7 @@ namespace TradeKit.AlgoBase
                     {
                         if (isBull)
                         {
-                            if (lMin <= pointB && lMin >= pointB / m_ShadowAllowanceRatio)
+                            if (lMin <= pointB && lMin >= pointB - allowance)
                             {
                                 bExtrema ??= new List<BarPoint>();
                                 bExtrema.Add(new BarPoint(lMin,
@@ -253,7 +254,7 @@ namespace TradeKit.AlgoBase
                         }
                         else
                         {
-                            if (lMax >= pointB && lMin <= pointB * m_ShadowAllowanceRatio)
+                            if (lMax >= pointB && lMin <= pointB + allowance)
                             {
                                 bExtrema ??= new List<BarPoint>();
                                 bExtrema.Add(new BarPoint(lMax,
@@ -282,7 +283,7 @@ namespace TradeKit.AlgoBase
                             {
                                 if (isBull)
                                 {
-                                    if (aMax >= pointA && aMin <= pointA * m_ShadowAllowanceRatio)
+                                    if (aMax >= pointA && aMin <= pointA + allowance)
                                     {
                                         aExtrema ??= new List<BarPoint>();
                                         aExtrema.Add(new BarPoint(aMax,
@@ -294,7 +295,7 @@ namespace TradeKit.AlgoBase
                                     continue;
                                 }
 
-                                if (aMin <= pointA && aMin >= pointA / m_ShadowAllowanceRatio)
+                                if (aMin <= pointA && aMin >= pointA - allowance)
                                 {
                                     aExtrema ??= new List<BarPoint>();
                                     aExtrema.Add(new BarPoint(aMin,
@@ -322,7 +323,7 @@ namespace TradeKit.AlgoBase
                                     {
                                         if (isBull)
                                         {
-                                            if (xMin <= pointX && xMin >= pointX / m_ShadowAllowanceRatio)
+                                            if (xMin <= pointX && xMin >= pointX - allowance)
                                             {
                                                 xExtrema ??= new List<BarPoint>();
                                                 xExtrema.Add(new BarPoint(xMin,
@@ -334,7 +335,7 @@ namespace TradeKit.AlgoBase
                                             continue;
                                         }
 
-                                        if (xMax >= pointX && xMax <= pointX * m_ShadowAllowanceRatio)
+                                        if (xMax >= pointX && xMax <= pointX + allowance)
                                         {
                                             xExtrema ??= new List<BarPoint>();
                                             xExtrema.Add(new BarPoint(xMax,
@@ -393,37 +394,45 @@ namespace TradeKit.AlgoBase
             double cD = Math.Abs(c - d);
             double xC = Math.Abs(c - x);
 
-            if (xA > 0 || aB > 0 || cB > 0 || cD > 0)
+            if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0)
                 return null;
 
-            double xB = xA / aB;
+            double xB = aB / xA;
             double xD = cD / xA;
             double bD = cD / cB;
             double aC = xC / xA;
 
-            double valAc = pattern.ACValues.FirstOrDefault(
-                acVal => aC / acVal < m_ShadowAllowanceRatio);
-            double valBd = pattern.BDValues.FirstOrDefault(
-                bdVal => bD / bdVal < m_ShadowAllowanceRatio);
-            double valXd = pattern.XDValues.FirstOrDefault(
-                xdVal => xD / xdVal < m_ShadowAllowanceRatio);
+            double FetchCloseValue(double[] values, double similarValue)
+            {
+                return (from val in values
+                    let allowance = val * m_ShadowAllowanceRatio
+                    where Math.Abs(similarValue - val) < allowance
+                    select val).FirstOrDefault();
+            }
 
-            if (valAc == 0 || valBd == 0 || valXd == 0)
+            double valAc = FetchCloseValue(pattern.ACValues, aC);
+            if (valAc == 0)
+                return null;
+
+            double valBd = FetchCloseValue(pattern.BDValues, bD);
+            if (valBd == 0)
+                return null;
+
+            double valXd = FetchCloseValue(pattern.XDValues, xD);
+            if (valXd == 0)
                 return null;
 
             double valXb = 0;
             if (pattern.XBValues.Length > 0)
             {
-                valXb = pattern.XBValues.FirstOrDefault(
-                    xbVal => xB / xbVal < m_ShadowAllowanceRatio);
-
+                valXb = FetchCloseValue(pattern.XBValues, xB);
                 if (valXb == 0)
                     return null;
             }
 
             double shadowD = m_BarsProvider.GetClosePrice(d.BarIndex);
             bool isBull = x < a;
-            double dLevel = (isBull ? 1 : -1) * xA / xD + a;
+            double dLevel = (isBull ? -1 : 1) * xA / xD + a;
 
             if (isBull && shadowD < dLevel || !isBull && shadowD > dLevel)
             {
