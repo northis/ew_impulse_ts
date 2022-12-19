@@ -20,6 +20,17 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Sets the <see cref="rectangle"/> filled.
+        /// </summary>
+        /// <param name="rectangle">The rectangle.</param>
+        /// <returns>The rectangle.</returns>
+        public static ChartRectangle SetFilled(this ChartRectangle rectangle)
+        {
+            rectangle.IsFilled = true;
+            return rectangle;
+        }
+
+        /// <summary>
         /// Aligns the <see cref="ChartText"/> item.
         /// </summary>
         /// <param name="textItem">The text item.</param>
@@ -51,7 +62,7 @@ namespace TradeKit.Core
             double min = Math.Min(line.Y1, line.Y2);
             int maxX = Math.Max(x1, x2);
             int minX = Math.Min(x1, x2);
-            double y = max - Convert.ToInt32((max - min) / 2);
+            double y = max - (max - min) / 2;
             int x = minX + Convert.ToInt32((maxX - minX) / 2);
             chart.DrawText(line.Name + "Text", text, x, y, line.Color).ChartTextAlign(isUp);
             return line;

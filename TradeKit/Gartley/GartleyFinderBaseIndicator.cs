@@ -183,7 +183,7 @@ namespace TradeKit.Gartley
             if (indexX == 0 || indexA == 0 || indexB == 0 || indexC == 0 || indexD == 0)
                 return;
 
-            string name = $"{levelIndex}{e.GartleyItem.PatternType}";
+            string name = $"{levelIndex}{e.GartleyItem.GetHashCode()}";
             double valueX = e.GartleyItem.ItemX.Price;
             double valueA = e.GartleyItem.ItemA.Price;
             double valueB = e.GartleyItem.ItemB.Price;
@@ -233,15 +233,16 @@ namespace TradeKit.Gartley
                     isBull, indexA, indexC);
             
             //double closeD = m_BarsProvider.GetClosePrice(indexD);
-            
-            ChartRectangle slRect =
-                Chart.DrawRectangle($"SL{name}", indexD, valueD, indexD + SETUP_WIDTH,
-                    e.GartleyItem.StopLoss, m_SlColor, 1);
-            slRect.IsFilled = true;
-            ChartRectangle tpRect =
-                Chart.DrawRectangle($"TP{name}", indexD, valueD, indexD + SETUP_WIDTH,
-                    e.GartleyItem.TakeProfit1, m_TpColor, 1);
-            tpRect.IsFilled = true;
+
+            Chart.DrawRectangle($"SL{name}", indexD, valueD, indexD + SETUP_WIDTH,
+                    e.GartleyItem.StopLoss, m_SlColor, LINE_WIDTH)
+                .SetFilled();
+            Chart.DrawRectangle($"TP1{name}", indexD, valueD, indexD + SETUP_WIDTH,
+                    e.GartleyItem.TakeProfit1, m_TpColor, LINE_WIDTH)
+                .SetFilled();
+            Chart.DrawRectangle($"TP2{name}", indexD, valueD, indexD + SETUP_WIDTH,
+                    e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
+                .SetFilled();
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");

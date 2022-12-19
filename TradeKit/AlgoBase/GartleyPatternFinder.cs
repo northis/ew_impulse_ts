@@ -409,7 +409,7 @@ namespace TradeKit.AlgoBase
                                     {
                                         bool xNotExtrema = false;
                                         for (int l = k;
-                                             l < Math.Max(k - PRE_X_EXTREMA_BARS_COUNT, 0);
+                                             l >= Math.Max(k - PRE_X_EXTREMA_BARS_COUNT, 0);
                                              l--)
                                         {
                                             if (isBull && m_BarsProvider.GetLowPrice(l) < pointX ||

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -85,6 +86,8 @@ namespace TradeKit.Gartley
                     if (!m_Patterns.Add(localPattern))
                         continue;
 
+                    //System.Diagnostics.Debugger.Launch();
+                    Logger.Write($"Added {localPattern.PatternType}");
                     DateTime startView = m_MainBarsProvider.GetOpenTime(
                         localPattern.ItemX.Index ?? startIndex);
                     OnEnterInvoke(new GartleySignalEventArgs(new LevelItem(close, index), localPattern, startView));
@@ -113,8 +116,8 @@ namespace TradeKit.Gartley
                     isClosed = true;
                 }
 
-                if (isBull && high <= pattern.StopLoss ||
-                    !isBull && low >= pattern.StopLoss)
+                if (isBull && low <= pattern.StopLoss ||
+                    !isBull && high >= pattern.StopLoss)
                 {
                     OnStopLossInvoke(
                         new LevelEventArgs(

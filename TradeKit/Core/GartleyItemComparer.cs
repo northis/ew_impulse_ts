@@ -12,12 +12,12 @@ namespace TradeKit.Core
             if (ReferenceEquals(y, null)) return false;
             if (x.GetType() != y.GetType()) return false;
 
-            return Equals(x.PatternType, y.PatternType) &&
-                   Equals(x.ItemX, y.ItemX) &&
+            return 
+                Equals(x.ItemX, y.ItemX) &&
                    Equals(x.ItemA, y.ItemA) &&
                    Equals(x.ItemB, y.ItemB) &&
-                   Equals(x.ItemC, y.ItemC);
-            //Equals(x.ItemD, y.ItemD) && 
+                   Equals(x.ItemC, y.ItemC) ||
+                   Equals(x.ItemD, y.ItemD);
             //Equals(x.StopLoss, y.StopLoss) &&
             //Equals(x.TakeProfit1, y.TakeProfit1) && 
             //Equals(x.TakeProfit2, y.TakeProfit2) &&
@@ -30,12 +30,12 @@ namespace TradeKit.Core
         public int GetHashCode(GartleyItem obj)
         {
             var hashCode = new HashCode();
-            hashCode.Add(obj.PatternType);
-            hashCode.Add(obj.ItemX);
-            hashCode.Add(obj.ItemA);
-            hashCode.Add(obj.ItemB);
-            hashCode.Add(obj.ItemC);
-            //hashCode.Add(obj.ItemD);
+
+            //hashCode.Add(obj.ItemX);
+            //hashCode.Add(obj.ItemA);
+            //hashCode.Add(obj.ItemB);
+            //hashCode.Add(obj.ItemC);
+            hashCode.Add(obj.ItemD);
             //hashCode.Add(obj.StopLoss);
             //hashCode.Add(obj.TakeProfit1);
             //hashCode.Add(obj.TakeProfit2);
