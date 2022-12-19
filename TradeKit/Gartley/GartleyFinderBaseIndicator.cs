@@ -36,52 +36,58 @@ namespace TradeKit.Gartley
         public int BarAllowancePercent { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
         /// </summary>
         [Parameter(nameof(UseGartley), DefaultValue = true)]
         public bool UseGartley { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
         /// </summary>
         [Parameter(nameof(UseButterfly), DefaultValue = false)]
         public bool UseButterfly { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.SHARK"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.SHARK"/> pattern.
         /// </summary>
         [Parameter(nameof(UseShark), DefaultValue = false)]
         public bool UseShark { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.CRAB"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CRAB"/> pattern.
         /// </summary>
         [Parameter(nameof(UseCrab), DefaultValue = false)]
         public bool UseCrab { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.BAT"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BAT"/> pattern.
         /// </summary>
         [Parameter(nameof(UseBat), DefaultValue = false)]
         public bool UseBat { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
         /// </summary>
         [Parameter(nameof(UseAltBat), DefaultValue = false)]
         public bool UseAltBat { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.CYPHER"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CYPHER"/> pattern.
         /// </summary>
         [Parameter(nameof(UseCypher), DefaultValue = false)]
         public bool UseCypher { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether We should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
         /// </summary>
         [Parameter(nameof(UseDeepCrab), DefaultValue = false)]
         public bool UseDeepCrab { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether we should hide ratio values on patterns.
+        /// </summary>
+        [Parameter(nameof(HideRatio), DefaultValue = false)]
+        public bool HideRatio { get; set; }
 
         private HashSet<GartleyPatternType> GetPatternsType()
         {
@@ -202,8 +208,11 @@ namespace TradeKit.Gartley
             Chart.DrawTriangle($"P2{name}", indexB, valueB, indexC, valueC, indexD, valueD, colorFill, 0);
             p2.IsFilled = true;
 
+            string xdRatio = HideRatio
+                ? string.Empty
+                : $"{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})";
             Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.PatternType}{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})",
+                .TextForLine(Chart, $"{e.GartleyItem.PatternType}{Environment.NewLine}{xdRatio}",
                     !isBull, indexX, indexD);
 
             Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
@@ -217,20 +226,33 @@ namespace TradeKit.Gartley
             Chart.DrawText($"DText{name}", "D", indexD, valueD, colorBorder)
                 .ChartTextAlign(!isBull);
 
-            string xbLevel = e.GartleyItem.XtoB > 0
-                ? $" ({e.GartleyItem.XtoB.Ratio()})"
-                : string.Empty;
+            ChartTrendLine xbLine =
+            Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH);
 
-            Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.XtoBActual.Ratio()}{xbLevel}", !true, indexX, indexB);
+            if (!HideRatio)
+            {
+                string xbLevel = e.GartleyItem.XtoB > 0
+                    ? $" ({e.GartleyItem.XtoB.Ratio()})"
+                    : string.Empty;
+                xbLine.TextForLine(Chart, $"{e.GartleyItem.XtoBActual.Ratio()}{xbLevel}", !true, indexX, indexB);
+            }
 
-            Chart.DrawTrendLine($"BD{name}", indexB, valueB, indexD, valueD, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.BtoDActual.Ratio()} ({e.GartleyItem.BtoD.Ratio()})",
+            ChartTrendLine bdLine = Chart.DrawTrendLine(
+                $"BD{name}", indexB, valueB, indexD, valueD, colorBorder, LINE_WIDTH);
+
+            if (!HideRatio)
+            {
+                bdLine.TextForLine(Chart, $"{e.GartleyItem.BtoDActual.Ratio()} ({e.GartleyItem.BtoD.Ratio()})",
                     true, indexB, indexD);
+            }
 
-            Chart.DrawTrendLine($"AC{name}", indexA, valueA, indexC, valueC, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.AtoCActual.Ratio()} ({e.GartleyItem.AtoC.Ratio()})",
+            ChartTrendLine acLine =
+                Chart.DrawTrendLine($"AC{name}", indexA, valueA, indexC, valueC, colorBorder, LINE_WIDTH);
+            if (!HideRatio)
+            {
+                acLine.TextForLine(Chart, $"{e.GartleyItem.AtoCActual.Ratio()} ({e.GartleyItem.AtoC.Ratio()})",
                     isBull, indexA, indexC);
+            }
             
             //double closeD = m_BarsProvider.GetClosePrice(indexD);
 
