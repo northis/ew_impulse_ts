@@ -320,7 +320,7 @@ namespace TradeKit.AlgoBase
                                     if (lMax >= aMax && lMax >= pointA && lMax <= pointA + allowance)
                                     {
                                         aExtrema ??= new List<BarPoint>();
-                                        aExtrema.Add(new BarPoint(aMax,
+                                        aExtrema.Add(new BarPoint(lMax,
                                             m_BarsProvider.GetOpenTime(j),
                                             m_BarsProvider.TimeFrame, j));
                                         // Got good A point
@@ -330,7 +330,7 @@ namespace TradeKit.AlgoBase
                                 if (lMin<= aMin && lMin <= pointA && lMin >= pointA - allowance)
                                 {
                                     aExtrema ??= new List<BarPoint>();
-                                    aExtrema.Add(new BarPoint(aMin,
+                                    aExtrema.Add(new BarPoint(lMin,
                                         m_BarsProvider.GetOpenTime(j),
                                         m_BarsProvider.TimeFrame, j));
                                     // Got good A point
