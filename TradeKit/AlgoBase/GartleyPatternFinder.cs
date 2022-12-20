@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using ICSharpCode.SharpZipLib;
 using TradeKit.Core;
@@ -273,16 +274,13 @@ namespace TradeKit.AlgoBase
                                 // Got good B point
                             }
                         }
-                        else
+                        else if (lMax >= bMax && lMax >= pointB && lMin <= pointB + allowance)
                         {
-                            if (lMax >= bMax && lMax >= pointB && lMin <= pointB + allowance)
-                            {
-                                bExtrema ??= new HashSet<BarPoint>();
-                                bExtrema.Add(new BarPoint(lMax,
-                                    m_BarsProvider.GetOpenTime(i),
-                                    m_BarsProvider.TimeFrame, i));
-                                // Got good B point
-                            }
+                            bExtrema ??= new HashSet<BarPoint>();
+                            bExtrema.Add(new BarPoint(lMax,
+                                m_BarsProvider.GetOpenTime(i),
+                                m_BarsProvider.TimeFrame, i));
+                            // Got good B point
                         }
                     }
                     
@@ -332,8 +330,7 @@ namespace TradeKit.AlgoBase
                                         // Got good A point
                                     }
                                 }
-
-                                if (lMin<= aMin && lMin <= pointA && lMin >= pointA - allowance)
+                                else if (lMin <= aMin && lMin <= pointA && lMin >= pointA - allowance)
                                 {
                                     aExtrema ??= new HashSet<BarPoint>();
                                     aExtrema.Add(new BarPoint(lMin,
@@ -391,8 +388,7 @@ namespace TradeKit.AlgoBase
                                                 // Got good X point
                                             }
                                         }
-
-                                        if (lMax >= xMax && lMax >= pointX && lMax <= pointX + allowance)
+                                        else if (lMax >= xMax && lMax >= pointX && lMax <= pointX + allowance)
                                         {
                                             xExtrema ??= new HashSet<BarPoint>();
                                             xExtrema.Add(new BarPoint(lMax,
@@ -517,7 +513,8 @@ namespace TradeKit.AlgoBase
             }
 
             double tp1Len = cD * TP1_RATIO;
-            if (isBull && closeD >= tp1Len || !isBull && closeD <= tp1Len)
+            double tp1 = isBull ? tp1Len + d : -tp1Len + d;
+            if (isBull && closeD >= tp1 || !isBull && closeD <= tp1)
             {
                 //Logger.Write("TP is already hit.");
                 return null;
@@ -525,6 +522,8 @@ namespace TradeKit.AlgoBase
 
             double slLen = cD * SL_RATIO;
             double tp2Len = cD * TP2_RATIO;
+            double tp2 = isBull ? tp2Len + d : -tp2Len + d;
+            double sl = isBull ? -slLen + d : slLen + d;
 
             return new GartleyItem(
                 pattern.PatternType,
@@ -533,10 +532,7 @@ namespace TradeKit.AlgoBase
                 LevelItem.FromBarPoint(b),
                 LevelItem.FromBarPoint(c),
                 LevelItem.FromBarPoint(d),
-                isBull ? -slLen + d : slLen + d,
-                isBull ? tp1Len + d : -tp1Len + d,
-                isBull ? tp2Len + d : -tp2Len + d,
-                xD, valXd, aC, valAc, bD, valBd, xB, valXb);
+                sl, tp1, tp2, xD, valXd, aC, valAc, bD, valBd, xB, valXb);
         }
     }
 }

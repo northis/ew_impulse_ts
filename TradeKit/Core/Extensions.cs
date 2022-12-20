@@ -10,6 +10,29 @@ namespace TradeKit.Core
 {
     public static class Extensions
     {
+        private static readonly Dictionary<GartleyPatternType, string> PATTERN_NAME_MAP = new()
+        {
+            {GartleyPatternType.ALT_BAT, "Alt. Bat"},
+            {GartleyPatternType.BAT, "Bat"},
+            {GartleyPatternType.BUTTERFLY, "Butterfly"},
+            {GartleyPatternType.CRAB, "Crab"},
+            {GartleyPatternType.CYPHER, "Cypher"},
+            {GartleyPatternType.DEEP_CRAB, "Deep Crab"},
+            {GartleyPatternType.GARTLEY, "Gartley"},
+            {GartleyPatternType.SHARK, "Shark"}
+        };
+
+        /// <summary>
+        /// Formats the <see cref="GartleyPatternType"/> enum.
+        /// </summary>
+        /// <param name="type">The Gartley pattern type.</param>
+        public static string Format(this GartleyPatternType type)
+        {
+            if (PATTERN_NAME_MAP.TryGetValue(type, out string val))
+                return val;
+            return type.ToString();
+        }
+
         /// <summary>
         /// Gets the string for the specified value for ratios from 0 to 9.
         /// </summary>

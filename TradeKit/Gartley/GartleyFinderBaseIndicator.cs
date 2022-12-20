@@ -207,13 +207,15 @@ namespace TradeKit.Gartley
             ChartTriangle p2 = 
             Chart.DrawTriangle($"P2{name}", indexB, valueB, indexC, valueC, indexD, valueD, colorFill, 0);
             p2.IsFilled = true;
-
+            
             string xdRatio = HideRatio
                 ? string.Empty
-                : $"{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})";
+                : $"{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})";
             Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.PatternType}{Environment.NewLine}{xdRatio}",
-                    !isBull, indexX, indexD);
+                .TextForLine(Chart, $"{e.GartleyItem.PatternType.Format()}{xdRatio}",
+                    !isBull, indexX, indexD)
+                .IsHidden = HideRatio;
+
             if (!HideRatio)
             {
                 Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
@@ -226,36 +228,29 @@ namespace TradeKit.Gartley
                     .ChartTextAlign(isBull);
                 Chart.DrawText($"DText{name}", "D", indexD, valueD, colorBorder)
                     .ChartTextAlign(!isBull);
-            }
 
-            ChartTrendLine xbLine =
-            Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH);
-
-            if (!HideRatio)
-            {
+                ChartTrendLine xbLine =
+                    Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH);
                 string xbLevel = e.GartleyItem.XtoB > 0
                     ? $" ({e.GartleyItem.XtoB.Ratio()})"
                     : string.Empty;
                 xbLine.TextForLine(Chart, $"{e.GartleyItem.XtoBActual.Ratio()}{xbLevel}", !true, indexX, indexB);
-            }
 
-            ChartTrendLine bdLine = Chart.DrawTrendLine(
-                $"BD{name}", indexB, valueB, indexD, valueD, colorBorder, LINE_WIDTH);
 
-            if (!HideRatio)
-            {
+                ChartTrendLine bdLine = Chart.DrawTrendLine(
+                    $"BD{name}", indexB, valueB, indexD, valueD, colorBorder, LINE_WIDTH);
+
                 bdLine.TextForLine(Chart, $"{e.GartleyItem.BtoDActual.Ratio()} ({e.GartleyItem.BtoD.Ratio()})",
                     true, indexB, indexD);
-            }
 
-            ChartTrendLine acLine =
-                Chart.DrawTrendLine($"AC{name}", indexA, valueA, indexC, valueC, colorBorder, LINE_WIDTH);
-            if (!HideRatio)
-            {
+
+                ChartTrendLine acLine =
+                    Chart.DrawTrendLine($"AC{name}", indexA, valueA, indexC, valueC, colorBorder, LINE_WIDTH);
+
                 acLine.TextForLine(Chart, $"{e.GartleyItem.AtoCActual.Ratio()} ({e.GartleyItem.AtoC.Ratio()})",
                     isBull, indexA, indexC);
             }
-            
+
             double closeD = m_BarsProvider.GetClosePrice(indexD);
 
             Chart.DrawRectangle($"SL{name}", indexD, closeD, indexD + SETUP_WIDTH,
