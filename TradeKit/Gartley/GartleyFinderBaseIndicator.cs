@@ -26,7 +26,7 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
-        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT)]
+        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000)]
         public int BarDepthCount { get; set; }
 
         /// <summary>
@@ -214,17 +214,19 @@ namespace TradeKit.Gartley
             Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD, colorBorder, LINE_WIDTH)
                 .TextForLine(Chart, $"{e.GartleyItem.PatternType}{Environment.NewLine}{xdRatio}",
                     !isBull, indexX, indexD);
-
-            Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
-                .ChartTextAlign(!isBull);
-            Chart.DrawText($"AText{name}", "A", indexA, valueA, colorBorder)
-                .ChartTextAlign(isBull);
-            Chart.DrawText($"BText{name}", "B", indexB, valueB, colorBorder)
-                .ChartTextAlign(!isBull);
-            Chart.DrawText($"CText{name}", "C", indexC, valueC, colorBorder)
-                .ChartTextAlign(isBull);
-            Chart.DrawText($"DText{name}", "D", indexD, valueD, colorBorder)
-                .ChartTextAlign(!isBull);
+            if (!HideRatio)
+            {
+                Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
+                    .ChartTextAlign(!isBull);
+                Chart.DrawText($"AText{name}", "A", indexA, valueA, colorBorder)
+                    .ChartTextAlign(isBull);
+                Chart.DrawText($"BText{name}", "B", indexB, valueB, colorBorder)
+                    .ChartTextAlign(!isBull);
+                Chart.DrawText($"CText{name}", "C", indexC, valueC, colorBorder)
+                    .ChartTextAlign(isBull);
+                Chart.DrawText($"DText{name}", "D", indexD, valueD, colorBorder)
+                    .ChartTextAlign(!isBull);
+            }
 
             ChartTrendLine xbLine =
             Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH);
@@ -254,15 +256,15 @@ namespace TradeKit.Gartley
                     isBull, indexA, indexC);
             }
             
-            //double closeD = m_BarsProvider.GetClosePrice(indexD);
+            double closeD = m_BarsProvider.GetClosePrice(indexD);
 
-            Chart.DrawRectangle($"SL{name}", indexD, valueD, indexD + SETUP_WIDTH,
+            Chart.DrawRectangle($"SL{name}", indexD, closeD, indexD + SETUP_WIDTH,
                     e.GartleyItem.StopLoss, m_SlColor, LINE_WIDTH)
                 .SetFilled();
-            Chart.DrawRectangle($"TP1{name}", indexD, valueD, indexD + SETUP_WIDTH,
+            Chart.DrawRectangle($"TP1{name}", indexD, closeD, indexD + SETUP_WIDTH,
                     e.GartleyItem.TakeProfit1, m_TpColor, LINE_WIDTH)
                 .SetFilled();
-            Chart.DrawRectangle($"TP2{name}", indexD, valueD, indexD + SETUP_WIDTH,
+            Chart.DrawRectangle($"TP2{name}", indexD, closeD, indexD + SETUP_WIDTH,
                     e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
                 .SetFilled();
 

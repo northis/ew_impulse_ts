@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -15,7 +16,8 @@ namespace TradeKit.Gartley
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly int m_BarsDepth;
         private readonly GartleyPatternFinder m_PatternFinder;
-        private readonly HashSet<GartleyItem> m_Patterns;
+        private readonly List<GartleyItem> m_Patterns;
+        private readonly GartleyItemComparer m_GartleyItemComparer = new();
         private int m_LastBarIndex;
         
         /// <summary>
@@ -37,7 +39,7 @@ namespace TradeKit.Gartley
             m_BarsDepth = barsDepth;
             m_PatternFinder = new GartleyPatternFinder(
                 shadowAllowance, m_MainBarsProvider, patterns);
-            m_Patterns = new HashSet<GartleyItem>(new GartleyItemComparer());
+            m_Patterns = new List<GartleyItem>();
         }
 
         /// <summary>
@@ -82,8 +84,10 @@ namespace TradeKit.Gartley
             {
                 foreach (GartleyItem localPattern in localPatterns)
                 {
-                    if (!m_Patterns.Add(localPattern))
+                    if (m_Patterns.Any(a => m_GartleyItemComparer.Equals(localPattern, a)))
                         continue;
+
+                    m_Patterns.Add(localPattern);
 
                     //System.Diagnostics.Debugger.Launch();
                     Logger.Write($"Added {localPattern.PatternType}");

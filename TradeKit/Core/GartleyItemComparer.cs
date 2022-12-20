@@ -31,7 +31,7 @@ namespace TradeKit.Core
         {
             var hashCode = new HashCode();
 
-            //hashCode.Add(obj.ItemX);
+            hashCode.Add(obj.PatternType);
             //hashCode.Add(obj.ItemA);
             //hashCode.Add(obj.ItemB);
             //hashCode.Add(obj.ItemC);

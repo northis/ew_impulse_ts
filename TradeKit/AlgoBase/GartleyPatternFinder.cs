@@ -11,8 +11,8 @@ namespace TradeKit.AlgoBase
         private readonly double m_ShadowAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
         private const int GARTLEY_EXTREMA_COUNT = 6;
-        private const int PRE_X_EXTREMA_BARS_COUNT = 3;
-        private const double SL_RATIO = 0.27;
+        private const int PRE_X_EXTREMA_BARS_COUNT = 7;
+        private const double SL_RATIO = 0.272;
         private const double TP1_RATIO = 0.382;
         private const double TP2_RATIO = 0.618;
 
@@ -27,7 +27,7 @@ namespace TradeKit.AlgoBase
             0.886,
             1,
             1.13,
-            1.27,
+            1.272,
             1.41,
             1.618,
             2,
@@ -125,7 +125,7 @@ namespace TradeKit.AlgoBase
             double max = m_BarsProvider.GetHighPrice(endIndex);
             double min = m_BarsProvider.GetLowPrice(endIndex);
             bool isBull = false;
-
+            
             BarPoint pointD = null;
             HashSet<GartleyItem> patterns = null;
             int nextDIndex = endIndex - 1;
@@ -158,7 +158,7 @@ namespace TradeKit.AlgoBase
                     if (lMin < pointD)
                     {
                         //Logger.Write($"Min ({lMin}) < D ({pointD.Value})");
-                        return null;
+                        return patterns;
                     }
 
                     if (cMax > lMax)
@@ -170,7 +170,7 @@ namespace TradeKit.AlgoBase
                     if (lMax > pointD)
                     {
                         //Logger.Write($"Min ({lMax}) > D ({pointD.Value})");
-                        return null;
+                        return patterns;
                     }
 
                     if (cMin < lMin)
@@ -223,17 +223,23 @@ namespace TradeKit.AlgoBase
                     double varB = varC + ratio * (isBull ? -1 : 1);
                     pointsB[i] = varB;
                 }
-
+                
                 double[] pointsX = new double[pattern.XDValues.Length];
-                double[] pointsA = new double[pattern.XDValues.Length];
+                HashSet<double> pointsA = new HashSet<double>();
                 for (int i = 0; i < pattern.XDValues.Length; i++)
                 {
                     double varXtoD = pattern.XDValues[i];
                     double ratio = valCtoD / varXtoD;
                     double varX = varC + ratio * (isBull ? -1 : 1);
                     pointsX[i] = varX;
-                    double varA = varX + ratio * (isBull ? 1 : -1);
-                    pointsA[i] = varA;
+
+                    double valXtoC = Math.Abs(pointC.Value - varX);
+                    foreach (double varAtoC in pattern.ACValues)
+                    {
+                        double ratioA = valXtoC / varAtoC;
+                        double varA = varX + ratioA * (isBull ? 1 : -1);
+                        pointsA.Add(varA);
+                    }
                 }
 
                 int nextCIndex = pointC.BarIndex - 1;
@@ -253,14 +259,14 @@ namespace TradeKit.AlgoBase
                         break;
                     }
 
-                    List<BarPoint> bExtrema = null;
+                    HashSet<BarPoint> bExtrema = null;
                     foreach (double pointB in pointsB)
                     {
                         if (isBull)
                         {
                             if (lMin <= bMin && lMin <= pointB && lMin >= pointB - allowance)
                             {
-                                bExtrema ??= new List<BarPoint>();
+                                bExtrema ??= new HashSet<BarPoint>();
                                 bExtrema.Add(new BarPoint(lMin,
                                     m_BarsProvider.GetOpenTime(i),
                                     m_BarsProvider.TimeFrame, i));
@@ -271,7 +277,7 @@ namespace TradeKit.AlgoBase
                         {
                             if (lMax >= bMax && lMax >= pointB && lMin <= pointB + allowance)
                             {
-                                bExtrema ??= new List<BarPoint>();
+                                bExtrema ??= new HashSet<BarPoint>();
                                 bExtrema.Add(new BarPoint(lMax,
                                     m_BarsProvider.GetOpenTime(i),
                                     m_BarsProvider.TimeFrame, i));
@@ -299,7 +305,7 @@ namespace TradeKit.AlgoBase
                         double aMin = m_BarsProvider.GetLowPrice(nextBIndex);
                         for (int j = nextBIndex; j >= 0; j--)
                         {
-                            List<BarPoint> aExtrema = null;
+                            HashSet<BarPoint> aExtrema = null;
                             lMax = m_BarsProvider.GetHighPrice(j);
                             lMin = m_BarsProvider.GetLowPrice(j);
 
@@ -319,7 +325,7 @@ namespace TradeKit.AlgoBase
                                 {
                                     if (lMax >= aMax && lMax >= pointA && lMax <= pointA + allowance)
                                     {
-                                        aExtrema ??= new List<BarPoint>();
+                                        aExtrema ??= new HashSet<BarPoint>();
                                         aExtrema.Add(new BarPoint(lMax,
                                             m_BarsProvider.GetOpenTime(j),
                                             m_BarsProvider.TimeFrame, j));
@@ -329,7 +335,7 @@ namespace TradeKit.AlgoBase
 
                                 if (lMin<= aMin && lMin <= pointA && lMin >= pointA - allowance)
                                 {
-                                    aExtrema ??= new List<BarPoint>();
+                                    aExtrema ??= new HashSet<BarPoint>();
                                     aExtrema.Add(new BarPoint(lMin,
                                         m_BarsProvider.GetOpenTime(j),
                                         m_BarsProvider.TimeFrame, j));
@@ -356,7 +362,7 @@ namespace TradeKit.AlgoBase
                                 double xMin = m_BarsProvider.GetLowPrice(nextXIndex);
                                 for (int k = nextXIndex; k >= 0; k--)
                                 {
-                                    List<BarPoint> xExtrema = null;
+                                    HashSet<BarPoint> xExtrema = null;
                                     lMax = m_BarsProvider.GetHighPrice(k);
                                     lMin = m_BarsProvider.GetLowPrice(k);
 
@@ -378,7 +384,7 @@ namespace TradeKit.AlgoBase
                                         {
                                             if (lMin <= xMin && lMin <= pointX && lMin >= pointX - allowance)
                                             {
-                                                xExtrema ??= new List<BarPoint>();
+                                                xExtrema ??= new HashSet<BarPoint>();
                                                 xExtrema.Add(new BarPoint(lMin,
                                                     m_BarsProvider.GetOpenTime(k),
                                                     m_BarsProvider.TimeFrame, k));
@@ -388,7 +394,7 @@ namespace TradeKit.AlgoBase
 
                                         if (lMax >= xMax && lMax >= pointX && lMax <= pointX + allowance)
                                         {
-                                            xExtrema ??= new List<BarPoint>();
+                                            xExtrema ??= new HashSet<BarPoint>();
                                             xExtrema.Add(new BarPoint(lMax,
                                                 m_BarsProvider.GetOpenTime(k),
                                                 m_BarsProvider.TimeFrame, k));
@@ -404,7 +410,7 @@ namespace TradeKit.AlgoBase
                                         // No X points were found
                                         continue;
                                     }
-
+                                    
                                     foreach (BarPoint pointX in xExtrema)
                                     {
                                         bool xNotExtrema = false;
@@ -419,7 +425,7 @@ namespace TradeKit.AlgoBase
                                                 break;
                                             }
                                         }
-
+                                        
                                         if (xNotExtrema)
                                             continue;
 
@@ -468,7 +474,7 @@ namespace TradeKit.AlgoBase
                 return null;
 
             double xB = aB / xA;
-            double xD = cD / xA;
+            double xD = cD / xC;
             double bD = cD / cB;
             double aC = xC / xA;
 
@@ -500,18 +506,24 @@ namespace TradeKit.AlgoBase
                     return null;
             }
 
-            double shadowD = m_BarsProvider.GetClosePrice(d.BarIndex);
             bool isBull = x < a;
+            double closeD = m_BarsProvider.GetClosePrice(d.BarIndex);
             double dLevel = (isBull ? -1 : 1) * xA / xD + a;
 
-            if (isBull && shadowD < dLevel || !isBull && shadowD > dLevel)
+            if (isBull && closeD < dLevel || !isBull && closeD > dLevel)
             {
                 //Logger.Write("Candle body doesn't fit."); // allowance?
                 return null;
             }
 
-            double slLen = cD * SL_RATIO;
             double tp1Len = cD * TP1_RATIO;
+            if (isBull && closeD >= tp1Len || !isBull && closeD <= tp1Len)
+            {
+                //Logger.Write("TP is already hit.");
+                return null;
+            }
+
+            double slLen = cD * SL_RATIO;
             double tp2Len = cD * TP2_RATIO;
 
             return new GartleyItem(
