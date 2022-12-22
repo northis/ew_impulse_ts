@@ -10,6 +10,9 @@ namespace TradeKit.Impulse
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
 
+        /// <summary>
+        /// Gets the name of the bot.
+        /// </summary>
         public override string GetBotName()
         {
             return BOT_NAME;

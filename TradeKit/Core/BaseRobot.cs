@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -41,7 +42,7 @@ namespace TradeKit.Core
         private Dictionary<string, Symbol> m_SymbolsMap;
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, bool> m_PositionFinderMap;
-        private Dictionary<string, ChartItem> m_ChartFileFinderMap;
+        private Dictionary<string, TK> m_ChartFileFinderMap;
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -211,7 +212,7 @@ namespace TradeKit.Core
             m_SymbolsMap = new Dictionary<string, Symbol>();
             m_SymbolFindersMap = new Dictionary<string, T[]>();
             m_PositionFinderMap = new Dictionary<string, bool>();
-            m_ChartFileFinderMap = new Dictionary<string, ChartItem>();
+            m_ChartFileFinderMap = new Dictionary<string, TK>();
             m_CurrentRisk = RiskPercentFromDeposit;
 
             string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
@@ -261,26 +262,6 @@ namespace TradeKit.Core
             Positions.Closed += OnPositionsClosed;
             TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, PostCloseMessages);
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
-        }
-
-        private TimeFrame GetViewTimeFrame(TimeFrame mainTimeFrame)
-        {
-            TimeFrame minTimeFrame = mainTimeFrame;
-            if (TimeFrameHelper.TimeFrames.TryGetValue(minTimeFrame, out TimeFrameInfo tfInfo))
-            {
-                TimeFrame lowerTf = TimeFrameHelper.FavoriteTimeFrames
-                    .OrderBy(a => a.Value.TimeSpan)
-                    .TakeWhile(a => a.Value.TimeSpan < tfInfo.TimeSpan)
-                    .Select(a => a.Key)
-                    .LastOrDefault();
-
-                if (lowerTf != null)
-                {
-                    minTimeFrame = lowerTf;
-                }
-            }
-
-            return minTimeFrame;
         }
 
         /// <summary>
@@ -433,12 +414,12 @@ namespace TradeKit.Core
         {
             if (!SaveChartForManualAnalysis || 
                 setupFinder is not T sf ||
-                !m_ChartFileFinderMap.TryGetValue(sf.Id, out ChartItem ci))
+                !m_ChartFileFinderMap.TryGetValue(sf.Id, out TK signalEventArgs))
             {
                 return;
             }
             
-            SavePlotImage(m_BarsMap[sf.Id], ci, true);
+            GeneratePlotImageFile(sf, signalEventArgs,true);
             m_ChartFileFinderMap.Remove(sf.Id);
         }
 
@@ -616,12 +597,11 @@ namespace TradeKit.Core
                     File.Delete(file);
                 }
             }
-
-            var ci = new ChartItem(e.StartViewBarTime, tp, sl);
-            string plotImagePath = SavePlotImage(bars, ci);
+            
+            string plotImagePath = GeneratePlotImageFile(sf, e);
             if (SaveChartForManualAnalysis)
             {
-                m_ChartFileFinderMap[sf.Id] = ci;
+                m_ChartFileFinderMap[sf.Id] = e;
             }
 
             if (!TelegramReporter.IsReady)
@@ -642,19 +622,48 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Generates PNG chart from params passed
+        /// Gets the additional chart layers.
         /// </summary>
-        /// <param name="barsIn">The chart bars</param>
-        /// <param name="ci">Chart parameters</param>
-        /// <param name="secondShow">True if we want to see the result of the first trade</param>
-        /// <returns>Path to the png file</returns>
-        private string SavePlotImage(Bars barsIn, ChartItem ci, bool secondShow = false)
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        /// <param name="lastOpenDateTime">The last open date time.</param>
+        protected virtual GenericChart.GenericChart[] GetAdditionalChartLayers(
+            TK signalEventArgs, DateTime lastOpenDateTime)
         {
-            Bars bars = MarketData.GetBars(GetViewTimeFrame(barsIn.TimeFrame), barsIn.SymbolName);
-            int firstIndex = bars.OpenTimes.GetIndexByTime(ci.StartViewBarTime);
+            double sl = signalEventArgs.StopLoss.Price;
+            double tp = signalEventArgs.TakeProfit.Price;
+            DateTime startView = signalEventArgs.StartViewBarTime;
+            Color shortColor = Color.fromHex("#EF5350");
+            Color longColor = Color.fromHex("#26A69A");
+            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
+                LineColor: new FSharpOption<Color>(longColor),
+                ShowLegend: new FSharpOption<bool>(false),
+                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
+            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
+                LineColor: new FSharpOption<Color>(shortColor),
+                ShowLegend: new FSharpOption<bool>(false),
+                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
+
+            return new[] {tpLine, slLine};
+        }
+
+        /// <summary>
+        /// Gets the path to the generated chart image file.
+        /// </summary>
+        /// <param name="setupFinder">Source setup finder</param>
+        /// <param name="signalEventArgs">Signal info args</param>
+        /// <param name="showTradeResult">True if we want to see the result of the first trade.</param>
+        /// <returns>Path to file</returns>
+        protected virtual string GeneratePlotImageFile(
+            T setupFinder, TK signalEventArgs, bool showTradeResult = false)
+        {
+            DateTime startView = signalEventArgs.StartViewBarTime;
+            IBarsProvider barProvider = setupFinder.BarsProvider;
+            int firstIndex = barProvider.GetIndexByTime(signalEventArgs.StartViewBarTime);
             int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
 
-            int lastIndex = bars.Count - 1;
+            int lastIndex = barProvider.Count - 1;
             int barsCount = lastIndex - earlyBar;
             if (barsCount <= 0)
             {
@@ -662,43 +671,40 @@ namespace TradeKit.Core
             }
 
             bool useCommonTimeFrame = TimeFrameHelper.TimeFrames
-                .TryGetValue(bars.TimeFrame, out TimeFrameInfo timeFrameInfo);
+                .TryGetValue(barProvider.TimeFrame, out TimeFrameInfo timeFrameInfo);
 
             var o = new double[barsCount];
             var h = new double[barsCount];
             var c = new double[barsCount];
             var l = new double[barsCount];
             var d = new DateTime[barsCount];
-
-            // TODO uncomment if you wanna use overnight signals, but plots can be
-            // strange - without some bars
-            //var rangeBreaks = new List<DateTime>();
+            
+            var rangeBreaks = new List<DateTime>();
             for (int i = earlyBar; i < lastIndex; i++)
             {
-                Bar bar = bars[i];
                 int barIndex = i - earlyBar;
-                o[barIndex] = bar.Open;
-                h[barIndex] = bar.High;
-                l[barIndex] = bar.Low;
-                c[barIndex] = bar.Close;
-                d[barIndex] = bar.OpenTime;
+                DateTime currentDateTime = barProvider.GetOpenTime(i);
+                o[barIndex] = barProvider.GetOpenPrice(i);
+                h[barIndex] = barProvider.GetHighPrice(i);
+                l[barIndex] = barProvider.GetLowPrice(i);
+                c[barIndex] = barProvider.GetClosePrice(i);
+                d[barIndex] = currentDateTime;
 
-                //if (!useRangeBreaks || i == earlyBar)
-                //{
-                //    continue;
-                //}
+                if (!useCommonTimeFrame || i == earlyBar)
+                {
+                    continue;
+                }
 
-                //DateTime prevDateTime = bars[i - 1].OpenTime;
-                //DateTime currentDateTime = bar.OpenTime;
-                //TimeSpan diffToPrevious = currentDateTime - prevDateTime;
-                //if (i != ci.StopLoss && diffToPrevious > timeFrameInfo.TimeSpan)
-                //{
-                //    while (currentDateTime >= prevDateTime)
-                //    {
-                //        prevDateTime = prevDateTime.Add(timeFrameInfo.TimeSpan);
-                //        rangeBreaks.Add(prevDateTime);
-                //    }
-                //}
+                DateTime prevDateTime = barProvider.GetOpenTime(i - 1);
+                TimeSpan diffToPrevious = currentDateTime - prevDateTime;
+                if (i != firstIndex && diffToPrevious > timeFrameInfo.TimeSpan)
+                {
+                    while (currentDateTime >= prevDateTime)
+                    {
+                        prevDateTime = prevDateTime.Add(timeFrameInfo.TimeSpan);
+                        rangeBreaks.Add(prevDateTime);
+                    }
+                }
             }
 
             DateTime lastOpenDateTime = d[^1];
@@ -715,22 +721,16 @@ namespace TradeKit.Core
                     <double, double, double, double, DateTime, string>(o, h, l, c, d,
                         IncreasingColor: new FSharpOption<Color>(longColor),
                         DecreasingColor: new FSharpOption<Color>(shortColor),
-                        Name: bars.SymbolName,
+                        Name: barProvider.Symbol.Name,
                         ShowLegend: new FSharpOption<bool>(false));
-            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] {new(d[0], ci.TakeProfit), new(lastOpenDateTime, ci.TakeProfit) },
-                LineColor: new FSharpOption<Color>(longColor),
-                ShowLegend: new FSharpOption<bool>(false),
-                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
-            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] {new(d[0], ci.StopLoss), new(lastOpenDateTime, ci.StopLoss) },
-                LineColor: new FSharpOption<Color>(shortColor), 
-                ShowLegend: new FSharpOption<bool>(false),
-                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
+
+            GenericChart.GenericChart[] layers = 
+                GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
+                ?? Array.Empty<GenericChart.GenericChart>();
 
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-                        new[] {slLine, candlestickChart, tpLine})
-                    .WithTitle($@"{bars.SymbolName} {bars.TimeFrame.ShortName} {lastCloseDateTime:u} ",
+                layers.Concat(new[] { candlestickChart }))
+                    .WithTitle($@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime:u} ",
                         new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
                     .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
                     .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
@@ -748,26 +748,26 @@ namespace TradeKit.Core
                         Columns: new FSharpOption<int>(0),
                         XGap: new FSharpOption<double>(0),
                         YGap: new FSharpOption<double>(0)))
-                //.WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                //    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
-                //        {
-                //            Rangebreak.init<string, string>(
-                //                new FSharpOption<bool>(rangeBreaks.Any()),
-                //                Values: new FSharpOption<IEnumerable<string>>(
-                //                    rangeBreaks.Select(a => a.ToString("O"))))
-                //            //Bounds: new FSharpOption<Tuple<string, string>>(
-                //            //    new Tuple<string, string>("sat", "sun")))
-                //        }
-                //    )))
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
+                        {
+                            Rangebreak.init<string, string>(
+                                new FSharpOption<bool>(rangeBreaks.Any()),
+                                Values: new FSharpOption<IEnumerable<string>>(
+                                    rangeBreaks.Select(a => a.ToString("O"))))
+                            //Bounds: new FSharpOption<Tuple<string, string>>(
+                            //    new Tuple<string, string>("sat", "sun")))
+                        }
+                    )))
                 ;
-            
-            string fileName = ci.StartViewBarTime.ToString("s").Replace(":", "-");
+
+            string fileName = startView.ToString("s").Replace(":", "-");
             string postfix = string.Empty;
-            if (SaveChartForManualAnalysis) 
-                postfix = secondShow ? SECOND_CHART_FILE_POSTFIX : FIRST_CHART_FILE_POSTFIX;
+            if (SaveChartForManualAnalysis)
+                postfix = showTradeResult ? SECOND_CHART_FILE_POSTFIX : FIRST_CHART_FILE_POSTFIX;
 
             string outPath = Path.Combine(Helper.DirectoryToSaveImages,
-                $"{fileName}.{bars.SymbolName}.{bars.TimeFrame.ShortName}{postfix}");
+                $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}{postfix}");
             resultChart.SavePNG(outPath, null, CHART_WIDTH, CHART_HEIGHT);
             return $"{outPath}{CHART_FILE_TYPE_EXTENSION}";
         }

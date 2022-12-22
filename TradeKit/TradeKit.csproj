@@ -28,8 +28,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
+    <Compile Include="Core\BaseIndicator.cs" />
     <Compile Include="Core\BaseRobot.cs" />
-    <Compile Include="Core\ChartItem.cs" />
     <Compile Include="Core\MacdBarProvider.cs" />
     <Compile Include="Gartley\GartleyItem.cs" />
     <Compile Include="Gartley\GartleyItemComparer.cs" />
@@ -66,7 +66,7 @@
     <Compile Include="Impulse\ImpulseSetupFinder.cs" />
     <Compile Include="Core\Extensions.cs" />
     <Compile Include="Signals\SignalsCheckBaseRobot.cs" />
-    <Compile Include="Signals\SignalsCheckIndicatorBase.cs" />
+    <Compile Include="Signals\SignalsCheckBaseIndicator.cs" />
     <Compile Include="Telegram\TelegramReporter.cs" />
     <Compile Include="Core\TimeFrameHelper.cs" />
     <Compile Include="Core\TimeFrameInfo.cs" />

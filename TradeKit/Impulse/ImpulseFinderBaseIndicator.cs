@@ -1,7 +1,7 @@
-﻿using System;
-using cAlgo.API;
+﻿using cAlgo.API;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
+using TradeKit.EventArgs;
 
 namespace TradeKit.Impulse
 {
@@ -10,11 +10,11 @@ namespace TradeKit.Impulse
     /// </summary>
     /// <seealso cref="Indicator" />
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-    public class ImpulseFinderBaseIndicator : Indicator
+    public class ImpulseFinderBaseIndicator 
+        : BaseIndicator<ImpulseSetupFinder, ImpulseSignalEventArgs>
     {
         private ImpulseSetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
-        private bool m_IsInitialized;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -22,29 +22,16 @@ namespace TradeKit.Impulse
         protected override void Initialize()
         {
             base.Initialize();
-            Logger.SetWrite(a => Print(a));
-            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
-            {
-                throw new NotSupportedException(
-                    $"Time frame {TimeFrame} isn't supported.");
-            }
-            
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, Symbol);
-            m_SetupFinder.OnEnter += OnEnter;
-            m_SetupFinder.OnStopLoss += OnStopLoss;
-            m_SetupFinder.OnTakeProfit += OnTakeProfit;
+            Subscribe(m_SetupFinder);
         }
-
-        protected override void OnDestroy()
-        {
-            m_SetupFinder.OnEnter -= OnEnter;
-            m_SetupFinder.OnStopLoss -= OnStopLoss;
-            m_SetupFinder.OnTakeProfit -= OnTakeProfit;
-            base.OnDestroy();
-        }
-
-        private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
+        /// <summary>
+        /// Called when stop event loss occurs.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
             if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
             {
@@ -59,7 +46,12 @@ namespace TradeKit.Impulse
             Logger.Write($"SL hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
-        private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
+        /// <summary>
+        /// Called when take profit event occurs.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected override void OnTakeProfit(object sender, LevelEventArgs e)
         {
             if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
             {
@@ -74,7 +66,12 @@ namespace TradeKit.Impulse
             Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
-        private void OnEnter(object sender, EventArgs.ImpulseSignalEventArgs e)
+        /// <summary>
+        /// Called on new signal.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The event argument type.</param>
+        protected override void OnEnter(object sender, ImpulseSignalEventArgs e)
         {
             if (!e.Level.Index.HasValue)
             {
@@ -100,20 +97,6 @@ namespace TradeKit.Impulse
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
-        }
-
-        /// <summary>
-        /// Calculate the value(s) of indicator for the given index.
-        /// </summary>
-        /// <param name="index">The index of calculated value.</param>
-        public override void Calculate(int index)
-        {
-            m_SetupFinder.CheckBar(index);
-            if (IsLastBar && !m_IsInitialized)
-            {
-                m_IsInitialized = true;
-                Logger.Write($"History ok, index {index}");
-            }
         }
     }
 }

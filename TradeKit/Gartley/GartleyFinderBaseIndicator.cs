@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
+using TradeKit.EventArgs;
 
 namespace TradeKit.Gartley
 {
@@ -10,11 +11,11 @@ namespace TradeKit.Gartley
     /// Indicator can find possible setups based on Gartley patterns
     /// </summary>
     /// <seealso cref="Indicator" />
-    public class GartleyFinderBaseIndicator : Indicator
+    public class GartleyFinderBaseIndicator :
+        BaseIndicator<GartleySetupFinder, GartleySignalEventArgs>
     {
         private GartleySetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
-        private bool m_IsInitialized;
         private Color m_SlColor;
         private Color m_TpColor;
         private Color m_BearColorFill;
@@ -143,20 +144,13 @@ namespace TradeKit.Gartley
 
             return res;
         }
-
+        
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
         protected override void Initialize()
         {
             base.Initialize();
-            Logger.SetWrite(a => Print(a));
-            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
-            {
-                throw new NotSupportedException(
-                    $"Time frame {TimeFrame} isn't supported.");
-            }
-
             m_SlColor = Color.FromHex("#50F00000");
             m_TpColor = Color.FromHex("#5000F000");
             m_BearColorFill = Color.FromHex("#50F08080");
@@ -174,20 +168,15 @@ namespace TradeKit.Gartley
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol, BarAllowancePercent, BarDepthCount, UseDivergences, patternTypes,
                 macdCrossover);
-            m_SetupFinder.OnEnter += OnEnter;
-            m_SetupFinder.OnStopLoss += OnStopLoss;
-            m_SetupFinder.OnTakeProfit += OnTakeProfit;
+            Subscribe(m_SetupFinder);
         }
 
-        protected override void OnDestroy()
-        {
-            m_SetupFinder.OnEnter -= OnEnter;
-            m_SetupFinder.OnStopLoss -= OnStopLoss;
-            m_SetupFinder.OnTakeProfit -= OnTakeProfit;
-            base.OnDestroy();
-        }
-
-        private void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
+        /// <summary>
+        /// Called when stop event loss occurs.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected override void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
         {
             if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
             {
@@ -199,7 +188,12 @@ namespace TradeKit.Gartley
             Logger.Write($"SL hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
-        private void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
+        /// <summary>
+        /// Called when take profit event occurs.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected override void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
         {
             if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
             {
@@ -211,7 +205,12 @@ namespace TradeKit.Gartley
             Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
-        private void OnEnter(object sender, EventArgs.GartleySignalEventArgs e)
+        /// <summary>
+        /// Called on new signal.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The event argument type.</param>
+        protected override void OnEnter(object sender, GartleySignalEventArgs e)
         {
             if (!e.Level.Index.HasValue)
             {
@@ -309,21 +308,6 @@ namespace TradeKit.Gartley
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
-        }
-
-        /// <summary>
-        /// Calculate the value(s) of indicator for the given index.
-        /// </summary>
-        /// <param name="index">The index of calculated value.</param>
-        public override void Calculate(int index)
-        {
-            m_SetupFinder.CheckBar(m_IsInitialized ? index : index - 1);
-
-            if (IsLastBar && !m_IsInitialized)
-            {
-                m_IsInitialized = true;
-                Logger.Write($"History ok, index {index}");
-            }
         }
     }
 }

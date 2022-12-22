@@ -1,5 +1,4 @@
-﻿using System;
-using cAlgo.API;
+﻿using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 
@@ -8,9 +7,9 @@ namespace TradeKit.Signals
     /// <summary>
     /// This indicator can show the signals from the file
     /// </summary>
-    /// <seealso cref="cAlgo.API.Indicator" />
+    /// <seealso cref="Indicator" />
     //[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-    public class SignalsCheckIndicatorBase : Indicator
+    public class SignalsCheckBaseIndicator : BaseIndicator<ParseSetupFinder, SignalEventArgs>
     {  
         /// <summary>
         /// Gets or sets the signal history file path.
@@ -36,26 +35,41 @@ namespace TradeKit.Signals
         protected override void Initialize()
         {
             base.Initialize();
-            Logger.SetWrite(a => Print(a));
-            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
-            {
-                throw new NotSupportedException(
-                    $"Time frame {TimeFrame} isn't supported.");
-            }
-            
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol, SignalHistoryFilePath, UseUtc, false);
-            m_ParseSetupFinder.OnEnter += OnEnter;
+            Subscribe(m_ParseSetupFinder);
         }
 
-        private void OnEnter(object sender, SignalEventArgs e)
+        /// <summary>
+        /// Called when stop event loss occurs.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="T:TradeKit.EventArgs.LevelEventArgs" /> instance containing the event data.</param>
+        protected override void OnStopLoss(object sender, LevelEventArgs e)
+        {
+        }
+
+        /// <summary>
+        /// Called when take profit event occurs.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="T:TradeKit.EventArgs.LevelEventArgs" /> instance containing the event data.</param>
+        protected override void OnTakeProfit(object sender, LevelEventArgs e)
+        {
+        }
+
+        /// <summary>
+        /// Called on new signal.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The event argument type.</param>
+        protected override void OnEnter(object sender, SignalEventArgs e)
         {
             int? index = e.Level.Index;
             if (!index.HasValue)
             {
                 return;
             }
-
             
             double price = e.Level.Price;
             int rectIndex = index.Value + RECT_WIDTH_BARS;
@@ -65,12 +79,6 @@ namespace TradeKit.Signals
             double tpPrice = e.TakeProfit.Price;
             Chart.DrawRectangle($"{index} {index.Value} tp {tpPrice}",
                 index.Value, price, rectIndex, tpPrice, Color.Green, 1, LineStyle.Lines);
-        }
-
-        /// <inheritdoc />
-        public override void Calculate(int index)
-        {
-            m_ParseSetupFinder.CheckBar(index);
         }
     }
 }
