@@ -5,6 +5,7 @@ using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
+using TradeKit.Gartley;
 
 namespace TradeKit.Core
 {

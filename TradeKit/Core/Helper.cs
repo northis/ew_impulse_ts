@@ -34,6 +34,10 @@ namespace TradeKit.Core
         public const int GARTLEY_BARS_COUNT = 70;
         public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 5;
 
+        public const int MACD_LONG_CYCLE = 26;
+        public const int MACD_SHORT_CYCLE = 12;
+        public const int MACD_SIGNAL_PERIODS = 9;
+
         /// <summary>
         /// Gets the directory to save images.
         /// </summary>

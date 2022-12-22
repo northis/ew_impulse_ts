@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using cAlgo.API;
+using cAlgo.API.Indicators;
 using TradeKit.Core;
 
 namespace TradeKit.Gartley
@@ -22,6 +23,7 @@ namespace TradeKit.Gartley
         private Color m_BullColorBorder;
         private const int SETUP_WIDTH = 3;
         private const int LINE_WIDTH = 1;
+        private const int DIV_LINE_WIDTH = 3;
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
@@ -89,6 +91,36 @@ namespace TradeKit.Gartley
         [Parameter(nameof(HideRatio), DefaultValue = false)]
         public bool HideRatio { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether we should show divergences with the patterns.
+        /// </summary>
+        [Parameter(nameof(ShowDivergences), DefaultValue = true)]
+        public bool ShowDivergences { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use divergences with the patterns.
+        /// </summary>
+        [Parameter(nameof(UseDivergences), DefaultValue = false)]
+        public bool UseDivergences { get; set; }
+
+        /// <summary>
+        /// Gets or sets MACD Crossover long cycle (bars).
+        /// </summary>
+        [Parameter(nameof(MACDLongCycle), DefaultValue = Helper.MACD_LONG_CYCLE)]
+        public int MACDLongCycle { get; set; }
+
+        /// <summary>
+        /// Gets or sets MACD Crossover short cycle (bars).
+        /// </summary>
+        [Parameter(nameof(MACDShortCycle), DefaultValue = Helper.MACD_SHORT_CYCLE)]
+        public int MACDShortCycle { get; set; }
+
+        /// <summary>
+        /// Gets or sets MACD Crossover signal periods (bars).
+        /// </summary>
+        [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
+        public int MACDSignalPeriods { get; set; }
+
         private HashSet<GartleyPatternType> GetPatternsType()
         {
             var res = new HashSet<GartleyPatternType>();
@@ -134,8 +166,14 @@ namespace TradeKit.Gartley
 
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
+
+            MacdCrossOver macdCrossover = ShowDivergences
+                ? Indicators.MacdCrossOver(MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
+                : null;
+
             m_SetupFinder = new GartleySetupFinder(
-                m_BarsProvider, Symbol, BarAllowancePercent, BarDepthCount, patternTypes);
+                m_BarsProvider, Symbol, BarAllowancePercent, BarDepthCount, UseDivergences, patternTypes,
+                macdCrossover);
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
@@ -262,6 +300,12 @@ namespace TradeKit.Gartley
             Chart.DrawRectangle($"TP2{name}", indexD, closeD, indexD + SETUP_WIDTH,
                     e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
                 .SetFilled();
+
+            LevelItem div = e.DivergenceStart;
+            if (ShowDivergences && div is not null && div.Index.HasValue)
+            {
+                Chart.DrawTrendLine($"Div{name}", div.Index.Value, div.Price, indexD, valueD, colorBorder, DIV_LINE_WIDTH);
+            }
 
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");

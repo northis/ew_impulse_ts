@@ -27,7 +27,7 @@ namespace TradeKit.Core
         /// Gets the low price of the candle by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
-        public double GetLowPrice(int index)
+        public virtual double GetLowPrice(int index)
         {
             return m_Bars.LowPrices[index];
         }
@@ -36,7 +36,7 @@ namespace TradeKit.Core
         /// Gets the high price of the candle by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
-        public double GetHighPrice(int index)
+        public virtual double GetHighPrice(int index)
         {
             return m_Bars.HighPrices[index];
         }
@@ -45,7 +45,7 @@ namespace TradeKit.Core
         /// Gets the open price of the candle by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
-        public double GetOpenPrice(int index)
+        public virtual double GetOpenPrice(int index)
         {
             return m_Bars.OpenPrices[index];
         }
@@ -54,7 +54,7 @@ namespace TradeKit.Core
         /// Gets the close price of the candle by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
-        public double GetClosePrice(int index)
+        public virtual double GetClosePrice(int index)
         {
             return m_Bars.ClosePrices[index];
         }
@@ -63,7 +63,7 @@ namespace TradeKit.Core
         /// Gets the max price of the candle body by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
-        public double GetMaxBodyPrice(int index)
+        public virtual double GetMaxBodyPrice(int index)
         {
             return Math.Max(GetClosePrice(index), GetOpenPrice(index));
         }
@@ -72,7 +72,7 @@ namespace TradeKit.Core
         /// Gets the min price of the candle body by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
-        public double GetMinBodyPrice(int index)
+        public virtual double GetMinBodyPrice(int index)
         {
             return Math.Min(GetClosePrice(index), GetOpenPrice(index));
         }

@@ -30,11 +30,12 @@
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
     <Compile Include="Core\BaseRobot.cs" />
     <Compile Include="Core\ChartItem.cs" />
-    <Compile Include="Core\GartleyItem.cs" />
-    <Compile Include="Core\GartleyItemComparer.cs" />
-    <Compile Include="Core\GartleyPattern.cs" />
-    <Compile Include="Core\GartleyPatternType.cs" />
-    <Compile Include="Core\GartleySetupType.cs" />
+    <Compile Include="Core\MacdBarProvider.cs" />
+    <Compile Include="Gartley\GartleyItem.cs" />
+    <Compile Include="Gartley\GartleyItemComparer.cs" />
+    <Compile Include="Gartley\GartleyPattern.cs" />
+    <Compile Include="Gartley\GartleyPatternType.cs" />
+    <Compile Include="Gartley\GartleySetupType.cs" />
     <Compile Include="Core\SingleSetupFinder.cs" />
     <Compile Include="EventArgs\GartleySignalEventArgs.cs" />
     <Compile Include="Gartley\GartleySetupFinder.cs" />

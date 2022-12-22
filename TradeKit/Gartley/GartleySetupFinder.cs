@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -15,11 +16,14 @@ namespace TradeKit.Gartley
     {
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly int m_BarsDepth;
+        private readonly bool m_FilterByDivergence;
+        private readonly MacdCrossOver m_MacdCrossOver;
         private readonly GartleyPatternFinder m_PatternFinder;
         private readonly List<GartleyItem> m_Patterns;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
         private int m_LastBarIndex;
-        
+        private const int DIVERGENCE_OFFSET_SEARCH = 2;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
         /// </summary>
@@ -27,19 +31,27 @@ namespace TradeKit.Gartley
         /// <param name="symbol">The symbol.</param>
         /// <param name="shadowAllowance">The correction allowance percent.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
+        /// <param name="filterByDivergence">MACD Cross Over.</param>
         /// <param name="patterns">Patterns supported.</param>
+        /// <param name="macdCrossOver">MACD Cross Over.</param>
         public GartleySetupFinder(
             IBarsProvider mainBarsProvider,
             Symbol symbol,
             double shadowAllowance,
             int barsDepth,
-            HashSet<GartleyPatternType> patterns = null) : base(mainBarsProvider, symbol)
+            bool filterByDivergence,
+            HashSet<GartleyPatternType> patterns = null, 
+            MacdCrossOver macdCrossOver = null) : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
             m_BarsDepth = barsDepth;
+            m_FilterByDivergence = filterByDivergence;
+            m_MacdCrossOver = macdCrossOver;
             m_PatternFinder = new GartleyPatternFinder(
                 shadowAllowance, m_MainBarsProvider, patterns);
             m_Patterns = new List<GartleyItem>();
+
+            m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
         }
 
         /// <summary>
@@ -87,13 +99,61 @@ namespace TradeKit.Gartley
                     if (m_Patterns.Any(a => m_GartleyItemComparer.Equals(localPattern, a)))
                         continue;
 
+                    LevelItem divItem = null;
+                    double? foundDivValue = null;
+                    if (localPattern.ItemX.Index != null &&
+                        localPattern.ItemD.Index != null)
+                    {
+                        bool isBull = localPattern.ItemX.Price < localPattern.ItemA.Price;
+                        int indexX = localPattern.ItemX.Index.Value;
+                        int indexD = localPattern.ItemD.Index.Value;
+
+                        double macdD = m_MacdCrossOver.Histogram[indexD];
+
+                        for (int i = indexD - DIVERGENCE_OFFSET_SEARCH; i >= indexX; i--)
+                        {
+                            double currentVal = m_MacdCrossOver.Histogram[i];
+                            if (macdD <= 0 && currentVal > 0 ||
+                                macdD >= 0 && currentVal < 0)
+                                break;
+                            
+                            if (isBull && BarsProvider.GetLowPrice(i) < localPattern.ItemD.Price ||
+                                !isBull && BarsProvider.GetHighPrice(i) > localPattern.ItemD.Price)
+                                break;
+
+                            double histValue = m_MacdCrossOver.Histogram[i];
+                            if (isBull && histValue <= macdD ||
+                                !isBull && histValue >= macdD)
+                            {
+                                // Find the inflection point of the histogram values
+                                if (foundDivValue is null ||
+                                    isBull && currentVal <= foundDivValue ||
+                                    !isBull && currentVal >= foundDivValue)
+                                {
+                                    foundDivValue = currentVal;
+                                }
+                                else
+                                {
+                                    divItem = new LevelItem(isBull
+                                            ? BarsProvider.GetLowPrice(i)
+                                            : BarsProvider.GetHighPrice(i), i);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (m_FilterByDivergence && divItem is null)
+                            continue;
+                    }
+
                     m_Patterns.Add(localPattern);
 
                     //System.Diagnostics.Debugger.Launch();
                     Logger.Write($"Added {localPattern.PatternType}");
                     DateTime startView = m_MainBarsProvider.GetOpenTime(
                         localPattern.ItemX.Index ?? startIndex);
-                    OnEnterInvoke(new GartleySignalEventArgs(new LevelItem(close, index), localPattern, startView));
+                    OnEnterInvoke(new GartleySignalEventArgs(
+                        new LevelItem(close, index), localPattern, startView, divItem));
                 }
             }
 

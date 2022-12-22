@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using ICSharpCode.SharpZipLib;
 using TradeKit.Core;
+using TradeKit.Gartley;
 
 namespace TradeKit.AlgoBase
 {
@@ -465,8 +466,9 @@ namespace TradeKit.AlgoBase
             double cB = Math.Abs(c - b);
             double cD = Math.Abs(c - d);
             double xC = Math.Abs(c - x);
+            double aD = Math.Abs(a - d);
 
-            if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0)
+            if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
 
             double xB = aB / xA;
@@ -512,7 +514,10 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
-            double tp1Len = cD * TP1_RATIO;
+            double actualSize = Math.Max(cD, aD);
+
+            double slLen = actualSize * SL_RATIO;
+            double tp1Len = actualSize * TP1_RATIO;
             double tp1 = isBull ? tp1Len + d : -tp1Len + d;
             if (isBull && closeD >= tp1 || !isBull && closeD <= tp1)
             {
@@ -520,8 +525,7 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
-            double slLen = cD * SL_RATIO;
-            double tp2Len = cD * TP2_RATIO;
+            double tp2Len = actualSize * TP2_RATIO;
             double tp2 = isBull ? tp2Len + d : -tp2Len + d;
             double sl = isBull ? -slLen + d : slLen + d;
 

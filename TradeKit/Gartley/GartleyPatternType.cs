@@ -1,4 +1,4 @@
-﻿namespace TradeKit.Core
+﻿namespace TradeKit.Gartley
 {
     public enum GartleyPatternType
     {

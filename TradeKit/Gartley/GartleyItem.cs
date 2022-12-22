@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
+using TradeKit.Core;
 
-namespace TradeKit.Core
+namespace TradeKit.Gartley
 {
     /// <summary>
     /// Represents the Gartley pattern on the chart

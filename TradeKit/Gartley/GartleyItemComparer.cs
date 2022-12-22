@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace TradeKit.Core
+namespace TradeKit.Gartley
 {
     internal class GartleyItemComparer: IEqualityComparer<GartleyItem>
     {
