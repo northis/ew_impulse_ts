@@ -190,7 +190,7 @@ namespace TradeKit.Gartley
 
                 if (!isClosed)
                 {
-                    return;
+                    continue;
                 }
 
                 toRemove ??= new List<GartleyItem>();
