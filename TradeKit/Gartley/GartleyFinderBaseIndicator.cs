@@ -167,7 +167,7 @@ namespace TradeKit.Gartley
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            MacdCrossOver macdCrossover = ShowDivergences
+            MacdCrossOver macdCrossover = UseDivergences || ShowDivergences
                 ? Indicators.MacdCrossOver(MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
                 : null;
 
@@ -317,7 +317,8 @@ namespace TradeKit.Gartley
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
-            m_SetupFinder.CheckBar(index);
+            m_SetupFinder.CheckBar(m_IsInitialized ? index : index - 1);
+
             if (IsLastBar && !m_IsInitialized)
             {
                 m_IsInitialized = true;

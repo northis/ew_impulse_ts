@@ -101,7 +101,8 @@ namespace TradeKit.Gartley
 
                     LevelItem divItem = null;
                     double? foundDivValue = null;
-                    if (localPattern.ItemX.Index != null &&
+                    if (m_MacdCrossOver != null &&
+                        localPattern.ItemX.Index != null &&
                         localPattern.ItemD.Index != null)
                     {
                         bool isBull = localPattern.ItemX.Price < localPattern.ItemA.Price;
