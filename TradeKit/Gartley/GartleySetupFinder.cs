@@ -17,7 +17,7 @@ namespace TradeKit.Gartley
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly int m_BarsDepth;
         private readonly bool m_FilterByDivergence;
-        private readonly MacdCrossOver m_MacdCrossOver;
+        private readonly MACDCrossOverIndicator m_MacdCrossOver;
         private readonly GartleyPatternFinder m_PatternFinder;
         private readonly List<GartleyItem> m_Patterns;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
@@ -40,8 +40,8 @@ namespace TradeKit.Gartley
             double shadowAllowance,
             int barsDepth,
             bool filterByDivergence,
-            HashSet<GartleyPatternType> patterns = null, 
-            MacdCrossOver macdCrossOver = null) : base(mainBarsProvider, symbol)
+            HashSet<GartleyPatternType> patterns = null,
+            MACDCrossOverIndicator macdCrossOver = null) : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
             m_BarsDepth = barsDepth;

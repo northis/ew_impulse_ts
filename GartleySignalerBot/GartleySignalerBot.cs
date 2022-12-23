@@ -1,5 +1,5 @@
 using cAlgo.API;
-using TradeKit.Impulse;
+using TradeKit.Gartley;
 
 namespace GartleySignalerBot
 {   
@@ -8,7 +8,7 @@ namespace GartleySignalerBot
     /// </summary>
     /// <seealso cref="Indicator" />
     [Robot(AccessRights = AccessRights.FullAccess)]
-    public class GartleySignalerBot : ImpulseSignalerBaseRobot
+    public class GartleySignalerBot : GartleySignalerBaseBot
     {
     }
 }

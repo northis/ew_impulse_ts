@@ -30,7 +30,7 @@
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
     <Compile Include="Core\BaseIndicator.cs" />
     <Compile Include="Core\BaseRobot.cs" />
-    <Compile Include="Core\MacdBarProvider.cs" />
+    <Compile Include="Core\MACDCrossOverIndicator.cs" />
     <Compile Include="Gartley\GartleyItem.cs" />
     <Compile Include="Gartley\GartleyItemComparer.cs" />
     <Compile Include="Gartley\GartleyPattern.cs" />
@@ -40,6 +40,7 @@
     <Compile Include="EventArgs\GartleySignalEventArgs.cs" />
     <Compile Include="Gartley\GartleySetupFinder.cs" />
     <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
+    <Compile Include="Gartley\GartleySignalerBaseBot.cs" />
     <Compile Include="Signals\NullParseSetupFinder.cs" />
     <Compile Include="Core\CTraderBarsProvider.cs" />
     <Compile Include="EventArgs\ImpulseSignalEventArgs.cs" />

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
@@ -161,8 +162,8 @@ namespace TradeKit.Gartley
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            MacdCrossOver macdCrossover = UseDivergences || ShowDivergences
-                ? Indicators.MacdCrossOver(MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
+            MACDCrossOverIndicator macdCrossover = UseDivergences || ShowDivergences
+                ? Indicators.GetIndicator<MACDCrossOverIndicator>(Bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
                 : null;
 
             m_SetupFinder = new GartleySetupFinder(
@@ -176,7 +177,7 @@ namespace TradeKit.Gartley
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
-        protected override void OnStopLoss(object sender, EventArgs.LevelEventArgs e)
+        protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
             if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
             {

@@ -418,8 +418,8 @@ namespace TradeKit.Core
             {
                 return;
             }
-            
-            GeneratePlotImageFile(sf, signalEventArgs,true);
+
+            GeneratePlotImageFile(sf, signalEventArgs, true);
             m_ChartFileFinderMap.Remove(sf.Id);
         }
 
@@ -637,7 +637,7 @@ namespace TradeKit.Core
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
                 LineColor: new FSharpOption<Color>(longColor),
-                ShowLegend: new FSharpOption<bool>(false),
+                ShowLegend: new FSharpOption<bool>(false), 
                 LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
@@ -728,38 +728,40 @@ namespace TradeKit.Core
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
                 ?? Array.Empty<GenericChart.GenericChart>();
 
+            FSharpOption<int> dValue = timeFrameInfo == null
+                ? null
+                : new FSharpOption<int>((int) timeFrameInfo.TimeSpan.TotalMilliseconds);
+
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-                layers.Concat(new[] { candlestickChart }))
-                    .WithTitle($@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime:u} ",
-                        new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
-                    .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
-                    .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
-                    .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
-                    .WithConfig(Config.init(
-                        StaticPlot: new FSharpOption<bool>(true),
-                        Responsive: new FSharpOption<bool>(false)))
-                    .WithLayout(Layout.init<string>(
-                        PlotBGColor: new FSharpOption<Color>(blackColor),
-                        PaperBGColor: new FSharpOption<Color>(blackColor),
-                        Font: new FSharpOption<Font>(Font.init(
-                            Color: new FSharpOption<Color>(whiteColor)))))
-                    .WithLayoutGrid(LayoutGrid.init(
-                        Rows: new FSharpOption<int>(0),
-                        Columns: new FSharpOption<int>(0),
-                        XGap: new FSharpOption<double>(0),
-                        YGap: new FSharpOption<double>(0)))
+                    layers.Concat(new[] {candlestickChart}))
+                .WithTitle($@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime:u} ",
+                    new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
+                .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
+                .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
+                .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
+                .WithConfig(Config.init(
+                    StaticPlot: new FSharpOption<bool>(true),
+                    Responsive: new FSharpOption<bool>(false)))
+                .WithLayout(Layout.init<string>(
+                    PlotBGColor: new FSharpOption<Color>(blackColor),
+                    PaperBGColor: new FSharpOption<Color>(blackColor),
+                    Font: new FSharpOption<Font>(Font.init(
+                        Color: new FSharpOption<Color>(whiteColor)))))
+                .WithLayoutGrid(LayoutGrid.init(
+                    Rows: new FSharpOption<int>(0),
+                    Columns: new FSharpOption<int>(0),
+                    XGap: new FSharpOption<double>(0),
+                    YGap: new FSharpOption<double>(0)))
                 .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
                     Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
                         {
                             Rangebreak.init<string, string>(
                                 new FSharpOption<bool>(rangeBreaks.Any()),
+                                DValue: dValue,
                                 Values: new FSharpOption<IEnumerable<string>>(
                                     rangeBreaks.Select(a => a.ToString("O"))))
-                            //Bounds: new FSharpOption<Tuple<string, string>>(
-                            //    new Tuple<string, string>("sat", "sun")))
                         }
-                    )))
-                ;
+                    )));
 
             string fileName = startView.ToString("s").Replace(":", "-");
             string postfix = string.Empty;
