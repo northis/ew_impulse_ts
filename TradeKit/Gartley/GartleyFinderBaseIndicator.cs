@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
-using cAlgo.API.Indicators;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 
@@ -166,9 +164,8 @@ namespace TradeKit.Gartley
                 ? Indicators.GetIndicator<MACDCrossOverIndicator>(Bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
                 : null;
 
-            m_SetupFinder = new GartleySetupFinder(
-                m_BarsProvider, Symbol, BarAllowancePercent, BarDepthCount, UseDivergences, patternTypes,
-                macdCrossover);
+            m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
+                BarDepthCount, UseDivergences, 0, patternTypes, macdCrossover);
             Subscribe(m_SetupFinder);
         }
 
@@ -245,12 +242,16 @@ namespace TradeKit.Gartley
             ChartTriangle p2 = 
             Chart.DrawTriangle($"P2{name}", indexB, valueB, indexC, valueC, indexD, valueD, colorFill, 0);
             p2.IsFilled = true;
-            
+
+            string percent = HideRatio ? string.Empty : $" ({e.GartleyItem.AccuracyPercent}%)";
+            string header =
+                $"{(isBull ? "Bullish" : "Bearish")} {e.GartleyItem.PatternType.Format()}{percent}";
+
             string xdRatio = HideRatio
                 ? string.Empty
                 : $"{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})";
             Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{e.GartleyItem.PatternType.Format()}{xdRatio}",
+                .TextForLine(Chart, $"{header}{xdRatio}",
                     !isBull, indexX, indexD)
                 .IsHidden = HideRatio;
 

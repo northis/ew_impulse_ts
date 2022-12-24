@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -17,6 +16,7 @@ namespace TradeKit.Gartley
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly int m_BarsDepth;
         private readonly bool m_FilterByDivergence;
+        private readonly double m_FilterByAccuracyPercent;
         private readonly MACDCrossOverIndicator m_MacdCrossOver;
         private readonly GartleyPatternFinder m_PatternFinder;
         private readonly List<GartleyItem> m_Patterns;
@@ -32,6 +32,7 @@ namespace TradeKit.Gartley
         /// <param name="shadowAllowance">The correction allowance percent.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
         /// <param name="filterByDivergence">MACD Cross Over.</param>
+        /// <param name="filterByAccuracyPercent">Accuracy filter.</param>
         /// <param name="patterns">Patterns supported.</param>
         /// <param name="macdCrossOver">MACD Cross Over.</param>
         public GartleySetupFinder(
@@ -40,12 +41,14 @@ namespace TradeKit.Gartley
             double shadowAllowance,
             int barsDepth,
             bool filterByDivergence,
+            int filterByAccuracyPercent,
             HashSet<GartleyPatternType> patterns = null,
             MACDCrossOverIndicator macdCrossOver = null) : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
             m_BarsDepth = barsDepth;
             m_FilterByDivergence = filterByDivergence;
+            m_FilterByAccuracyPercent = filterByAccuracyPercent;
             m_MacdCrossOver = macdCrossOver;
             m_PatternFinder = new GartleyPatternFinder(
                 shadowAllowance, m_MainBarsProvider, patterns);
@@ -110,7 +113,6 @@ namespace TradeKit.Gartley
                         int indexD = localPattern.ItemD.Index.Value;
 
                         double macdD = m_MacdCrossOver.Histogram[indexD];
-
                         for (int i = indexD - DIVERGENCE_OFFSET_SEARCH; i >= indexX; i--)
                         {
                             double currentVal = m_MacdCrossOver.Histogram[i];
@@ -145,6 +147,12 @@ namespace TradeKit.Gartley
 
                         if (m_FilterByDivergence && divItem is null)
                             continue;
+                    }
+
+                    if (m_FilterByAccuracyPercent > 0 && 
+                        localPattern.AccuracyPercent < m_FilterByAccuracyPercent)
+                    {
+                        continue;
                     }
 
                     m_Patterns.Add(localPattern);

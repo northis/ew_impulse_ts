@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -43,6 +42,8 @@ namespace TradeKit.Core
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, bool> m_PositionFinderMap;
         private Dictionary<string, TK> m_ChartFileFinderMap;
+        private Color m_ShortColor = Color.fromHex("#EF5350");
+        private Color m_LongColor = Color.fromHex("#26A69A");
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -632,16 +633,14 @@ namespace TradeKit.Core
             double sl = signalEventArgs.StopLoss.Price;
             double tp = signalEventArgs.TakeProfit.Price;
             DateTime startView = signalEventArgs.StartViewBarTime;
-            Color shortColor = Color.fromHex("#EF5350");
-            Color longColor = Color.fromHex("#26A69A");
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
-                LineColor: new FSharpOption<Color>(longColor),
+                LineColor: new FSharpOption<Color>(m_LongColor),
                 ShowLegend: new FSharpOption<bool>(false), 
                 LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
-                LineColor: new FSharpOption<Color>(shortColor),
+                LineColor: new FSharpOption<Color>(m_ShortColor),
                 ShowLegend: new FSharpOption<bool>(false),
                 LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
 
@@ -655,7 +654,7 @@ namespace TradeKit.Core
         /// <param name="signalEventArgs">Signal info args</param>
         /// <param name="showTradeResult">True if we want to see the result of the first trade.</param>
         /// <returns>Path to file</returns>
-        protected virtual string GeneratePlotImageFile(
+        protected string GeneratePlotImageFile(
             T setupFinder, TK signalEventArgs, bool showTradeResult = false)
         {
             DateTime startView = signalEventArgs.StartViewBarTime;
@@ -714,13 +713,11 @@ namespace TradeKit.Core
 
             Color blackColor = Color.fromARGB(255, 22, 26, 37);
             Color whiteColor = Color.fromARGB(255, 209, 212, 220);
-            Color shortColor = Color.fromHex("#EF5350");
-            Color longColor = Color.fromHex("#26A69A");
 
             GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
                     <double, double, double, double, DateTime, string>(o, h, l, c, d,
-                        IncreasingColor: new FSharpOption<Color>(longColor),
-                        DecreasingColor: new FSharpOption<Color>(shortColor),
+                        IncreasingColor: new FSharpOption<Color>(m_LongColor),
+                        DecreasingColor: new FSharpOption<Color>(m_ShortColor),
                         Name: barProvider.Symbol.Name,
                         ShowLegend: new FSharpOption<bool>(false));
 

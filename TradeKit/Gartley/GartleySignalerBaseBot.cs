@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 
@@ -75,6 +77,12 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(UseDivergences), DefaultValue = false)]
         public bool UseDivergences { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether we should filter signals by accuracy.
+        /// </summary>
+        [Parameter(nameof(FilterByAccuracy), DefaultValue = 0, MaxValue = 100)]
+        public int FilterByAccuracy { get; set; }
 
         /// <summary>
         /// Gets or sets MACD Crossover long cycle (bars).
@@ -93,8 +101,7 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
         public int MACDSignalPeriods { get; set; }
-
-
+        
         private HashSet<GartleyPatternType> GetPatternsType()
         {
             var res = new HashSet<GartleyPatternType>();
@@ -127,6 +134,20 @@ namespace TradeKit.Gartley
         }
 
         /// <summary>
+        /// Gets the additional chart layers.
+        /// </summary>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        /// <param name="lastOpenDateTime">The last open date time.</param>
+        protected override GenericChart.GenericChart[] GetAdditionalChartLayers(GartleySignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
+        {
+            GenericChart.GenericChart[] charts = 
+                base.GetAdditionalChartLayers(signalEventArgs, lastOpenDateTime);
+
+
+            return charts;
+        }
+
+        /// <summary>
         /// Creates the setup finder and returns it.
         /// </summary>
         /// <param name="bars">The bars.</param>
@@ -141,8 +162,8 @@ namespace TradeKit.Gartley
                 : null;
 
             var setupFinder = new GartleySetupFinder(
-                cTraderBarsProvider, Symbol, BarAllowancePercent, BarDepthCount, UseDivergences, patternTypes,
-                macdCrossover);
+                cTraderBarsProvider, symbolEntity, BarAllowancePercent, BarDepthCount, UseDivergences, FilterByAccuracy,
+                patternTypes, macdCrossover);
 
             return setupFinder;
         }

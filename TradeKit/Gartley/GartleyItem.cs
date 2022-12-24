@@ -8,6 +8,7 @@ namespace TradeKit.Gartley
     /// </summary>
     /// <seealso cref="IEquatable&lt;GartleyItem&gt;" />
     public sealed record GartleyItem(
+        int AccuracyPercent,
         GartleyPatternType PatternType,
         LevelItem ItemX,
         LevelItem ItemA,

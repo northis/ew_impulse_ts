@@ -476,12 +476,23 @@ namespace TradeKit.AlgoBase
             double bD = cD / cB;
             double aC = xC / xA;
 
+            var accuracyList = new List<double>();
             double FetchCloseValue(double[] values, double similarValue)
             {
-                return (from val in values
+                double fetched = (from val in values
                     let allowance = val * m_ShadowAllowanceRatio
                     where Math.Abs(similarValue - val) < allowance
                     select val).FirstOrDefault();
+
+                if (similarValue != 0 && fetched != 0)
+                {
+                    double maxAccuracy = Math.Max(similarValue, fetched);
+                    double minAccuracy = Math.Min(similarValue, fetched);
+                    double accuracy = minAccuracy / maxAccuracy;
+                    accuracyList.Add(accuracy);
+                }
+
+                return fetched;
             }
 
             double valAc = FetchCloseValue(pattern.ACValues, aC);
@@ -530,6 +541,7 @@ namespace TradeKit.AlgoBase
             double sl = isBull ? -slLen + d : slLen + d;
 
             return new GartleyItem(
+                Convert.ToInt32(accuracyList.Average() * 100),
                 pattern.PatternType,
                 LevelItem.FromBarPoint(x),
                 LevelItem.FromBarPoint(a),

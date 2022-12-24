@@ -13,7 +13,7 @@ namespace TradeKit.Gartley
             if (x.GetType() != y.GetType()) return false;
 
             return 
-                Equals(x.ItemX, y.ItemX) &&
+                //Equals(x.ItemX, y.ItemX) &&
                    Equals(x.ItemA, y.ItemA) &&
                    Equals(x.ItemB, y.ItemB) &&
                    Equals(x.ItemC, y.ItemC) ||
