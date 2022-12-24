@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using ICSharpCode.SharpZipLib;
 using TradeKit.Core;
@@ -529,6 +528,7 @@ namespace TradeKit.AlgoBase
 
             double slLen = actualSize * SL_RATIO;
             double tp1Len = actualSize * TP1_RATIO;
+
             double tp1 = isBull ? tp1Len + d : -tp1Len + d;
             if (isBull && closeD >= tp1 || !isBull && closeD <= tp1)
             {

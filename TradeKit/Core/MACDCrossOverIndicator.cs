@@ -6,8 +6,8 @@ namespace TradeKit.Core
     /// <summary>
     /// Calculates the MACD (Moving Average Convergence/Divergence) indicator.
     /// </summary>
-    /// <seealso cref="cAlgo.API.Indicator" />
-    public class MACDCrossOverIndicator : Indicator
+    /// <seealso cref="Indicator" />
+    public class MacdCrossOverIndicator : Indicator
     {
         private MacdCrossOver m_MacdCrossOver;
 

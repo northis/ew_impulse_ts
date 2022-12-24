@@ -157,8 +157,8 @@ namespace TradeKit.Gartley
             var cTraderBarsProvider = new CTraderBarsProvider(bars, symbolEntity);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            MACDCrossOverIndicator macdCrossover = UseDivergences
-                ? Indicators.GetIndicator<MACDCrossOverIndicator>(bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
+            MacdCrossOverIndicator macdCrossover = UseDivergences
+                ? Indicators.GetIndicator<MacdCrossOverIndicator>(bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
                 : null;
 
             var setupFinder = new GartleySetupFinder(

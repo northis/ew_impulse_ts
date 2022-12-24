@@ -12,8 +12,8 @@ namespace TradeKit.Gartley
             if (ReferenceEquals(y, null)) return false;
             if (x.GetType() != y.GetType()) return false;
 
-            return 
-                //Equals(x.ItemX, y.ItemX) &&
+            return
+                   //Equals(x.ItemX, y.ItemX) &&
                    Equals(x.ItemA, y.ItemA) &&
                    Equals(x.ItemB, y.ItemB) &&
                    Equals(x.ItemC, y.ItemC) ||
