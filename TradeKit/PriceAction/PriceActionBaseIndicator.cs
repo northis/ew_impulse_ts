@@ -12,8 +12,8 @@ namespace TradeKit.PriceAction
     public class PriceActionBaseIndicator : BaseIndicator<PriceActionSetupFinder, PriceActionSignalEventArgs>
     {
         private CTraderBarsProvider m_BarsProvider;
-        private Color m_BearColorBorder;
-        private Color m_BullColorBorder;
+        private Color m_BearColor;
+        private Color m_BullColor;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -21,13 +21,9 @@ namespace TradeKit.PriceAction
         protected override void Initialize()
         {
             base.Initialize();
-            //m_SlColor = Color.FromHex("#50F00000");
-            //m_TpColor = Color.FromHex("#5000F000");
-            //m_BearColorFill = Color.FromHex("#50F08080");
-            //m_BullColorFill = Color.FromHex("#5090EE90");
-            m_BearColorBorder = Color.FromHex("#F0F08080");
-            m_BullColorBorder = Color.FromHex("#F090EE90");
-
+            m_BearColor = Color.FromHex("#F0F08080");
+            m_BullColor = Color.FromHex("#F090EE90");
+            
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
@@ -200,7 +196,7 @@ namespace TradeKit.PriceAction
 
             int levelIndex = e.Level.Index.Value;
             string name = $"{levelIndex}{e.ResultPattern.GetHashCode()}";
-            Color color = e.ResultPattern.IsBull ? m_BullColorBorder : m_BearColorBorder;
+            Color color = e.ResultPattern.IsBull ? m_BullColor : m_BearColor;
 
             Chart.DrawText($"PA{name}", e.ResultPattern.Type.ToString(),
                     e.ResultPattern.BarIndex, e.ResultPattern.StopLoss, color)

@@ -161,18 +161,19 @@ namespace TradeKit.AlgoBase
                 return null;
 
             var candles = new Candle[MIN_BARS_INDEX + 1];
-            for (int i = barIndex; i >= barIndex - MIN_BARS_INDEX; i--)
+            for (int i = MIN_BARS_INDEX; i >= 0; i--)
             {
-                double h = m_BarsProvider.GetHighPrice(i);
-                double l = m_BarsProvider.GetLowPrice(i);
+                int index = barIndex - i;
+                double h = m_BarsProvider.GetHighPrice(index);
+                double l = m_BarsProvider.GetLowPrice(index);
                 double range = h - l;
                 if (range < 0)
                     return null;
 
-                candles[i] = new Candle(m_BarsProvider.GetOpenPrice(i),
+                candles[i] = new Candle(m_BarsProvider.GetOpenPrice(index),
                     h,
                     l,
-                    m_BarsProvider.GetClosePrice(i));
+                    m_BarsProvider.GetClosePrice(index));
             }
 
             List<CandlesResult> res = null;

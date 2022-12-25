@@ -134,6 +134,7 @@ namespace TradeKit.PriceAction
                 if (isClosed)
                 {
                     toRemove ??= new List<CandlesResult>();
+                    toRemove.Add(pattern);
                 }
             }
 
