@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using TradeKit.Core;
 
 namespace TradeKit.AlgoBase
@@ -9,7 +10,8 @@ namespace TradeKit.AlgoBase
     public class CandlePatternFinder
     {
         private readonly IBarsProvider m_BarsProvider;
-        private const double HAMMER_RATIO = 0.7;
+        private const double ONE_CANDLE_RATIO = 0.7;
+        private const int MIN_BARS_INDEX = 2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CandlePatternFinder"/> class.
@@ -21,60 +23,57 @@ namespace TradeKit.AlgoBase
         }
 
         /// <summary>
-        /// Determines whether the candle of the specified index is a Hammer pattern.
+        /// Gets the candle patterns for the specified index of the bar or empty list.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns>
-        ///   <c>true</c> if the candle of the specified index is a Hammer pattern; otherwise, <c>false</c>.
-        /// </returns>
-        public bool IsHammer(int index)
+        /// <param name="barIndex">Index of the bar.</param>
+        public List<CandlesResult> GetCandlePatterns(int barIndex)
         {
-            bool isHammer = IsCandlePattern(index,
-                (c, r) => c.O < c.C && c.O < c.H - r && c.C < c.H - r);
-            return isHammer;
+            var res = new List<CandlesResult>();
+            if (barIndex < MIN_BARS_INDEX)
+                return res;
+
+            var candles = new Candle[MIN_BARS_INDEX + 1];
+            for (int i = 0; i < candles.Length; i++)
+                candles[i] = new Candle(m_BarsProvider.GetOpenPrice(i),
+                    m_BarsProvider.GetHighPrice(i),
+                    m_BarsProvider.GetLowPrice(i),
+                    m_BarsProvider.GetClosePrice(i));
+
+            if (IsOneCandlePattern(candles[^1],
+                    (c, r) => c.O < c.C && c.O < c.H - r && c.C < c.H - r))
+                res.Add(new CandlesResult(CandlePatternType.HAMMER, true, barIndex));
+
+            if (IsOneCandlePattern(candles[^1],
+                    (c, r) => c.O > c.C && c.O > c.L + r && c.C > c.L + r))
+                res.Add(new CandlesResult(CandlePatternType.INVERTED_HAMMER, false, barIndex));
+
+            if (IsOneCandlePattern(candles[^1],
+                    (c, r) => c.O > c.C && c.O < c.H - r && c.C < c.H - r))
+                res.Add(new CandlesResult(CandlePatternType.UP_REJECTION_PIN_BAR, true, barIndex));
+
+            if (IsOneCandlePattern(candles[^1],
+                    (c, r) => c.O < c.C && c.O > c.L + r && c.C > c.L + r))
+                res.Add(new CandlesResult(CandlePatternType.DOWN_REJECTION_PIN_BAR, false, barIndex));
+            
+
+
+            return res;
         }
 
         /// <summary>
-        /// Determines whether the candle of the specified index is a Inverted Hammer pattern.
+        /// Determines whether the candle is a candle pattern.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns>
-        ///   <c>true</c> if the candle of the specified index is a Inverted Hammer pattern; otherwise, <c>false</c>.
-        /// </returns>
-        public bool IsInvertedHammer(int index)
-        {
-            bool isInvertedHammer = IsCandlePattern(index,
-                (c, r) => c.O > c.C && c.O > c.L + r && c.C > c.L + r);
-            return isInvertedHammer;
-        }
-
-        /// <summary>
-        /// Gets the candle from index passed.
-        /// </summary>
-        /// <param name="index">The index.</param>
-        private Candle GetCandle(int index)
-        {
-            return new Candle(m_BarsProvider.GetOpenPrice(index),
-                m_BarsProvider.GetHighPrice(index),
-                m_BarsProvider.GetLowPrice(index),
-                m_BarsProvider.GetClosePrice(index));
-        }
-
-        /// <summary>
-        /// Determines whether the candle of the specified index is (a part) of a candle pattern.
-        /// </summary>
-        /// <param name="index">The index.</param>
+        /// <param name="c">The candle.</param>
         /// <param name="expression">The expression to calculate - candle record and ratio.</param>
         /// <returns>
         ///   <c>true</c> if it is; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsCandlePattern(int index, Func<Candle, double, bool> expression)
+        private bool IsOneCandlePattern(Candle c, Func<Candle, double, bool> expression)
         {
-            Candle c = GetCandle(index);
             double range = c.H - c.L;
             if (range < 0)
                 return false;
-            double ratio = range * HAMMER_RATIO;
+            double ratio = range * ONE_CANDLE_RATIO;
             bool isPattern = expression(c, ratio);
             return isPattern;
         }
