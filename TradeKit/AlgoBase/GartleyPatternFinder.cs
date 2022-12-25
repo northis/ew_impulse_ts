@@ -96,8 +96,8 @@ namespace TradeKit.AlgoBase
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
-            double shadowAllowance, 
             IBarsProvider barsProvider, 
+            double shadowAllowance, 
             HashSet<GartleyPatternType> patterns = null)
         {
             if (shadowAllowance is < 0 or > 100)

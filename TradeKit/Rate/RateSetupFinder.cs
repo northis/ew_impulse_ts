@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
@@ -17,8 +16,7 @@ namespace TradeKit.Rate
         private readonly double m_SpeedTpSlRatio;
         private readonly PriceSpeedChecker m_PriceSpeedCheckerMajor;
         private readonly PriceSpeedChecker m_PriceSpeedCheckerMinor;
-
-        private int m_LastBar;
+        
         private int m_LastSignalBar;
         private double m_LastPrice;
         private bool m_IsUp;
@@ -56,33 +54,19 @@ namespace TradeKit.Rate
         /// </summary>
         public LevelItem LastEntry { get; private set; }
 
-        /// <summary>
-        /// Checks the conditions of possible setup for a bar of <see cref="index" />.
-        /// </summary>
-        /// <param name="index">The index of bar to calculate.</param>
-        public override void CheckBar(int index)
+        protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
-            m_LastBar = index;
-            m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
-            m_PriceSpeedCheckerMajor.Calculate(index);
-            m_PriceSpeedCheckerMinor.Calculate(index);
-            ProcessSetup();
-        }
-
-        /// <summary>
-        /// Checks the tick.
-        /// </summary>
-        /// <param name="bid">The price (bid).</param>
-        public override void CheckTick(double bid)
-        {
-            m_LastPrice = bid;
-            if (m_LastBar == 0)
+            if (currentPriceBid == null)
             {
+                m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
+                m_PriceSpeedCheckerMajor.Calculate(index);
+                m_PriceSpeedCheckerMinor.Calculate(index);
+                ProcessSetup();
                 return;
             }
 
             //m_PriceSpeedCheckerMajor.Calculate(m_LastBar, bid);
-            m_PriceSpeedCheckerMinor.Calculate(m_LastBar, bid);
+            m_PriceSpeedCheckerMinor.Calculate(LastBar, currentPriceBid);
             ProcessSetup();
         }
 
@@ -107,12 +91,12 @@ namespace TradeKit.Rate
                         OnTakeProfitInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, m_LastBar)));
+                                new LevelItem(m_LastPrice, LastBar)));
                     else
                         OnStopLossInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, m_LastBar)));
+                                new LevelItem(m_LastPrice, LastBar)));
                 }
                 else if(!m_IsUp && m_PriceSpeedCheckerMinor.Speed >= 0)
                 {
@@ -121,12 +105,12 @@ namespace TradeKit.Rate
                         OnStopLossInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, m_LastBar)));
+                                new LevelItem(m_LastPrice, LastBar)));
                     else
                         OnTakeProfitInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, m_LastBar)));
+                                new LevelItem(m_LastPrice, LastBar)));
                 }
 
                 return;
@@ -163,11 +147,11 @@ namespace TradeKit.Rate
                 m_LastSignalBar = slBar.Key;
                 m_IsUp = isUp;
                 
-                LastEntry = new LevelItem(m_LastPrice, m_LastBar);
+                LastEntry = new LevelItem(m_LastPrice, LastBar);
                 IsInSetup = true;
                 OnEnterInvoke(new SignalEventArgs(
                     LastEntry,
-                    new LevelItem(tp, m_LastBar),
+                    new LevelItem(tp, LastBar),
                     new LevelItem(slValue, slBar.Key)));
             }
         }

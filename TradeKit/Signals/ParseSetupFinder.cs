@@ -62,8 +62,7 @@ namespace TradeKit.Signals
             m_UseOneTp = useOneTp;
             m_Signals = ParseSignals();
         }
-
-        private int m_LastBar;
+        
         private double m_LastPrice;
 
         /// <summary>
@@ -71,25 +70,9 @@ namespace TradeKit.Signals
         /// </summary>
         public LevelItem LastEntry { get; private set; }
 
-        /// <summary>
-        /// Checks the conditions of possible setup for a bar of <see cref="!:index" />.
-        /// </summary>
-        /// <param name="index">The index of bar to calculate.</param>
-        public override void CheckBar(int index)
+        protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
-            m_LastBar = index;
-            m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
-            ProcessSetup();
-        }
-
-        public override void CheckTick(double bid)
-        {
-            m_LastPrice = bid;
-            if (m_LastBar == 0)
-            {
-                return;
-            }
-
+            m_LastPrice = currentPriceBid ?? m_MainBarsProvider.GetClosePrice(index);
             ProcessSetup();
         }
 
@@ -98,8 +81,8 @@ namespace TradeKit.Signals
         /// </summary>
         private void ProcessSetup()
         {
-            DateTime prevBarDateTime = BarsProvider.GetOpenTime(m_LastBar - 1);
-            DateTime barDateTime = BarsProvider.GetOpenTime(m_LastBar);
+            DateTime prevBarDateTime = BarsProvider.GetOpenTime(LastBar - 1);
+            DateTime barDateTime = BarsProvider.GetOpenTime(LastBar);
 
             List<KeyValuePair<DateTime, ParsedSignal>> matchedSignals = m_Signals
                 .SkipWhile(a => a.Key < prevBarDateTime)
@@ -110,7 +93,7 @@ namespace TradeKit.Signals
             {
                 ParsedSignal signal = matchedSignal.Value;
 
-                LastEntry = new LevelItem(m_LastPrice, m_LastBar);
+                LastEntry = new LevelItem(m_LastPrice, LastBar);
 
                 for (int i = 0; i < signal.TakeProfits.Length; i++)
                 {

@@ -15,7 +15,6 @@ namespace TradeKit.Impulse
     {
         private readonly ElliottWavePatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
-        private int m_LastBarIndex;
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.2;
@@ -383,12 +382,12 @@ namespace TradeKit.Impulse
         }
 
         /// <summary>
-        /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
+        /// Checks whether the data for specified index contains a trade setup.
         /// </summary>
-        /// <param name="index">The index of bar to calculate.</param>
-        public override void CheckBar(int index)
+        /// <param name="index">Index of the current candle.</param>
+        /// <param name="currentPriceBid">The current price (Bid).</param>
+        protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
-            m_LastBarIndex = index;
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.Calculate(index);
@@ -404,8 +403,14 @@ namespace TradeKit.Impulse
                     }
                 }
             }
-            
-            CheckSetup();
+
+            foreach (ExtremumFinder finder in m_ExtremumFinders)
+            {
+                if (IsSetup(LastBar, finder))
+                {
+                    break;
+                }
+            }
         }
 
         /// <summary>
@@ -418,19 +423,8 @@ namespace TradeKit.Impulse
             {
                 return;
             }
-
-            IsSetup(m_LastBarIndex, m_PreFinder, bid);
-        }
-
-        private void CheckSetup()
-        {
-            foreach (ExtremumFinder finder in m_ExtremumFinders)
-            {
-                if (IsSetup(m_LastBarIndex, finder))
-                {
-                    break;
-                }
-            }
+            
+            IsSetup(LastBar, m_PreFinder, bid);
         }
     }
 }

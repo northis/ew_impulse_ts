@@ -21,7 +21,6 @@ namespace TradeKit.Gartley
         private readonly GartleyPatternFinder m_PatternFinder;
         private readonly List<GartleyItem> m_Patterns;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
-        private int m_LastBarIndex;
         private const int DIVERGENCE_OFFSET_SEARCH = 2;
 
         /// <summary>
@@ -51,7 +50,7 @@ namespace TradeKit.Gartley
             m_FilterByAccuracyPercent = filterByAccuracyPercent;
             m_MacdCrossOver = macdCrossOver;
             m_PatternFinder = new GartleyPatternFinder(
-                shadowAllowance, m_MainBarsProvider, patterns);
+                m_MainBarsProvider, shadowAllowance, patterns);
             m_Patterns = new List<GartleyItem>();
 
             m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
@@ -62,7 +61,7 @@ namespace TradeKit.Gartley
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         /// <param name="currentPriceBid">The current price (Bid).</param>
-        private void CheckSetup(int index, double? currentPriceBid = null)
+        protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
             int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - m_BarsDepth);
 
@@ -215,25 +214,6 @@ namespace TradeKit.Gartley
             {
                 m_Patterns.Remove(toRemoveItem);
             }
-        }
-
-        /// <summary>
-        /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
-        /// </summary>
-        /// <param name="index">The index of bar to calculate.</param>
-        public override void CheckBar(int index)
-        {
-            m_LastBarIndex = index;
-            CheckSetup(m_LastBarIndex);
-        }
-
-        /// <summary>
-        /// Checks the tick.
-        /// </summary>
-        /// <param name="bid">The price (bid).</param>
-        public override void CheckTick(double bid)
-        {
-            CheckSetup(m_LastBarIndex, bid);
         }
     }
 }

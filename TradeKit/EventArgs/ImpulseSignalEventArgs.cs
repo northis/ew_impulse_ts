@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using TradeKit.AlgoBase;
 using TradeKit.Core;
 
 namespace TradeKit.EventArgs

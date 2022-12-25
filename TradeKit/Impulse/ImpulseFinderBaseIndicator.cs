@@ -1,5 +1,4 @@
 ﻿using cAlgo.API;
-using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 

@@ -10,6 +10,13 @@ namespace TradeKit.Core
     /// </summary>
     public abstract class BaseSetupFinder<T> where T : SignalEventArgs
     {
+        private int m_LastBarIndex;
+
+        /// <summary>
+        /// Gets the last bar index.
+        /// </summary>
+        protected int LastBar => m_LastBarIndex;
+
         /// <summary>
         /// Gets the symbol.
         /// </summary>
@@ -88,16 +95,30 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Checks whether the data for specified index contains a trade setup.
+        /// </summary>
+        /// <param name="index">Index of the current candle.</param>
+        /// <param name="currentPriceBid">The current price (Bid).</param>
+        protected abstract void CheckSetup(int index, double? currentPriceBid = null);
+        
+        /// <summary>
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
         /// </summary>
         /// <param name="index">The index of bar to calculate.</param>
-        public abstract void CheckBar(int index);
+        public virtual void CheckBar(int index)
+        {
+            m_LastBarIndex = index;
+            CheckSetup(m_LastBarIndex);
+        }
 
         /// <summary>
         /// Checks the tick.
         /// </summary>
         /// <param name="bid">The price (bid).</param>
-        public abstract void CheckTick(double bid);
+        public virtual void CheckTick(double bid)
+        {
+            CheckSetup(m_LastBarIndex, bid);
+        }
 
         /// <summary>
         /// Raises the <see cref="E:OnEnter" /> event.
