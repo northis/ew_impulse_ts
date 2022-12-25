@@ -142,7 +142,7 @@ namespace TradeKit.AlgoBase
         /// Initializes a new instance of the <see cref="CandlePatternFinder"/> class.
         /// </summary>
         /// <param name="barsProvider">The bars provider.</param>
-        /// <param name="patterns"></param>
+        /// <param name="patterns">Patterns we are looking for. Null for all available.</param>
         public CandlePatternFinder(IBarsProvider barsProvider, 
             HashSet<CandlePatternType> patterns = null)
         {
@@ -155,9 +155,7 @@ namespace TradeKit.AlgoBase
         /// Gets the candle patterns for the specified index of the bar or null.
         /// </summary>
         /// <param name="barIndex">Index of the bar.</param>
-        /// <param name="desiredPatterns">Patterns we are looking for. Null for all available.</param>
-        public List<CandlesResult> GetCandlePatterns(
-            int barIndex, HashSet<CandlePatternType> desiredPatterns = null)
+        public List<CandlesResult> GetCandlePatterns(int barIndex)
         {
             if (barIndex < MIN_BARS_INDEX)
                 return null;
@@ -209,7 +207,7 @@ namespace TradeKit.AlgoBase
                 if (sl == 0)
                     continue;
 
-                res.Add(new CandlesResult(candlePatternType, settings.IsBull, sl));
+                res.Add(new CandlesResult(candlePatternType, settings.IsBull, sl, barIndex));
             }
 
             return res;

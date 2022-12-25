@@ -191,7 +191,7 @@ namespace TradeKit.Gartley
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
-        protected override void OnTakeProfit(object sender, EventArgs.LevelEventArgs e)
+        protected override void OnTakeProfit(object sender, LevelEventArgs e)
         {
             if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
             {

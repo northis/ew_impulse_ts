@@ -21,6 +21,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GartleyFinderIndicator", "G
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GartleySignalerBot", "GartleySignalerBot\GartleySignalerBot.csproj", "{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PriceActionIndicator", "PriceActionIndicator\PriceActionIndicator.csproj", "{D6736E3D-160E-4B2B-B02E-5069CDD7B098}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -63,6 +65,10 @@ Global
 		{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6736E3D-160E-4B2B-B02E-5069CDD7B098}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6736E3D-160E-4B2B-B02E-5069CDD7B098}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6736E3D-160E-4B2B-B02E-5069CDD7B098}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6736E3D-160E-4B2B-B02E-5069CDD7B098}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

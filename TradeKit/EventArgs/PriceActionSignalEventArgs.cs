@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using TradeKit.Core;
 using TradeKit.PriceAction;
 
@@ -8,12 +7,12 @@ namespace TradeKit.EventArgs
     public class PriceActionSignalEventArgs : SignalEventArgs
     {
         public PriceActionSignalEventArgs(
-            LevelItem level, LevelItem takeProfit, LevelItem stopLoss, List<CandlesResult> resultPatterns, DateTime startViewBarIndex)
+            LevelItem level, LevelItem takeProfit, LevelItem stopLoss, CandlesResult resultPattern, DateTime startViewBarIndex)
             :base(level, takeProfit, stopLoss, startViewBarIndex)
         {
-            ResultPatterns = resultPatterns;
+            ResultPattern = resultPattern;
         }
         
-        public List<CandlesResult> ResultPatterns { get; }
+        public CandlesResult ResultPattern { get; }
     }
 }
