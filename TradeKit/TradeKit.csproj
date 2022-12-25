@@ -28,8 +28,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
+    <Compile Include="AlgoBase\CandlePatternFinder.cs" />
     <Compile Include="Core\BaseIndicator.cs" />
     <Compile Include="Core\BaseRobot.cs" />
+    <Compile Include="Core\Candle.cs" />
+    <Compile Include="Core\CandlePatternType.cs" />
     <Compile Include="Core\MacdCrossOverIndicator.cs" />
     <Compile Include="Gartley\GartleyItem.cs" />
     <Compile Include="Gartley\GartleyItemComparer.cs" />
@@ -47,7 +50,7 @@
     <Compile Include="EventArgs\SignalEventArgs.cs" />
     <Compile Include="EventArgs\LevelEventArgs.cs" />
     <Compile Include="AlgoBase\ExtremumFinder.cs" />
-    <Compile Include="AlgoBase\BarPoint.cs" />
+    <Compile Include="Core\BarPoint.cs" />
     <Compile Include="Core\Helper.cs" />
     <Compile Include="Core\IBarsProvider.cs" />
     <Compile Include="Impulse\ImpulseFinderBaseIndicator.cs" />

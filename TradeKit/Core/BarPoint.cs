@@ -1,7 +1,7 @@
 ﻿using System;
 using cAlgo.API;
 
-namespace TradeKit.AlgoBase
+namespace TradeKit.Core
 {
     /// <summary>
     /// Contains the bar point data
