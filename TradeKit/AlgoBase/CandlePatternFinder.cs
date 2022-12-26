@@ -115,8 +115,8 @@ namespace TradeKit.AlgoBase
                         c[^1].O > c[^1].C &&
                         c[^2].H > c[^1].H &&
                         c[^2].L < c[^1].L &&
-                        c[^2].C >= c[^1].O &&
-                        c[^2].O < c[^1].O
+                        c[^2].C < c[^1].O &&
+                        c[^2].O >= c[^1].O
                 },
                 {
                     CandlePatternType.UP_PPR, c =>
@@ -186,7 +186,7 @@ namespace TradeKit.AlgoBase
                 {
                     continue;
                 }
-
+                
                 res ??= new List<CandlesResult>();
 
                 double sl = 0;
