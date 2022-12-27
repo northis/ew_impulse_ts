@@ -1,4 +1,4 @@
 ﻿namespace TradeKit.PriceAction
 {
-    public record CandlePatternSettings(bool IsBull, short StopLossBarIndex);
+    public record CandlePatternSettings(bool IsBull, short StopLossBarIndex, short BarsCount);
 }

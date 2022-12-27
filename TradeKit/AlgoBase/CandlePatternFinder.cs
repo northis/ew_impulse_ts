@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.PriceAction;
@@ -16,24 +17,24 @@ namespace TradeKit.AlgoBase
         private const double ONE_CANDLE_RATIO = 0.7;
         private const int MIN_BARS_INDEX = 2;
 
-        private readonly Dictionary<CandlePatternType, CandlePatternSettings> 
+        private readonly Dictionary<CandlePatternType, CandlePatternSettings>
             m_PatternDirectionMap = new()
-        {
-            {CandlePatternType.HAMMER, new CandlePatternSettings(true, 0)},
-            {CandlePatternType.INVERTED_HAMMER, new CandlePatternSettings(false, 0)},
-            {CandlePatternType.UP_REJECTION_PIN_BAR, new CandlePatternSettings(true, 0)},
-            {CandlePatternType.DOWN_REJECTION_PIN_BAR, new CandlePatternSettings(false, 0)},
-            {CandlePatternType.UP_PIN_BAR, new CandlePatternSettings(true, 1)},
-            {CandlePatternType.DOWN_PIN_BAR, new CandlePatternSettings(false, 1)},
-            {CandlePatternType.UP_OUTER_BAR, new CandlePatternSettings(true, 0)},
-            {CandlePatternType.DOWN_OUTER_BAR, new CandlePatternSettings(false, 0)},
-            {CandlePatternType.UP_OUTER_BAR_BODIES, new CandlePatternSettings(true, -1)},
-            {CandlePatternType.DOWN_OUTER_BAR_BODIES, new CandlePatternSettings(false, -1)},
-            {CandlePatternType.UP_INNER_BAR, new CandlePatternSettings(true, 1)},
-            {CandlePatternType.DOWN_INNER_BAR, new CandlePatternSettings(false, 1)},
-            {CandlePatternType.UP_PPR, new CandlePatternSettings(true, 1)},
-            {CandlePatternType.DOWN_PPR, new CandlePatternSettings(false, 1)}
-        };
+            {
+                {CandlePatternType.HAMMER, new CandlePatternSettings(true, 0, 1)},
+                {CandlePatternType.INVERTED_HAMMER, new CandlePatternSettings(false, 0, 1)},
+                {CandlePatternType.UP_REJECTION_PIN_BAR, new CandlePatternSettings(true, 0, 1)},
+                {CandlePatternType.DOWN_REJECTION_PIN_BAR, new CandlePatternSettings(false, 0, 1)},
+                {CandlePatternType.UP_PIN_BAR, new CandlePatternSettings(true, 1, 3)},
+                {CandlePatternType.DOWN_PIN_BAR, new CandlePatternSettings(false, 1, 3)},
+                {CandlePatternType.UP_OUTER_BAR, new CandlePatternSettings(true, 0, 2)},
+                {CandlePatternType.DOWN_OUTER_BAR, new CandlePatternSettings(false, 0, 2)},
+                {CandlePatternType.UP_OUTER_BAR_BODIES, new CandlePatternSettings(true, -1, 2)},
+                {CandlePatternType.DOWN_OUTER_BAR_BODIES, new CandlePatternSettings(false, -1, 2)},
+                {CandlePatternType.UP_INNER_BAR, new CandlePatternSettings(true, 1, 2)},
+                {CandlePatternType.DOWN_INNER_BAR, new CandlePatternSettings(false, 1, 2)},
+                {CandlePatternType.UP_PPR, new CandlePatternSettings(true, 1, 3)},
+                {CandlePatternType.DOWN_PPR, new CandlePatternSettings(false, 1, 3)}
+            };
 
         private readonly Dictionary<CandlePatternType, Func<Candle[], bool>>
             m_PatternExpressionMap = new()
@@ -113,10 +114,10 @@ namespace TradeKit.AlgoBase
                 {
                     CandlePatternType.DOWN_INNER_BAR, c =>
                         c[^1].O > c[^1].C &&
+                        c[^2].O < c[^2].C &&
                         c[^2].H > c[^1].H &&
                         c[^2].L < c[^1].L &&
-                        c[^2].C < c[^1].O &&
-                        c[^2].O >= c[^1].O
+                        c[^2].C >= c[^1].O
                 },
                 {
                     CandlePatternType.UP_PPR, c =>
@@ -161,9 +162,9 @@ namespace TradeKit.AlgoBase
                 return null;
 
             var candles = new Candle[MIN_BARS_INDEX + 1];
-            for (int i = MIN_BARS_INDEX; i >= 0; i--)
+            for (int i = 0; i <= MIN_BARS_INDEX; i++)
             {
-                int index = barIndex - i;
+                int index = barIndex - MIN_BARS_INDEX + i;
                 double h = m_BarsProvider.GetHighPrice(index);
                 double l = m_BarsProvider.GetLowPrice(index);
                 double range = h - l;
@@ -176,6 +177,7 @@ namespace TradeKit.AlgoBase
                     m_BarsProvider.GetClosePrice(index));
             }
 
+            
             List<CandlesResult> res = null;
             foreach (CandlePatternType candlePatternType in m_Patterns)
             {
@@ -190,25 +192,48 @@ namespace TradeKit.AlgoBase
                 res ??= new List<CandlesResult>();
 
                 double sl = 0;
-                switch (settings.StopLossBarIndex)
+                int slIndex = 0;
+
+                if (settings.StopLossBarIndex >= 0)// If we know the extremum bar index
                 {
-                    case -1:// max or min of indices 0 and 1
-                        sl = settings.IsBull
-                            ? Math.Min(candles[^1].L, candles[^2].L)
-                            : Math.Max(candles[^1].L, candles[^2].L);
-                        break;
-                    case 1:// max or min of index 1
-                        sl = settings.IsBull ? candles[^2].L : candles[^2].H;
-                        break;
-                    case 0:// max or min of index 0
-                        sl = settings.IsBull ? candles[^1].L : candles[^1].H;
-                        break;
+                    int offset = settings.StopLossBarIndex + 1;
+                    sl = settings.IsBull
+                        ? candles[^offset].L
+                        : candles[^offset].H;
+
+                    slIndex = barIndex - settings.StopLossBarIndex;
+                }
+                else// If we find min or max inside the bars belongs to the pattern
+                {
+                    double max = double.MinValue;
+                    double min = double.MaxValue;
+
+                    for (int i = 0; i < settings.BarsCount; i++)
+                    {
+                        int j = i + 1;// We count from the end of array
+                        if (candles[^j].H > max)
+                        {
+                            max = candles[^j].H;
+                            if (!settings.IsBull)
+                                slIndex = barIndex - i;
+                        }
+
+                        if (!(candles[^j].L < min))
+                            continue;
+
+                        min = candles[^j].L;
+                        if (settings.IsBull)
+                            slIndex = barIndex - i;
+                    }
+
+                    sl = settings.IsBull ? min : max;
                 }
 
                 if (sl == 0)
                     continue;
 
-                res.Add(new CandlesResult(candlePatternType, settings.IsBull, sl, barIndex));
+                res.Add(new CandlesResult(candlePatternType,
+                    settings.IsBull, sl, slIndex, barIndex, settings.BarsCount));
             }
 
             return res;

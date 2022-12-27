@@ -83,7 +83,7 @@ namespace TradeKit.Impulse
             {
                 BarPoint start = e.Waves[0];
                 BarPoint[] rest = e.Waves.ToArray()[1..];
-                for (var index = 0; index < rest.Length; index++)
+                for (int index = 0; index < rest.Length; index++)
                 {
                     BarPoint wave = rest[index];
                     int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);

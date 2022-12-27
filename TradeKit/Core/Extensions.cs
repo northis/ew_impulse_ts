@@ -6,12 +6,42 @@ using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Gartley;
+using TradeKit.PriceAction;
 
 namespace TradeKit.Core
 {
     public static class Extensions
     {
-        private static readonly Dictionary<GartleyPatternType, string> PATTERN_NAME_MAP = new()
+        private static readonly Dictionary<CandlePatternType, string> CANDLE_PATTERN_NAME_MAP = new()
+        {
+            {CandlePatternType.DOWN_PIN_BAR, "↓PB"},
+            {CandlePatternType.UP_PIN_BAR, "↑PB"},
+            {CandlePatternType.DOWN_OUTER_BAR, "↓OB"},
+            {CandlePatternType.UP_OUTER_BAR, "↑OB"},
+            {CandlePatternType.DOWN_INNER_BAR, "↓IB"},
+            {CandlePatternType.UP_INNER_BAR, "↑IB"},
+            {CandlePatternType.DOWN_OUTER_BAR_BODIES, "↓OBB"},
+            {CandlePatternType.UP_OUTER_BAR_BODIES, "↑OBB"},
+            {CandlePatternType.DOWN_REJECTION_PIN_BAR, "↓RPB"},
+            {CandlePatternType.UP_REJECTION_PIN_BAR, "↑RPB"},
+            {CandlePatternType.DOWN_PPR, "↓PPR"},
+            {CandlePatternType.UP_PPR, "↑PPR"},
+            {CandlePatternType.INVERTED_HAMMER, "↓IH"},
+            {CandlePatternType.HAMMER, "↑H"}
+        };
+
+        /// <summary>
+        /// Formats the <see cref="CandlePatternType"/> enum.
+        /// </summary>
+        /// <param name="type">The candle pattern type.</param>
+        public static string Format(this CandlePatternType type)
+        {
+            if (CANDLE_PATTERN_NAME_MAP.TryGetValue(type, out string val))
+                return val;
+            return type.ToString();
+        }
+
+        private static readonly Dictionary<GartleyPatternType, string> GARTLEY_PATTERN_NAME_MAP = new()
         {
             {GartleyPatternType.ALT_BAT, "Alt. Bat"},
             {GartleyPatternType.BAT, "Bat"},
@@ -29,7 +59,7 @@ namespace TradeKit.Core
         /// <param name="type">The Gartley pattern type.</param>
         public static string Format(this GartleyPatternType type)
         {
-            if (PATTERN_NAME_MAP.TryGetValue(type, out string val))
+            if (GARTLEY_PATTERN_NAME_MAP.TryGetValue(type, out string val))
                 return val;
             return type.ToString();
         }

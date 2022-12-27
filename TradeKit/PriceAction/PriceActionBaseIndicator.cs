@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -14,6 +16,9 @@ namespace TradeKit.PriceAction
         private CTraderBarsProvider m_BarsProvider;
         private Color m_BearColor;
         private Color m_BullColor;
+        private Color m_PatternBearColor;
+        private Color m_PatternBullColor;
+        private const int LINE_WIDTH = 1;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -23,7 +28,9 @@ namespace TradeKit.PriceAction
             base.Initialize();
             m_BearColor = Color.FromHex("#F0F08080");
             m_BullColor = Color.FromHex("#F090EE90");
-            
+            m_PatternBearColor = Color.FromHex("#60F08080");
+            m_PatternBullColor = Color.FromHex("#6090EE90");
+
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
@@ -198,9 +205,28 @@ namespace TradeKit.PriceAction
             string name = $"{levelIndex}{e.ResultPattern.GetHashCode()}";
             Color color = e.ResultPattern.IsBull ? m_BullColor : m_BearColor;
 
-            Chart.DrawText($"PA{name}", e.ResultPattern.Type.ToString(),
-                    e.ResultPattern.BarIndex, e.ResultPattern.StopLoss, color)
+            Chart.DrawText($"PA{name}", e.ResultPattern.Type.Format(),
+                    e.ResultPattern.StopLossBarIndex, e.ResultPattern.StopLoss, color)
                 .ChartTextAlign(!e.ResultPattern.IsBull);
+
+            int startIndex = levelIndex - e.ResultPattern.BarsCount + 1;
+
+            double max = double.MinValue;// yes, the price can be negative
+            double min = double.MaxValue;
+            for (int i = startIndex; i <= levelIndex; i++)
+            {
+                max = Math.Max(m_BarsProvider.GetHighPrice(i), max);
+                min = Math.Min(m_BarsProvider.GetLowPrice(i), min);
+            }
+
+            
+            Color patternColor = e.ResultPattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
+            Chart.DrawRectangle($"F{name}", startIndex - 1, min, e.ResultPattern.BarIndex + 1,
+                    max, patternColor, LINE_WIDTH)
+                .SetFilled();
+            //Chart.DrawRectangle($"TP{name}", indexD, closeD, indexD + SETUP_WIDTH,
+            //        e.TakeProfit, m_TpColor, LINE_WIDTH)
+            //    .SetFilled();
         }
     }
 }
