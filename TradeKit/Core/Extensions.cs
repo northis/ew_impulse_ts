@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using TradeKit.AlgoBase;
 using TradeKit.Gartley;
 using TradeKit.PriceAction;
 
@@ -14,20 +13,18 @@ namespace TradeKit.Core
     {
         private static readonly Dictionary<CandlePatternType, string> CANDLE_PATTERN_NAME_MAP = new()
         {
-            {CandlePatternType.DOWN_PIN_BAR, "↓PB"},
-            {CandlePatternType.UP_PIN_BAR, "↑PB"},
-            {CandlePatternType.DOWN_OUTER_BAR, "↓OB"},
-            {CandlePatternType.UP_OUTER_BAR, "↑OB"},
-            {CandlePatternType.DOWN_INNER_BAR, "↓IB"},
-            {CandlePatternType.UP_INNER_BAR, "↑IB"},
-            {CandlePatternType.DOWN_OUTER_BAR_BODIES, "↓OBB"},
-            {CandlePatternType.UP_OUTER_BAR_BODIES, "↑OBB"},
-            {CandlePatternType.DOWN_REJECTION_PIN_BAR, "↓RPB"},
-            {CandlePatternType.UP_REJECTION_PIN_BAR, "↑RPB"},
-            {CandlePatternType.DOWN_PPR, "↓PPR"},
-            {CandlePatternType.UP_PPR, "↑PPR"},
-            {CandlePatternType.INVERTED_HAMMER, "↓IH"},
-            {CandlePatternType.HAMMER, "↑H"}
+            {CandlePatternType.DOWN_PIN_BAR, "PB\n ↓"},
+            {CandlePatternType.UP_PIN_BAR, " ↑\nPB"},
+            {CandlePatternType.DOWN_OUTER_BAR, "OB\n ↓"},
+            {CandlePatternType.UP_OUTER_BAR, " ↑\nOB"},
+            {CandlePatternType.DOWN_INNER_BAR, "IB\n ↓"},
+            {CandlePatternType.UP_INNER_BAR, " ↑\nIB"},
+            {CandlePatternType.DOWN_OUTER_BAR_BODIES, "OBB\n  ↓"},
+            {CandlePatternType.UP_OUTER_BAR_BODIES, "  ↑\nOBB"},
+            {CandlePatternType.DOWN_PPR, "PPR\n  ↓"},
+            {CandlePatternType.UP_PPR, "  ↑\nPPR"},
+            {CandlePatternType.INVERTED_HAMMER, "IH\n ↓"},
+            {CandlePatternType.HAMMER, "↑\nH"}
         };
 
         /// <summary>

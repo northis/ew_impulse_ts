@@ -22,8 +22,6 @@ namespace TradeKit.AlgoBase
             {
                 {CandlePatternType.HAMMER, new CandlePatternSettings(true, 0, 1)},
                 {CandlePatternType.INVERTED_HAMMER, new CandlePatternSettings(false, 0, 1)},
-                {CandlePatternType.UP_REJECTION_PIN_BAR, new CandlePatternSettings(true, 0, 1)},
-                {CandlePatternType.DOWN_REJECTION_PIN_BAR, new CandlePatternSettings(false, 0, 1)},
                 {CandlePatternType.UP_PIN_BAR, new CandlePatternSettings(true, 1, 3)},
                 {CandlePatternType.DOWN_PIN_BAR, new CandlePatternSettings(false, 1, 3)},
                 {CandlePatternType.UP_OUTER_BAR, new CandlePatternSettings(true, 0, 2)},
@@ -45,14 +43,6 @@ namespace TradeKit.AlgoBase
                 },
                 {
                     CandlePatternType.INVERTED_HAMMER, cls => IsOneCandlePattern(cls[^1],
-                        (c, r) => c.O > c.C && c.O > c.L + r && c.C > c.L + r)
-                },
-                {
-                    CandlePatternType.UP_REJECTION_PIN_BAR, cls => IsOneCandlePattern(cls[^1],
-                        (c, r) => c.O > c.C && c.O < c.H - r && c.C < c.H - r)
-                },
-                {
-                    CandlePatternType.DOWN_REJECTION_PIN_BAR, cls => IsOneCandlePattern(cls[^1],
                         (c, r) => c.O > c.C && c.O > c.L + r && c.C > c.L + r)
                 },
                 {

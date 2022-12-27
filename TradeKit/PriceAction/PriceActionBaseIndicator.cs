@@ -51,27 +51,15 @@ namespace TradeKit.PriceAction
         public bool UseInvertedHammer { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_REJECTION_PIN_BAR"/> pattern.
-        /// </summary>
-        [Parameter("Bull Rej Bar", DefaultValue = false)]
-        public bool UpRejectionPinBar { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DOWN_REJECTION_PIN_BAR"/> pattern.
-        /// </summary>
-        [Parameter("Bear Rej Bar", DefaultValue = false)]
-        public bool DownRejectionPinBar { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PIN_BAR"/> pattern.
         /// </summary>
-        [Parameter("Bull Pin Bar", DefaultValue = false)]
+        [Parameter("Bull Pin Bar", DefaultValue = true)]
         public bool UpPinBar { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DOWN_PIN_BAR"/> pattern.
         /// </summary>
-        [Parameter("Bear Pin Bar", DefaultValue = false)]
+        [Parameter("Bear Pin Bar", DefaultValue = true)]
         public bool DownPinBar { get; set; }
 
         /// <summary>
@@ -122,6 +110,12 @@ namespace TradeKit.PriceAction
         [Parameter("Bear PPR", DefaultValue = false)]
         public bool DownPpr { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether we fill the patterns with color.
+        /// </summary>
+        [Parameter("Fill With Color", DefaultValue = true)]
+        public bool FillWithColor { get; set; }
+
         private HashSet<CandlePatternType> GetPatternsType()
         {
             var res = new HashSet<CandlePatternType>();
@@ -129,10 +123,6 @@ namespace TradeKit.PriceAction
                 res.Add(CandlePatternType.HAMMER);
             if (UseInvertedHammer)
                 res.Add(CandlePatternType.INVERTED_HAMMER);
-            if (UpRejectionPinBar)
-                res.Add(CandlePatternType.UP_REJECTION_PIN_BAR);
-            if (DownRejectionPinBar)
-                res.Add(CandlePatternType.DOWN_REJECTION_PIN_BAR);
             if (UpPinBar)
                 res.Add(CandlePatternType.UP_PIN_BAR);
             if (DownPinBar)
@@ -209,21 +199,24 @@ namespace TradeKit.PriceAction
                     e.ResultPattern.StopLossBarIndex, e.ResultPattern.StopLoss, color)
                 .ChartTextAlign(!e.ResultPattern.IsBull);
 
-            int startIndex = levelIndex - e.ResultPattern.BarsCount + 1;
-
-            double max = double.MinValue;// yes, the price can be negative
-            double min = double.MaxValue;
-            for (int i = startIndex; i <= levelIndex; i++)
+            if (FillWithColor)
             {
-                max = Math.Max(m_BarsProvider.GetHighPrice(i), max);
-                min = Math.Min(m_BarsProvider.GetLowPrice(i), min);
-            }
+                int startIndex = levelIndex - e.ResultPattern.BarsCount + 1;
 
-            
-            Color patternColor = e.ResultPattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
-            Chart.DrawRectangle($"F{name}", startIndex - 1, min, e.ResultPattern.BarIndex + 1,
-                    max, patternColor, LINE_WIDTH)
-                .SetFilled();
+                double max = double.MinValue;// yes, the price can be negative
+                double min = double.MaxValue;
+                for (int i = startIndex; i <= levelIndex; i++)
+                {
+                    max = Math.Max(m_BarsProvider.GetHighPrice(i), max);
+                    min = Math.Min(m_BarsProvider.GetLowPrice(i), min);
+                }
+
+
+                Color patternColor = e.ResultPattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
+                Chart.DrawRectangle($"F{name}", startIndex - 1, min, e.ResultPattern.BarIndex + 1,
+                        max, patternColor, LINE_WIDTH)
+                    .SetFilled();
+            }
             //Chart.DrawRectangle($"TP{name}", indexD, closeD, indexD + SETUP_WIDTH,
             //        e.TakeProfit, m_TpColor, LINE_WIDTH)
             //    .SetFilled();
