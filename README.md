@@ -7,10 +7,17 @@ Can be easily connected to your cTrader terminal.
 5. ???
 6. PROFIT!
 
-## Gartley patterns + MACD divergences
+## Price Action patterns
+- indicator `PriceActionIndicator.csproj`
+
+    [ ![Indicator in work](images/priceActionInd_preview.png) ](images/priceActionInd.png)
+
+## Gartley patterns + MACD divergences (bot & indicator)
 - indicator `GartleyFinderIndicator.csproj`
 
     [ ![Indicator in work](images/gartleyInd_preview.png) ](images/gartleyInd.png)
+
+- bot `GartleySignalerBot.csproj`
 
 ## Elliott Wave Impulse Trading System (bot & indicator)
 Setup principle is to find an initial impulse (wave 1 or wave A) and trade the next wave from the pullback.

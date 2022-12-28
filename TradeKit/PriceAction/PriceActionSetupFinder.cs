@@ -30,6 +30,7 @@ namespace TradeKit.PriceAction
             Symbol symbol,
             HashSet<CandlePatternType> patterns = null) : base(mainBarsProvider, symbol)
         {
+            //System.Diagnostics.Debugger.Launch();
             m_MainBarsProvider = mainBarsProvider;
             m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider, patterns);
             m_CandlePatternsEntryMap = new Dictionary<CandlesResult, PriceActionSignalEventArgs>(new CandlesResultComparer());
@@ -97,7 +98,6 @@ namespace TradeKit.PriceAction
 
                     m_CandlePatternsEntryMap.Add(localPattern, args);
 
-                    //System.Diagnostics.Debugger.Launch();
                     Logger.Write($"Added {localPattern.Type}");
                     OnEnterInvoke(args);
                 }
@@ -122,8 +122,8 @@ namespace TradeKit.PriceAction
                             args.StopLoss));
                     isClosed = true;
                 }
-                else if (pattern.IsBull && args.TakeProfit.Price >= high ||
-                         !pattern.IsBull && args.TakeProfit.Price <= high)
+                else if (pattern.IsBull && args.TakeProfit.Price <= high ||
+                         !pattern.IsBull && args.TakeProfit.Price >= low)
                 {
                     OnTakeProfitInvoke(new LevelEventArgs(
                         args.TakeProfit with { Index = index },

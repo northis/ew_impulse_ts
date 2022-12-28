@@ -18,7 +18,10 @@ namespace TradeKit.PriceAction
         private Color m_BullColor;
         private Color m_PatternBearColor;
         private Color m_PatternBullColor;
+        private Color m_SlColor;
+        private Color m_TpColor;
         private const int LINE_WIDTH = 1;
+        private const int SETUP_WIDTH = 3;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -30,6 +33,8 @@ namespace TradeKit.PriceAction
             m_BullColor = Color.FromHex("#F090EE90");
             m_PatternBearColor = Color.FromHex("#60F08080");
             m_PatternBullColor = Color.FromHex("#6090EE90");
+            m_SlColor = Color.FromHex("#50F00000");
+            m_TpColor = Color.FromHex("#5000F000");
 
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
@@ -116,6 +121,12 @@ namespace TradeKit.PriceAction
         [Parameter("Fill With Color", DefaultValue = true)]
         public bool FillWithColor { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether we should show possible SL and TP for each pattern.
+        /// </summary>
+        [Parameter("Show Setups", DefaultValue = true)]
+        public bool ShowSetups { get; set; }
+
         private HashSet<CandlePatternType> GetPatternsType()
         {
             var res = new HashSet<CandlePatternType>();
@@ -160,8 +171,9 @@ namespace TradeKit.PriceAction
             }
 
             int levelIndex = e.Level.Index.Value;
+            DateTime dt = Bars[levelIndex].OpenTime;
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Logger.Write($"SL hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
+            Logger.Write($"SL hit! Price:{priceFmt} ({dt:s})");
         }
 
         /// <summary>
@@ -177,8 +189,9 @@ namespace TradeKit.PriceAction
             }
 
             int levelIndex = e.Level.Index.Value;
+            DateTime dt = Bars[levelIndex].OpenTime;
             string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
-            Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
+            Logger.Write($"TP hit! Price:{priceFmt} ({dt:s})");
         }
 
         /// <summary>
@@ -211,15 +224,21 @@ namespace TradeKit.PriceAction
                     min = Math.Min(m_BarsProvider.GetLowPrice(i), min);
                 }
 
-
                 Color patternColor = e.ResultPattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
                 Chart.DrawRectangle($"F{name}", startIndex - 1, min, e.ResultPattern.BarIndex + 1,
                         max, patternColor, LINE_WIDTH)
                     .SetFilled();
             }
-            //Chart.DrawRectangle($"TP{name}", indexD, closeD, indexD + SETUP_WIDTH,
-            //        e.TakeProfit, m_TpColor, LINE_WIDTH)
-            //    .SetFilled();
+
+            if (ShowSetups)
+            {
+                Chart.DrawRectangle($"SL{name}", levelIndex, e.Level.Price, levelIndex + SETUP_WIDTH,
+                        e.StopLoss.Price, m_SlColor, LINE_WIDTH)
+                    .SetFilled();
+                Chart.DrawRectangle($"TP{name}", levelIndex, e.Level.Price, levelIndex + SETUP_WIDTH,
+                        e.TakeProfit.Price, m_TpColor, LINE_WIDTH)
+                    .SetFilled();
+            }
         }
     }
 }
