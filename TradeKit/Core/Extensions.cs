@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using Microsoft.FSharp.Core;
 using TradeKit.Gartley;
 using TradeKit.PriceAction;
 
@@ -11,6 +12,34 @@ namespace TradeKit.Core
 {
     public static class Extensions
     {
+        private static readonly TimeSpan TIME_OFFSET = DateTime.UtcNow - DateTime.Now;
+
+        /// <summary>
+        /// To SVG path point.
+        /// </summary>
+        public static string ToSvgPoint(this BarPoint item)
+        {
+            string xVal = item.Value.ToString(CultureInfo.InvariantCulture);
+            string xDat = item.OpenTime.Add(TIME_OFFSET).ToUnixMilliseconds().ToString(CultureInfo.InvariantCulture);
+            return $"{xDat} {xVal}";
+        }
+
+        /// <summary>
+        /// DateTime to UNIX milliseconds.
+        /// </summary>
+        public static double ToUnixMilliseconds(this DateTime item)
+        {
+            return (item - DateTime.UnixEpoch).TotalMilliseconds;
+        }
+
+        /// <summary>
+        /// Converts to F# object.
+        /// </summary>
+        public static FSharpOption<T> ToFSharp<T>(this T item)
+        {
+            return new FSharpOption<T>(item);
+        }
+
         /// <summary>
         /// Gets a new <see cref="BarPoint"/> with given index.
         /// </summary>

@@ -127,7 +127,7 @@ namespace TradeKit.Impulse
         /// </returns>
         private bool IsSetup(int index, ExtremumFinder finder, double? currentPriceBid = null)
         {
-            SortedDictionary<int, BarPoint> extrema = finder.Extrema;
+            SortedDictionary<DateTime, BarPoint> extrema = finder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
@@ -139,16 +139,16 @@ namespace TradeKit.Impulse
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
-            KeyValuePair<int, BarPoint> startItem = extrema
+            KeyValuePair<DateTime, BarPoint> startItem = extrema
                 .ElementAt(startIndex);
-            KeyValuePair<int, BarPoint> endItem = extrema
+            KeyValuePair<DateTime, BarPoint> endItem = extrema
                 .ElementAt(endIndex);
             
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
 
-                if (endItem.Key - startItem.Key < Helper.MINIMUM_BARS_IN_IMPULSE)
+                if (endItem.Value.BarIndex - startItem.Value.BarIndex < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
                     //Debugger.Launch();
                     //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
@@ -161,7 +161,7 @@ namespace TradeKit.Impulse
                 var isImpulseUp = endValue > startValue;
                 double maxValue = Math.Max(startValue, endValue);
                 double minValue = Math.Min(startValue, endValue);
-                for (int i = endItem.Key + 1; i < index; i++)
+                for (int i = endItem.Value.BarIndex + 1; i < index; i++)
                 {
                     if (maxValue <= BarsProvider.GetHighPrice(i) ||
                         minValue >= BarsProvider.GetLowPrice(i))
@@ -219,14 +219,14 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                if (SetupStartIndex == startItem.Key ||
-                    SetupEndIndex == endItem.Key)
+                if (SetupStartIndex == startItem.Value.BarIndex ||
+                    SetupEndIndex == endItem.Value.BarIndex)
                 {
                     // Cannot use the same impulse twice.
                     return;
                 }
 
-                if (endItem.Key == index)
+                if (endItem.Value.BarIndex == index)
                 {
                     // Wait for the next bar
                     return;
@@ -269,8 +269,8 @@ namespace TradeKit.Impulse
                 double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
                 double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
-                SetupStartIndex = startItem.Key;
-                SetupEndIndex = endItem.Key;
+                SetupStartIndex = startItem.Value.BarIndex;
+                SetupEndIndex = endItem.Value.BarIndex;
 
                 double setupLength = Math.Abs(startValue - endValue);
                 
@@ -393,11 +393,12 @@ namespace TradeKit.Impulse
                 finder.Calculate(index);
 
                 if (finder.Extrema.Count > Helper.EXTREMA_MAX)
-                {
-                    int[] oldKeys = finder.Extrema.Keys
+                { 
+                   Logger.Write("Cleaning the extrema...");
+                   DateTime[] oldKeys = finder.Extrema.Keys
                         .Take(finder.Extrema.Count - Helper.EXTREMA_MAX)
                         .ToArray();
-                    foreach (int oldKey in oldKeys)
+                    foreach (DateTime oldKey in oldKeys)
                     {
                         finder.Extrema.Remove(oldKey);
                     }

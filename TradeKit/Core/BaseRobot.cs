@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -28,7 +29,7 @@ namespace TradeKit.Core
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
         protected const string CHART_FILE_TYPE_EXTENSION = ".png";
-        protected const int CHART_BARS_MARGIN_COUNT = 10;
+        protected const int CHART_BARS_MARGIN_COUNT = 5;
         protected const int CHART_HEIGHT = 1000;
         protected const int CHART_WIDTH = 1000;
         protected const string FIRST_CHART_FILE_POSTFIX = ".01";
@@ -42,8 +43,8 @@ namespace TradeKit.Core
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, bool> m_PositionFinderMap;
         private Dictionary<string, TK> m_ChartFileFinderMap;
-        private Color m_ShortColor = Color.fromHex("#EF5350");
-        private Color m_LongColor = Color.fromHex("#26A69A");
+        private readonly Color m_ShortColor = Color.fromHex("#EF5350");
+        private readonly Color m_LongColor = Color.fromHex("#26A69A");
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -665,12 +666,12 @@ namespace TradeKit.Core
             int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
 
             int lastIndex = barProvider.Count - 1;
-            int barsCount = lastIndex - earlyBar;
+            int barsCount = lastIndex - earlyBar + 1;
             if (barsCount <= 0)
             {
                 return null;
             }
-
+            
             bool useCommonTimeFrame = TimeFrameHelper.TimeFrames
                 .TryGetValue(barProvider.TimeFrame, out TimeFrameInfo timeFrameInfo);
 
@@ -681,7 +682,7 @@ namespace TradeKit.Core
             var d = new DateTime[barsCount];
             
             var rangeBreaks = new List<DateTime>();
-            for (int i = earlyBar; i < lastIndex; i++)
+            for (int i = earlyBar; i <= lastIndex; i++)
             {
                 int barIndex = i - earlyBar;
                 DateTime currentDateTime = barProvider.GetOpenTime(i);

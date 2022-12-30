@@ -2,18 +2,28 @@
 using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using Microsoft.FSharp.Core;
 using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using Shape = Plotly.NET.LayoutObjects.Shape;
+using Color = Plotly.NET.Color;
 
 namespace TradeKit.Gartley
 {
     public class GartleySignalerBaseBot : BaseRobot<GartleySetupFinder, GartleySignalEventArgs>
     {
         private const string BOT_NAME = "GartleySignalerRobot";
-        
+        private const string SVG_PATH_TEMPLATE = "M {0} L {1} L {2} L {3} L {4} L {2} L {0} Z";
+
+        private Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
+        private Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
+        private readonly Color m_BearColorFill = Color.fromARGB(80, 240, 128, 128);
+        private readonly Color m_BullColorFill = Color.fromARGB(80, 128, 240, 128);
+        private Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
+        private Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
+
+        #region Input parameters
+
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
@@ -103,6 +113,8 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
         public int MACDSignalPeriods { get; set; }
+
+        #endregion
         
         private HashSet<GartleyPatternType> GetPatternsType()
         {
@@ -135,6 +147,30 @@ namespace TradeKit.Gartley
             return BOT_NAME;
         }
 
+        private Shape GetLine(BarPoint bp1, BarPoint bp2, Color color)
+        {
+            //GenericChart.Figure.create(new FSharpList<Trace>())
+            Shape line = Shape.init(StyleParam.ShapeType.Line.ToFSharp(),
+                X0: bp1.OpenTime.ToFSharp(),
+                Y0: bp1.Value.ToFSharp(),
+                X1: bp2.OpenTime.ToFSharp(),
+                Y1: bp2.Value.ToFSharp(),
+                Fillcolor: color.ToFSharp());
+            return line;
+        }
+
+
+        private string SvgPathFromGartleyItem(GartleyItem gartley)
+        {
+            string path = string.Format(SVG_PATH_TEMPLATE, 
+                gartley.ItemX.ToSvgPoint(), 
+                gartley.ItemA.ToSvgPoint(),
+                gartley.ItemB.ToSvgPoint(), 
+                gartley.ItemC.ToSvgPoint(), 
+                gartley.ItemD.ToSvgPoint());
+            return path;
+        }
+
         /// <summary>
         /// Gets the additional chart layers.
         /// </summary>
@@ -147,17 +183,22 @@ namespace TradeKit.Gartley
         {
             GenericChart.GenericChart[] charts =
                 base.GetAdditionalChartLayers(candlestickChart, signalEventArgs, lastOpenDateTime);
-            
-            //Shape.init(new FSharpOption<StyleParam.ShapeType>(StyleParam.ShapeType.Line),new FSharpOption<DateTime>(signalEventArgs.GartleyItem.ItemX.))
-            //Plotly.NET.CSharp.Chart.Point<double, double, string>(
-            //        x: new double[] { 1, 2 },
-            //        y: new double[] { 5, 10 }
-            //    )
-            //    .WithTraceInfo("Hello from C#", ShowLegend: true)
-            //    .WithXAxisStyle<double, double, string>(Title: Plotly.NET.Title.init("xAxis"))
-            //    .WithYAxisStyle<double, double, string>(Title: Plotly.NET.Title.init("yAxis"))
-            //    .Show();
 
+            GartleyItem gartley = signalEventArgs.GartleyItem;
+            bool isBull = gartley.ItemX < gartley.ItemA;
+
+            Color color = isBull ? m_BullColorFill : m_BearColorFill;
+            Shape path = Shape.init(StyleParam.ShapeType.SvgPath.ToFSharp(),
+                X0: gartley.ItemX.OpenTime.ToFSharp(),
+                Y0: gartley.ItemX.Value.ToFSharp(),
+                X1: gartley.ItemD.OpenTime.ToFSharp(),
+                Y1: gartley.ItemD.Value.ToFSharp(),
+                Path: SvgPathFromGartleyItem(gartley).ToFSharp(),
+                Fillcolor: color.ToFSharp());
+
+            //Shape bx = GetLine(gartley.ItemB, gartley.ItemX, color);
+            //candlestickChart.WithShape(new[] {xa, ab, bx, bc, cd, db }, true.ToFSharp());
+            candlestickChart.WithShape(path, true.ToFSharp());
             return charts;
         }
 
