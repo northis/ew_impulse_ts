@@ -101,15 +101,13 @@ namespace TradeKit.Gartley
                     if (m_Patterns.Any(a => m_GartleyItemComparer.Equals(localPattern, a)))
                         continue;
 
-                    LevelItem divItem = null;
+                    BarPoint divItem = null;
                     double? foundDivValue = null;
-                    if (m_MacdCrossOver != null &&
-                        localPattern.ItemX.Index != null &&
-                        localPattern.ItemD.Index != null)
+                    if (m_MacdCrossOver != null )
                     {
-                        bool isBull = localPattern.ItemX.Price < localPattern.ItemA.Price;
-                        int indexX = localPattern.ItemX.Index.Value;
-                        int indexD = localPattern.ItemD.Index.Value;
+                        bool isBull = localPattern.ItemX.Value < localPattern.ItemA.Value;
+                        int indexX = localPattern.ItemX.BarIndex;
+                        int indexD = localPattern.ItemD.BarIndex;
 
                         double macdD = m_MacdCrossOver.Histogram[indexD];
                         for (int i = indexD - DIVERGENCE_OFFSET_SEARCH; i >= indexX; i--)
@@ -119,8 +117,8 @@ namespace TradeKit.Gartley
                                 macdD >= 0 && currentVal < 0)
                                 break;
                             
-                            if (isBull && BarsProvider.GetLowPrice(i) < localPattern.ItemD.Price ||
-                                !isBull && BarsProvider.GetHighPrice(i) > localPattern.ItemD.Price)
+                            if (isBull && BarsProvider.GetLowPrice(i) < localPattern.ItemD.Value ||
+                                !isBull && BarsProvider.GetHighPrice(i) > localPattern.ItemD.Value)
                                 break;
 
                             double histValue = m_MacdCrossOver.Histogram[i];
@@ -136,9 +134,9 @@ namespace TradeKit.Gartley
                                 }
                                 else
                                 {
-                                    divItem = new LevelItem(isBull
-                                            ? BarsProvider.GetLowPrice(i)
-                                            : BarsProvider.GetHighPrice(i), i);
+                                    divItem = new BarPoint(isBull
+                                        ? BarsProvider.GetLowPrice(i)
+                                        : BarsProvider.GetHighPrice(i), i, BarsProvider);
                                     break;
                                 }
                             }
@@ -159,9 +157,10 @@ namespace TradeKit.Gartley
                     //System.Diagnostics.Debugger.Launch();
                     Logger.Write($"Added {localPattern.PatternType}");
                     DateTime startView = m_MainBarsProvider.GetOpenTime(
-                        localPattern.ItemX.Index ?? startIndex);
+                        localPattern.ItemX.BarIndex);
                     OnEnterInvoke(new GartleySignalEventArgs(
-                        new LevelItem(close, index), localPattern, startView, divItem));
+                        new BarPoint(close, index, m_MainBarsProvider),
+                        localPattern, startView, divItem));
                 }
             }
 
@@ -176,14 +175,15 @@ namespace TradeKit.Gartley
                     continue;
                 }
 
-                bool isBull = pattern.ItemX.Price < pattern.ItemA.Price;
+                bool isBull = pattern.ItemX.Value < pattern.ItemA.Value;
                 bool isClosed = false;
                 if (isBull && high >= pattern.TakeProfit1 ||
                     !isBull && low <= pattern.TakeProfit1)
                 {
                     OnTakeProfitInvoke(
                         new LevelEventArgs(
-                            new LevelItem(pattern.TakeProfit1, index), pattern.ItemD));
+                            new BarPoint(pattern.TakeProfit1, index, BarsProvider),
+                            pattern.ItemD));
                     isClosed = true;
                 }
 
@@ -192,7 +192,7 @@ namespace TradeKit.Gartley
                 {
                     OnStopLossInvoke(
                         new LevelEventArgs(
-                            new LevelItem(pattern.StopLoss, index), pattern.ItemD));
+                            new BarPoint(pattern.StopLoss, index, BarsProvider), pattern.ItemD));
                     isClosed = true;
                 }
 

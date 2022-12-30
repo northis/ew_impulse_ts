@@ -119,7 +119,7 @@ namespace TradeKit.Telegram
             SignalEventArgs signalEventArgs = signalArgs.SignalEventArgs;
             double price;
             double spread = signalArgs.Ask - signalArgs.Bid;
-            bool isLong = signalEventArgs.StopLoss.Price < signalEventArgs.TakeProfit.Price;
+            bool isLong = signalEventArgs.StopLoss.Value < signalEventArgs.TakeProfit.Value;
             string tradeType;
             if (isLong)
             {
@@ -132,16 +132,16 @@ namespace TradeKit.Telegram
                 tradeType = "SELL";
             }
 
-            double sl = signalEventArgs.StopLoss.Price;
-            double tp = signalEventArgs.TakeProfit.Price;
+            double sl = signalEventArgs.StopLoss.Value;
+            double tp = signalEventArgs.TakeProfit.Value;
 
             double nom = Math.Abs(price - sl);
             double den = Math.Abs(price - tp);
 
             var sb = new StringBuilder();
             sb.AppendLine($"#{signalArgs.SymbolName.Replace(" ","")} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
-            sb.AppendLine($"TP {PriceFormat(signalEventArgs.TakeProfit.Price, signalArgs.Digits)}");
-            sb.AppendLine($"SL {PriceFormat(signalEventArgs.StopLoss.Price, signalArgs.Digits)}");
+            sb.AppendLine($"TP {PriceFormat(signalEventArgs.TakeProfit.Value, signalArgs.Digits)}");
+            sb.AppendLine($"SL {PriceFormat(signalEventArgs.StopLoss.Value, signalArgs.Digits)}");
 
             if (den > 0)
             {

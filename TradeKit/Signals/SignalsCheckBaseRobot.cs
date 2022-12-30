@@ -124,7 +124,7 @@ namespace TradeKit.Signals
         protected override bool HasSameSetupActive(
             ParseSetupFinder setupFinder, SignalEventArgs signal)
         {
-            bool res = setupFinder.LastEntry?.Index == signal.Level.Index;
+            bool res = setupFinder.LastEntry.BarIndex == signal.Level.BarIndex;
             return res;
         }
 

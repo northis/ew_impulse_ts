@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using Microsoft.FSharp.Core;
 using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using Shape = Plotly.NET.LayoutObjects.Shape;
 
 namespace TradeKit.Gartley
 {
@@ -136,13 +138,25 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets the additional chart layers.
         /// </summary>
+        /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="lastOpenDateTime">The last open date time.</param>
-        protected override GenericChart.GenericChart[] GetAdditionalChartLayers(GartleySignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
+        protected override GenericChart.GenericChart[] GetAdditionalChartLayers(
+            GenericChart.GenericChart candlestickChart,
+            GartleySignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
         {
-            GenericChart.GenericChart[] charts = 
-                base.GetAdditionalChartLayers(signalEventArgs, lastOpenDateTime);
-
+            GenericChart.GenericChart[] charts =
+                base.GetAdditionalChartLayers(candlestickChart, signalEventArgs, lastOpenDateTime);
+            
+            //Shape.init(new FSharpOption<StyleParam.ShapeType>(StyleParam.ShapeType.Line),new FSharpOption<DateTime>(signalEventArgs.GartleyItem.ItemX.))
+            //Plotly.NET.CSharp.Chart.Point<double, double, string>(
+            //        x: new double[] { 1, 2 },
+            //        y: new double[] { 5, 10 }
+            //    )
+            //    .WithTraceInfo("Hello from C#", ShowLegend: true)
+            //    .WithXAxisStyle<double, double, string>(Title: Plotly.NET.Title.init("xAxis"))
+            //    .WithYAxisStyle<double, double, string>(Title: Plotly.NET.Title.init("yAxis"))
+            //    .Show();
 
             return charts;
         }

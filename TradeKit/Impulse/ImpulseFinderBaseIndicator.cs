@@ -32,16 +32,11 @@ namespace TradeKit.Impulse
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
-            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
-            {
-                return;
-            }
-
-            int levelIndex = e.Level.Index.Value;
-            Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.Index.Value, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightCoral, 2);
+            int levelIndex = e.Level.BarIndex;
+            Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.BarIndex, e.FromLevel.Value, levelIndex, e.Level.Value, Color.LightCoral, 2);
             Chart.DrawIcon($"SL{levelIndex}", ChartIconType.Star, levelIndex
-                , e.Level.Price, Color.LightCoral);
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+                , e.Level.Value, Color.LightCoral);
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"SL hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
@@ -52,16 +47,11 @@ namespace TradeKit.Impulse
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnTakeProfit(object sender, LevelEventArgs e)
         {
-            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
-            {
-                return;
-            }
+            int levelIndex = e.Level.BarIndex;
+            Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.BarIndex, e.FromLevel.Value, levelIndex, e.Level.Value, Color.LightGreen, 2);
+            Chart.DrawIcon($"TP{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.LightGreen);
 
-            int levelIndex = e.Level.Index.Value;
-            Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.Index.Value, e.FromLevel.Price, levelIndex, e.Level.Price, Color.LightGreen, 2);
-            Chart.DrawIcon($"TP{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.LightGreen);
-
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
@@ -72,13 +62,8 @@ namespace TradeKit.Impulse
         /// <param name="e">The event argument type.</param>
         protected override void OnEnter(object sender, ImpulseSignalEventArgs e)
         {
-            if (!e.Level.Index.HasValue)
-            {
-                return;
-            }
-
-            int levelIndex = e.Level.Index.Value;
-            Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Price, Color.White);
+            int levelIndex = e.Level.BarIndex;
+            Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
             if (e.Waves is { Count: > 0 })
             {
                 BarPoint start = e.Waves[0];
@@ -94,7 +79,7 @@ namespace TradeKit.Impulse
                 }
             }
 
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
     }

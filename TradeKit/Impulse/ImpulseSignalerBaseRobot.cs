@@ -38,14 +38,9 @@ namespace TradeKit.Impulse
         protected override bool IsOvernightTrade(
             ImpulseSignalEventArgs signal, ImpulseSetupFinder setupFinder)
         {
-            if (!signal.StopLoss.Index.HasValue || !signal.Level.Index.HasValue)
-            {
-                return false;
-            }
-
             IBarsProvider bp = setupFinder.BarsProvider; 
-            DateTime setupStart = bp.GetOpenTime(signal.StopLoss.Index.Value);
-            DateTime setupEnd = bp.GetOpenTime(signal.Level.Index.Value) + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
+            DateTime setupStart = signal.StopLoss.OpenTime;
+            DateTime setupEnd = signal.Level.OpenTime + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
             Logger.Write(
                 $"A risky signal, the setup contains a trade session change: {bp.Symbol}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
 
@@ -63,8 +58,8 @@ namespace TradeKit.Impulse
         protected override bool HasSameSetupActive(
             ImpulseSetupFinder finder, ImpulseSignalEventArgs signal)
         {
-            if (Math.Abs(finder.SetupStartPrice - signal.StopLoss.Price) < double.Epsilon &&
-                Math.Abs(finder.SetupEndPrice - signal.TakeProfit.Price) < double.Epsilon)
+            if (Math.Abs(finder.SetupStartPrice - signal.StopLoss.Value) < double.Epsilon &&
+                Math.Abs(finder.SetupEndPrice - signal.TakeProfit.Value) < double.Epsilon)
             {
                 return true;
             }

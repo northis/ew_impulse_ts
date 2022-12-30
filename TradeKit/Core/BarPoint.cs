@@ -6,7 +6,7 @@ namespace TradeKit.Core
     /// <summary>
     /// Contains the bar point data
     /// </summary>
-    public class BarPoint : IComparable
+    public record BarPoint : IComparable
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BarPoint"/> class.
@@ -22,22 +22,14 @@ namespace TradeKit.Core
             BarTimeFrame = barTimeFrame;
             BarIndex = barIndex;
         }
-
-        /// <inheritdoc cref="object"/>
-        protected bool Equals(BarPoint other)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BarPoint"/> class.
+        /// </summary>
+        /// <param name="value">The value.</param>
+        /// <param name="provider">The bar provider we base on.</param>
+        /// <param name="barIndex">Index of the bar.</param>
+        public BarPoint(double value, int barIndex, IBarsProvider provider):this(value, provider.GetOpenTime(barIndex), provider.TimeFrame, barIndex)
         {
-            return Value.Equals(other.Value) && 
-                   OpenTime.Equals(other.OpenTime) && 
-                   Equals(BarTimeFrame, other.BarTimeFrame);
-        }
-
-        /// <inheritdoc cref="object"/>
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != GetType()) return false;
-            return Equals((BarPoint) obj);
         }
 
         /// <inheritdoc cref="object"/>
@@ -214,38 +206,9 @@ namespace TradeKit.Core
         /// <returns>
         /// The result of the operator.
         /// </returns>
-        public static bool operator ==(BarPoint a, BarPoint b)
-        {
-            if (a is null || b is null)
-                return false;
-
-            return Math.Abs(a - b) < double.Epsilon;
-        }
-
-        /// <summary>
-        /// Implements the operator ==.
-        /// </summary>
-        /// <param name="a">a.</param>
-        /// <param name="b">The b.</param>
-        /// <returns>
-        /// The result of the operator.
-        /// </returns>
         public static bool operator ==(double a, BarPoint b)
         {
-            return b != null && Math.Abs(a - b.Value) < double.Epsilon;
-        }
-
-        /// <summary>
-        /// Implements the operator !=.
-        /// </summary>
-        /// <param name="a">a.</param>
-        /// <param name="b">The b.</param>
-        /// <returns>
-        /// The result of the operator.
-        /// </returns>
-        public static bool operator !=(BarPoint a, BarPoint b)
-        {
-            return !(a == b);
+            return b is not null && Math.Abs(a - b.Value) < double.Epsilon;
         }
 
         /// <summary>
@@ -265,7 +228,7 @@ namespace TradeKit.Core
         public int CompareTo(object obj)
         {
             BarPoint compareExtremum = (BarPoint)obj;
-            if (this == compareExtremum)
+            if (Equals(compareExtremum))
             {
                 return 0;
             }

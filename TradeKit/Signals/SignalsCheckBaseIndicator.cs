@@ -65,18 +65,13 @@ namespace TradeKit.Signals
         /// <param name="e">The event argument type.</param>
         protected override void OnEnter(object sender, SignalEventArgs e)
         {
-            int? index = e.Level.Index;
-            if (!index.HasValue)
-            {
-                return;
-            }
-            
-            double price = e.Level.Price;
+            int? index = e.Level.BarIndex;
+            double price = e.Level.Value;
             int rectIndex = index.Value + RECT_WIDTH_BARS;
             Chart.DrawRectangle($"{index} {index.Value} sl",
-                index.Value, price, rectIndex, e.StopLoss.Price, Color.Red, 1, LineStyle.Lines);
+                index.Value, price, rectIndex, e.StopLoss.Value, Color.Red, 1, LineStyle.Lines);
 
-            double tpPrice = e.TakeProfit.Price;
+            double tpPrice = e.TakeProfit.Value;
             Chart.DrawRectangle($"{index} {index.Value} tp {tpPrice}",
                 index.Value, price, rectIndex, tpPrice, Color.Green, 1, LineStyle.Lines);
         }

@@ -68,7 +68,7 @@ namespace TradeKit.Signals
         /// <summary>
         /// Gets the last entry.
         /// </summary>
-        public LevelItem LastEntry { get; private set; }
+        public BarPoint LastEntry { get; private set; }
 
         protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
@@ -93,7 +93,7 @@ namespace TradeKit.Signals
             {
                 ParsedSignal signal = matchedSignal.Value;
 
-                LastEntry = new LevelItem(m_LastPrice, LastBar);
+                LastEntry = new BarPoint(m_LastPrice, LastBar, BarsProvider);
 
                 for (int i = 0; i < signal.TakeProfits.Length; i++)
                 {
@@ -107,8 +107,8 @@ namespace TradeKit.Signals
                     IsInSetup = true;
                     OnEnterInvoke(new SignalEventArgs(
                         LastEntry,
-                        new LevelItem(tp),
-                        new LevelItem(signal.StopLoss)));
+                        new BarPoint(tp, LastBar, BarsProvider),
+                        new BarPoint(signal.StopLoss, LastBar, BarsProvider)));
                 }
 
                 m_Signals.Remove(matchedSignal.Key);

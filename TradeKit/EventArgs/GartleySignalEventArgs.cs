@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using TradeKit.Core;
 using TradeKit.Gartley;
 
@@ -8,13 +7,13 @@ namespace TradeKit.EventArgs
     public class GartleySignalEventArgs : SignalEventArgs
     {
         public GartleySignalEventArgs(
-            LevelItem level,
+            BarPoint level,
             GartleyItem gartleyItem,
             DateTime startViewBarIndex,
-            LevelItem divergenceStart = null)
+            BarPoint divergenceStart = null)
             : base(level,
-                level with {Price = gartleyItem.TakeProfit1},
-                level with {Price = gartleyItem.StopLoss}, startViewBarIndex)
+                level.WithPrice(gartleyItem.TakeProfit1), 
+                level.WithPrice(gartleyItem.StopLoss), startViewBarIndex)
         {
             GartleyItem = gartleyItem;
             DivergenceStart = divergenceStart;
@@ -28,6 +27,6 @@ namespace TradeKit.EventArgs
         /// <summary>
         /// Divergence start point
         /// </summary>
-        public LevelItem DivergenceStart { get; }
+        public BarPoint DivergenceStart { get; }
     }
 }

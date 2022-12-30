@@ -165,14 +165,9 @@ namespace TradeKit.PriceAction
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
-            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
-            {
-                return;
-            }
-
-            int levelIndex = e.Level.Index.Value;
+            int levelIndex = e.Level.BarIndex;
             DateTime dt = Bars[levelIndex].OpenTime;
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"SL hit! Price:{priceFmt} ({dt:s})");
         }
 
@@ -183,14 +178,9 @@ namespace TradeKit.PriceAction
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnTakeProfit(object sender, LevelEventArgs e)
         {
-            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
-            {
-                return;
-            }
-
-            int levelIndex = e.Level.Index.Value;
+            int levelIndex = e.Level.BarIndex;
             DateTime dt = Bars[levelIndex].OpenTime;
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"TP hit! Price:{priceFmt} ({dt:s})");
         }
 
@@ -201,10 +191,7 @@ namespace TradeKit.PriceAction
         /// <param name="e">The event argument type.</param>
         protected override void OnEnter(object sender, PriceActionSignalEventArgs e)
         {
-            if (!e.Level.Index.HasValue)
-                return;
-
-            int levelIndex = e.Level.Index.Value;
+            int levelIndex = e.Level.BarIndex;
             string name = $"{levelIndex}{e.ResultPattern.GetHashCode()}";
             Color color = e.ResultPattern.IsBull ? m_BullColor : m_BearColor;
 
@@ -232,11 +219,11 @@ namespace TradeKit.PriceAction
 
             if (ShowSetups)
             {
-                Chart.DrawRectangle($"SL{name}", levelIndex, e.Level.Price, levelIndex + SETUP_WIDTH,
-                        e.StopLoss.Price, m_SlColor, LINE_WIDTH)
+                Chart.DrawRectangle($"SL{name}", levelIndex, e.Level.Value, levelIndex + SETUP_WIDTH,
+                        e.StopLoss.Value, m_SlColor, LINE_WIDTH)
                     .SetFilled();
-                Chart.DrawRectangle($"TP{name}", levelIndex, e.Level.Price, levelIndex + SETUP_WIDTH,
-                        e.TakeProfit.Price, m_TpColor, LINE_WIDTH)
+                Chart.DrawRectangle($"TP{name}", levelIndex, e.Level.Value, levelIndex + SETUP_WIDTH,
+                        e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
                     .SetFilled();
             }
         }

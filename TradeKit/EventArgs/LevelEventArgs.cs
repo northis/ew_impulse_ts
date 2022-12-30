@@ -4,13 +4,13 @@ namespace TradeKit.EventArgs
 {
     public class LevelEventArgs : System.EventArgs
     {
-        public LevelEventArgs(LevelItem level, LevelItem fromLevel)
+        public LevelEventArgs(BarPoint level, BarPoint fromLevel)
         {
             Level = level;
             FromLevel = fromLevel;
         }
 
-        public LevelItem Level { get; }
-        public LevelItem FromLevel { get; }
+        public BarPoint Level { get; }
+        public BarPoint FromLevel { get; }
     }
 }

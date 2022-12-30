@@ -91,9 +91,9 @@ namespace TradeKit.PriceAction
 
                     DateTime startView = m_MainBarsProvider.GetOpenTime(startIndex);
                     var args = new PriceActionSignalEventArgs(
-                        new LevelItem(close, index),
-                        new LevelItem(tp, index),
-                        new LevelItem(sl, localPattern.BarIndex),
+                        new BarPoint(close, index, m_MainBarsProvider),
+                        new BarPoint(tp, index, m_MainBarsProvider),
+                        new BarPoint(sl, localPattern.BarIndex, m_MainBarsProvider),
                         localPattern, startView);
 
                     m_CandlePatternsEntryMap.Add(localPattern, args);
@@ -114,20 +114,18 @@ namespace TradeKit.PriceAction
 
                 PriceActionSignalEventArgs args = m_CandlePatternsEntryMap[pattern];
                 bool isClosed = false;
-                if (pattern.IsBull && args.StopLoss.Price >= low ||
-                    !pattern.IsBull && args.StopLoss.Price <= high)
+                if (pattern.IsBull && args.StopLoss.Value >= low ||
+                    !pattern.IsBull && args.StopLoss.Value <= high)
                 {
                     OnStopLossInvoke(new LevelEventArgs(
-                            args.StopLoss with {Index = index},
-                            args.StopLoss));
+                        args.StopLoss.WithIndex(index, BarsProvider), args.StopLoss));
                     isClosed = true;
                 }
-                else if (pattern.IsBull && args.TakeProfit.Price <= high ||
-                         !pattern.IsBull && args.TakeProfit.Price >= low)
+                else if (pattern.IsBull && args.TakeProfit.Value <= high ||
+                         !pattern.IsBull && args.TakeProfit.Value >= low)
                 {
                     OnTakeProfitInvoke(new LevelEventArgs(
-                        args.TakeProfit with { Index = index },
-                        args.TakeProfit));
+                        args.TakeProfit.WithIndex(index, BarsProvider), args.TakeProfit));
                     isClosed = true;
                 }
 

@@ -524,8 +524,8 @@ namespace TradeKit.Core
             
             Symbol symbol = m_SymbolsMap[sf.Id];
 
-            double tp = e.TakeProfit.Price;
-            double sl = e.StopLoss.Price;
+            double tp = e.TakeProfit.Value;
+            double sl = e.StopLoss.Value;
             bool isLong = sl < tp;
             double spread = symbol.Spread;
 
@@ -625,13 +625,15 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the additional chart layers.
         /// </summary>
+        /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="lastOpenDateTime">The last open date time.</param>
         protected virtual GenericChart.GenericChart[] GetAdditionalChartLayers(
+            GenericChart.GenericChart candlestickChart,
             TK signalEventArgs, DateTime lastOpenDateTime)
         {
-            double sl = signalEventArgs.StopLoss.Price;
-            double tp = signalEventArgs.TakeProfit.Price;
+            double sl = signalEventArgs.StopLoss.Value;
+            double tp = signalEventArgs.TakeProfit.Value;
             DateTime startView = signalEventArgs.StartViewBarTime;
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
@@ -722,7 +724,7 @@ namespace TradeKit.Core
                         ShowLegend: new FSharpOption<bool>(false));
 
             GenericChart.GenericChart[] layers = 
-                GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
+                GetAdditionalChartLayers(candlestickChart, signalEventArgs, lastCloseDateTime) 
                 ?? Array.Empty<GenericChart.GenericChart>();
 
             FSharpOption<int> dValue = timeFrameInfo == null
@@ -782,11 +784,11 @@ namespace TradeKit.Core
             return volume;
         }
 
-        private void GetEventStrings(object sender, LevelItem level, out string price)
+        private void GetEventStrings(object sender, BarPoint level, out string price)
         {
             var sf = (T)sender;
-            string priceFmt = level.Price.ToString($"F{sf.Symbol.Digits}", CultureInfo.InvariantCulture);
-            price = $"Price:{priceFmt} ({sf.BarsProvider.GetOpenTime(level.Index.GetValueOrDefault()):s}) - {sf.Symbol.Name}";
+            string priceFmt = level.Value.ToString($"F{sf.Symbol.Digits}", CultureInfo.InvariantCulture);
+            price = $"Price:{priceFmt} ({level.OpenTime:s}) - {sf.Symbol.Name}";
         }
 
         /// <summary>

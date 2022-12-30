@@ -299,11 +299,11 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                var tpArg = new LevelItem(SetupEndPrice, SetupEndIndex);
-                var slArg = new LevelItem(SetupStartPrice, SetupStartIndex);
+                var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
+                var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = startItem.Value.OpenTime;
                 OnEnterInvoke(new ImpulseSignalEventArgs(
-                    new LevelItem(realPrice, index),
+                    new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
                     outExtrema,
@@ -365,8 +365,8 @@ namespace TradeKit.Impulse
             if (isProfitHit)
             {
                 IsInSetup = false;
-                OnTakeProfitInvoke(new LevelEventArgs(new LevelItem(SetupEndPrice, index),
-                        new LevelItem(TriggerLevel, TriggerBarIndex)));
+                OnTakeProfitInvoke(new LevelEventArgs(new BarPoint(SetupEndPrice, index, BarsProvider),
+                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider)));
             }
 
             bool isStopHit = isImpulseUp && low <= SetupStartPrice
@@ -374,8 +374,8 @@ namespace TradeKit.Impulse
             if (isStopHit)
             {
                 IsInSetup = false;
-                OnStopLossInvoke(new LevelEventArgs(new LevelItem(SetupStartPrice, index),
-                        new LevelItem(TriggerLevel, TriggerBarIndex)));
+                OnStopLossInvoke(new LevelEventArgs(new BarPoint(SetupStartPrice, index, BarsProvider),
+                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider)));
             }
 
             return IsInSetup;

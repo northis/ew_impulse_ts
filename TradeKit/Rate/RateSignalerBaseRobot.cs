@@ -72,7 +72,7 @@ namespace TradeKit.Rate
         protected override bool HasSameSetupActive(
             RateSetupFinder setupFinder, SignalEventArgs signal)
         {
-            bool res = setupFinder.LastEntry?.Index == signal.Level.Index;
+            bool res = setupFinder.LastEntry.BarIndex == signal.Level.BarIndex;
             return res;
         }
 

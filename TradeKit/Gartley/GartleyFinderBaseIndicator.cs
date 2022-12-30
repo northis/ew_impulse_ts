@@ -176,13 +176,8 @@ namespace TradeKit.Gartley
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
-            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
-            {
-                return;
-            }
-
-            int levelIndex = e.Level.Index.Value;
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            int levelIndex = e.Level.BarIndex;
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"SL hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
@@ -193,13 +188,8 @@ namespace TradeKit.Gartley
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnTakeProfit(object sender, LevelEventArgs e)
         {
-            if (!e.Level.Index.HasValue || !e.FromLevel.Index.HasValue)
-            {
-                return;
-            }
-
-            int levelIndex = e.Level.Index.Value;
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            int levelIndex = e.Level.BarIndex;
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
 
@@ -210,26 +200,21 @@ namespace TradeKit.Gartley
         /// <param name="e">The event argument type.</param>
         protected override void OnEnter(object sender, GartleySignalEventArgs e)
         {
-            if (!e.Level.Index.HasValue)
-            {
-                return;
-            }
-
-            int levelIndex = e.Level.Index.Value;
-            int indexX = e.GartleyItem.ItemX.Index.GetValueOrDefault();
-            int indexA = e.GartleyItem.ItemA.Index.GetValueOrDefault();
-            int indexB = e.GartleyItem.ItemB.Index.GetValueOrDefault();
-            int indexC = e.GartleyItem.ItemC.Index.GetValueOrDefault();
-            int indexD = e.GartleyItem.ItemD.Index.GetValueOrDefault();
+            int levelIndex = e.Level.BarIndex;
+            int indexX = e.GartleyItem.ItemX.BarIndex;
+            int indexA = e.GartleyItem.ItemA.BarIndex;
+            int indexB = e.GartleyItem.ItemB.BarIndex;
+            int indexC = e.GartleyItem.ItemC.BarIndex;
+            int indexD = e.GartleyItem.ItemD.BarIndex;
             if (indexX == 0 || indexA == 0 || indexB == 0 || indexC == 0 || indexD == 0)
                 return;
 
             string name = $"{levelIndex}{e.GartleyItem.GetHashCode()}";
-            double valueX = e.GartleyItem.ItemX.Price;
-            double valueA = e.GartleyItem.ItemA.Price;
-            double valueB = e.GartleyItem.ItemB.Price;
-            double valueC = e.GartleyItem.ItemC.Price;
-            double valueD = e.GartleyItem.ItemD.Price;
+            double valueX = e.GartleyItem.ItemX.Value;
+            double valueA = e.GartleyItem.ItemA.Value;
+            double valueB = e.GartleyItem.ItemB.Value;
+            double valueC = e.GartleyItem.ItemC.Value;
+            double valueD = e.GartleyItem.ItemD.Value;
 
             bool isBull = valueX < valueA;
             Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
@@ -302,13 +287,13 @@ namespace TradeKit.Gartley
                     e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
                 .SetFilled();
 
-            LevelItem div = e.DivergenceStart;
-            if (ShowDivergences && div is not null && div.Index.HasValue)
+            BarPoint div = e.DivergenceStart;
+            if (ShowDivergences && div is not null)
             {
-                Chart.DrawTrendLine($"Div{name}", div.Index.Value, div.Price, indexD, valueD, colorBorder, DIV_LINE_WIDTH);
+                Chart.DrawTrendLine($"Div{name}", div.BarIndex, div.Value, indexD, valueD, colorBorder, DIV_LINE_WIDTH);
             }
 
-            string priceFmt = e.Level.Price.ToString($"F{Symbol.Digits}");
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
     }

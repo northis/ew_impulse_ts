@@ -17,9 +17,9 @@ namespace TradeKit.EventArgs
         /// <param name="stopLoss">The stop loss.</param>
         /// <param name="startViewBarTime">The bar time we should visually analyze the chart from. Optional</param>
         public SignalEventArgs(
-            LevelItem level, 
-            LevelItem takeProfit, 
-            LevelItem stopLoss, 
+            BarPoint level,
+            BarPoint takeProfit,
+            BarPoint stopLoss, 
             DateTime startViewBarTime = default)
         {
             Level = level;
@@ -31,17 +31,17 @@ namespace TradeKit.EventArgs
         /// <summary>
         /// Gets the entry level.
         /// </summary>
-        public LevelItem Level { get; }
+        public BarPoint Level { get; }
 
         /// <summary>
         /// Gets the take profit level.
         /// </summary>
-        public LevelItem TakeProfit { get; }
+        public BarPoint TakeProfit { get; }
 
         /// <summary>
         /// Gets the stop loss level.
         /// </summary>
-        public LevelItem StopLoss { get; }
+        public BarPoint StopLoss { get; }
 
         /// <summary>
         /// Gets the start bar time we should visually analyze the chart from.

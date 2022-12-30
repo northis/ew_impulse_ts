@@ -7,7 +7,7 @@ namespace TradeKit.EventArgs
     public class PriceActionSignalEventArgs : SignalEventArgs
     {
         public PriceActionSignalEventArgs(
-            LevelItem level, LevelItem takeProfit, LevelItem stopLoss, CandlesResult resultPattern, DateTime startViewBarIndex)
+            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, CandlesResult resultPattern, DateTime startViewBarIndex)
             :base(level, takeProfit, stopLoss, startViewBarIndex)
         {
             ResultPattern = resultPattern;

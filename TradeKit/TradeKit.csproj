@@ -69,7 +69,6 @@
     <Compile Include="Telegram\TelegramTextItemConverter.cs" />
     <Compile Include="Rate\RateSignalerBaseRobot.cs" />
     <Compile Include="Impulse\ImpulseSignalerBaseRobot.cs" />
-    <Compile Include="Core\LevelItem.cs" />
     <Compile Include="Core\Logger.cs" />
     <Compile Include="AlgoBase\ElliottWavePatternFinder.cs" />
     <Compile Include="Core\BaseSetupFinder.cs" />

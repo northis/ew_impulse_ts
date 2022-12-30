@@ -121,17 +121,14 @@ namespace TradeKit.AlgoBase
 
             double low = m_BarsProvider.GetLowPrice(index);
             double high = m_BarsProvider.GetHighPrice(index);
-            DateTime openTime = m_BarsProvider.GetOpenTime(index);
 
-            m_Extremum ??= new BarPoint(high, openTime, m_BarsProvider.TimeFrame, index);
+            m_Extremum ??= new BarPoint(high, index, m_BarsProvider);
 
             if (m_IsUpDirection ? high > m_Extremum.Value : low < m_Extremum.Value)
             {
                 var newExtremum = new BarPoint(
                     m_IsUpDirection ? high : low, 
-                    openTime, 
-                    m_BarsProvider.TimeFrame, 
-                    index);
+                    index, m_BarsProvider);
                 MoveExtremum(index, newExtremum);
                 return;
             }
@@ -140,9 +137,7 @@ namespace TradeKit.AlgoBase
             {
                 var extremum = new BarPoint(
                     m_IsUpDirection ? low : high,
-                    openTime,
-                    m_BarsProvider.TimeFrame,
-                    index);
+                    index, m_BarsProvider);
                 SetExtremum(index, extremum);
                 m_IsUpDirection = !m_IsUpDirection;
             }

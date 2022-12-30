@@ -7,7 +7,7 @@ namespace TradeKit.EventArgs
     public class ImpulseSignalEventArgs : SignalEventArgs
     {
         public ImpulseSignalEventArgs(
-            LevelItem level, LevelItem takeProfit, LevelItem stopLoss, List<BarPoint> waves, DateTime startViewBarIndex)
+            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, List<BarPoint> waves, DateTime startViewBarIndex)
             :base(level, takeProfit, stopLoss, startViewBarIndex)
         {
             Waves = waves;

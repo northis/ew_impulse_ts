@@ -11,6 +11,27 @@ namespace TradeKit.Core
 {
     public static class Extensions
     {
+        /// <summary>
+        /// Gets a new <see cref="BarPoint"/> with given index.
+        /// </summary>
+        /// <param name="bp">The bar point.</param>
+        /// <param name="index">The new bar index.</param>
+        /// <param name="provider">Bar provider to update the open date.</param>
+        public static BarPoint WithIndex(this BarPoint bp, int index, IBarsProvider provider)
+        {
+            return new BarPoint(bp.Value, provider.GetOpenTime(index), bp.BarTimeFrame, index);
+        }
+
+        /// <summary>
+        /// Gets a new <see cref="BarPoint"/> with given price.
+        /// </summary>
+        /// <param name="bp">The bar point.</param>
+        /// <param name="price">The changed price.</param>
+        public static BarPoint WithPrice(this BarPoint bp, double price)
+        {
+            return new BarPoint(price, bp.OpenTime, bp.BarTimeFrame, bp.BarIndex);
+        }
+
         private static readonly Dictionary<CandlePatternType, string> CANDLE_PATTERN_NAME_MAP = new()
         {
             {CandlePatternType.DOWN_PIN_BAR, "PB\n ↓"},

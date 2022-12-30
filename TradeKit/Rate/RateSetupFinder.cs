@@ -52,7 +52,7 @@ namespace TradeKit.Rate
         /// <summary>
         /// Gets the last entry.
         /// </summary>
-        public LevelItem LastEntry { get; private set; }
+        public BarPoint LastEntry { get; private set; }
 
         protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
@@ -79,38 +79,37 @@ namespace TradeKit.Rate
             {
                 return;
             }
-
+            
             if (IsInSetup)
             {
-                //Debugger.Launch();
                 if (m_IsUp && m_PriceSpeedCheckerMinor.Speed <= 0)
                 {
                     IsInSetup = false;
 
-                    if (LastEntry.Price < m_LastPrice)
+                    if (LastEntry.Value < m_LastPrice)
                         OnTakeProfitInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, LastBar)));
+                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
                     else
                         OnStopLossInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, LastBar)));
+                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
                 }
                 else if(!m_IsUp && m_PriceSpeedCheckerMinor.Speed >= 0)
                 {
                     IsInSetup = false;
-                    if (LastEntry.Price > m_LastPrice)
+                    if (LastEntry.Value > m_LastPrice)
                         OnStopLossInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, LastBar)));
+                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
                     else
                         OnTakeProfitInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new LevelItem(m_LastPrice, LastBar)));
+                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
                 }
 
                 return;
@@ -147,12 +146,12 @@ namespace TradeKit.Rate
                 m_LastSignalBar = slBar.Key;
                 m_IsUp = isUp;
                 
-                LastEntry = new LevelItem(m_LastPrice, LastBar);
+                LastEntry = new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider);
                 IsInSetup = true;
                 OnEnterInvoke(new SignalEventArgs(
                     LastEntry,
-                    new LevelItem(tp, LastBar),
-                    new LevelItem(slValue, slBar.Key)));
+                    new BarPoint(tp, LastBar, m_MainBarsProvider),
+                    new BarPoint(slValue, slBar.Key, m_MainBarsProvider)));
             }
         }
     }
