@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;
+using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using Shape = Plotly.NET.LayoutObjects.Shape;
 using Color = Plotly.NET.Color;
+using Line = Plotly.NET.Line;
 
 namespace TradeKit.Gartley
 {
@@ -15,12 +17,15 @@ namespace TradeKit.Gartley
         private const string BOT_NAME = "GartleySignalerRobot";
         private const string SVG_PATH_TEMPLATE = "M {0} L {1} L {2} L {3} L {4} L {2} L {0} Z";
 
-        private Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
-        private Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
+        private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
+        private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
+        private const int SETUP_MIN_WIDTH = 3;
+        private const int LINE_WIDTH = 3;
+        private readonly Color m_DivColor = Color.fromARGB(240, 240, 240, 240);
         private readonly Color m_BearColorFill = Color.fromARGB(80, 240, 128, 128);
         private readonly Color m_BullColorFill = Color.fromARGB(80, 128, 240, 128);
-        private Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
-        private Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
+        private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
+        private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
 
         #region Input parameters
 
@@ -147,18 +152,44 @@ namespace TradeKit.Gartley
             return BOT_NAME;
         }
 
-        private Shape GetLine(BarPoint bp1, BarPoint bp2, Color color)
+        private Shape GetLine(BarPoint bp1, BarPoint bp2, Color color, double width = 1)
         {
-            //GenericChart.Figure.create(new FSharpList<Trace>())
             Shape line = Shape.init(StyleParam.ShapeType.Line.ToFSharp(),
                 X0: bp1.OpenTime.ToFSharp(),
                 Y0: bp1.Value.ToFSharp(),
                 X1: bp2.OpenTime.ToFSharp(),
                 Y1: bp2.Value.ToFSharp(),
-                Fillcolor: color.ToFSharp());
+                Fillcolor: color.ToFSharp(),
+                Line: Line.init(Color: color, Width: width.ToFSharp()));
             return line;
         }
 
+        //private Annotation GetAnnotation(BarPoint bp1, BarPoint bp2, Color color, string text)
+        //{
+        //    DateTime x = bp1.OpenTime + (bp2.OpenTime - bp1.OpenTime) / 2;
+        //    double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
+
+        //    Annotation annotation = Annotation.init<DateTime,double>(
+        //        X:x.ToFSharp(),
+        //        Y:y.ToFSharp(),
+        //        BorderColor: color,
+        //        Text:text.ToFSharp(),
+        //        Align: StyleParam.AnnotationAlignment.Center.ToFSharp());
+        //    return annotation;
+        //}
+
+        private Shape GetSetupRectangle(
+            DateTime setupStart, DateTime setupEnd, Color color, double levelStart, double levelEnd)
+        {
+            Shape shape = Shape.init(StyleParam.ShapeType.Rectangle.ToFSharp(),
+                X0: setupStart.ToFSharp(),
+                Y0: levelStart.ToFSharp(),
+                X1: setupEnd.ToFSharp(),
+                Y1: levelEnd.ToFSharp(),
+                Fillcolor: color.ToFSharp(),
+                Line: Line.init(Color: color));
+            return shape;
+        }
 
         private string SvgPathFromGartleyItem(GartleyItem gartley)
         {
@@ -176,30 +207,64 @@ namespace TradeKit.Gartley
         /// </summary>
         /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
-        /// <param name="lastOpenDateTime">The last open date time.</param>
-        protected override GenericChart.GenericChart[] GetAdditionalChartLayers(
+        /// <param name="setupFinder">The setup finder.</param>
+        protected override void OnDrawChart(
             GenericChart.GenericChart candlestickChart,
-            GartleySignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
+            GartleySignalEventArgs signalEventArgs, 
+            GartleySetupFinder setupFinder)
         {
-            GenericChart.GenericChart[] charts =
-                base.GetAdditionalChartLayers(candlestickChart, signalEventArgs, lastOpenDateTime);
-
             GartleyItem gartley = signalEventArgs.GartleyItem;
             bool isBull = gartley.ItemX < gartley.ItemA;
-
-            Color color = isBull ? m_BullColorFill : m_BearColorFill;
-            Shape path = Shape.init(StyleParam.ShapeType.SvgPath.ToFSharp(),
+            
+            Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
+            Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
+            Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath.ToFSharp(),
                 X0: gartley.ItemX.OpenTime.ToFSharp(),
                 Y0: gartley.ItemX.Value.ToFSharp(),
                 X1: gartley.ItemD.OpenTime.ToFSharp(),
                 Y1: gartley.ItemD.Value.ToFSharp(),
-                Path: SvgPathFromGartleyItem(gartley).ToFSharp(),
-                Fillcolor: color.ToFSharp());
+                Path: SvgPathFromGartleyItem(gartley).ToFSharp(), 
+                Fillcolor: colorFill.ToFSharp(), 
+                Line: Line.init(Color: colorFill));
+            candlestickChart.WithShape(patternPath, true.ToFSharp());
 
-            //Shape bx = GetLine(gartley.ItemB, gartley.ItemX, color);
-            //candlestickChart.WithShape(new[] {xa, ab, bx, bc, cd, db }, true.ToFSharp());
-            candlestickChart.WithShape(path, true.ToFSharp());
-            return charts;
+            TimeSpan timeFramePeriod = TimeFrameHelper.TimeFrames[setupFinder.TimeFrame].TimeSpan;
+            DateTime setupStart = gartley.ItemD.OpenTime.Add(timeFramePeriod);
+            double levelStart = setupFinder.BarsProvider.GetClosePrice(gartley.ItemD.BarIndex);
+            DateTime setupEnd = setupFinder.BarsProvider.GetLastBarOpenTime()
+                .Add(timeFramePeriod * SETUP_MIN_WIDTH);
+
+            Shape tp1 = GetSetupRectangle(
+                setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit1);
+            candlestickChart.WithShape(tp1, true.ToFSharp());
+            Shape tp2 = GetSetupRectangle(
+                setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit2);
+            candlestickChart.WithShape(tp2, true.ToFSharp());
+            Shape sl = GetSetupRectangle(
+                setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
+            candlestickChart.WithShape(sl, true.ToFSharp());
+
+            if (signalEventArgs.DivergenceStart is null)
+                return;
+
+            Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, m_DivColor, LINE_WIDTH);
+            candlestickChart.WithShape(div, true.ToFSharp());
+
+            //candlestickChart.WithAnnotation(Annotation.init())
+            Shape aC = GetLine(gartley.ItemA, gartley.ItemC, colorBorder, LINE_WIDTH);
+            candlestickChart.WithShape(aC, true.ToFSharp());
+
+            if (gartley.XtoB != 0)
+            {
+                Shape xB = GetLine(gartley.ItemX, gartley.ItemB, colorBorder, LINE_WIDTH);
+                candlestickChart.WithShape(xB, true.ToFSharp());
+            }
+
+            Shape bD = GetLine(gartley.ItemB, gartley.ItemD, colorBorder, LINE_WIDTH);
+            candlestickChart.WithShape(bD, true.ToFSharp());
+
+            Shape xD = GetLine(gartley.ItemX, gartley.ItemD, colorBorder, LINE_WIDTH);
+            candlestickChart.WithShape(xD, true.ToFSharp());
         }
 
         /// <summary>

@@ -1,14 +1,18 @@
 using System;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using Color = cAlgo.API.Color;
 
 namespace TradeKit.Impulse
 {
     public class ImpulseSignalerBaseRobot : BaseRobot<ImpulseSetupFinder, ImpulseSignalEventArgs>
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
+        private readonly Plotly.NET.Color m_ShortColor = Plotly.NET.Color.fromHex("#EF5350");
+        private readonly Plotly.NET.Color m_LongColor = Plotly.NET.Color.fromHex("#26A69A");
 
         /// <summary>
         /// Gets the name of the bot.
@@ -16,6 +20,31 @@ namespace TradeKit.Impulse
         public override string GetBotName()
         {
             return BOT_NAME;
+        }
+
+        /// <summary>
+        /// Gets the additional chart layers.
+        /// </summary>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        /// <param name="lastOpenDateTime">The last open date time.</param>
+        protected override GenericChart.GenericChart[] GetAdditionalChartLayers(
+            ImpulseSignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
+        {
+            double sl = signalEventArgs.StopLoss.Value;
+            double tp = signalEventArgs.TakeProfit.Value;
+            DateTime startView = signalEventArgs.StartViewBarTime;
+            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
+                LineColor: m_LongColor.ToFSharp(),
+                ShowLegend: false.ToFSharp(),
+                LineDash: StyleParam.DrawingStyle.Dash.ToFSharp());
+            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
+                LineColor: m_ShortColor.ToFSharp(),
+                ShowLegend: false.ToFSharp(),
+                LineDash: StyleParam.DrawingStyle.Dash.ToFSharp());
+
+            return new[] {tpLine, slLine};
         }
 
         /// <summary>

@@ -30,6 +30,7 @@ namespace TradeKit.Core
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
         protected const string CHART_FILE_TYPE_EXTENSION = ".png";
         protected const int CHART_BARS_MARGIN_COUNT = 5;
+        protected const double CHART_FONT_HEADER = 36;
         protected const int CHART_HEIGHT = 1000;
         protected const int CHART_WIDTH = 1000;
         protected const string FIRST_CHART_FILE_POSTFIX = ".01";
@@ -624,30 +625,25 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Gets the additional chart layers.
+        /// Can be used for drawing something on the chart.
         /// </summary>
         /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
+        /// <param name="setupFinder">The setup finder.</param>
+        protected virtual void OnDrawChart(
+            GenericChart.GenericChart candlestickChart, TK signalEventArgs, T setupFinder)
+        {
+        }
+        
+        /// <summary>
+        /// Gets the additional chart layers.
+        /// </summary>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="lastOpenDateTime">The last open date time.</param>
         protected virtual GenericChart.GenericChart[] GetAdditionalChartLayers(
-            GenericChart.GenericChart candlestickChart,
             TK signalEventArgs, DateTime lastOpenDateTime)
         {
-            double sl = signalEventArgs.StopLoss.Value;
-            double tp = signalEventArgs.TakeProfit.Value;
-            DateTime startView = signalEventArgs.StartViewBarTime;
-            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
-                LineColor: new FSharpOption<Color>(m_LongColor),
-                ShowLegend: new FSharpOption<bool>(false), 
-                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
-            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
-                LineColor: new FSharpOption<Color>(m_ShortColor),
-                ShowLegend: new FSharpOption<bool>(false),
-                LineDash: new FSharpOption<StyleParam.DrawingStyle>(StyleParam.DrawingStyle.Dash));
-
-            return new[] {tpLine, slLine};
+            return null;
         }
 
         /// <summary>
@@ -675,6 +671,9 @@ namespace TradeKit.Core
             bool useCommonTimeFrame = TimeFrameHelper.TimeFrames
                 .TryGetValue(barProvider.TimeFrame, out TimeFrameInfo timeFrameInfo);
 
+            if (!useCommonTimeFrame)
+                throw new NotSupportedException($"We don't support {barProvider.TimeFrame.Name} time frame");
+
             var o = new double[barsCount];
             var h = new double[barsCount];
             var c = new double[barsCount];
@@ -692,7 +691,7 @@ namespace TradeKit.Core
                 c[barIndex] = barProvider.GetClosePrice(i);
                 d[barIndex] = currentDateTime;
 
-                if (!useCommonTimeFrame || i == earlyBar)
+                if (i == earlyBar)
                 {
                     continue;
                 }
@@ -710,56 +709,50 @@ namespace TradeKit.Core
             }
 
             DateTime lastOpenDateTime = d[^1];
-            DateTime lastCloseDateTime = useCommonTimeFrame
-                ? lastOpenDateTime + timeFrameInfo.TimeSpan
-                : lastOpenDateTime;
+            DateTime lastCloseDateTime = lastOpenDateTime + timeFrameInfo.TimeSpan;
 
             Color blackColor = Color.fromARGB(255, 22, 26, 37);
             Color whiteColor = Color.fromARGB(255, 209, 212, 220);
 
             GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
                     <double, double, double, double, DateTime, string>(o, h, l, c, d,
-                        IncreasingColor: new FSharpOption<Color>(m_LongColor),
-                        DecreasingColor: new FSharpOption<Color>(m_ShortColor),
+                        IncreasingColor: m_LongColor.ToFSharp(),
+                        DecreasingColor: m_ShortColor.ToFSharp(),
                         Name: barProvider.Symbol.Name,
-                        ShowLegend: new FSharpOption<bool>(false));
+                        ShowLegend: false.ToFSharp());
 
+            OnDrawChart(candlestickChart, signalEventArgs, setupFinder);
             GenericChart.GenericChart[] layers = 
-                GetAdditionalChartLayers(candlestickChart, signalEventArgs, lastCloseDateTime) 
+                GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
                 ?? Array.Empty<GenericChart.GenericChart>();
 
-            FSharpOption<int> dValue = timeFrameInfo == null
-                ? null
-                : new FSharpOption<int>((int) timeFrameInfo.TimeSpan.TotalMilliseconds);
+            FSharpOption<int> dValue = ((int)timeFrameInfo.TimeSpan.TotalMilliseconds).ToFSharp();
 
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
                     layers.Concat(new[] {candlestickChart}))
-                .WithTitle($@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime:u} ",
-                    new FSharpOption<Font>(Font.init(Size: new FSharpOption<double>(36))))
-                .WithXAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
-                .WithYAxisStyle(new Title(), ShowGrid: new FSharpOption<bool>(false))
-                .WithXAxisRangeSlider(RangeSlider.init(Visible: new FSharpOption<bool>(false)))
+                .WithTitle($@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime:u} ", 
+                    Font.init(Size: CHART_FONT_HEADER.ToFSharp()).ToFSharp())
+                .WithXAxisStyle(new Title(), ShowGrid: false.ToFSharp())
+                .WithYAxisStyle(new Title(), ShowGrid: false.ToFSharp())
+                .WithXAxisRangeSlider(RangeSlider.init(Visible: false.ToFSharp()))
                 .WithConfig(Config.init(
-                    StaticPlot: new FSharpOption<bool>(true),
-                    Responsive: new FSharpOption<bool>(false)))
+                    StaticPlot: true.ToFSharp(),
+                    Responsive: false.ToFSharp()))
                 .WithLayout(Layout.init<string>(
-                    PlotBGColor: new FSharpOption<Color>(blackColor),
-                    PaperBGColor: new FSharpOption<Color>(blackColor),
-                    Font: new FSharpOption<Font>(Font.init(
-                        Color: new FSharpOption<Color>(whiteColor)))))
+                    PlotBGColor: blackColor.ToFSharp(),
+                    PaperBGColor: blackColor.ToFSharp(),
+                    Font: Font.init(Color: whiteColor.ToFSharp()).ToFSharp()))
                 .WithLayoutGrid(LayoutGrid.init(
-                    Rows: new FSharpOption<int>(0),
-                    Columns: new FSharpOption<int>(0),
-                    XGap: new FSharpOption<double>(0),
-                    YGap: new FSharpOption<double>(0)))
+                    Rows: 0.ToFSharp(),
+                    Columns: 0.ToFSharp(),
+                    XGap: 0d.ToFSharp(),
+                    YGap: 0d.ToFSharp()))
                 .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
                     Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
                         {
-                            Rangebreak.init<string, string>(
-                                new FSharpOption<bool>(rangeBreaks.Any()),
+                            Rangebreak.init<string, string>(rangeBreaks.Any().ToFSharp(),
                                 DValue: dValue,
-                                Values: new FSharpOption<IEnumerable<string>>(
-                                    rangeBreaks.Select(a => a.ToString("O"))))
+                                Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
                         }
                     )));
 
