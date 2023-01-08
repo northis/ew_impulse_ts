@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using Microsoft.FSharp.Core;
 using Plotly.NET;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
@@ -164,19 +166,60 @@ namespace TradeKit.Gartley
             return line;
         }
 
-        //private Annotation GetAnnotation(BarPoint bp1, BarPoint bp2, Color color, string text)
-        //{
-        //    DateTime x = bp1.OpenTime + (bp2.OpenTime - bp1.OpenTime) / 2;
-        //    double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
+        private Annotation GetAnnotation(BarPoint bp1, BarPoint bp2, Color color, string text)
+        {
+            DateTime x = bp1.OpenTime + (bp2.OpenTime - bp1.OpenTime) / 2;
+            double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
 
-        //    Annotation annotation = Annotation.init<DateTime,double>(
-        //        X:x.ToFSharp(),
-        //        Y:y.ToFSharp(),
-        //        BorderColor: color,
-        //        Text:text.ToFSharp(),
-        //        Align: StyleParam.AnnotationAlignment.Center.ToFSharp());
-        //    return annotation;
-        //}
+            FSharpOption<double> doubleDef = 1d.ToFSharp();
+            FSharpOption<int> intDef = 1.ToFSharp();
+            FSharpOption<bool> falseF = false.ToFSharp();
+            Color transparent = Color.fromARGB(0, 0, 0, 0);
+            Annotation annotation = Annotation.init(
+                X: x.ToFSharp(),
+                Y: y.ToFSharp(),
+                ArrowColor: color,
+                ArrowHead: StyleParam.ArrowHead.Square,
+                ArrowSide: StyleParam.ArrowSide.None,
+                ArrowSize: doubleDef,
+                AX: doubleDef,
+                AXRef: doubleDef,
+                AY: doubleDef,
+                AYRef: doubleDef,
+                BGColor: transparent,
+                BorderColor: color,
+                BorderPad: intDef,
+                BorderWidth: intDef,
+                CaptureEvents: falseF,
+                ClickToShow: StyleParam.ClickToShow.False,
+                Font: Font.init(Size: 14),
+                Height: 10,
+                HoverLabel: Hoverlabel.init(),
+                HoverText: text,
+                Name: text,
+                Opacity: 1d,
+                ShowArrow: falseF,
+                StandOff: intDef,
+                StartArrowHead: intDef,
+                StartArrowSize: doubleDef,
+                StartStandOff: intDef,
+                TemplateItemName: text,
+                Text: text,
+                TextAngle: doubleDef,
+                VAlign: StyleParam.VerticalAlign.Middle,
+                Visible: falseF,
+                Width: 100,
+                XAnchor: StyleParam.XAnchorPosition.Auto,
+                XClick: doubleDef,
+                XRef: doubleDef,
+                XShift: intDef,
+                YAnchor: StyleParam.YAnchorPosition.Auto,
+                YClick: doubleDef,
+                YRef: doubleDef,
+                YShift: intDef,
+                Align: StyleParam.AnnotationAlignment.Center.ToFSharp());
+            return annotation;
+        }
 
         private Shape GetSetupRectangle(
             DateTime setupStart, DateTime setupEnd, Color color, double levelStart, double levelEnd)
@@ -188,6 +231,7 @@ namespace TradeKit.Gartley
                 Y1: levelEnd.ToFSharp(),
                 Fillcolor: color.ToFSharp(),
                 Line: Line.init(Color: color));
+            
             return shape;
         }
 
@@ -250,9 +294,10 @@ namespace TradeKit.Gartley
             Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, m_DivColor, LINE_WIDTH);
             candlestickChart.WithShape(div, true.ToFSharp());
 
-            //candlestickChart.WithAnnotation(Annotation.init())
             Shape aC = GetLine(gartley.ItemA, gartley.ItemC, colorBorder, LINE_WIDTH);
             candlestickChart.WithShape(aC, true.ToFSharp());
+            candlestickChart.WithAnnotation(GetAnnotation(gartley.ItemA, gartley.ItemC, colorBorder,
+                gartley.AtoCActual.Ratio()), true.ToFSharp());
 
             if (gartley.XtoB != 0)
             {
