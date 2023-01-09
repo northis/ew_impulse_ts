@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Microsoft.FSharp.Core;
@@ -17,13 +17,14 @@ namespace TradeKit.Gartley
     public class GartleySignalerBaseBot : BaseRobot<GartleySetupFinder, GartleySignalEventArgs>
     {
         private const string BOT_NAME = "GartleySignalerRobot";
+        private const string DIVERGENCE_NAME = "Div";
         private const string SVG_PATH_TEMPLATE = "M {0} L {1} L {2} L {3} L {4} L {2} L {0} Z";
 
         private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
         private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
         private const int SETUP_MIN_WIDTH = 3;
         private const int LINE_WIDTH = 3;
-        private readonly Color m_DivColor = Color.fromARGB(240, 240, 240, 240);
+        private const double CHART_FONT_MAIN = 24;
         private readonly Color m_BearColorFill = Color.fromARGB(80, 240, 128, 128);
         private readonly Color m_BullColorFill = Color.fromARGB(80, 128, 240, 128);
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
@@ -166,58 +167,75 @@ namespace TradeKit.Gartley
             return line;
         }
 
-        private Annotation GetAnnotation(BarPoint bp1, BarPoint bp2, Color color, string text)
+        private Annotation GetAnnotation(
+            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text)
         {
-            DateTime x = bp1.OpenTime + (bp2.OpenTime - bp1.OpenTime) / 2;
-            double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
-
             FSharpOption<double> doubleDef = 1d.ToFSharp();
-            FSharpOption<int> intDef = 1.ToFSharp();
-            FSharpOption<bool> falseF = false.ToFSharp();
-            Color transparent = Color.fromARGB(0, 0, 0, 0);
             Annotation annotation = Annotation.init(
                 X: x.ToFSharp(),
                 Y: y.ToFSharp(),
-                ArrowColor: color,
+                Align: StyleParam.AnnotationAlignment.Center,
+                ArrowColor: null,
                 ArrowHead: StyleParam.ArrowHead.Square,
                 ArrowSide: StyleParam.ArrowSide.None,
-                ArrowSize: doubleDef,
+                ArrowSize: null,
                 AX: doubleDef,
                 AXRef: doubleDef,
                 AY: doubleDef,
                 AYRef: doubleDef,
-                BGColor: transparent,
-                BorderColor: color,
-                BorderPad: intDef,
-                BorderWidth: intDef,
-                CaptureEvents: falseF,
-                ClickToShow: StyleParam.ClickToShow.False,
-                Font: Font.init(Size: 14),
-                Height: 10,
-                HoverLabel: Hoverlabel.init(),
-                HoverText: text,
+                BGColor: backgroundColor,
+                BorderColor: null,
+                BorderPad: null,
+                BorderWidth: null,
+                CaptureEvents: null,
+                ClickToShow: null,
+                Font: Font.init(Size: textSize, Color: textColor),
+                Height: null,
+                HoverLabel: null,
+                HoverText: null,
                 Name: text,
-                Opacity: 1d,
-                ShowArrow: falseF,
-                StandOff: intDef,
-                StartArrowHead: intDef,
-                StartArrowSize: doubleDef,
-                StartStandOff: intDef,
-                TemplateItemName: text,
+                Opacity: null,
+                ShowArrow: null,
+                StandOff: null,
+                StartArrowHead: null,
+                StartArrowSize: null,
+                StartStandOff: null,
+                TemplateItemName: null,
                 Text: text,
-                TextAngle: doubleDef,
+                TextAngle: null,
                 VAlign: StyleParam.VerticalAlign.Middle,
-                Visible: falseF,
-                Width: 100,
-                XAnchor: StyleParam.XAnchorPosition.Auto,
+                Visible: null,
+                Width: null,
+                XAnchor: StyleParam.XAnchorPosition.Center,
                 XClick: doubleDef,
                 XRef: doubleDef,
-                XShift: intDef,
-                YAnchor: StyleParam.YAnchorPosition.Auto,
+                XShift: null,
+                YAnchor: StyleParam.YAnchorPosition.Middle,
                 YClick: doubleDef,
                 YRef: doubleDef,
-                YShift: intDef,
-                Align: StyleParam.AnnotationAlignment.Center.ToFSharp());
+                YShift: null);
+            return annotation;
+        }
+        
+        private DateTime GetMedianDate(DateTime start, DateTime end, List<DateTime> chartDateTimes)
+        {
+            DateTime[] dates = chartDateTimes
+                .SkipWhile(a => a < start)
+                .TakeWhile(a => a <= end)
+                .ToArray();
+
+            if (dates.Length == 0)
+                return start;
+
+            return dates[^(dates.Length / 2)];
+        }
+
+        private Annotation GetAnnotation(
+            BarPoint bp1, BarPoint bp2, Color color, string text, List<DateTime> chartDateTimes)
+        {
+            DateTime x = GetMedianDate(bp1.OpenTime, bp2.OpenTime, chartDateTimes);
+            double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
+            Annotation annotation = GetAnnotation(x, y, BlackColor, CHART_FONT_MAIN, color, text);
             return annotation;
         }
 
@@ -229,7 +247,7 @@ namespace TradeKit.Gartley
                 Y0: levelStart.ToFSharp(),
                 X1: setupEnd.ToFSharp(),
                 Y1: levelEnd.ToFSharp(),
-                Fillcolor: color.ToFSharp(),
+                Fillcolor: color,
                 Line: Line.init(Color: color));
             
             return shape;
@@ -252,25 +270,27 @@ namespace TradeKit.Gartley
         /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="setupFinder">The setup finder.</param>
+        /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected override void OnDrawChart(
             GenericChart.GenericChart candlestickChart,
             GartleySignalEventArgs signalEventArgs, 
-            GartleySetupFinder setupFinder)
+            GartleySetupFinder setupFinder,
+            List<DateTime> chartDateTimes)
         {
             GartleyItem gartley = signalEventArgs.GartleyItem;
             bool isBull = gartley.ItemX < gartley.ItemA;
             
             Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
             Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
-            Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath.ToFSharp(),
+            Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath,
                 X0: gartley.ItemX.OpenTime.ToFSharp(),
                 Y0: gartley.ItemX.Value.ToFSharp(),
                 X1: gartley.ItemD.OpenTime.ToFSharp(),
                 Y1: gartley.ItemD.Value.ToFSharp(),
-                Path: SvgPathFromGartleyItem(gartley).ToFSharp(), 
-                Fillcolor: colorFill.ToFSharp(), 
+                Path: SvgPathFromGartleyItem(gartley), 
+                Fillcolor: colorFill, 
                 Line: Line.init(Color: colorFill));
-            candlestickChart.WithShape(patternPath, true.ToFSharp());
+            candlestickChart.WithShape(patternPath, true);
 
             TimeSpan timeFramePeriod = TimeFrameHelper.TimeFrames[setupFinder.TimeFrame].TimeSpan;
             DateTime setupStart = gartley.ItemD.OpenTime.Add(timeFramePeriod);
@@ -280,36 +300,46 @@ namespace TradeKit.Gartley
 
             Shape tp1 = GetSetupRectangle(
                 setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit1);
-            candlestickChart.WithShape(tp1, true.ToFSharp());
+            candlestickChart.WithShape(tp1, true);
             Shape tp2 = GetSetupRectangle(
                 setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit2);
-            candlestickChart.WithShape(tp2, true.ToFSharp());
+            candlestickChart.WithShape(tp2, true);
             Shape sl = GetSetupRectangle(
                 setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
-            candlestickChart.WithShape(sl, true.ToFSharp());
+            candlestickChart.WithShape(sl, true);
 
             if (signalEventArgs.DivergenceStart is null)
                 return;
 
-            Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, m_DivColor, LINE_WIDTH);
-            candlestickChart.WithShape(div, true.ToFSharp());
+            Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, LINE_WIDTH);
+            candlestickChart.WithShape(div, true);
+            candlestickChart.WithAnnotation(GetAnnotation(
+                    signalEventArgs.DivergenceStart.OpenTime, signalEventArgs.DivergenceStart.Value, BlackColor, CHART_FONT_MAIN, WhiteColor, DIVERGENCE_NAME),
+                true);
 
-            Shape aC = GetLine(gartley.ItemA, gartley.ItemC, colorBorder, LINE_WIDTH);
-            candlestickChart.WithShape(aC, true.ToFSharp());
-            candlestickChart.WithAnnotation(GetAnnotation(gartley.ItemA, gartley.ItemC, colorBorder,
-                gartley.AtoCActual.Ratio()), true.ToFSharp());
+            void AddLine(BarPoint b1, BarPoint b2, double ratio)
+            {
+                Shape line = GetLine(b1, b2, colorBorder, LINE_WIDTH);
+                candlestickChart.WithShape(line, true);
+                
+                candlestickChart.WithAnnotation(GetAnnotation(
+                    b1, b2, colorBorder, ratio.Ratio(),chartDateTimes), true);
+            }
+            
+            AddLine(gartley.ItemA, gartley.ItemC, gartley.AtoC);
+            AddLine(gartley.ItemB, gartley.ItemD, gartley.BtoD);
+            AddLine(gartley.ItemX, gartley.ItemD, gartley.XtoD);
 
             if (gartley.XtoB != 0)
-            {
-                Shape xB = GetLine(gartley.ItemX, gartley.ItemB, colorBorder, LINE_WIDTH);
-                candlestickChart.WithShape(xB, true.ToFSharp());
-            }
+                AddLine(gartley.ItemX, gartley.ItemB, gartley.XtoB);
 
-            Shape bD = GetLine(gartley.ItemB, gartley.ItemD, colorBorder, LINE_WIDTH);
-            candlestickChart.WithShape(bD, true.ToFSharp());
+            double patternBottom = isBull ? Math.Min(gartley.ItemX.Value, gartley.ItemD.Value):
+                    Math.Min(gartley.ItemA.Value, gartley.ItemC.Value);
 
-            Shape xD = GetLine(gartley.ItemX, gartley.ItemD, colorBorder, LINE_WIDTH);
-            candlestickChart.WithShape(xD, true.ToFSharp());
+            candlestickChart.WithAnnotation(GetAnnotation(
+                    gartley.ItemD.OpenTime, patternBottom, BlackColor, CHART_FONT_HEADER, colorBorder,
+                    gartley.PatternType.Format()),
+                true);
         }
 
         /// <summary>

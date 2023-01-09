@@ -46,6 +46,9 @@ namespace TradeKit.Core
         private Dictionary<string, TK> m_ChartFileFinderMap;
         private readonly Color m_ShortColor = Color.fromHex("#EF5350");
         private readonly Color m_LongColor = Color.fromHex("#26A69A");
+
+        protected readonly Color BlackColor = Color.fromARGB(255, 22, 26, 37);
+        protected readonly Color WhiteColor = Color.fromARGB(255, 209, 212, 220);
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -630,8 +633,12 @@ namespace TradeKit.Core
         /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="setupFinder">The setup finder.</param>
+        /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected virtual void OnDrawChart(
-            GenericChart.GenericChart candlestickChart, TK signalEventArgs, T setupFinder)
+            GenericChart.GenericChart candlestickChart, 
+            TK signalEventArgs, 
+            T setupFinder, 
+            List<DateTime> chartDateTimes)
         {
         }
         
@@ -681,6 +688,7 @@ namespace TradeKit.Core
             var d = new DateTime[barsCount];
             
             var rangeBreaks = new List<DateTime>();
+            var validDateTimes = new List<DateTime>();
             for (int i = earlyBar; i <= lastIndex; i++)
             {
                 int barIndex = i - earlyBar;
@@ -706,22 +714,23 @@ namespace TradeKit.Core
                         rangeBreaks.Add(prevDateTime);
                     }
                 }
+                else
+                {
+                    validDateTimes.Add(currentDateTime);
+                }
             }
 
             DateTime lastOpenDateTime = d[^1];
             DateTime lastCloseDateTime = lastOpenDateTime + timeFrameInfo.TimeSpan;
-
-            Color blackColor = Color.fromARGB(255, 22, 26, 37);
-            Color whiteColor = Color.fromARGB(255, 209, 212, 220);
-
+            
             GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
                     <double, double, double, double, DateTime, string>(o, h, l, c, d,
                         IncreasingColor: m_LongColor.ToFSharp(),
                         DecreasingColor: m_ShortColor.ToFSharp(),
                         Name: barProvider.Symbol.Name,
-                        ShowLegend: false.ToFSharp());
+                        ShowLegend: false);
 
-            OnDrawChart(candlestickChart, signalEventArgs, setupFinder);
+            OnDrawChart(candlestickChart, signalEventArgs, setupFinder, validDateTimes);
             GenericChart.GenericChart[] layers = 
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
                 ?? Array.Empty<GenericChart.GenericChart>();
@@ -739,9 +748,9 @@ namespace TradeKit.Core
                     StaticPlot: true.ToFSharp(),
                     Responsive: false.ToFSharp()))
                 .WithLayout(Layout.init<string>(
-                    PlotBGColor: blackColor.ToFSharp(),
-                    PaperBGColor: blackColor.ToFSharp(),
-                    Font: Font.init(Color: whiteColor.ToFSharp()).ToFSharp()))
+                    PlotBGColor: BlackColor.ToFSharp(),
+                    PaperBGColor: BlackColor.ToFSharp(),
+                    Font: Font.init(Color: WhiteColor.ToFSharp()).ToFSharp()))
                 .WithLayoutGrid(LayoutGrid.init(
                     Rows: 0.ToFSharp(),
                     Columns: 0.ToFSharp(),
