@@ -44,76 +44,46 @@ namespace TradeKit.PriceAction
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.HAMMER"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.HAMMER"/> and <see cref="CandlePatternType.INVERTED_HAMMER"/> patterns.
         /// </summary>
         [Parameter("Hammer", DefaultValue = false)]
         public bool UseHammer { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.INVERTED_HAMMER"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PIN_BAR"/> and <see cref="CandlePatternType.DOWN_PIN_BAR"/> patterns.
         /// </summary>
-        [Parameter("Inverted Hammer", DefaultValue = false)]
-        public bool UseInvertedHammer { get; set; }
+        [Parameter("Pin Bar", DefaultValue = true)]
+        public bool PinBar { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PIN_BAR"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_OUTER_BAR"/> and <see cref="CandlePatternType.DOWN_OUTER_BAR"/> patterns.
         /// </summary>
-        [Parameter("Bull Pin Bar", DefaultValue = true)]
-        public bool UpPinBar { get; set; }
+        [Parameter("Outer Bar", DefaultValue = false)]
+        public bool OuterBar { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DOWN_PIN_BAR"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_OUTER_BAR_BODIES"/> and <see cref="CandlePatternType.DOWN_OUTER_BAR_BODIES"/> patterns.
         /// </summary>
-        [Parameter("Bear Pin Bar", DefaultValue = true)]
-        public bool DownPinBar { get; set; }
+        [Parameter("Outer Bar Body", DefaultValue = false)]
+        public bool OuterBarBodies { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_OUTER_BAR"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_INNER_BAR"/> and <see cref="CandlePatternType.DOWN_INNER_BAR"/> patterns.
         /// </summary>
-        [Parameter("Bull Outer Bar", DefaultValue = false)]
-        public bool UpOuterBar { get; set; }
+        [Parameter("Inner Bar", DefaultValue = false)]
+        public bool InnerBar { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DOWN_OUTER_BAR"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PPR"/> and <see cref="CandlePatternType.DOWN_PPR"/> patterns.
         /// </summary>
-        [Parameter("Bear Outer Bar", DefaultValue = false)]
-        public bool DownOuterBar { get; set; }
+        [Parameter("PPR", DefaultValue = false)]
+        public bool Ppr { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_OUTER_BAR_BODIES"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_RAILS"/> and <see cref="CandlePatternType.DOWN_RAILS"/> pattern.
         /// </summary>
-        [Parameter("Bull Outer Bar Body", DefaultValue = false)]
-        public bool UpOuterBarBodies { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DOWN_OUTER_BAR_BODIES"/> pattern.
-        /// </summary>
-        [Parameter("Bear Outer Bar Body", DefaultValue = false)]
-        public bool DownOuterBarBodies { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_INNER_BAR"/> pattern.
-        /// </summary>
-        [Parameter("Bull Inner Bar", DefaultValue = false)]
-        public bool UpInnerBar { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DOWN_INNER_BAR"/> pattern.
-        /// </summary>
-        [Parameter("Bear Inner Bar", DefaultValue = false)]
-        public bool DownInnerBar { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PPR"/> pattern.
-        /// </summary>
-        [Parameter("Bull PPR", DefaultValue = false)]
-        public bool UpPpr { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DOWN_PPR"/> pattern.
-        /// </summary>
-        [Parameter("Bear PPR", DefaultValue = false)]
-        public bool DownPpr { get; set; }
+        [Parameter("Rails", DefaultValue = false)]
+        public bool Rails { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we fill the patterns with color.
@@ -131,29 +101,46 @@ namespace TradeKit.PriceAction
         {
             var res = new HashSet<CandlePatternType>();
             if (UseHammer)
+            {
                 res.Add(CandlePatternType.HAMMER);
-            if (UseInvertedHammer)
                 res.Add(CandlePatternType.INVERTED_HAMMER);
-            if (UpPinBar)
+            }
+
+            if (PinBar)
+            {
                 res.Add(CandlePatternType.UP_PIN_BAR);
-            if (DownPinBar)
                 res.Add(CandlePatternType.DOWN_PIN_BAR);
-            if (UpOuterBar)
+            }
+
+            if (OuterBar)
+            {
                 res.Add(CandlePatternType.UP_OUTER_BAR);
-            if (DownOuterBar)
                 res.Add(CandlePatternType.DOWN_OUTER_BAR);
-            if (UpOuterBarBodies)
+            }
+
+            if (OuterBarBodies)
+            {
                 res.Add(CandlePatternType.UP_OUTER_BAR_BODIES);
-            if (DownOuterBarBodies)
                 res.Add(CandlePatternType.DOWN_OUTER_BAR_BODIES);
-            if (UpInnerBar)
+            }
+
+            if (InnerBar)
+            {
                 res.Add(CandlePatternType.UP_INNER_BAR);
-            if (DownInnerBar)
                 res.Add(CandlePatternType.DOWN_INNER_BAR);
-            if (UpPpr)
+            }
+
+            if (Ppr)
+            {
                 res.Add(CandlePatternType.UP_PPR);
-            if (DownPpr)
                 res.Add(CandlePatternType.DOWN_PPR);
+            }
+
+            if (Rails)
+            {
+                res.Add(CandlePatternType.UP_RAILS);
+                res.Add(CandlePatternType.DOWN_RAILS);
+            }
 
             return res;
         }

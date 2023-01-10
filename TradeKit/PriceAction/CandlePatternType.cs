@@ -13,6 +13,8 @@
         UP_INNER_BAR,
         DOWN_INNER_BAR,
         UP_PPR,
-        DOWN_PPR
+        DOWN_PPR,
+        UP_RAILS,
+        DOWN_RAILS
     }
 }

@@ -15,7 +15,7 @@ namespace TradeKit.AlgoBase
         private readonly IBarsProvider m_BarsProvider;
         private readonly HashSet<CandlePatternType> m_Patterns;
         private const double ONE_CANDLE_RATIO = 0.7;
-        private const int MIN_BARS_INDEX = 2;
+        private const int MIN_BARS_INDEX = 2;//0,1,2
 
         private readonly Dictionary<CandlePatternType, CandlePatternSettings>
             m_PatternDirectionMap = new()
@@ -31,7 +31,9 @@ namespace TradeKit.AlgoBase
                 {CandlePatternType.UP_INNER_BAR, new CandlePatternSettings(true, 1, 2)},
                 {CandlePatternType.DOWN_INNER_BAR, new CandlePatternSettings(false, 1, 2)},
                 {CandlePatternType.UP_PPR, new CandlePatternSettings(true, 1, 3)},
-                {CandlePatternType.DOWN_PPR, new CandlePatternSettings(false, 1, 3)}
+                {CandlePatternType.DOWN_PPR, new CandlePatternSettings(false, 1, 3)},
+                {CandlePatternType.UP_RAILS, new CandlePatternSettings(true, 0, 2, 0)},
+                {CandlePatternType.DOWN_RAILS, new CandlePatternSettings(false, 0, 2, 0)}
             };
 
         private readonly Dictionary<CandlePatternType, Func<Candle[], bool>>
@@ -69,28 +71,28 @@ namespace TradeKit.AlgoBase
                 },
                 {
                     CandlePatternType.UP_OUTER_BAR, c =>
-                        c[^1].O < c[^1].C && 
-                        c[^2].O > c[^1].C && 
-                        c[^2].H < c[^1].H && 
+                        c[^1].O < c[^1].C &&
+                        c[^2].O > c[^1].C &&
+                        c[^2].H < c[^1].H &&
                         c[^2].L > c[^1].L
                 },
                 {
                     CandlePatternType.DOWN_OUTER_BAR, c =>
                         c[^1].O > c[^1].C &&
                         c[^2].O < c[^1].C &&
-                        c[^2].H < c[^1].H && 
+                        c[^2].H < c[^1].H &&
                         c[^2].L > c[^1].L
                 },
                 {
                     CandlePatternType.UP_OUTER_BAR_BODIES, c =>
                         c[^1].O < c[^1].C &&
-                        c[^2].BodyHigh <= c[^1].BodyHigh && 
+                        c[^2].BodyHigh <= c[^1].BodyHigh &&
                         c[^2].BodyLow >= c[^1].BodyLow
                 },
                 {
                     CandlePatternType.DOWN_OUTER_BAR_BODIES, c =>
                         c[^1].O > c[^1].C &&
-                        c[^2].BodyHigh <= c[^1].BodyHigh && 
+                        c[^2].BodyHigh <= c[^1].BodyHigh &&
                         c[^2].BodyLow >= c[^1].BodyLow
                 },
                 {
@@ -126,6 +128,26 @@ namespace TradeKit.AlgoBase
                         c[^1].O > c[^1].C &&
                         c[^1].H < c[^2].H &&
                         c[^3].H < c[^2].H
+                },
+                {
+                    CandlePatternType.UP_RAILS, c =>
+                    {
+                        double len = Math.Max(c[^2].H, c[^1].H) - Math.Min(c[^2].L, c[^1].L);
+                        if (len <= 0)
+                            return false;
+
+                        double allowance = len * 0.1;
+                        double bodyMinLength = len * 0.7;
+
+                        return c[^2].O > c[^2].C &&
+                               c[^1].O < c[^1].C &&
+                               c[^2].BodyHigh - c[^2].BodyLow >= bodyMinLength &&
+                               c[^1].BodyHigh - c[^1].BodyLow >= bodyMinLength &&
+                               Math.Abs(c[^2].C - c[^1].O) < allowance &&
+                               Math.Abs(c[^2].O - c[^1].C) < allowance &&
+                               Math.Abs(c[^2].L - c[^1].L) < allowance &&
+                               Math.Abs(c[^2].H - c[^1].H) < allowance;
+                    }
                 }
             };
 
@@ -146,7 +168,8 @@ namespace TradeKit.AlgoBase
         /// Gets the candle patterns for the specified index of the bar or null.
         /// </summary>
         /// <param name="barIndex">Index of the bar.</param>
-        public List<CandlesResult> GetCandlePatterns(int barIndex)
+        /// <param name="currentPrice">The current price, can be null.</param>
+        public List<CandlesResult> GetCandlePatterns(int barIndex, double? currentPrice = null)
         {
             if (barIndex < MIN_BARS_INDEX)
                 return null;
@@ -181,7 +204,7 @@ namespace TradeKit.AlgoBase
                 
                 res ??= new List<CandlesResult>();
 
-                double sl = 0;
+                double sl;
                 int slIndex = 0;
 
                 if (settings.StopLossBarIndex >= 0)// If we know the extremum bar index
@@ -222,8 +245,17 @@ namespace TradeKit.AlgoBase
                 if (sl == 0)
                     continue;
 
+                double? limitPrice = null;
+                if (settings.LimitPriceBarIndex.HasValue)
+                {
+                    int offset = settings.LimitPriceBarIndex.Value + 1;
+                    limitPrice = settings.IsBull
+                        ? candles[^offset].H
+                        : candles[^offset].L;
+                }
+
                 res.Add(new CandlesResult(candlePatternType,
-                    settings.IsBull, sl, slIndex, barIndex, settings.BarsCount));
+                    settings.IsBull, sl, slIndex, barIndex, settings.BarsCount, limitPrice));
             }
 
             return res;

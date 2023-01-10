@@ -1,5 +1,6 @@
 ﻿namespace TradeKit.PriceAction
 {
     public record CandlesResult(
-        CandlePatternType Type, bool IsBull, double StopLoss, int StopLossBarIndex, int BarIndex, short BarsCount);
+        CandlePatternType Type, bool IsBull, double StopLoss, int StopLossBarIndex, int BarIndex, short BarsCount,
+        double? LimitPrice = null);
 }
