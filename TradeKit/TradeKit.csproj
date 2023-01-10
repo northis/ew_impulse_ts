@@ -47,7 +47,7 @@
     <Compile Include="Gartley\GartleySetupFinder.cs" />
     <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
     <Compile Include="Gartley\GartleySignalerBaseBot.cs" />
-    <Compile Include="PriceAction\GartleyItemComparer.cs" />
+    <Compile Include="PriceAction\CandlesResultComparer.cs" />
     <Compile Include="PriceAction\PriceActionBaseIndicator.cs" />
     <Compile Include="PriceAction\PriceActionSetupFinder.cs" />
     <Compile Include="Signals\NullParseSetupFinder.cs" />

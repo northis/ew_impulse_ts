@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -39,7 +38,8 @@ namespace TradeKit.PriceAction
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
-            var setupFinder = new PriceActionSetupFinder(m_BarsProvider, Symbol, patternTypes);
+            var setupFinder = new PriceActionSetupFinder(
+                m_BarsProvider, Symbol, UseStrengthBar, patternTypes);
             Subscribe(setupFinder);
         }
 
@@ -74,16 +74,34 @@ namespace TradeKit.PriceAction
         public bool InnerBar { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_DOUBLE_INNER_BAR"/> and <see cref="CandlePatternType.DOWN_DOUBLE_INNER_BAR"/> patterns.
+        /// </summary>
+        [Parameter("Double Inner Bar", DefaultValue = false)]
+        public bool DoubleInnerBar { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PPR"/> and <see cref="CandlePatternType.DOWN_PPR"/> patterns.
         /// </summary>
-        [Parameter("PPR", DefaultValue = false)]
+        [Parameter("PPR", DefaultValue = true)]
         public bool Ppr { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_RAILS"/> and <see cref="CandlePatternType.DOWN_RAILS"/> pattern.
         /// </summary>
-        [Parameter("Rails", DefaultValue = false)]
+        [Parameter("Rails", DefaultValue = true)]
         public bool Rails { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_BOWMAN"/> and <see cref="CandlePatternType.DOWN_BOWMAN"/> pattern.
+        /// </summary>
+        [Parameter("Bowman", DefaultValue = true)]
+        public bool Bowman { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should show only patterns with "the strength bar".
+        /// </summary>
+        [Parameter("Use strength bar", DefaultValue = true)]
+        public bool UseStrengthBar { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we fill the patterns with color.
@@ -130,6 +148,12 @@ namespace TradeKit.PriceAction
                 res.Add(CandlePatternType.DOWN_INNER_BAR);
             }
 
+            if (DoubleInnerBar)
+            {
+                res.Add(CandlePatternType.UP_DOUBLE_INNER_BAR);
+                res.Add(CandlePatternType.DOWN_DOUBLE_INNER_BAR);
+            }
+
             if (Ppr)
             {
                 res.Add(CandlePatternType.UP_PPR);
@@ -140,6 +164,12 @@ namespace TradeKit.PriceAction
             {
                 res.Add(CandlePatternType.UP_RAILS);
                 res.Add(CandlePatternType.DOWN_RAILS);
+            }
+
+            if (Bowman)
+            {
+                res.Add(CandlePatternType.UP_BOWMAN);
+                res.Add(CandlePatternType.DOWN_BOWMAN);
             }
 
             return res;
@@ -188,7 +218,7 @@ namespace TradeKit.PriceAction
 
             if (FillWithColor)
             {
-                int startIndex = levelIndex - e.ResultPattern.BarsCount + 1;
+                int startIndex = levelIndex - e.ResultPattern.BarsCount + (e.ResultPattern.LimitPrice.HasValue ? 0 : 1);// Add margin for pending patterns
 
                 double max = double.MinValue;// yes, the price can be negative
                 double min = double.MaxValue;

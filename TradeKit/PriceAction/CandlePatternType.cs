@@ -15,6 +15,10 @@
         UP_PPR,
         DOWN_PPR,
         UP_RAILS,
-        DOWN_RAILS
+        DOWN_RAILS,
+        UP_BOWMAN,
+        DOWN_BOWMAN,
+        UP_DOUBLE_INNER_BAR,
+        DOWN_DOUBLE_INNER_BAR
     }
 }
