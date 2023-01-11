@@ -218,18 +218,18 @@ namespace TradeKit.PriceAction
 
             if (FillWithColor)
             {
-                int startIndex = levelIndex - e.ResultPattern.BarsCount + (e.ResultPattern.LimitPrice.HasValue ? 0 : 1);// Add margin for pending patterns
-
+                int startIndex = e.ResultPattern.BarIndex - e.ResultPattern.BarsCount + 1;
+                
                 double max = double.MinValue;// yes, the price can be negative
                 double min = double.MaxValue;
-                for (int i = startIndex; i <= levelIndex; i++)
+                for (int i = startIndex; i <= e.ResultPattern.BarIndex; i++)
                 {
                     max = Math.Max(m_BarsProvider.GetHighPrice(i), max);
                     min = Math.Min(m_BarsProvider.GetLowPrice(i), min);
                 }
 
                 Color patternColor = e.ResultPattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
-                Chart.DrawRectangle($"F{name}", startIndex - 1, min, e.ResultPattern.BarIndex + 1,
+                Chart.DrawRectangle($"F{name}", startIndex-1, min, e.ResultPattern.BarIndex+1,
                         max, patternColor, LINE_WIDTH)
                     .SetFilled();
             }

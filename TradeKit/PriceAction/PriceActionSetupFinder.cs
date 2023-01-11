@@ -123,7 +123,7 @@ namespace TradeKit.PriceAction
                 else if (pendingPattern.IsBull && pendingPattern.LimitPrice.Value <= high ||
                          !pendingPattern.IsBull && pendingPattern.LimitPrice.Value >= low)
                 {
-                    AddPattern(pendingPattern, currentPriceBid ?? close);
+                    AddPattern(pendingPattern, currentPriceBid ?? pendingPattern.LimitPrice.Value);
                     counterPattern = m_PendingPatterns.FirstOrDefault(
                         a => a.IsBull == !pendingPattern.IsBull && a.LimitPrice.HasValue &&
                              (toRemovePendingPatterns == null || !toRemovePendingPatterns.Contains(a)));
