@@ -48,7 +48,8 @@ namespace TradeKit.Core
         private readonly Color m_LongColor = Color.fromHex("#26A69A");
 
         protected readonly Color BlackColor = Color.fromARGB(255, 22, 26, 37);
-        protected readonly Color WhiteColor = Color.fromARGB(255, 209, 212, 220);
+        protected readonly Color WhiteColor = Color.fromARGB(240, 209, 212, 220);
+        protected readonly Color SemiWhiteColor = Color.fromARGB(80, 209, 212, 220);
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -735,35 +736,36 @@ namespace TradeKit.Core
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
                 ?? Array.Empty<GenericChart.GenericChart>();
 
-            FSharpOption<int> dValue = ((int)timeFrameInfo.TimeSpan.TotalMilliseconds).ToFSharp();
+            FSharpOption<int> dValue = (int)timeFrameInfo.TimeSpan.TotalMilliseconds;
 
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
                     layers.Concat(new[] {candlestickChart}))
-                .WithTitle($@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime:u} ", 
-                    Font.init(Size: CHART_FONT_HEADER.ToFSharp()).ToFSharp())
-                .WithXAxisStyle(new Title(), ShowGrid: false.ToFSharp())
-                .WithYAxisStyle(new Title(), ShowGrid: false.ToFSharp())
-                .WithXAxisRangeSlider(RangeSlider.init(Visible: false.ToFSharp()))
+                .WithTitle(
+                    $@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
+                    Font.init(Size: CHART_FONT_HEADER))
+                .WithXAxisRangeSlider(RangeSlider.init(Visible: false))
                 .WithConfig(Config.init(
-                    StaticPlot: true.ToFSharp(),
-                    Responsive: false.ToFSharp()))
+                    StaticPlot: true,
+                    Responsive: false))
                 .WithLayout(Layout.init<string>(
-                    PlotBGColor: BlackColor.ToFSharp(),
-                    PaperBGColor: BlackColor.ToFSharp(),
-                    Font: Font.init(Color: WhiteColor.ToFSharp()).ToFSharp()))
+                    PlotBGColor: BlackColor,
+                    PaperBGColor: BlackColor,
+                    Font: Font.init(Color: WhiteColor)))
                 .WithLayoutGrid(LayoutGrid.init(
-                    Rows: 0.ToFSharp(),
-                    Columns: 0.ToFSharp(),
-                    XGap: 0d.ToFSharp(),
-                    YGap: 0d.ToFSharp()))
+                    Rows: 0,
+                    Columns: 0,
+                    XGap: 0d,
+                    YGap: 0d))
                 .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
                     Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
                         {
-                            Rangebreak.init<string, string>(rangeBreaks.Any().ToFSharp(),
+                            Rangebreak.init<string, string>(rangeBreaks.Any(),
                                 DValue: dValue,
                                 Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
                         }
-                    )));
+                    ), GridColor: SemiWhiteColor, ShowGrid: true))
+                .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                    GridColor: SemiWhiteColor, ShowGrid: true));
 
             string fileName = startView.ToString("s").Replace(":", "-");
             string postfix = string.Empty;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
@@ -219,6 +220,9 @@ namespace TradeKit.Gartley
         
         private DateTime GetMedianDate(DateTime start, DateTime end, List<DateTime> chartDateTimes)
         {
+            if (start == end)
+                return start;
+
             DateTime[] dates = chartDateTimes
                 .SkipWhile(a => a < start)
                 .TakeWhile(a => a <= end)
@@ -314,7 +318,7 @@ namespace TradeKit.Gartley
             Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, LINE_WIDTH);
             candlestickChart.WithShape(div, true);
             candlestickChart.WithAnnotation(GetAnnotation(
-                    signalEventArgs.DivergenceStart.OpenTime, signalEventArgs.DivergenceStart.Value, BlackColor, CHART_FONT_MAIN, WhiteColor, DIVERGENCE_NAME),
+                    signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, DIVERGENCE_NAME, chartDateTimes),
                 true);
 
             void AddLine(BarPoint b1, BarPoint b2, double ratio)

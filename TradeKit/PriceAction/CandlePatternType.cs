@@ -19,6 +19,6 @@
         UP_BOWMAN,
         DOWN_BOWMAN,
         UP_DOUBLE_INNER_BAR,
-        DOWN_DOUBLE_INNER_BAR
+        DOWN_DOUBLE_INNER_BAR //TODO add CPPR
     }
 }
