@@ -30,7 +30,7 @@ namespace TradeKit.Indicators
         protected override void Initialize()
         {
             m_MovingAverage = Indicators.MovingAverage(
-                CreateDataSeries(), Period, MovingAverageType.Exponential);
+                Bars.ClosePrices, Period, MovingAverageType.Simple);
         }
 
         /// <summary>

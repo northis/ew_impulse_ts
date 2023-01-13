@@ -15,6 +15,7 @@ namespace TradeKit.PriceAction
     public class PriceActionSetupFinder : BaseSetupFinder<PriceActionSignalEventArgs>
     {
         private readonly IBarsProvider m_MainBarsProvider;
+        private readonly ElderScreensItem m_ElderScreensItem = null;
         private const int DEPTH_SHOW = 10;
         private const double SL_ALLOWANCE = 0.05;
         private readonly CandlePatternFinder m_CandlePatternFinder;
@@ -27,15 +28,18 @@ namespace TradeKit.PriceAction
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="symbol">The symbol.</param>
         /// <param name="useStrengthBar">Use "bar of the strength".</param>
+        /// <param name="elderScreensInputParams">Filter signals using "Three Elder's screens"</param>
         /// <param name="patterns">The patterns.</param>
         public PriceActionSetupFinder(
             IBarsProvider mainBarsProvider, 
             Symbol symbol,
             bool useStrengthBar = false,
+            ElderScreensItem elderScreensInputParams = null,
             HashSet<CandlePatternType> patterns = null) : base(mainBarsProvider, symbol)
         {
             //System.Diagnostics.Debugger.Launch();
             m_MainBarsProvider = mainBarsProvider;
+            m_ElderScreensItem = elderScreensInputParams;
             m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider, useStrengthBar, patterns);
 
             var comparer = new CandlesResultComparer();
@@ -73,10 +77,24 @@ namespace TradeKit.PriceAction
                 close = BarsProvider.GetClosePrice(index);
             }
 
+            DateTime currentDt = BarsProvider.GetOpenTime(index);
             void AddPattern(CandlesResult localPattern, double price)
             {
                 PriceActionSignalEventArgs args = PriceActionSignalEventArgs.Create(
                     localPattern, price, m_MainBarsProvider, startIndex, index, SL_ALLOWANCE);
+                if (m_ElderScreensItem != null)
+                {
+                    TrendType trend = SignalFilters.GetElderTrend(m_ElderScreensItem, currentDt);
+                    bool isBull = args.TakeProfit > args.StopLoss;
+
+                    if (isBull && trend != TrendType.Bullish ||
+                        !isBull && trend != TrendType.Bearish)
+                    {
+                       // Logger.Write($"Not a trend pattern {localPattern.Type}, ignore it");
+                        return;
+                    }
+                }
+
                 m_CandlePatternsEntryMap.Add(localPattern, args);
 
                 Logger.Write($"Added {localPattern.Type}");
@@ -167,8 +185,8 @@ namespace TradeKit.PriceAction
                          !pattern.IsBull && args.BreakEvenPrice >= low)
                 {
                     args.HasBreakeven = true;
-                    args.StopLoss = new BarPoint(args.BreakEvenPrice, BarsProvider.GetOpenTime(index),
-                        args.StopLoss.BarTimeFrame, index);
+                    args.StopLoss = new BarPoint(
+                        args.BreakEvenPrice, currentDt, args.StopLoss.BarTimeFrame, index);
                     OnBreakEvenInvoke(new LevelEventArgs(args.StopLoss, args.Level, true));
                 }
 

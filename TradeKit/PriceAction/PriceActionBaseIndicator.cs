@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.Indicators;
 
 namespace TradeKit.PriceAction
 {
@@ -22,6 +24,13 @@ namespace TradeKit.PriceAction
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
 
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use only trend patterns.
+        /// </summary>
+        [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
+        public bool UseTrendOnly { get; set; }
+
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
@@ -38,8 +47,31 @@ namespace TradeKit.PriceAction
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
+            ElderScreensItem elderScreensItem = null;
+            if (UseTrendOnly)
+            {
+                // H1
+                TimeFrameInfo minorTf = TimeFrameHelper.GetNextTimeFrame(TimeFrame, 1); //H4
+                TimeFrameInfo majorTf = TimeFrameHelper.GetNextTimeFrame(minorTf.TimeFrame, 1);//D1
+
+                Bars majorBars = MarketData.GetBars(majorTf.TimeFrame);
+                var majorProvider = new CTraderBarsProvider(majorBars, Symbol);
+                Bars minorBars = MarketData.GetBars(minorTf.TimeFrame);
+                var minorProvider = new CTraderBarsProvider(minorBars, Symbol);
+                var macd = Indicators.GetIndicator<MacdCrossOverIndicator>(majorBars, Helper.MACD_LONG_CYCLE, 
+                    Helper.MACD_SHORT_CYCLE, 
+                    Helper.MACD_SIGNAL_PERIODS);
+                var ma = Indicators.GetIndicator<MovingAverageIndicator>(majorBars, Helper.MOVING_AVERAGE_PERIOD);
+                var stoch = Indicators.GetIndicator<StochasticOscillatorIndicator>(minorBars,
+                    Helper.STOCHASTIC_K_PERIODS, 
+                    Helper.STOCHASTIC_D_PERIODS, 
+                    Helper.STOCHASTIC_K_SLOWING);
+
+                elderScreensItem = new ElderScreensItem(majorProvider, macd, ma, minorProvider, stoch);
+            }
+
             var setupFinder = new PriceActionSetupFinder(
-                m_BarsProvider, Symbol, UseStrengthBar, patternTypes);
+                m_BarsProvider, Symbol, UseStrengthBar, elderScreensItem, patternTypes);
             Subscribe(setupFinder);
         }
 
