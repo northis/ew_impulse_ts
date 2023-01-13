@@ -26,6 +26,7 @@ namespace TradeKit.Core
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
+            m_SetupFinder.OnTakeProfit += OnBreakeven;
         }
 
         /// <summary>
@@ -41,6 +42,16 @@ namespace TradeKit.Core
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected abstract void OnTakeProfit(object sender, LevelEventArgs e);
+
+        /// <summary>
+        /// Called when breakeven event occurs.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected virtual void OnBreakeven(object sender, LevelEventArgs e)
+        {
+
+        }
 
         /// <summary>
         /// Called on new signal.
@@ -72,6 +83,7 @@ namespace TradeKit.Core
             m_SetupFinder.OnEnter -= OnEnter;
             m_SetupFinder.OnStopLoss -= OnStopLoss;
             m_SetupFinder.OnTakeProfit -= OnTakeProfit;
+            m_SetupFinder.OnTakeProfit -= OnBreakeven;
             base.OnDestroy();
         }
 
@@ -84,7 +96,7 @@ namespace TradeKit.Core
             if (m_SetupFinder == null)
                 throw new InvalidOperationException("Please, call Subscribe() first");
 
-            m_SetupFinder.CheckBar(m_IsInitialized ? index : index - 1);
+            m_SetupFinder.CheckBar(m_IsInitialized ? index - 1 : index);
             if (IsLastBar && !m_IsInitialized)
             {
                 m_IsInitialized = true;

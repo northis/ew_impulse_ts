@@ -1,7 +1,8 @@
 ﻿using cAlgo.API;
 using cAlgo.API.Indicators;
+using TradeKit.Core;
 
-namespace TradeKit.Core
+namespace TradeKit.Indicators
 {
     /// <summary>
     /// Calculates the MACD (Moving Average Convergence/Divergence) indicator.

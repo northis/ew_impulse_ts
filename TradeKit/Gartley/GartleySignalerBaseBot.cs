@@ -9,6 +9,7 @@ using Plotly.NET;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.Indicators;
 using Shape = Plotly.NET.LayoutObjects.Shape;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;

@@ -344,6 +344,7 @@ namespace TradeKit.Core
                 sf.OnEnter += OnEnter;
                 sf.OnStopLoss += OnStopLoss;
                 sf.OnTakeProfit += OnTakeProfit;
+                sf.OnBreakEven += OnBreakeven;
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[finderId] = true;
             }
@@ -354,19 +355,23 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Closes the symbol positions.
+        /// Closes or sets the breakeven for the symbol positions.
         /// </summary>
         /// <param name="setupId">Id of the setup finder.</param>
-        private void CloseSymbolPositions(string setupId)
+        /// <param name="breakEvenPrice">If not null, sets this price as a breakeven</param>
+        private void ModifySymbolPositions(string setupId, double? breakEvenPrice = null)
         {
             string symbolName = m_SetupFindersMap[setupId].Symbol.Name;
-            Position[] positionsToClose = Positions
+            Position[] positionsToModify = Positions
                 .Where(a => a.Label == GetBotName() && a.SymbolName == symbolName)
                 .ToArray();
 
-            foreach (Position positionToClose in positionsToClose)
+            foreach (Position position in positionsToModify)
             {
-                positionToClose.Close();
+                if (breakEvenPrice.HasValue)
+                    position.ModifyStopLossPrice(breakEvenPrice.Value);
+                else
+                    position.Close();
             }
         }
 
@@ -377,19 +382,20 @@ namespace TradeKit.Core
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         /// <param name="price">The price.</param>
         /// <param name="setupId">The setup identifier.</param>
+        /// <param name="isReallyClose">True, when we should mark the position as closed.</param>
         protected bool HandleClose(object sender, LevelEventArgs e,
-            out string price, out string setupId)
+            out string price, out string setupId, bool isReallyClose = true)
         {
             T sf = (T)sender;
             setupId = sf.Id;
             price = null;
             if (!m_PositionFinderMap.TryGetValue(sf.Id, out bool isInPosition))
-            {
                 return false;
-            }
 
             GetEventStrings(sender, e.Level, out price);
-            m_PositionFinderMap[sf.Id] = false;
+            if (isReallyClose)
+                m_PositionFinderMap[sf.Id] = false;
+
             return isInPosition;
         }
         
@@ -402,7 +408,7 @@ namespace TradeKit.Core
             
             m_StopCount++;
             Logger.Write($"SL hit! {price}");
-            CloseSymbolPositions(setupId);
+            ModifySymbolPositions(setupId);
             ShowResultChart(sender);
 
             if (IsBacktesting || !TelegramReporter.IsReady)
@@ -412,7 +418,7 @@ namespace TradeKit.Core
 
             TelegramReporter.ReportStopLoss(setupId);
         }
-
+        
         /// <summary>
         /// Generates the second result chart for the setup finder
         /// </summary>
@@ -431,7 +437,7 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Called when on take profit. hit
+        /// Called when take profit is hit
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
@@ -444,7 +450,7 @@ namespace TradeKit.Core
 
             m_TakeCount++;
             Logger.Write($"TP hit! {price}");
-            CloseSymbolPositions(setupId);
+            ModifySymbolPositions(setupId);
             ShowResultChart(sender);
 
             if (IsBacktesting || !TelegramReporter.IsReady)
@@ -453,6 +459,29 @@ namespace TradeKit.Core
             }
 
             TelegramReporter.ReportTakeProfit(setupId);
+        }
+
+        /// <summary>
+        /// Called when breakeven is hit
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected void OnBreakeven(object sender, LevelEventArgs e)
+        {
+            if (!HandleClose(sender, e, out string price, out string setupId, false))
+            {
+                return;
+            }
+            
+            Logger.Write($"Breakeven is set! {price}");
+            ModifySymbolPositions(setupId, e.Level.Value);
+
+            if (IsBacktesting || !TelegramReporter.IsReady)
+            {
+                return;
+            }
+
+            TelegramReporter.ReportBreakeven(setupId);
         }
 
         /// <summary>
@@ -818,6 +847,7 @@ namespace TradeKit.Core
                 sf.OnEnter -= OnEnter;
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
+                sf.OnTakeProfit -= OnBreakeven;
                 m_BarsMap[sf.Id].BarOpened -= BarOpened;
                 m_SymbolsMap[sf.Id].Tick -= OnTick;
             }

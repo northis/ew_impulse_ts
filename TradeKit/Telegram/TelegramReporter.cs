@@ -90,6 +90,16 @@ namespace TradeKit.Telegram
         }
 
         /// <summary>
+        /// Reports the breakeven.
+        /// </summary>
+        /// <param name="finderId">The finder identifier.</param>
+        public void ReportBreakeven(string finderId)
+        {
+            if (m_ReportClose)
+                ReportClose(finderId, "Move the stop to the entry point");
+        }
+
+        /// <summary>
         /// Reports the close of the position.
         /// </summary>
         /// <param name="finderId">The finder identifier.</param>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.Indicators;
 
 namespace TradeKit.Gartley
 {

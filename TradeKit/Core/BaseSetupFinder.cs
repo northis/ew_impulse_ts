@@ -67,6 +67,11 @@ namespace TradeKit.Core
         public event EventHandler<T> OnEnter;
 
         /// <summary>
+        /// Occurs when a break even should be set for the setup.
+        /// </summary>
+        public event EventHandler<LevelEventArgs> OnBreakEven;
+
+        /// <summary>
         /// Occurs on stop loss.
         /// </summary>
         public event EventHandler<LevelEventArgs> OnStopLoss;
@@ -107,8 +112,11 @@ namespace TradeKit.Core
         /// <param name="index">The index of bar to calculate.</param>
         public virtual void CheckBar(int index)
         {
-            m_LastBarIndex = index;
-            CheckSetup(m_LastBarIndex);
+            if (m_LastBarIndex != index)
+            {
+                m_LastBarIndex = index;
+                CheckSetup(m_LastBarIndex);
+            }
         }
 
         /// <summary>
@@ -127,6 +135,15 @@ namespace TradeKit.Core
         protected void OnEnterInvoke(T e)
         {
             OnEnter?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="E:OnBreakEven" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected void OnBreakEvenInvoke(LevelEventArgs e)
+        {
+            OnBreakEven?.Invoke(this, e);
         }
     }
 }

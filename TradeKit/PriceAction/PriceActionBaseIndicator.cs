@@ -185,7 +185,9 @@ namespace TradeKit.PriceAction
             int levelIndex = e.Level.BarIndex;
             DateTime dt = Bars[levelIndex].OpenTime;
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
-            Logger.Write($"SL hit! Price:{priceFmt} ({dt:s})");
+
+            string type = e.HasBreakeven ? "Breakeven" : "SL";
+            Logger.Write($"{type} hit! Price:{priceFmt} ({dt:s})");
         }
 
         /// <summary>

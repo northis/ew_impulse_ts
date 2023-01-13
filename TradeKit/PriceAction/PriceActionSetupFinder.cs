@@ -15,7 +15,6 @@ namespace TradeKit.PriceAction
     public class PriceActionSetupFinder : BaseSetupFinder<PriceActionSignalEventArgs>
     {
         private readonly IBarsProvider m_MainBarsProvider;
-        private readonly bool m_UseStrengthBar;
         private const int DEPTH_SHOW = 10;
         private const double SL_ALLOWANCE = 0.05;
         private readonly CandlePatternFinder m_CandlePatternFinder;
@@ -37,7 +36,6 @@ namespace TradeKit.PriceAction
         {
             //System.Diagnostics.Debugger.Launch();
             m_MainBarsProvider = mainBarsProvider;
-            m_UseStrengthBar = useStrengthBar;
             m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider, useStrengthBar, patterns);
 
             var comparer = new CandlesResultComparer();
@@ -148,19 +146,30 @@ namespace TradeKit.PriceAction
 
                 PriceActionSignalEventArgs args = m_CandlePatternsEntryMap[pattern];
                 bool isClosed = false;
+
                 if (pattern.IsBull && args.StopLoss.Value >= low ||
                     !pattern.IsBull && args.StopLoss.Value <= high)
                 {
                     OnStopLossInvoke(new LevelEventArgs(
-                        args.StopLoss.WithIndex(index, BarsProvider), args.StopLoss));
+                        args.StopLoss.WithIndex(
+                            index, BarsProvider), args.StopLoss, args.HasBreakeven));
                     isClosed = true;
                 }
                 else if (pattern.IsBull && args.TakeProfit.Value <= high ||
                          !pattern.IsBull && args.TakeProfit.Value >= low)
                 {
                     OnTakeProfitInvoke(new LevelEventArgs(
-                        args.TakeProfit.WithIndex(index, BarsProvider), args.TakeProfit));
+                        args.TakeProfit.WithIndex(
+                            index, BarsProvider), args.TakeProfit, args.HasBreakeven));
                     isClosed = true;
+                }
+                else if (pattern.IsBull && args.BreakEvenPrice <= high ||
+                         !pattern.IsBull && args.BreakEvenPrice >= low)
+                {
+                    args.HasBreakeven = true;
+                    args.StopLoss = new BarPoint(args.BreakEvenPrice, BarsProvider.GetOpenTime(index),
+                        args.StopLoss.BarTimeFrame, index);
+                    OnBreakEvenInvoke(new LevelEventArgs(args.StopLoss, args.Level, true));
                 }
 
                 if (isClosed)

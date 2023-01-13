@@ -29,14 +29,18 @@
   <ItemGroup>
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
     <Compile Include="AlgoBase\CandlePatternFinder.cs" />
+    <Compile Include="AlgoBase\SignalFilters.cs" />
     <Compile Include="Core\BaseIndicator.cs" />
     <Compile Include="Core\BaseRobot.cs" />
     <Compile Include="Core\Candle.cs" />
+    <Compile Include="Indicators\StochasticOscillatorIndicator.cs" />
+    <Compile Include="Indicators\MovingAverageIndicator.cs" />
+    <Compile Include="Core\TrendType.cs" />
     <Compile Include="EventArgs\PriceActionSignalEventArgs.cs" />
     <Compile Include="PriceAction\CandlePatternSettings.cs" />
     <Compile Include="PriceAction\CandlePatternType.cs" />
     <Compile Include="PriceAction\CandlesResult.cs" />
-    <Compile Include="Core\MacdCrossOverIndicator.cs" />
+    <Compile Include="Indicators\MacdCrossOverIndicator.cs" />
     <Compile Include="Gartley\GartleyItem.cs" />
     <Compile Include="Gartley\GartleyItemComparer.cs" />
     <Compile Include="Gartley\GartleyPattern.cs" />
