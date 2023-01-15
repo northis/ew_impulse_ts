@@ -25,6 +25,7 @@ namespace TradeKit.Gartley
         private const int SETUP_WIDTH = 3;
         private const int LINE_WIDTH = 1;
         private const int DIV_LINE_WIDTH = 3;
+        private const int TREND_RATIO = 1;
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
@@ -121,6 +122,18 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
         public int MACDSignalPeriods { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use only trend patterns.
+        /// </summary>
+        [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
+        public bool UseTrendOnly { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a breakeven level. Use 0 to disable
+        /// </summary>
+        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
+        public double BreakEvenRatio { get; set; }
 
         private HashSet<GartleyPatternType> GetPatternsType()
         {
@@ -165,8 +178,16 @@ namespace TradeKit.Gartley
                 ? Indicators.GetIndicator<MacdCrossOverIndicator>(Bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
                 : null;
 
+            SuperTrendItem superTrendItem = null;
+            if (UseTrendOnly)
+                superTrendItem = SuperTrendItem.Create(TimeFrame, this, TREND_RATIO, m_BarsProvider);
+
+            double? breakEvenRatio = null;
+            if (BreakEvenRatio > 0)
+                breakEvenRatio = BreakEvenRatio;
+
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
-                BarDepthCount, UseDivergences, 0, patternTypes, macdCrossover);
+                BarDepthCount, UseDivergences, 0, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
             Subscribe(m_SetupFinder);
         }
 

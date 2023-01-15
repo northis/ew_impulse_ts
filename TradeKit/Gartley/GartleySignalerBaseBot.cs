@@ -32,6 +32,7 @@ namespace TradeKit.Gartley
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
 
+        private const int TREND_RATIO = 4;
         #region Input parameters
 
         /// <summary>
@@ -123,9 +124,20 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
         public int MACDSignalPeriods { get; set; }
-
-        #endregion
         
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use only trend patterns.
+        /// </summary>
+        [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
+        public bool UseTrendOnly { get; set; }
+
+        /// <summary>
+        /// Gets or sets a breakeven level. Use 0 to disable
+        /// </summary>
+        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
+        public double BreakEvenRatio { get; set; }
+        #endregion
+
         private HashSet<GartleyPatternType> GetPatternsType()
         {
             var res = new HashSet<GartleyPatternType>();
@@ -360,10 +372,20 @@ namespace TradeKit.Gartley
             MacdCrossOverIndicator macdCrossover = UseDivergences
                 ? Indicators.GetIndicator<MacdCrossOverIndicator>(bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
                 : null;
+            
+            SuperTrendItem superTrendItem = null;
+            if (UseTrendOnly)
+            {
+                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, TREND_RATIO, cTraderBarsProvider);
+            }
+
+            double? breakEvenRatio = null;
+            if (BreakEvenRatio > 0)
+                breakEvenRatio = BreakEvenRatio;
 
             var setupFinder = new GartleySetupFinder(
-                cTraderBarsProvider, symbolEntity, BarAllowancePercent, BarDepthCount, UseDivergences, FilterByAccuracy,
-                patternTypes, macdCrossover);
+                cTraderBarsProvider, symbolEntity, BarAllowancePercent, BarDepthCount, UseDivergences,
+                FilterByAccuracy, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;
         }

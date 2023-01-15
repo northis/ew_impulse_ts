@@ -10,10 +10,11 @@ namespace TradeKit.EventArgs
             BarPoint level,
             GartleyItem gartleyItem,
             DateTime startViewBarIndex,
-            BarPoint divergenceStart = null)
+            BarPoint divergenceStart = null,
+            double? breakevenRatio = null)
             : base(level,
                 level.WithPrice(gartleyItem.TakeProfit1), 
-                level.WithPrice(gartleyItem.StopLoss), startViewBarIndex)
+                level.WithPrice(gartleyItem.StopLoss), startViewBarIndex, breakevenRatio)
         {
             GartleyItem = gartleyItem;
             DivergenceStart = divergenceStart;

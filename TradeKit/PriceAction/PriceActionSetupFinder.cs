@@ -86,7 +86,7 @@ namespace TradeKit.PriceAction
             void AddPattern(CandlesResult localPattern, double price)
             {
                 PriceActionSignalEventArgs args = PriceActionSignalEventArgs.Create(
-                    localPattern, price, m_MainBarsProvider, startIndex, index, SL_ALLOWANCE);
+                    localPattern, price, m_MainBarsProvider, startIndex, index, SL_ALLOWANCE, BreakevenRatio);
                 if (m_SuperTrendItem != null)
                 {
                     TrendType trend = SignalFilters.GetTrend(m_SuperTrendItem, currentDt);
@@ -186,8 +186,8 @@ namespace TradeKit.PriceAction
                             index, BarsProvider), args.TakeProfit, args.HasBreakeven));
                     isClosed = true;
                 }
-                else if (pattern.IsBull && args.BreakEvenPrice <= high ||
-                         !pattern.IsBull && args.BreakEvenPrice >= low)
+                else if (args.CanUseBreakeven && (pattern.IsBull && args.BreakEvenPrice <= high ||
+                         !pattern.IsBull && args.BreakEvenPrice >= low))
                 {
                     args.HasBreakeven = true;
                     args.StopLoss = new BarPoint(

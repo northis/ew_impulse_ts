@@ -23,15 +23,30 @@ namespace TradeKit.AlgoBase
         /// <param name="dateTimeBar">The date and time of the current bar .</param>
         public static TrendType GetTrend(SuperTrendItem sti, DateTime dateTimeBar)
         {
-            int majorIndex = GetActualIndex(sti.BarsProvider, dateTimeBar);
-            if (majorIndex <= 0)
+            bool useMajor = sti.SuperTrendMajor != null;
+            int mainIndex = sti.BarsProviderMain.GetIndexByTime(dateTimeBar);
+            if (mainIndex <= 0)
                 return TrendType.NoTrend;
-            
-            double res = sti.SuperTrend.Histogram[majorIndex];
-            if(res == 0)
+
+            double resMain = sti.SuperTrendMain.Histogram[mainIndex];
+            if (resMain == 0)
                 return TrendType.NoTrend;
-            
-            return res > 0 ? TrendType.Bullish : TrendType.Bearish;
+
+            TrendType trend = resMain > 0 ? TrendType.Bullish : TrendType.Bearish;
+            if (useMajor)
+            {
+                int majorIndex = GetActualIndex(sti.BarsProviderMajor, dateTimeBar);
+                double resMajor = sti.SuperTrendMajor.Histogram[majorIndex];
+                if (resMajor == 0)
+                    return TrendType.NoTrend;
+
+                TrendType trendMajor = resMajor > 0 ? TrendType.Bullish : TrendType.Bearish;
+                if (trendMajor != trend)
+                    return TrendType.NoTrend;
+            }
+
+            Debugger.Launch();
+            return trend;
         }
 
         /// <summary>

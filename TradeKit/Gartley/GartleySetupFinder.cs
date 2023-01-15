@@ -18,10 +18,12 @@ namespace TradeKit.Gartley
         private readonly int m_BarsDepth;
         private readonly bool m_FilterByDivergence;
         private readonly double m_FilterByAccuracyPercent;
+        private readonly SuperTrendItem m_SuperTrendItem;
         private readonly MacdCrossOverIndicator m_MacdCrossOver;
+        private readonly double? m_BreakevenRatio;
         private readonly GartleyPatternFinder m_PatternFinder;
-        private readonly List<GartleyItem> m_Patterns;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
+        private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -30,10 +32,12 @@ namespace TradeKit.Gartley
         /// <param name="symbol">The symbol.</param>
         /// <param name="shadowAllowance">The correction allowance percent.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
-        /// <param name="filterByDivergence">MACD Cross Over.</param>
+        /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
         /// <param name="filterByAccuracyPercent">Accuracy filter.</param>
+        /// <param name="superTrendItem">For filtering by the trend.</param>
         /// <param name="patterns">Patterns supported.</param>
         /// <param name="macdCrossOver">MACD Cross Over.</param>
+        /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         public GartleySetupFinder(
             IBarsProvider mainBarsProvider,
             Symbol symbol,
@@ -41,18 +45,23 @@ namespace TradeKit.Gartley
             int barsDepth,
             bool filterByDivergence,
             int filterByAccuracyPercent,
+            SuperTrendItem superTrendItem = null,
             HashSet<GartleyPatternType> patterns = null,
-            MacdCrossOverIndicator macdCrossOver = null) : base(mainBarsProvider, symbol)
+            MacdCrossOverIndicator macdCrossOver = null,
+            double? breakevenRatio = null) : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
             m_BarsDepth = barsDepth;
             m_FilterByDivergence = filterByDivergence;
             m_FilterByAccuracyPercent = filterByAccuracyPercent;
+            m_SuperTrendItem = superTrendItem;
             m_MacdCrossOver = macdCrossOver;
+            m_BreakevenRatio = breakevenRatio;
             m_PatternFinder = new GartleyPatternFinder(
                 m_MainBarsProvider, shadowAllowance, patterns);
-            m_Patterns = new List<GartleyItem>();
 
+            var comparer = new GartleyItemComparer();
+            m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
             m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
         }
 
@@ -67,11 +76,11 @@ namespace TradeKit.Gartley
 
             HashSet<GartleyItem> localPatterns = null;
             double close;
-            bool noOpenedPatterns = m_Patterns.Count == 0;
+            bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
             if (currentPriceBid.HasValue)
             {
-                if (m_Patterns.Count == 0)
+                if (m_PatternsEntryMap.Count == 0)
                 {
                     return;
                 }
@@ -98,8 +107,25 @@ namespace TradeKit.Gartley
             {
                 foreach (GartleyItem localPattern in localPatterns)
                 {
-                    if (m_Patterns.Any(a => m_GartleyItemComparer.Equals(localPattern, a)))
+                    if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)))
                         continue;
+
+                    if (m_SuperTrendItem != null)
+                    {
+                        DateTime dateTime = BarsProvider.GetOpenTime(index);
+                        TrendType trend = SignalFilters.GetTrend(m_SuperTrendItem, dateTime);
+
+                        if (localPattern.IsBull)
+                        {
+                            if (trend != TrendType.Bullish)
+                                continue;
+                        }
+                        else
+                        {
+                            if (trend != TrendType.Bearish)
+                                continue;
+                        }
+                    }
 
                     BarPoint divItem = null;
                     if (m_MacdCrossOver != null)
@@ -119,16 +145,17 @@ namespace TradeKit.Gartley
                     {
                         continue;
                     }
-
-                    m_Patterns.Add(localPattern);
-
+                    
                     //System.Diagnostics.Debugger.Launch();
-                    Logger.Write($"Added {localPattern.PatternType}");
                     DateTime startView = m_MainBarsProvider.GetOpenTime(
                         localPattern.ItemX.BarIndex);
-                    OnEnterInvoke(new GartleySignalEventArgs(
+
+                    var args = new GartleySignalEventArgs(
                         new BarPoint(close, index, m_MainBarsProvider),
-                        localPattern, startView, divItem));
+                        localPattern, startView, divItem, m_BreakevenRatio);
+                    m_PatternsEntryMap[localPattern] = args;
+                    OnEnterInvoke(args);
+                    Logger.Write($"Added {localPattern.PatternType}");
                 }
             }
 
@@ -136,32 +163,39 @@ namespace TradeKit.Gartley
             double high = currentPriceBid ?? BarsProvider.GetHighPrice(index);
 
             List<GartleyItem> toRemove = null;
-            foreach (GartleyItem pattern in m_Patterns)
+            foreach (GartleyItem pattern in m_PatternsEntryMap.Keys)
             {
                 if (localPatterns != null && localPatterns.Contains(pattern))
                 {
                     continue;
                 }
 
-                bool isBull = pattern.ItemX.Value < pattern.ItemA.Value;
+                GartleySignalEventArgs args = m_PatternsEntryMap[pattern];
+                bool isBull = pattern.IsBull;
                 bool isClosed = false;
                 if (isBull && high >= pattern.TakeProfit1 ||
                     !isBull && low <= pattern.TakeProfit1)
                 {
-                    OnTakeProfitInvoke(
-                        new LevelEventArgs(
-                            new BarPoint(pattern.TakeProfit1, index, BarsProvider),
-                            pattern.ItemD));
+                    OnTakeProfitInvoke(new LevelEventArgs(
+                        args.TakeProfit.WithIndex(
+                            index, BarsProvider), args.TakeProfit, args.HasBreakeven));
+                    isClosed = true;
+                }else if (isBull && low <= pattern.StopLoss ||
+                          !isBull && high >= pattern.StopLoss)
+                {
+                    OnStopLossInvoke(new LevelEventArgs(
+                        args.StopLoss.WithIndex(
+                            index, BarsProvider), args.StopLoss, args.HasBreakeven));
                     isClosed = true;
                 }
-
-                if (isBull && low <= pattern.StopLoss ||
-                    !isBull && high >= pattern.StopLoss)
+                else if (args.CanUseBreakeven && (pattern.IsBull && args.BreakEvenPrice <= high ||
+                                                  !pattern.IsBull && args.BreakEvenPrice >= low))
                 {
-                    OnStopLossInvoke(
-                        new LevelEventArgs(
-                            new BarPoint(pattern.StopLoss, index, BarsProvider), pattern.ItemD));
-                    isClosed = true;
+                    DateTime currentDt = BarsProvider.GetOpenTime(index);
+                    args.HasBreakeven = true;
+                    args.StopLoss = new BarPoint(
+                        args.BreakEvenPrice, currentDt, args.StopLoss.BarTimeFrame, index);
+                    OnBreakEvenInvoke(new LevelEventArgs(args.StopLoss, args.Level, true));
                 }
 
                 if (!isClosed)
@@ -180,7 +214,7 @@ namespace TradeKit.Gartley
 
             foreach (GartleyItem toRemoveItem in toRemove)
             {
-                m_Patterns.Remove(toRemoveItem);
+                m_PatternsEntryMap.Remove(toRemoveItem);
             }
         }
     }

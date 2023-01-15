@@ -23,6 +23,7 @@ namespace TradeKit.PriceAction
         private Color m_TpColor;
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
+        private const int TREND_RATIO = 1;
 
         /// <summary>
         /// Gets or sets a breakeven level. Use 0 to disable
@@ -54,19 +55,7 @@ namespace TradeKit.PriceAction
             
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-            {
-                // We can use any TF
-                //ElderScreensItem elderScreensItem = null;
-                //TimeFrameInfo majorTf = TimeFrameHelper.GetNextTimeFrame(TimeFrame, 1);
-                //Bars majorBars = MarketData.GetBars(majorTf.TimeFrame);
-                //var majorProvider = new CTraderBarsProvider(majorBars, Symbol);
-
-                SuperTrendIndicator st = Indicators.GetIndicator<SuperTrendIndicator>(Bars,
-                    Helper.SUPERTREND_PERIOD,
-                    Helper.SUPERTREND_MULTIPLIER);
-
-                superTrendItem = new SuperTrendItem(m_BarsProvider, st);
-            }
+                superTrendItem = SuperTrendItem.Create(TimeFrame, this, TREND_RATIO, m_BarsProvider);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

@@ -62,6 +62,13 @@ namespace TradeKit.EventArgs
         /// </value>
         public bool HasBreakeven { get; set; }
 
+        /// <summary>
+        /// Gets a value indicating whether this signal can use breakeven.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this signal can use breakeven; otherwise, <c>false</c>.
+        /// </value>
+        public bool CanUseBreakeven => m_BreakevenRatio.HasValue;
 
         private double? m_BreakEvenPrice;
 
@@ -74,9 +81,9 @@ namespace TradeKit.EventArgs
             {
                 if (m_BreakevenRatio.HasValue && !m_BreakEvenPrice.HasValue)
                 {
-                    bool isBool = TakeProfit > Level;
+                    bool isBool = TakeProfit > StopLoss;
                     double tpLen = Math.Abs(Level.Value - TakeProfit.Value);
-                    m_BreakEvenPrice = TakeProfit.Value + tpLen * m_BreakevenRatio.Value * (isBool ? -1 : 1);
+                    m_BreakEvenPrice = Level.Value + tpLen * m_BreakevenRatio.Value * (isBool ? 1 : -1);
                 }
 
                 return m_BreakEvenPrice ?? 0;

@@ -49,6 +49,14 @@ namespace TradeKit.Gartley
         }
 
         /// <summary>
+        /// Gets a value indicating whether this pattern is bullish.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this pattern is bullish; otherwise, <c>false</c>.
+        /// </value>
+        public bool IsBull => ItemX.Value < ItemA.Value;
+
+        /// <summary>
         /// Returns a hash code for this instance.
         /// </summary>
         /// <returns>
