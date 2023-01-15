@@ -9,6 +9,8 @@ namespace TradeKit.EventArgs
     /// <seealso cref="System.EventArgs" />
     public class SignalEventArgs : System.EventArgs
     {
+        private readonly double? m_BreakevenRatio;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SignalEventArgs"/> class.
         /// </summary>
@@ -16,12 +18,15 @@ namespace TradeKit.EventArgs
         /// <param name="takeProfit">The take profit level.</param>
         /// <param name="stopLoss">The stop loss.</param>
         /// <param name="startViewBarTime">The bar time we should visually analyze the chart from. Optional</param>
+        /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         public SignalEventArgs(
             BarPoint level,
             BarPoint takeProfit,
-            BarPoint stopLoss, 
-            DateTime startViewBarTime = default)
+            BarPoint stopLoss,
+            DateTime startViewBarTime = default,
+            double? breakevenRatio = null)
         {
+            m_BreakevenRatio = breakevenRatio;
             Level = level;
             TakeProfit = takeProfit;
             StopLoss = stopLoss;
@@ -59,7 +64,6 @@ namespace TradeKit.EventArgs
 
 
         private double? m_BreakEvenPrice;
-        private const double BREAKEVEN_RATIO = 0.9;
 
         /// <summary>
         /// Gets the break even price.
@@ -68,14 +72,14 @@ namespace TradeKit.EventArgs
         {
             get
             {
-                if (!m_BreakEvenPrice.HasValue)
+                if (m_BreakevenRatio.HasValue && !m_BreakEvenPrice.HasValue)
                 {
                     bool isBool = TakeProfit > Level;
                     double tpLen = Math.Abs(Level.Value - TakeProfit.Value);
-                    m_BreakEvenPrice = TakeProfit.Value + tpLen * BREAKEVEN_RATIO * (isBool ? -1 : 1);
+                    m_BreakEvenPrice = TakeProfit.Value + tpLen * m_BreakevenRatio.Value * (isBool ? -1 : 1);
                 }
 
-                return m_BreakEvenPrice.Value;
+                return m_BreakEvenPrice ?? 0;
             }
         }
     }

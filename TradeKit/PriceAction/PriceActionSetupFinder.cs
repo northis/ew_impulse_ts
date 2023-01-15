@@ -16,8 +16,8 @@ namespace TradeKit.PriceAction
     /// <seealso cref="BaseSetupFinder&lt;PriceActionSignalEventArgs&gt;" />
     public class PriceActionSetupFinder : BaseSetupFinder<PriceActionSignalEventArgs>
     {
+        public double? BreakevenRatio { get; }
         private readonly IBarsProvider m_MainBarsProvider;
-        private readonly ElderScreensItem m_ElderScreensItem = null;
         private readonly SuperTrendItem m_SuperTrendItem = null;
         private const int DEPTH_SHOW = 10;
         private const double SL_ALLOWANCE = 0.05;
@@ -31,20 +31,19 @@ namespace TradeKit.PriceAction
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="symbol">The symbol.</param>
         /// <param name="useStrengthBar">Use "bar of the strength".</param>
-        /// <param name="elderScreensInputParams">Filter signals using "Three Elder's screens"</param>
         /// <param name="superTrendItem">Filter signals using  the "Super Trend" indicator</param>
         /// <param name="patterns">The patterns.</param>
+        /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         public PriceActionSetupFinder(
             IBarsProvider mainBarsProvider, 
             Symbol symbol,
             bool useStrengthBar = false,
-            ElderScreensItem elderScreensInputParams = null,
             SuperTrendItem superTrendItem = null,
-            HashSet<CandlePatternType> patterns = null) : base(mainBarsProvider, symbol)
+            HashSet<CandlePatternType> patterns = null,
+            double? breakevenRatio = null) : base(mainBarsProvider, symbol)
         {
-            //System.Diagnostics.Debugger.Launch();
+            BreakevenRatio = breakevenRatio;
             m_MainBarsProvider = mainBarsProvider;
-            m_ElderScreensItem = elderScreensInputParams;
             m_SuperTrendItem = superTrendItem;
             m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider, useStrengthBar, patterns);
 

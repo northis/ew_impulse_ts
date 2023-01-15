@@ -47,6 +47,9 @@ namespace TradeKit.Core
         public const int SUPERTREND_PERIOD = 10;
         public const double SUPERTREND_MULTIPLIER = 3;
 
+        public const double BREAKEVEN_MIN = 0;
+        public const double BREAKEVEN_MAX = 1;
+
         /// <summary>
         /// Gets the directory to save images.
         /// </summary>

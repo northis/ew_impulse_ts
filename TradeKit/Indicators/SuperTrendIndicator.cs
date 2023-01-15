@@ -1,5 +1,4 @@
-﻿using System;
-using cAlgo.API;
+﻿using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
 
@@ -46,6 +45,7 @@ namespace TradeKit.Indicators
         {
             double down = m_SuperTrend.DownTrend[index];
             double up = m_SuperTrend.UpTrend[index];
+
             bool isDownNan = double.IsNaN(down);
             bool isUpNan = double.IsNaN(up);
 
