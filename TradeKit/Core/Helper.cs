@@ -44,6 +44,9 @@ namespace TradeKit.Core
         public const int STOCHASTIC_D_PERIODS = 3;
         public const int STOCHASTIC_K_SLOWING = 3;
 
+        public const int SUPERTREND_PERIOD = 10;
+        public const double SUPERTREND_MULTIPLIER = 3;
+
         /// <summary>
         /// Gets the directory to save images.
         /// </summary>

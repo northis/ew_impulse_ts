@@ -30,6 +30,9 @@ namespace TradeKit.Indicators
         [Parameter(nameof(SignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
         public int SignalPeriods { get; set; }
 
+        /// <summary>
+        /// Gets or sets the MACD histogram.
+        /// </summary>
         [Output(nameof(Histogram), PlotType = PlotType.Histogram)]
         public IndicatorDataSeries Histogram { get; set; }
 

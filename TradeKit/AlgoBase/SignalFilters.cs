@@ -17,25 +17,48 @@ namespace TradeKit.AlgoBase
         private const int STOCHASTIC_DOWN_MIDDLE = 35;
 
         /// <summary>
+        /// Gets the trend based on the "Super trend" indicator.
+        /// </summary>
+        /// <param name="sti">The super trend input.</param>
+        /// <param name="dateTimeBar">The date and time of the current bar .</param>
+        public static TrendType GetTrend(SuperTrendItem sti, DateTime dateTimeBar)
+        {
+            int majorIndex = GetActualIndex(sti.BarsProvider, dateTimeBar);
+            if (majorIndex <= 0)
+                return TrendType.NoTrend;
+            
+            double res = sti.SuperTrend.Histogram[majorIndex];
+            if(res == 0)
+                return TrendType.NoTrend;
+            
+            return res > 0 ? TrendType.Bullish : TrendType.Bearish;
+        }
+
+        /// <summary>
+        /// Gets the actual index for other time frame.
+        /// </summary>
+        /// <param name="barProvider">The bar provider we want to find an index against.</param>
+        /// <param name="dateTimeBar">The date time bar.</param>
+        private static int GetActualIndex(IBarsProvider barProvider, DateTime dateTimeBar)
+        {
+            int majorIndex = barProvider.GetIndexByTime(dateTimeBar);
+            DateTime majorDateTime = barProvider.GetOpenTime(majorIndex);
+            if (majorDateTime <
+                majorDateTime + TimeFrameHelper.TimeFrames[barProvider.TimeFrame].TimeSpan / 2)
+                majorIndex--;
+
+            return majorIndex;
+        }
+
+        /// <summary>
         /// Gets the trend based on the "Three Elder's Screens" strategy.
         /// </summary>
         /// <param name="esi">The Elder's Screens input.</param>
         /// <param name="dateTimeBar">The date and time of the current bar (3rd screen).</param>
         public static TrendType GetElderTrend(ElderScreensItem esi, DateTime dateTimeBar)
         {
-            //Debugger.Launch();
-            int majorIndex = esi.BarsProviderMajor.GetIndexByTime(dateTimeBar);
-            int minorIndex = esi.BarsProviderMinor.GetIndexByTime(dateTimeBar);
-
-            DateTime majorDateTime = esi.BarsProviderMajor.GetOpenTime(majorIndex);
-            if (majorDateTime <
-                majorDateTime + TimeFrameHelper.TimeFrames[esi.BarsProviderMajor.TimeFrame].TimeSpan / 2)
-                majorIndex--;
-            
-            DateTime minorDateTime = esi.BarsProviderMinor.GetOpenTime(minorIndex);
-            if (minorDateTime <
-                minorDateTime + TimeFrameHelper.TimeFrames[esi.BarsProviderMinor.TimeFrame].TimeSpan / 2)
-                minorIndex--;
+            int majorIndex = GetActualIndex(esi.BarsProviderMajor, dateTimeBar);
+            int minorIndex = GetActualIndex(esi.BarsProviderMinor, dateTimeBar);
 
             if (majorIndex <= 0 || minorIndex <= 0)
                 return TrendType.NoTrend;
@@ -52,7 +75,7 @@ namespace TradeKit.AlgoBase
                 if (histValue <= 0 || histValue < histValuePrev)
                     return TrendType.NoTrend;
 
-                //if (/*stochasticValue >= STOCHASTIC_DOWN && */ stochasticValuePrev < STOCHASTIC_DOWN)
+                if (stochasticValue >= STOCHASTIC_DOWN && stochasticValuePrev < STOCHASTIC_DOWN)
                     return TrendType.Bullish;
 
                 return TrendType.NoTrend;
@@ -65,7 +88,7 @@ namespace TradeKit.AlgoBase
                 if (histValue >= 0 || histValue > histValuePrev)
                     return TrendType.NoTrend;
 
-                //if (/*stochasticValue <= STOCHASTIC_UP &&*/ stochasticValuePrev > STOCHASTIC_UP)
+                if(stochasticValue <= STOCHASTIC_UP && stochasticValuePrev > STOCHASTIC_UP)
                     return TrendType.Bearish;
 
                 return TrendType.NoTrend;

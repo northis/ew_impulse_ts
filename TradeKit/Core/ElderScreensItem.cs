@@ -15,8 +15,10 @@ namespace TradeKit.Core
         /// <param name="movingAverageMajor">The moving average indicator (1nd screen).</param>
         /// <param name="barsProviderMinor">The bars provider (2nd screen).</param>
         /// <param name="stochasticMinor">The stochastic indicator (2nd screen).</param>
-        public ElderScreensItem(IBarsProvider barsProviderMajor, MacdCrossOverIndicator macdCrossOverMajor,
-            MovingAverageIndicator movingAverageMajor, IBarsProvider barsProviderMinor,
+        public ElderScreensItem(IBarsProvider barsProviderMajor, 
+            MacdCrossOverIndicator macdCrossOverMajor,
+            MovingAverageIndicator movingAverageMajor, 
+            IBarsProvider barsProviderMinor,
             StochasticOscillatorIndicator stochasticMinor)
         {
             BarsProviderMajor = barsProviderMajor;

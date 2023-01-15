@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.Indicators;
 
 namespace TradeKit.PriceAction
 {
@@ -16,6 +18,7 @@ namespace TradeKit.PriceAction
     {
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly ElderScreensItem m_ElderScreensItem = null;
+        private readonly SuperTrendItem m_SuperTrendItem = null;
         private const int DEPTH_SHOW = 10;
         private const double SL_ALLOWANCE = 0.05;
         private readonly CandlePatternFinder m_CandlePatternFinder;
@@ -29,17 +32,20 @@ namespace TradeKit.PriceAction
         /// <param name="symbol">The symbol.</param>
         /// <param name="useStrengthBar">Use "bar of the strength".</param>
         /// <param name="elderScreensInputParams">Filter signals using "Three Elder's screens"</param>
+        /// <param name="superTrendItem">Filter signals using  the "Super Trend" indicator</param>
         /// <param name="patterns">The patterns.</param>
         public PriceActionSetupFinder(
             IBarsProvider mainBarsProvider, 
             Symbol symbol,
             bool useStrengthBar = false,
             ElderScreensItem elderScreensInputParams = null,
+            SuperTrendItem superTrendItem = null,
             HashSet<CandlePatternType> patterns = null) : base(mainBarsProvider, symbol)
         {
             //System.Diagnostics.Debugger.Launch();
             m_MainBarsProvider = mainBarsProvider;
             m_ElderScreensItem = elderScreensInputParams;
+            m_SuperTrendItem = superTrendItem;
             m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider, useStrengthBar, patterns);
 
             var comparer = new CandlesResultComparer();
@@ -82,9 +88,9 @@ namespace TradeKit.PriceAction
             {
                 PriceActionSignalEventArgs args = PriceActionSignalEventArgs.Create(
                     localPattern, price, m_MainBarsProvider, startIndex, index, SL_ALLOWANCE);
-                if (m_ElderScreensItem != null)
+                if (m_SuperTrendItem != null)
                 {
-                    TrendType trend = SignalFilters.GetElderTrend(m_ElderScreensItem, currentDt);
+                    TrendType trend = SignalFilters.GetTrend(m_SuperTrendItem, currentDt);
                     bool isBull = args.TakeProfit > args.StopLoss;
 
                     if (isBull && trend != TrendType.Bullish ||
