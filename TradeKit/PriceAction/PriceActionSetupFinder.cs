@@ -19,8 +19,11 @@ namespace TradeKit.PriceAction
         public double? BreakevenRatio { get; }
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly SuperTrendItem m_SuperTrendItem = null;
+        private readonly bool m_FilterByDivergence;
+        private readonly MacdCrossOverIndicator m_MacdCrossOver;
         private const int DEPTH_SHOW = 10;
-        private const double SL_ALLOWANCE = 0.05;
+        private const int DEPTH_DIVERGENCE_SEARCH = 10;
+        private const double SL_ALLOWANCE = 0.1;
         private readonly CandlePatternFinder m_CandlePatternFinder;
         private readonly Dictionary<CandlesResult, PriceActionSignalEventArgs> m_CandlePatternsEntryMap;
         private readonly HashSet<CandlesResult> m_PendingPatterns;
@@ -33,6 +36,8 @@ namespace TradeKit.PriceAction
         /// <param name="useStrengthBar">Use "bar of the strength".</param>
         /// <param name="superTrendItem">Filter signals using  the "Super Trend" indicator</param>
         /// <param name="patterns">The patterns.</param>
+        /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
+        /// <param name="macdCrossOver">MACD Cross Over.</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         public PriceActionSetupFinder(
             IBarsProvider mainBarsProvider, 
@@ -40,11 +45,15 @@ namespace TradeKit.PriceAction
             bool useStrengthBar = false,
             SuperTrendItem superTrendItem = null,
             HashSet<CandlePatternType> patterns = null,
+            bool filterByDivergence = false,
+            MacdCrossOverIndicator macdCrossOver = null,
             double? breakevenRatio = null) : base(mainBarsProvider, symbol)
         {
             BreakevenRatio = breakevenRatio;
             m_MainBarsProvider = mainBarsProvider;
             m_SuperTrendItem = superTrendItem;
+            m_FilterByDivergence = filterByDivergence;
+            m_MacdCrossOver = macdCrossOver;
             m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider, useStrengthBar, patterns);
 
             var comparer = new CandlesResultComparer();
@@ -87,10 +96,25 @@ namespace TradeKit.PriceAction
             {
                 PriceActionSignalEventArgs args = PriceActionSignalEventArgs.Create(
                     localPattern, price, m_MainBarsProvider, startIndex, index, SL_ALLOWANCE, BreakevenRatio);
+                bool isBull = args.TakeProfit > args.StopLoss;
+
+                if (m_MacdCrossOver != null)
+                {
+                    BarPoint divItem = SignalFilters.FindDivergence(
+                        m_MacdCrossOver,
+                        BarsProvider,
+                        new BarPoint(startIndex, m_MainBarsProvider),
+                        new BarPoint(index, m_MainBarsProvider),
+                        isBull);
+                    if (m_FilterByDivergence && divItem is null)
+                        return;
+
+                    args.DivergenceStart = divItem;
+                }
+
                 if (m_SuperTrendItem != null)
                 {
                     TrendType trend = SignalFilters.GetTrend(m_SuperTrendItem, currentDt);
-                    bool isBull = args.TakeProfit > args.StopLoss;
 
                     if (isBull && trend != TrendType.Bullish ||
                         !isBull && trend != TrendType.Bearish)

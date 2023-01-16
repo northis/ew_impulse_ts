@@ -57,7 +57,7 @@ namespace TradeKit.Indicators
 
             if (isDownNan)
             {
-                //double upPrev = m_SuperTrend.UpTrend[^1];
+                //double upPrev = m_SuperTrend.UpTrend[index-1];
                 //if (Math.Abs(upPrev - up) < double.Epsilon)
                 //{
                 //    Histogram[index] = 0;
@@ -69,7 +69,7 @@ namespace TradeKit.Indicators
             }
 
 
-            //double downPrev = m_SuperTrend.DownTrend[^1];
+            //double downPrev = m_SuperTrend.DownTrend[index-1];
             //if (Math.Abs(downPrev - down) < double.Epsilon)
             //{
             //    Histogram[index] = 0;
