@@ -123,15 +123,15 @@ namespace TradeKit.AlgoBase
             IBarsProvider barsProvider, BarPoint start, BarPoint end, bool isBullSignal)
         {
             double? foundDivValue = null;
-            int indexX = start.BarIndex;
-            int indexD = end.BarIndex;
+            int indexStart = start.BarIndex;
+            int indexEnd = end.BarIndex;
 
-            double macdD = macdCrossOver.Histogram[indexD];
-            for (int i = indexD - DIVERGENCE_OFFSET_SEARCH; i >= indexX; i--)
+            double macd = macdCrossOver.Histogram[indexEnd];
+            for (int i = indexEnd - DIVERGENCE_OFFSET_SEARCH; i >= indexStart; i--)
             {
                 double currentVal = macdCrossOver.Histogram[i];
-                if (macdD <= 0 && currentVal > 0 ||
-                    macdD >= 0 && currentVal < 0)
+                if (macd <= 0 && currentVal > 0 ||
+                    macd >= 0 && currentVal < 0)
                     break;
 
                 if (isBullSignal && barsProvider.GetLowPrice(i) < end.Value ||
@@ -139,8 +139,8 @@ namespace TradeKit.AlgoBase
                     break;
 
                 double histValue = macdCrossOver.Histogram[i];
-                if (isBullSignal && histValue <= macdD ||
-                    !isBullSignal && histValue >= macdD)
+                if (isBullSignal && histValue <= macd ||
+                    !isBullSignal && histValue >= macd)
                 {
                     // Find the inflection point of the histogram values
                     if (foundDivValue is null ||

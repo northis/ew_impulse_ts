@@ -1,4 +1,7 @@
-﻿using cAlgo.API;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
 
@@ -30,7 +33,6 @@ namespace TradeKit.Indicators
         /// </summary>
         [Parameter(nameof(SignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
         public int SignalPeriods { get; set; }
-
         /// <summary>
         /// Gets or sets the MACD histogram.
         /// </summary>
@@ -38,22 +40,10 @@ namespace TradeKit.Indicators
         public IndicatorDataSeries Histogram { get; set; }
 
         /// <summary>
-        /// Gets or sets the MACD series.
-        /// </summary>
-        [Output(nameof(MACD), LineStyle = LineStyle.Lines)]
-        public IndicatorDataSeries MACD { get; set; }
-
-        /// <summary>
-        /// The period used for the calculation of the signal.
-        /// </summary>
-        [Output(nameof(Signal), LineStyle = LineStyle.Lines)]
-        public IndicatorDataSeries Signal { get; set; }
-        
-        /// <summary>
         /// Gets or sets the MACD div histogram.
         /// </summary>
-        [Output(nameof(HistogramDiv), LineStyle = LineStyle.Lines)]
-        public IndicatorDataSeries HistogramDiv { get; set; }
+        [Output(nameof(HistogramLine), IsHistogram = true)]
+        public IndicatorDataSeries HistogramLine { get; set; }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -63,88 +53,73 @@ namespace TradeKit.Indicators
             m_MacdCrossOver = Indicators.MacdCrossOver(LongCycle, ShortCycle, SignalPeriods);
         }
 
-        private double? m_PrevPrice = null;
-        private double? m_PrevHist = null;
-        private bool? m_IsUpDivergence = null;
+        private const int DIVERGENCE_OFFSET_SEARCH = 2;
+        private const int DIVERGENCE_START_SEARCH = 30;
+
+        private int FindDivergence(int indexEnd)
+        {
+            double? foundDivValue = null;
+            int indexStart = indexEnd - DIVERGENCE_START_SEARCH;
+            double macd = m_MacdCrossOver.Histogram[indexEnd];
+            bool isBullSignal = macd < 0;
+            double value = Bars.ClosePrices[indexEnd];
+
+            for (int i = indexEnd - DIVERGENCE_OFFSET_SEARCH; i >= indexStart; i--)
+            {
+                double currentVal = m_MacdCrossOver.Histogram[i];
+                //if (macd <= 0 && currentVal > 0 ||
+                //    macd >= 0 && currentVal < 0)
+                //    break;
+
+                if (isBullSignal && Bars.LowPrices[i] < Bars.LowPrices[indexEnd] ||
+                    !isBullSignal && Bars.HighPrices[i] > Bars.HighPrices[indexEnd])
+                    break;
+
+                double histValue = m_MacdCrossOver.Histogram[i];
+                if (isBullSignal && histValue <= macd ||
+                    !isBullSignal && histValue >= macd)
+                {
+                    // Find the inflection point of the histogram values
+                    if (foundDivValue is null ||
+                        isBullSignal && currentVal <= foundDivValue ||
+                        !isBullSignal && currentVal >= foundDivValue)
+                    {
+                        foundDivValue = currentVal;
+                    }
+                    else
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
 
         /// <summary>
         /// Calculate the value(s) of indicator for the given index.
         /// </summary>
         public override void Calculate(int index)
         {
-            if (index <= 0) return;
-
-            double currentHist = m_MacdCrossOver.Histogram[index];
-            double currentPrice = Bars[index].Close;
-            Histogram[index] = currentHist;
-            MACD[index] = m_MacdCrossOver.MACD[index];
-            Signal[index] = m_MacdCrossOver.Signal[index];
-
-            if (m_PrevPrice.HasValue && m_PrevHist.HasValue)
+            double val = m_MacdCrossOver.Histogram[index];
+            Histogram[index] = val;
+            if (index == 0)
             {
-                if (m_PrevHist <= 0 && currentHist >= 0 || m_PrevHist >= 0 && currentHist <= 0 ||
-                    m_PrevHist < currentHist && m_PrevPrice < currentPrice ||
-                    m_PrevHist > currentHist && m_PrevPrice > currentPrice)
-                {
-                    HistogramDiv[index] = double.NaN;
-                    m_PrevHist = null;
-                    m_IsUpDivergence = null;
-                    return;
-                }
-                
-                if (currentHist > 0 && currentPrice > m_PrevPrice)
-                {
-                    m_PrevPrice = Bars[index].High;
-                    m_PrevHist = currentHist;
-                    HistogramDiv[index] = double.NaN;
-                    m_IsUpDivergence = null;
-                    return;
-                }
-
-                if (currentHist < 0 && currentPrice < m_PrevPrice)
-                {
-                    m_PrevPrice = Bars[index].Low;
-                    m_PrevHist = currentHist;
-                    HistogramDiv[index] = double.NaN;
-                    m_IsUpDivergence = null;
-                    m_PrevHist = null;
-                    return;
-                }
-
-                if (m_IsUpDivergence == true && currentHist< m_PrevHist||
-                    m_IsUpDivergence == false && currentHist > m_PrevHist)
-                {
-                    HistogramDiv[index] = double.NaN;
-                    m_IsUpDivergence = null;
-                    m_PrevHist = null;
-                    return;
-                }
-
-                if (currentHist > 0 && currentHist <= m_PrevHist && Bars[index].High > m_PrevPrice)
-                {
-                    m_PrevPrice = Bars[index].High;
-                    HistogramDiv[index] = -1;
-                    m_IsUpDivergence = false;
-                    return;
-                }
-
-                if (currentHist < 0 && currentHist >= m_PrevHist && Bars[index].Low < m_PrevPrice)
-                {
-                    m_PrevPrice = Bars[index].Low;
-                    HistogramDiv[index] = 1;
-                    m_IsUpDivergence = true;
-                    return;
-                }
-                
-                HistogramDiv[index] = 0;
+                HistogramLine[index] = double.NaN;
+                return;
             }
-            else
+
+            int divIndex = FindDivergence(index);
+            if (divIndex < 0)
             {
-                m_PrevPrice = Bars[index].Close;
-                m_PrevHist = m_MacdCrossOver.Histogram[index];
-                HistogramDiv[index] = double.NaN;
-                m_IsUpDivergence = null;
+                HistogramLine[index] = double.NaN;
+                return;
             }
+
+            HistogramLine[divIndex] = Histogram[divIndex];
+            HistogramLine[index] = val;
+
         }
     }
 }
