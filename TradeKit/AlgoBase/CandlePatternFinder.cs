@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.PriceAction;
@@ -41,8 +40,8 @@ namespace TradeKit.AlgoBase
                 {CPT.DOWN_PPR_IB, new CPS(false, -1, 4, 0)},
                 {CPT.UP_DOUBLE_INNER_BAR, new CPS(true, -1, 3, 0)},
                 {CPT.DOWN_DOUBLE_INNER_BAR, new CPS(false, -1, 3, 0)},
-                {CPT.UP_CPPR, new CPS(true, -1, 0, 0)},
-                {CPT.DOWN_CPPR, new CPS(false, -1, 0, 0)}
+                {CPT.UP_CPPR, new CPS(true, -1, 0)},
+                {CPT.DOWN_CPPR, new CPS(false, -1, 0)}
             };
 
         // Func - array of candles and count of the bars in the pattern
@@ -379,14 +378,20 @@ namespace TradeKit.AlgoBase
 
                     slIndex = barIndex - settings.StopLossBarIndex;
                 }
-                else// If we find min or max inside the bars belongs to the pattern
+                else if (settings.BarsCount == 0)
+                {
+                    // For CPPR we want to use the 1st candle in the pattern
+                    Candle firstBar = candles[^barsCount];
+                    sl = settings.IsBull ? firstBar.L : firstBar.H;
+                }
+                else // If we find min or max inside the bars belongs to the pattern
                 {
                     double max = double.MinValue;
                     double min = double.MaxValue;
 
                     for (int i = 0; i < barsCount; i++)
                     {
-                        int j = i + 1;// We count from the end of array
+                        int j = i + 1; // We count from the end of array
                         if (candles[^j].H > max)
                         {
                             max = candles[^j].H;
