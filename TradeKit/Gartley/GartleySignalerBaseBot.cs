@@ -32,7 +32,7 @@ namespace TradeKit.Gartley
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
 
-        private const int TREND_RATIO = 4;
+        private const int TREND_RATIO = 2;
         #region Input parameters
 
         /// <summary>
@@ -106,24 +106,6 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(FilterByAccuracy), DefaultValue = 0, MaxValue = 100)]
         public int FilterByAccuracy { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover long cycle (bars).
-        /// </summary>
-        [Parameter(nameof(MACDLongCycle), DefaultValue = Helper.MACD_LONG_CYCLE)]
-        public int MACDLongCycle { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover short cycle (bars).
-        /// </summary>
-        [Parameter(nameof(MACDShortCycle), DefaultValue = Helper.MACD_SHORT_CYCLE)]
-        public int MACDShortCycle { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover signal periods (bars).
-        /// </summary>
-        [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
-        public int MACDSignalPeriods { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
@@ -370,7 +352,7 @@ namespace TradeKit.Gartley
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
             MacdCrossOverIndicator macdCrossover = UseDivergences
-                ? Indicators.GetIndicator<MacdCrossOverIndicator>(bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
+                ? Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS)
                 : null;
             
             SuperTrendItem superTrendItem = null;

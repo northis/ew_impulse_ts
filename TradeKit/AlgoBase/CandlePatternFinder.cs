@@ -151,11 +151,11 @@ namespace TradeKit.AlgoBase
         private static int GetCPprCount(Candle[] c, bool isUp)
         {
             Candle last = c[^1];
-            for (int i = c.Length - 4; i >= 0; i--)
+            for (int i = c.Length - 3; i >= 0; i--)
             {
                 Candle rangeL = c[i];
                 bool isInside = true;
-                for (int j = i; j < c.Length - 1; j++)
+                for (int j = i; j < c.Length; j++)
                 {
                     if (rangeL.H < c[j].H || rangeL.L > c[j].L)
                     {
@@ -164,11 +164,7 @@ namespace TradeKit.AlgoBase
                     }
                 }
 
-                if (!isInside)
-                    continue;
-
-                if (isUp && last.H > rangeL.H ||
-                    !isUp && last.L < rangeL.L)
+                if (isInside)
                     return c.Length - i;
             }
 
@@ -368,7 +364,8 @@ namespace TradeKit.AlgoBase
 
                 double sl;
                 int slIndex = 0;
-
+                double? limitPrice = null;
+                
                 if (settings.StopLossBarIndex >= 0)// If we know the extremum bar index
                 {
                     int offset = settings.StopLossBarIndex + 1;
@@ -382,7 +379,18 @@ namespace TradeKit.AlgoBase
                 {
                     // For CPPR we want to use the 1st candle in the pattern
                     Candle firstBar = candles[^barsCount];
-                    sl = settings.IsBull ? firstBar.L : firstBar.H;
+                    if (settings.IsBull)
+                    {
+                        sl = firstBar.L;
+                        limitPrice = firstBar.H;
+                    }
+                    else
+                    {
+                        sl = firstBar.H;
+                        limitPrice = firstBar.L;
+                    }
+
+                    slIndex = barIndex - barsCount;
                 }
                 else // If we find min or max inside the bars belongs to the pattern
                 {
@@ -413,7 +421,6 @@ namespace TradeKit.AlgoBase
                 if (sl == 0)
                     continue;
 
-                double? limitPrice = null;
                 if (settings.LimitPriceBarIndex.HasValue)
                 {
                     int offset = settings.LimitPriceBarIndex.Value + 1;
