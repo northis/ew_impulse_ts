@@ -24,11 +24,6 @@ namespace TradeKit.EventArgs
         public CandlesResult ResultPattern { get; }
 
         /// <summary>
-        /// Gets or sets a possible divergence start point
-        /// </summary>
-        public BarPoint DivergenceStart { get; set; }
-
-        /// <summary>
         /// Creates the instance from the specified local pattern.
         /// </summary>
         /// <param name="localPattern">The local pattern.</param>

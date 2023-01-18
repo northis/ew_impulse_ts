@@ -16,9 +16,11 @@
         DOWN_PPR,
         UP_RAILS,
         DOWN_RAILS,
-        UP_BOWMAN,
-        DOWN_BOWMAN,
+        UP_PPR_IB,
+        DOWN_PPR_IB,
         UP_DOUBLE_INNER_BAR,
-        DOWN_DOUBLE_INNER_BAR //TODO add CPPR
+        DOWN_DOUBLE_INNER_BAR,
+        UP_CPPR,
+        DOWN_CPPR,
     }
 }

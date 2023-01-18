@@ -30,7 +30,7 @@ namespace TradeKit.Gartley
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="symbol">The symbol.</param>
-        /// <param name="shadowAllowance">The correction allowance percent.</param>
+        /// <param name="WickAllowance">The correction allowance percent.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
         /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
         /// <param name="filterByAccuracyPercent">Accuracy filter.</param>
@@ -41,7 +41,7 @@ namespace TradeKit.Gartley
         public GartleySetupFinder(
             IBarsProvider mainBarsProvider,
             Symbol symbol,
-            double shadowAllowance,
+            double WickAllowance,
             int barsDepth,
             bool filterByDivergence,
             int filterByAccuracyPercent,
@@ -58,7 +58,7 @@ namespace TradeKit.Gartley
             m_MacdCrossOver = macdCrossOver;
             m_BreakevenRatio = breakevenRatio;
             m_PatternFinder = new GartleyPatternFinder(
-                m_MainBarsProvider, shadowAllowance, patterns);
+                m_MainBarsProvider, WickAllowance, patterns);
 
             var comparer = new GartleyItemComparer();
             m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);

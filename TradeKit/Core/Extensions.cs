@@ -77,10 +77,12 @@ namespace TradeKit.Core
             {CandlePatternType.HAMMER, "↑\nH"},
             {CandlePatternType.UP_RAILS, "↑\nR"},
             {CandlePatternType.DOWN_RAILS, "R\n↓"},
-            {CandlePatternType.UP_BOWMAN, " ↑\nBM"},
-            {CandlePatternType.DOWN_BOWMAN, "BM\n ↓"},
+            {CandlePatternType.UP_PPR_IB, "  ↑\nP+I"},
+            {CandlePatternType.DOWN_PPR_IB, "P+I\n  ↓"},
             {CandlePatternType.UP_DOUBLE_INNER_BAR, "  ↑\nDIB"},
-            {CandlePatternType.DOWN_DOUBLE_INNER_BAR, "DIB\n  ↓"}
+            {CandlePatternType.DOWN_DOUBLE_INNER_BAR, "DIB\n  ↓"},
+            {CandlePatternType.UP_CPPR, "   ↑\nCPPR"},
+            {CandlePatternType.DOWN_CPPR, "CPPR\n   ↓"}
         };
 
         /// <summary>

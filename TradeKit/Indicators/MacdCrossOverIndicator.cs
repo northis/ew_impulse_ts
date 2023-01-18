@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using cAlgo.API;
+﻿using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
 
@@ -40,12 +37,6 @@ namespace TradeKit.Indicators
         public IndicatorDataSeries Histogram { get; set; }
 
         /// <summary>
-        /// Gets or sets the MACD div histogram.
-        /// </summary>
-        [Output(nameof(HistogramLine), IsHistogram = true)]
-        public IndicatorDataSeries HistogramLine { get; set; }
-
-        /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
         protected override void Initialize()
@@ -53,73 +44,12 @@ namespace TradeKit.Indicators
             m_MacdCrossOver = Indicators.MacdCrossOver(LongCycle, ShortCycle, SignalPeriods);
         }
 
-        private const int DIVERGENCE_OFFSET_SEARCH = 2;
-        private const int DIVERGENCE_START_SEARCH = 30;
-
-        private int FindDivergence(int indexEnd)
-        {
-            double? foundDivValue = null;
-            int indexStart = indexEnd - DIVERGENCE_START_SEARCH;
-            double macd = m_MacdCrossOver.Histogram[indexEnd];
-            bool isBullSignal = macd < 0;
-            double value = Bars.ClosePrices[indexEnd];
-
-            for (int i = indexEnd - DIVERGENCE_OFFSET_SEARCH; i >= indexStart; i--)
-            {
-                double currentVal = m_MacdCrossOver.Histogram[i];
-                //if (macd <= 0 && currentVal > 0 ||
-                //    macd >= 0 && currentVal < 0)
-                //    break;
-
-                if (isBullSignal && Bars.LowPrices[i] < Bars.LowPrices[indexEnd] ||
-                    !isBullSignal && Bars.HighPrices[i] > Bars.HighPrices[indexEnd])
-                    break;
-
-                double histValue = m_MacdCrossOver.Histogram[i];
-                if (isBullSignal && histValue <= macd ||
-                    !isBullSignal && histValue >= macd)
-                {
-                    // Find the inflection point of the histogram values
-                    if (foundDivValue is null ||
-                        isBullSignal && currentVal <= foundDivValue ||
-                        !isBullSignal && currentVal >= foundDivValue)
-                    {
-                        foundDivValue = currentVal;
-                    }
-                    else
-                    {
-                        return i;
-                    }
-                }
-            }
-
-            return -1;
-        }
-
-
         /// <summary>
         /// Calculate the value(s) of indicator for the given index.
         /// </summary>
         public override void Calculate(int index)
         {
-            double val = m_MacdCrossOver.Histogram[index];
-            Histogram[index] = val;
-            if (index == 0)
-            {
-                HistogramLine[index] = double.NaN;
-                return;
-            }
-
-            int divIndex = FindDivergence(index);
-            if (divIndex < 0)
-            {
-                HistogramLine[index] = double.NaN;
-                return;
-            }
-
-            HistogramLine[divIndex] = Histogram[divIndex];
-            HistogramLine[index] = val;
-
+            Histogram[index] = m_MacdCrossOver.Histogram[index];
         }
     }
 }

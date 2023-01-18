@@ -9,7 +9,7 @@ namespace TradeKit.AlgoBase
 {
     internal class GartleyPatternFinder
     {
-        private readonly double m_ShadowAllowanceRatio;
+        private readonly double m_WickAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
         private const int GARTLEY_EXTREMA_COUNT = 6;
         private const int PRE_X_EXTREMA_BARS_COUNT = 7;
@@ -92,19 +92,19 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
         /// </summary>
-        /// <param name="shadowAllowance">The correction allowance percent.</param>
+        /// <param name="WickAllowance">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             IBarsProvider barsProvider, 
-            double shadowAllowance, 
+            double WickAllowance, 
             HashSet<GartleyPatternType> patterns = null)
         {
-            if (shadowAllowance is < 0 or > 100)
+            if (WickAllowance is < 0 or > 100)
                 throw new ValueOutOfRangeException(
-                    $"{nameof(shadowAllowance)} should be between 0 and 100");
+                    $"{nameof(WickAllowance)} should be between 0 and 100");
 
-            m_ShadowAllowanceRatio = shadowAllowance / 100;
+            m_WickAllowanceRatio = WickAllowance / 100;
             m_BarsProvider = barsProvider;
             m_RealPatterns = patterns == null
                 ? PATTERNS
@@ -208,7 +208,7 @@ namespace TradeKit.AlgoBase
                 return null;
 
             double valCtoD = Math.Abs(pointC.Value - pointD.Value);
-            double allowance = valCtoD * m_ShadowAllowanceRatio;
+            double allowance = valCtoD * m_WickAllowanceRatio;
             double varC = pointC.Value;
             List<GartleyItem> res = null;
 
@@ -465,7 +465,7 @@ namespace TradeKit.AlgoBase
             double FetchCloseValue(double[] values, double similarValue)
             {
                 double fetched = (from val in values
-                    let allowance = val * m_ShadowAllowanceRatio
+                    let allowance = val * m_WickAllowanceRatio
                     where Math.Abs(similarValue - val) < allowance
                     select val).FirstOrDefault();
 

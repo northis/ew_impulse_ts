@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
-using TradeKit.Indicators;
 
 namespace TradeKit.PriceAction
 {
@@ -21,7 +19,6 @@ namespace TradeKit.PriceAction
         private Color m_PatternBullColor;
         private Color m_SlColor;
         private Color m_TpColor;
-        private readonly bool m_FilterByDivergence;
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
         private const int TREND_RATIO = 2;
@@ -37,36 +34,6 @@ namespace TradeKit.PriceAction
         /// </summary>
         [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
         public bool UseTrendOnly { get; set; }
-        
-        /// <summary>
-        /// Gets or sets MACD Crossover long cycle (bars).
-        /// </summary>
-        [Parameter(nameof(MACDLongCycle), DefaultValue = Helper.MACD_LONG_CYCLE)]
-        public int MACDLongCycle { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover short cycle (bars).
-        /// </summary>
-        [Parameter(nameof(MACDShortCycle), DefaultValue = Helper.MACD_SHORT_CYCLE)]
-        public int MACDShortCycle { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover signal periods (bars).
-        /// </summary>
-        [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
-        public int MACDSignalPeriods { get; set; }
-        
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use divergences with the patterns.
-        /// </summary>
-        [Parameter(nameof(UseDivergences), DefaultValue = false)]
-        public bool UseDivergences { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should show divergences with the patterns.
-        /// </summary>
-        [Parameter(nameof(ShowDivergences), DefaultValue = true)]
-        public bool ShowDivergences { get; set; }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -91,14 +58,9 @@ namespace TradeKit.PriceAction
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)
                 breakEvenRatio = BreakEvenRatio;
-            
-            MacdCrossOverIndicator macdCrossover = UseDivergences || ShowDivergences
-                ? Indicators.GetIndicator<MacdCrossOverIndicator>(Bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
-                : null;
 
             var setupFinder = new PriceActionSetupFinder(
-                m_BarsProvider, Symbol, UseStrengthBar, superTrendItem, patternTypes, UseDivergences, macdCrossover,
-                breakEvenRatio);
+                m_BarsProvider, Symbol, UseStrengthBar, superTrendItem, patternTypes, breakEvenRatio);
             Subscribe(setupFinder);
         }
 
@@ -144,6 +106,13 @@ namespace TradeKit.PriceAction
         [Parameter("PPR", DefaultValue = true)]
         public bool Ppr { get; set; }
 
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_CPPR"/> and <see cref="CandlePatternType.DOWN_CPPR"/> patterns.
+        /// </summary>
+        [Parameter("CPPR", DefaultValue = true)]
+        public bool CPpr { get; set; }
+
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_RAILS"/> and <see cref="CandlePatternType.DOWN_RAILS"/> pattern.
         /// </summary>
@@ -151,10 +120,10 @@ namespace TradeKit.PriceAction
         public bool Rails { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_BOWMAN"/> and <see cref="CandlePatternType.DOWN_BOWMAN"/> pattern.
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PPR_IB"/> and <see cref="CandlePatternType.DOWN_PPR_IB"/> pattern.
         /// </summary>
-        [Parameter("Bowman", DefaultValue = true)]
-        public bool Bowman { get; set; }
+        [Parameter("PPR+Inner Bar", DefaultValue = true)]
+        public bool PprIb { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should show only patterns with "the strength bar".
@@ -225,10 +194,16 @@ namespace TradeKit.PriceAction
                 res.Add(CandlePatternType.DOWN_RAILS);
             }
 
-            if (Bowman)
+            if (PprIb)
             {
-                res.Add(CandlePatternType.UP_BOWMAN);
-                res.Add(CandlePatternType.DOWN_BOWMAN);
+                res.Add(CandlePatternType.UP_PPR_IB);
+                res.Add(CandlePatternType.DOWN_PPR_IB);
+            }
+
+            if (CPpr)
+            {
+                res.Add(CandlePatternType.UP_CPPR);
+                res.Add(CandlePatternType.DOWN_CPPR);
             }
 
             return res;
@@ -303,12 +278,6 @@ namespace TradeKit.PriceAction
                 Chart.DrawRectangle($"TP{name}", levelIndex, e.Level.Value, levelIndex + SETUP_WIDTH,
                         e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
                     .SetFilled();
-            }
-
-            BarPoint div = e.DivergenceStart;
-            if (ShowDivergences && div is not null)
-            {
-                //Chart.DrawTrendLine($"Div{name}", div.BarIndex, div.Value, e.ResultPattern., valueD, colorBorder, DIV_LINE_WIDTH);
             }
         }
     }

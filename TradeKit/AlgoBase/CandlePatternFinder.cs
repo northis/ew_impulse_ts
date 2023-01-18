@@ -19,6 +19,7 @@ namespace TradeKit.AlgoBase
         private readonly HashSet<CPT> m_Patterns;
         private const double ONE_CANDLE_RATIO = 0.7;
         private const int MIN_BARS_INDEX = 3;//0,1,2,3
+        private const int CPPR_MAX_INDEX = 10;
 
         private readonly Dictionary<CPT, CPS>
             m_PatternDirectionMap = new()
@@ -37,10 +38,12 @@ namespace TradeKit.AlgoBase
                 {CPT.DOWN_PPR, new CPS(false, 1, 3)},
                 {CPT.UP_RAILS, new CPS(true, -1, 2, 0)},
                 {CPT.DOWN_RAILS, new CPS(false, -1, 2, 0)},
-                {CPT.UP_BOWMAN, new CPS(true, -1, 4, 0)},
-                {CPT.DOWN_BOWMAN, new CPS(false, -1, 4, 0)},
+                {CPT.UP_PPR_IB, new CPS(true, -1, 4, 0)},
+                {CPT.DOWN_PPR_IB, new CPS(false, -1, 4, 0)},
                 {CPT.UP_DOUBLE_INNER_BAR, new CPS(true, -1, 3, 0)},
-                {CPT.DOWN_DOUBLE_INNER_BAR, new CPS(false, -1, 3, 0)}
+                {CPT.DOWN_DOUBLE_INNER_BAR, new CPS(false, -1, 3, 0)},
+                {CPT.UP_CPPR, new CPS(true, -1, 0, 0)},
+                {CPT.DOWN_CPPR, new CPS(false, -1, 0, 0)}
             };
 
         private static readonly Dictionary<CPT, Func<Candle[], bool>>
@@ -99,18 +102,37 @@ namespace TradeKit.AlgoBase
                     CPT.DOWN_RAILS, c => IsRails(c, false)
                 },
                 {
-                    CPT.UP_BOWMAN, IsBowman
+                    CPT.UP_PPR_IB, IsPprAndIb
                 },
                 {
-                    CPT.DOWN_BOWMAN, IsBowman
+                    CPT.DOWN_PPR_IB, IsPprAndIb
                 },
                 {
                     CPT.UP_DOUBLE_INNER_BAR, c => IsDoubleInnerBar(c, true)
                 },
                 {
                     CPT.DOWN_DOUBLE_INNER_BAR, c => IsDoubleInnerBar(c, false)
+                },
+                {
+                    CPT.UP_CPPR, c => IsCPpr(c, true)
+                },
+                {
+                    CPT.DOWN_CPPR, c => IsCPpr(c, false)
                 }
             };
+
+        private static bool IsCPpr(Candle[] c, bool isUp)
+        {
+            bool res = false;
+            if (isUp)
+            {
+            }
+            else
+            {
+            }
+
+            return false;
+        }
 
         private static bool IsPinBar(Candle[] c, bool isUp)
         {
@@ -211,7 +233,7 @@ namespace TradeKit.AlgoBase
             return res;
         }
 
-        private static bool IsBowman(Candle[] c)
+        private static bool IsPprAndIb(Candle[] c)
         {
             Candle[] ppr = c[..^1];
             bool res = IsPpr(ppr, false) && IsInnerBar(c, true) ||
