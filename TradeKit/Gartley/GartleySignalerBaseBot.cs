@@ -32,7 +32,7 @@ namespace TradeKit.Gartley
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
 
-        private const int TREND_RATIO = 2;
+        private const int TREND_RATIO = 1;
         #region Input parameters
 
         /// <summary>

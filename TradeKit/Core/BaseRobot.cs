@@ -119,7 +119,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets the time frames we should use.
         /// </summary>
-        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute5,Minute10,Minute15,Minute20,Minute30,Minute45")]
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute15,Minute20,Minute30,Minute45")]
         public string TimeFramesToProceed { get; set; }
 
         /// <summary>

@@ -104,24 +104,6 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(UseDivergences), DefaultValue = false)]
         public bool UseDivergences { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover long cycle (bars).
-        /// </summary>
-        [Parameter(nameof(MACDLongCycle), DefaultValue = Helper.MACD_LONG_CYCLE)]
-        public int MACDLongCycle { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover short cycle (bars).
-        /// </summary>
-        [Parameter(nameof(MACDShortCycle), DefaultValue = Helper.MACD_SHORT_CYCLE)]
-        public int MACDShortCycle { get; set; }
-
-        /// <summary>
-        /// Gets or sets MACD Crossover signal periods (bars).
-        /// </summary>
-        [Parameter(nameof(MACDSignalPeriods), DefaultValue = Helper.MACD_SIGNAL_PERIODS)]
-        public int MACDSignalPeriods { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
@@ -175,7 +157,8 @@ namespace TradeKit.Gartley
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
             MacdCrossOverIndicator macdCrossover = UseDivergences || ShowDivergences
-                ? Indicators.GetIndicator<MacdCrossOverIndicator>(Bars, MACDLongCycle, MACDShortCycle, MACDSignalPeriods)
+                ? Indicators.GetIndicator<MacdCrossOverIndicator>(Bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE,
+                    Helper.MACD_SIGNAL_PERIODS)
                 : null;
 
             SuperTrendItem superTrendItem = null;
