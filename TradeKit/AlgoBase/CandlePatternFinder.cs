@@ -155,9 +155,9 @@ namespace TradeKit.AlgoBase
             {
                 Candle rangeL = c[i];
                 bool isInside = true;
-                for (int j = i; j < c.Length; j++)
+                for (int j = i + 1; j < c.Length; j++)
                 {
-                    if (rangeL.H < c[j].H || rangeL.L > c[j].L)
+                    if (rangeL.H <= c[j].H || rangeL.L >= c[j].L)
                     {
                         isInside = false;
                         break;

@@ -21,7 +21,7 @@ namespace TradeKit.PriceAction
         private Color m_TpColor;
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
-        private const int TREND_RATIO = 2;
+        private const int TREND_RATIO = 3;
 
         /// <summary>
         /// Gets or sets a breakeven level. Use 0 to disable

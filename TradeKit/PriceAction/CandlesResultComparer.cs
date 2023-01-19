@@ -20,7 +20,7 @@ namespace TradeKit.PriceAction
             if (ReferenceEquals(y, null)) return false;
             if (x.GetType() != y.GetType()) return false;
 
-            return Equals(x.BarIndex, y.BarIndex) && Equals(x.Type, y.Type);
+            return Equals(x.StopLossBarIndex, y.StopLossBarIndex) && Equals(x.Type, y.Type);
         }
 
         /// <summary>
@@ -35,7 +35,7 @@ namespace TradeKit.PriceAction
             var hashCode = new HashCode();
 
             hashCode.Add(obj.Type);
-            hashCode.Add(obj.BarIndex);
+            hashCode.Add(obj.StopLossBarIndex);
             return hashCode.ToHashCode();
         }
     }
