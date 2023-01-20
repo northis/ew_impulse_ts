@@ -22,6 +22,7 @@ namespace TradeKit.Gartley
         private readonly MacdCrossOverIndicator m_MacdCrossOver;
         private readonly double? m_BreakevenRatio;
         private readonly GartleyPatternFinder m_PatternFinder;
+        //private readonly CandlePatternFinder m_CandlePatternFinder;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
         private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
 
@@ -57,6 +58,9 @@ namespace TradeKit.Gartley
             m_SuperTrendItem = superTrendItem;
             m_MacdCrossOver = macdCrossOver;
             m_BreakevenRatio = breakevenRatio;
+
+            //m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider);
+
             m_PatternFinder = new GartleyPatternFinder(
                 m_MainBarsProvider, wickAllowance, patterns);
 
@@ -110,6 +114,18 @@ namespace TradeKit.Gartley
                     if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)))
                         continue;
 
+                    //List<CandlesResult> pattern = m_CandlePatternFinder.GetCandlePatterns(localPattern.ItemD.BarIndex);
+
+                    //if (pattern == null || pattern.Count ==0)
+                    //    continue;
+
+                    //bool isBullPattern = pattern.All(a=>a.IsBull);
+                    //bool isBearishPattern = pattern.All(a => !a.IsBull);
+
+                    //if (localPattern.IsBull && !isBullPattern ||
+                    //    !localPattern.IsBull && isBearishPattern)
+                    //    continue;
+
                     if (m_SuperTrendItem != null)
                     {
                         // We want to find the trend before the pattern
@@ -132,28 +148,28 @@ namespace TradeKit.Gartley
                     if (m_MacdCrossOver != null)
                     {
                         divItem = SignalFilters.FindDivergence(
-                            m_MacdCrossOver, 
-                            BarsProvider, 
-                            localPattern.ItemX, 
-                            localPattern.ItemD, 
+                            m_MacdCrossOver,
+                            BarsProvider,
+                            localPattern.ItemX,
+                            localPattern.ItemD,
                             localPattern.ItemX.Value < localPattern.ItemA.Value);
                         if (m_FilterByDivergence && divItem is null)
                             continue;
                     }
 
-                    if (m_FilterByAccuracyPercent > 0 && 
+                    if (m_FilterByAccuracyPercent > 0 &&
                         localPattern.AccuracyPercent < m_FilterByAccuracyPercent)
                     {
                         continue;
                     }
-                    
+
                     //System.Diagnostics.Debugger.Launch();
                     DateTime startView = m_MainBarsProvider.GetOpenTime(
                         localPattern.ItemX.BarIndex);
 
                     var args = new GartleySignalEventArgs(
                         new BarPoint(close, index, m_MainBarsProvider),
-                        localPattern, startView, divItem, m_BreakevenRatio);
+                        localPattern, startView, null, m_BreakevenRatio);
                     m_PatternsEntryMap[localPattern] = args;
                     OnEnterInvoke(args);
                     Logger.Write($"Added {localPattern.PatternType}");

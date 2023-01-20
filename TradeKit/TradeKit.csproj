@@ -57,6 +57,7 @@
     <Compile Include="PriceAction\CandlesResultComparer.cs" />
     <Compile Include="PriceAction\PriceActionBaseIndicator.cs" />
     <Compile Include="PriceAction\PriceActionSetupFinder.cs" />
+    <Compile Include="PriceAction\PriceActionSignalerBaseBot.cs" />
     <Compile Include="Signals\NullParseSetupFinder.cs" />
     <Compile Include="Core\CTraderBarsProvider.cs" />
     <Compile Include="EventArgs\ImpulseSignalEventArgs.cs" />

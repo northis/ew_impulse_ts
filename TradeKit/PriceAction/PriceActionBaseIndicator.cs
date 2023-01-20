@@ -21,19 +21,7 @@ namespace TradeKit.PriceAction
         private Color m_TpColor;
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
-        private const int TREND_RATIO = 3;
-
-        /// <summary>
-        /// Gets or sets a breakeven level. Use 0 to disable
-        /// </summary>
-        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
-        public double BreakEvenRatio { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use only trend patterns.
-        /// </summary>
-        [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
-        public bool UseTrendOnly { get; set; }
+        private const int TREND_RATIO = 1;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -63,6 +51,18 @@ namespace TradeKit.PriceAction
                 m_BarsProvider, Symbol, UseStrengthBar, superTrendItem, patternTypes, breakEvenRatio);
             Subscribe(setupFinder);
         }
+
+        /// <summary>
+        /// Gets or sets a breakeven level. Use 0 to disable
+        /// </summary>
+        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
+        public double BreakEvenRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use only trend patterns.
+        /// </summary>
+        [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
+        public bool UseTrendOnly { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.HAMMER"/> and <see cref="CandlePatternType.INVERTED_HAMMER"/> patterns.
@@ -105,7 +105,6 @@ namespace TradeKit.PriceAction
         /// </summary>
         [Parameter("PPR", DefaultValue = true)]
         public bool Ppr { get; set; }
-
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_CPPR"/> and <see cref="CandlePatternType.DOWN_CPPR"/> patterns.

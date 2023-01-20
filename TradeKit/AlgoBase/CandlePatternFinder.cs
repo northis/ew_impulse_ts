@@ -50,13 +50,13 @@ namespace TradeKit.AlgoBase
             {
                 {
                     CPT.HAMMER, cls => IsOneCandlePattern(cls[^1],
-                        (c, r) => c.O < c.C && c.O < c.H - r && c.C < c.H - r)
+                        (c, r) => c.O > c.C && c.O > c.L + r && c.C > c.L + r)
                         ? PATTERN_DIRECTION_MAP[CPT.HAMMER].BarsCount
                         : 0
                 },
                 {
                     CPT.INVERTED_HAMMER, cls => IsOneCandlePattern(cls[^1],
-                        (c, r) => c.O > c.C && c.O > c.L + r && c.C > c.L + r)
+                        (c, r) => c.O < c.C && c.O < c.H - r && c.C < c.H - r)
                         ? PATTERN_DIRECTION_MAP[CPT.INVERTED_HAMMER].BarsCount
                         : 0
                 },
