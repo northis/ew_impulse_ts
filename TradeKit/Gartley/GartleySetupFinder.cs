@@ -111,7 +111,7 @@ namespace TradeKit.Gartley
             {
                 foreach (GartleyItem localPattern in localPatterns)
                 {
-                    if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)))
+                    if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) || m_PatternsEntryMap.ContainsKey(localPattern))
                         continue;
 
                     //List<CandlesResult> pattern = m_CandlePatternFinder.GetCandlePatterns(localPattern.ItemD.BarIndex);
@@ -163,15 +163,16 @@ namespace TradeKit.Gartley
                         continue;
                     }
 
-                    //System.Diagnostics.Debugger.Launch();
                     DateTime startView = m_MainBarsProvider.GetOpenTime(
                         localPattern.ItemX.BarIndex);
 
                     var args = new GartleySignalEventArgs(
                         new BarPoint(close, index, m_MainBarsProvider),
-                        localPattern, startView, null, m_BreakevenRatio);
-                    m_PatternsEntryMap[localPattern] = args;
+                        localPattern, startView, divItem, m_BreakevenRatio);
+
+                    //System.Diagnostics.Debugger.Launch();
                     OnEnterInvoke(args);
+                    m_PatternsEntryMap[localPattern] = args;
                     Logger.Write($"Added {localPattern.PatternType}");
                 }
             }

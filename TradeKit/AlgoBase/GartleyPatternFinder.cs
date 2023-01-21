@@ -92,19 +92,19 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
         /// </summary>
-        /// <param name="WickAllowance">The correction allowance percent.</param>
+        /// <param name="wickAllowance">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             IBarsProvider barsProvider, 
-            double WickAllowance, 
+            double wickAllowance, 
             HashSet<GartleyPatternType> patterns = null)
         {
-            if (WickAllowance is < 0 or > 100)
+            if (wickAllowance is < 0 or > 100)
                 throw new ValueOutOfRangeException(
-                    $"{nameof(WickAllowance)} should be between 0 and 100");
+                    $"{nameof(wickAllowance)} should be between 0 and 100");
 
-            m_WickAllowanceRatio = WickAllowance / 100;
+            m_WickAllowanceRatio = wickAllowance / 100;
             m_BarsProvider = barsProvider;
             m_RealPatterns = patterns == null
                 ? PATTERNS
@@ -179,7 +179,7 @@ namespace TradeKit.AlgoBase
                 }
 
                 var pointC = new BarPoint(cValue, i, m_BarsProvider);
-                List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull);
+                List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull, startIndex);
                 if (patternsIn != null)
                 {
                     patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
@@ -202,7 +202,7 @@ namespace TradeKit.AlgoBase
         }
 
         private List<GartleyItem> FindPatternAgainstC(
-            BarPoint pointD, BarPoint pointC, bool isBull)
+            BarPoint pointD, BarPoint pointC, bool isBull, int startIndex)
         {
             if (pointC is null || pointD is null)
                 return null;
@@ -245,7 +245,7 @@ namespace TradeKit.AlgoBase
                 double bMax = m_BarsProvider.GetHighPrice(nextCIndex);
                 double bMin = m_BarsProvider.GetLowPrice(nextCIndex);
 
-                for (int i = nextCIndex; i >= 0; i--)
+                for (int i = nextCIndex; i >= startIndex; i--)
                 {
                     double lMax = m_BarsProvider.GetHighPrice(i);
                     double lMin = m_BarsProvider.GetLowPrice(i);
@@ -347,7 +347,7 @@ namespace TradeKit.AlgoBase
                                 int nextXIndex = pointA.BarIndex - 1;
                                 double xMax = m_BarsProvider.GetHighPrice(nextXIndex);
                                 double xMin = m_BarsProvider.GetLowPrice(nextXIndex);
-                                for (int k = nextXIndex; k >= 0; k--)
+                                for (int k = nextXIndex; k >= startIndex; k--)
                                 {
                                     HashSet<BarPoint> xExtrema = null;
                                     lMax = m_BarsProvider.GetHighPrice(k);

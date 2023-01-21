@@ -585,7 +585,7 @@ namespace TradeKit.Core
                     continue;
                 }
 
-                if (HasSameSetupActive(finder,e))
+                if (HasSameSetupActive(finder, e))
                 {
                     Logger.Write($"Already got this setup in on {finder.Symbol.Name} - {finder.TimeFrame}");
                     return;
@@ -608,6 +608,7 @@ namespace TradeKit.Core
 
                 if (slP > 0)
                 {
+                    //System.Diagnostics.Debugger.Launch();
                     double volume = GetVolume(symbol, slP);
                     TradeResult order = ExecuteMarketOrder(
                     type, sf.Symbol.Name, volume, GetBotName(), slP, tpP);

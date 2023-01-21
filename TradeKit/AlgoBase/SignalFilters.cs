@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Newtonsoft.Json.Linq;
 using TradeKit.Core;
 using TradeKit.Indicators;
 
@@ -125,37 +126,60 @@ namespace TradeKit.AlgoBase
             double? foundDivValue = null;
             int indexStart = start.BarIndex;
             int indexEnd = end.BarIndex;
-
+            int loopStart = indexEnd - DIVERGENCE_OFFSET_SEARCH;
             double macd = macdCrossOver.Histogram[indexEnd];
-            for (int i = indexEnd - DIVERGENCE_OFFSET_SEARCH; i >= indexStart; i--)
+            double currentValHist = macdCrossOver.Histogram[loopStart];
+
+            for (int i = loopStart; i >= indexStart; i--)
             {
-                double currentVal = macdCrossOver.Histogram[i];
-                if (macd <= 0 && currentVal > 0 ||
-                    macd >= 0 && currentVal < 0)
+                double localHist = macdCrossOver.Histogram[i];
+                if (currentValHist * localHist < 0)
                     break;
+
+                currentValHist = localHist;
 
                 if (isBullSignal && barsProvider.GetLowPrice(i) < end.Value ||
                     !isBullSignal && barsProvider.GetHighPrice(i) > end.Value)
                     break;
-
-                double histValue = macdCrossOver.Histogram[i];
-                if (isBullSignal && histValue <= macd ||
-                    !isBullSignal && histValue >= macd)
+                
+                if (isBullSignal && currentValHist <= macd ||
+                    !isBullSignal && currentValHist >= macd)
                 {
                     // Find the inflection point of the histogram values
                     if (foundDivValue is null ||
-                        isBullSignal && currentVal <= foundDivValue ||
-                        !isBullSignal && currentVal >= foundDivValue)
+                        isBullSignal && currentValHist <= foundDivValue ||
+                        !isBullSignal && currentValHist >= foundDivValue)
                     {
-                        foundDivValue = currentVal;
+                        foundDivValue = currentValHist;
+                        continue;
                     }
-                    else
+
+                    int extremaIndex = i;
+                    for (int j = i - 1; j >= indexStart; j--)
                     {
-                        var divItem = new BarPoint(isBullSignal
-                            ? barsProvider.GetLowPrice(i)
-                            : barsProvider.GetHighPrice(i), i, barsProvider);
-                        return divItem;
+                        localHist = macdCrossOver.Histogram[j];
+
+                        if (currentValHist * localHist < 0)
+                            break;
+                        currentValHist = localHist;
+
+                        if (isBullSignal &&
+                            barsProvider.GetLowPrice(j) > end.Value
+                            && localHist < currentValHist ||
+                            !isBullSignal &&
+                            barsProvider.GetHighPrice(j) < end.Value
+                            && localHist > currentValHist)
+                        {
+
+                            extremaIndex = j;
+                            currentValHist = localHist;
+                        }
                     }
+
+                    var divItem = new BarPoint(isBullSignal
+                        ? barsProvider.GetLowPrice(extremaIndex)
+                        : barsProvider.GetHighPrice(extremaIndex), extremaIndex, barsProvider);
+                    return divItem;
                 }
             }
 
