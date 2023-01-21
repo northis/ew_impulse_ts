@@ -26,7 +26,6 @@ namespace TradeKit.Gartley
         private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
         private const int SETUP_MIN_WIDTH = 3;
         private const int LINE_WIDTH = 3;
-        private const double CHART_FONT_MAIN = 24;
         private readonly Color m_BearColorFill = Color.fromARGB(80, 240, 128, 128);
         private readonly Color m_BullColorFill = Color.fromARGB(80, 128, 240, 128);
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
@@ -151,107 +150,6 @@ namespace TradeKit.Gartley
             return BOT_NAME;
         }
 
-        private Shape GetLine(BarPoint bp1, BarPoint bp2, Color color, double width = 1)
-        {
-            Shape line = Shape.init(StyleParam.ShapeType.Line.ToFSharp(),
-                X0: bp1.OpenTime.ToFSharp(),
-                Y0: bp1.Value.ToFSharp(),
-                X1: bp2.OpenTime.ToFSharp(),
-                Y1: bp2.Value.ToFSharp(),
-                Fillcolor: color.ToFSharp(),
-                Line: Line.init(Color: color, Width: width.ToFSharp()));
-            return line;
-        }
-
-        private Annotation GetAnnotation(
-            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text)
-        {
-            FSharpOption<double> doubleDef = 1d.ToFSharp();
-            Annotation annotation = Annotation.init(
-                X: x.ToFSharp(),
-                Y: y.ToFSharp(),
-                Align: StyleParam.AnnotationAlignment.Center,
-                ArrowColor: null,
-                ArrowHead: StyleParam.ArrowHead.Square,
-                ArrowSide: StyleParam.ArrowSide.None,
-                ArrowSize: null,
-                AX: doubleDef,
-                AXRef: doubleDef,
-                AY: doubleDef,
-                AYRef: doubleDef,
-                BGColor: backgroundColor,
-                BorderColor: null,
-                BorderPad: null,
-                BorderWidth: null,
-                CaptureEvents: null,
-                ClickToShow: null,
-                Font: Font.init(Size: textSize, Color: textColor),
-                Height: null,
-                HoverLabel: null,
-                HoverText: null,
-                Name: text,
-                Opacity: null,
-                ShowArrow: null,
-                StandOff: null,
-                StartArrowHead: null,
-                StartArrowSize: null,
-                StartStandOff: null,
-                TemplateItemName: null,
-                Text: text,
-                TextAngle: null,
-                VAlign: StyleParam.VerticalAlign.Middle,
-                Visible: null,
-                Width: null,
-                XAnchor: StyleParam.XAnchorPosition.Center,
-                XClick: doubleDef,
-                XRef: doubleDef,
-                XShift: null,
-                YAnchor: StyleParam.YAnchorPosition.Middle,
-                YClick: doubleDef,
-                YRef: doubleDef,
-                YShift: null);
-            return annotation;
-        }
-        
-        private DateTime GetMedianDate(DateTime start, DateTime end, List<DateTime> chartDateTimes)
-        {
-            if (start == end)
-                return start;
-
-            DateTime[] dates = chartDateTimes
-                .SkipWhile(a => a < start)
-                .TakeWhile(a => a <= end)
-                .ToArray();
-
-            if (dates.Length == 0)
-                return start;
-
-            return dates[^(dates.Length / 2)];
-        }
-
-        private Annotation GetAnnotation(
-            BarPoint bp1, BarPoint bp2, Color color, string text, List<DateTime> chartDateTimes)
-        {
-            DateTime x = GetMedianDate(bp1.OpenTime, bp2.OpenTime, chartDateTimes);
-            double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
-            Annotation annotation = GetAnnotation(x, y, BlackColor, CHART_FONT_MAIN, color, text);
-            return annotation;
-        }
-
-        private Shape GetSetupRectangle(
-            DateTime setupStart, DateTime setupEnd, Color color, double levelStart, double levelEnd)
-        {
-            Shape shape = Shape.init(StyleParam.ShapeType.Rectangle.ToFSharp(),
-                X0: setupStart.ToFSharp(),
-                Y0: levelStart.ToFSharp(),
-                X1: setupEnd.ToFSharp(),
-                Y1: levelEnd.ToFSharp(),
-                Fillcolor: color,
-                Line: Line.init(Color: color));
-            
-            return shape;
-        }
-
         private string SvgPathFromGartleyItem(GartleyItem gartley)
         {
             string path = string.Format(SVG_PATH_TEMPLATE, 
@@ -320,9 +218,9 @@ namespace TradeKit.Gartley
             {
                 Shape line = GetLine(b1, b2, colorBorder, LINE_WIDTH);
                 candlestickChart.WithShape(line, true);
-                
+
                 candlestickChart.WithAnnotation(GetAnnotation(
-                    b1, b2, colorBorder, ratio.Ratio(),chartDateTimes), true);
+                    b1, b2, colorBorder, ratio.Ratio(), chartDateTimes), true);
             }
             
             AddLine(gartley.ItemA, gartley.ItemC, gartley.AtoC);

@@ -14,6 +14,8 @@ using Plotly.NET.LayoutObjects;
 using TradeKit.EventArgs;
 using TradeKit.Telegram;
 using Color = Plotly.NET.Color;
+using Line = Plotly.NET.Line;
+using Shape = Plotly.NET.LayoutObjects.Shape;
 
 namespace TradeKit.Core
 {
@@ -46,6 +48,7 @@ namespace TradeKit.Core
         private Dictionary<string, TK> m_ChartFileFinderMap;
         private readonly Color m_ShortColor = Color.fromHex("#EF5350");
         private readonly Color m_LongColor = Color.fromHex("#26A69A");
+        private const double CHART_FONT_MAIN = 24;
 
         protected readonly Color BlackColor = Color.fromARGB(255, 22, 26, 37);
         protected readonly Color WhiteColor = Color.fromARGB(240, 209, 212, 220);
@@ -824,6 +827,107 @@ namespace TradeKit.Core
             var sf = (T)sender;
             string priceFmt = level.Value.ToString($"F{sf.Symbol.Digits}", CultureInfo.InvariantCulture);
             price = $"Price:{priceFmt} ({level.OpenTime:s}) - {sf.Symbol.Name}";
+        }
+
+        protected Shape GetLine(BarPoint bp1, BarPoint bp2, Color color, double width = 1)
+        {
+            Shape line = Shape.init(StyleParam.ShapeType.Line.ToFSharp(),
+                X0: bp1.OpenTime.ToFSharp(),
+                Y0: bp1.Value.ToFSharp(),
+                X1: bp2.OpenTime.ToFSharp(),
+                Y1: bp2.Value.ToFSharp(),
+                Fillcolor: color.ToFSharp(),
+                Line: Line.init(Color: color, Width: width.ToFSharp()));
+            return line;
+        }
+
+        protected Annotation GetAnnotation(
+            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text)
+        {
+            FSharpOption<double> doubleDef = 1d.ToFSharp();
+            Annotation annotation = Annotation.init(
+                X: x.ToFSharp(),
+                Y: y.ToFSharp(),
+                Align: StyleParam.AnnotationAlignment.Center,
+                ArrowColor: null,
+                ArrowHead: StyleParam.ArrowHead.Square,
+                ArrowSide: StyleParam.ArrowSide.None,
+                ArrowSize: null,
+                AX: doubleDef,
+                AXRef: doubleDef,
+                AY: doubleDef,
+                AYRef: doubleDef,
+                BGColor: backgroundColor,
+                BorderColor: null,
+                BorderPad: null,
+                BorderWidth: null,
+                CaptureEvents: null,
+                ClickToShow: null,
+                Font: Font.init(Size: textSize, Color: textColor),
+                Height: null,
+                HoverLabel: null,
+                HoverText: null,
+                Name: text,
+                Opacity: null,
+                ShowArrow: null,
+                StandOff: null,
+                StartArrowHead: null,
+                StartArrowSize: null,
+                StartStandOff: null,
+                TemplateItemName: null,
+                Text: text,
+                TextAngle: null,
+                VAlign: StyleParam.VerticalAlign.Middle,
+                Visible: null,
+                Width: null,
+                XAnchor: StyleParam.XAnchorPosition.Center,
+                XClick: doubleDef,
+                XRef: doubleDef,
+                XShift: null,
+                YAnchor: StyleParam.YAnchorPosition.Middle,
+                YClick: doubleDef,
+                YRef: doubleDef,
+                YShift: null);
+            return annotation;
+        }
+
+        protected DateTime GetMedianDate(DateTime start, DateTime end, List<DateTime> chartDateTimes)
+        {
+            if (start == end)
+                return start;
+
+            DateTime[] dates = chartDateTimes
+                .SkipWhile(a => a < start)
+                .TakeWhile(a => a <= end)
+                .ToArray();
+
+            if (dates.Length == 0)
+                return start;
+
+            return dates[^(dates.Length / 2)];
+        }
+
+        protected Annotation GetAnnotation(
+            BarPoint bp1, BarPoint bp2, Color color, string text, List<DateTime> chartDateTimes)
+        {
+            DateTime x = GetMedianDate(bp1.OpenTime, bp2.OpenTime, chartDateTimes);
+            double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
+            Annotation annotation = GetAnnotation(x, y, BlackColor, CHART_FONT_MAIN, color, text);
+            return annotation;
+        }
+
+        protected Shape GetSetupRectangle(
+            DateTime setupStart, DateTime setupEnd, Color color, double levelStart, double levelEnd)
+        {
+            Shape shape = Shape.init(StyleParam.ShapeType.Rectangle.ToFSharp(),
+                X0: setupStart.ToFSharp(),
+                Y0: levelStart.ToFSharp(),
+                X1: setupEnd.ToFSharp(),
+                Y1: levelEnd.ToFSharp(),
+                Fillcolor: color,
+                Line: Line.init(Color: color));
+
+            return shape;
         }
 
         /// <summary>
