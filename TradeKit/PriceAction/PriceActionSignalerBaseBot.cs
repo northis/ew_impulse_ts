@@ -189,19 +189,19 @@ namespace TradeKit.PriceAction
         /// <param name="symbolEntity">The symbol entity.</param>
         protected override PriceActionSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(Bars, Symbol);
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(TimeFrame, this, TREND_RATIO, barsProvider);
+                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, TREND_RATIO, barsProvider);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)
                 breakEvenRatio = BreakEvenRatio;
 
             var setupFinder = new PriceActionSetupFinder(
-                barsProvider, Symbol, UseStrengthBar, superTrendItem, patternTypes, breakEvenRatio);
+                barsProvider, symbolEntity, UseStrengthBar, superTrendItem, patternTypes, breakEvenRatio);
 
             return setupFinder;
         }

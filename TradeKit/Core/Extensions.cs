@@ -81,8 +81,8 @@ namespace TradeKit.Core
             {CandlePatternType.DOWN_PPR_IB, "P+I\n  ↓"},
             {CandlePatternType.UP_DOUBLE_INNER_BAR, "  ↑\nDIB"},
             {CandlePatternType.DOWN_DOUBLE_INNER_BAR, "DIB\n  ↓"},
-            {CandlePatternType.UP_CPPR, "   ↑\nCPPR"},
-            {CandlePatternType.DOWN_CPPR, "CPPR\n   ↓"}
+            {CandlePatternType.UP_CPPR, "     ↑\nCPPR"},
+            {CandlePatternType.DOWN_CPPR, "CPPR\n     ↓"}
         };
 
         /// <summary>
