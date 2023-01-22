@@ -843,7 +843,7 @@ namespace TradeKit.Core
         }
 
         protected Annotation GetAnnotation(
-            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text, StyleParam.VerticalAlign vAlign = null)
+            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text, StyleParam.YAnchorPosition yAnchor = null)
         {
             FSharpOption<double> doubleDef = 1d.ToFSharp();
             Annotation annotation = Annotation.init(
@@ -878,14 +878,14 @@ namespace TradeKit.Core
                 TemplateItemName: null,
                 Text: text,
                 TextAngle: null,
-                VAlign: vAlign ?? StyleParam.VerticalAlign.Middle,
+                VAlign: StyleParam.VerticalAlign.Middle,
                 Visible: null,
                 Width: null,
                 XAnchor: StyleParam.XAnchorPosition.Center,
                 XClick: doubleDef,
                 XRef: doubleDef,
                 XShift: null,
-                YAnchor: StyleParam.YAnchorPosition.Middle,
+                YAnchor: yAnchor ?? StyleParam.YAnchorPosition.Middle,
                 YClick: doubleDef,
                 YRef: doubleDef,
                 YShift: null);

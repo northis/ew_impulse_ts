@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;
@@ -27,6 +28,7 @@ namespace TradeKit.PriceAction
             Color.fromARGB(96, 144, 238, 144);
         private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
         private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
+        private readonly Color m_Transparent = Color.fromARGB(0, 0, 0, 0);
 
         /// <summary>
         /// Gets the name of the bot.
@@ -45,7 +47,7 @@ namespace TradeKit.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
-        [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
+        [Parameter(nameof(UseTrendOnly), DefaultValue = true)]
         public bool UseTrendOnly { get; set; }
 
         /// <summary>
@@ -57,7 +59,7 @@ namespace TradeKit.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PIN_BAR"/> and <see cref="CandlePatternType.DOWN_PIN_BAR"/> patterns.
         /// </summary>
-        [Parameter("Pin Bar", DefaultValue = true)]
+        [Parameter("Pin Bar", DefaultValue = false)]
         public bool PinBar { get; set; }
 
         /// <summary>
@@ -87,13 +89,13 @@ namespace TradeKit.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PPR"/> and <see cref="CandlePatternType.DOWN_PPR"/> patterns.
         /// </summary>
-        [Parameter("PPR", DefaultValue = true)]
+        [Parameter("PPR", DefaultValue = false)]
         public bool Ppr { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_CPPR"/> and <see cref="CandlePatternType.DOWN_CPPR"/> patterns.
         /// </summary>
-        [Parameter("CPPR", DefaultValue = true)]
+        [Parameter("CPPR", DefaultValue = false)]
         public bool CPpr { get; set; }
 
         /// <summary>
@@ -111,7 +113,7 @@ namespace TradeKit.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should show only patterns with "the strength bar".
         /// </summary>
-        [Parameter("Use strength bar", DefaultValue = true)]
+        [Parameter("Use strength bar", DefaultValue = false)]
         public bool UseStrengthBar { get; set; }
 
         private HashSet<CandlePatternType> GetPatternsType()
@@ -212,26 +214,30 @@ namespace TradeKit.PriceAction
             signalEventArgs.ResultPattern.GetDrawRectangle(prv,
                 out int startIndex, out int endIndex, out double max, out double min);
 
-            Color color = pattern.IsBull ? m_BullColor : m_BearColor;
+            Color colorPattern = pattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
             DateTime setupStart = prv.GetOpenTime(startIndex);
             DateTime setupEnd = prv.GetOpenTime(endIndex);
-            Shape patternRectangle = GetSetupRectangle(setupStart, setupEnd, color, max, min);
+            Shape patternRectangle = GetSetupRectangle(setupStart, setupEnd, colorPattern, max, min);
             candlestickChart.WithShape(patternRectangle, true);
 
-            Color colorFill = pattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
+            Color colorText = pattern.IsBull ? m_BullColor : m_BearColor;
             DateTime slIndex = prv.GetOpenTime(pattern.StopLossBarIndex);
-            Annotation label = GetAnnotation(slIndex, pattern.StopLoss, 
-                colorFill, CHART_FONT_HEADER, color, pattern.Type.Format(),
-                pattern.IsBull ? StyleParam.VerticalAlign.Bottom : StyleParam.VerticalAlign.Top);
+
+            Annotation label = GetAnnotation(slIndex, pattern.StopLoss,
+                colorText, CHART_FONT_HEADER, m_Transparent, pattern.Type.Format(),
+                pattern.IsBull ? StyleParam.YAnchorPosition.Top : StyleParam.YAnchorPosition.Bottom);
+            
             candlestickChart.WithAnnotation(label, true);
 
-            GetSetupEndRender(signalEventArgs.Level.OpenTime, prv.TimeFrame,out DateTime realStart, out DateTime realEnd);
+            GetSetupEndRender(signalEventArgs.Level.OpenTime, prv.TimeFrame, out DateTime realStart,
+                out DateTime realEnd);
 
-            Shape tp = GetSetupRectangle(realStart, realEnd, m_TpColor, 
-                signalEventArgs.Level.Value, signalEventArgs.TakeProfit.Value);
+            double startPrice = signalEventArgs.ResultPattern.LimitPrice ?? signalEventArgs.Level.Value;
+            Shape tp = GetSetupRectangle(realStart, realEnd, m_TpColor,
+                startPrice, signalEventArgs.TakeProfit.Value);
             candlestickChart.WithShape(tp, true);
             Shape sl = GetSetupRectangle(realStart, realEnd, m_SlColor,
-                signalEventArgs.Level.Value, signalEventArgs.StopLoss.Value);
+                startPrice, signalEventArgs.StopLoss.Value);
             candlestickChart.WithShape(sl, true);
         }
 
