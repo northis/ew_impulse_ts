@@ -35,6 +35,7 @@ namespace TradeKit.Core
         protected const double CHART_FONT_HEADER = 36;
         protected const int CHART_HEIGHT = 1000;
         protected const int CHART_WIDTH = 1000;
+        private const int SETUP_MIN_WIDTH = 3;
         protected const string FIRST_CHART_FILE_POSTFIX = ".01";
         protected const string SECOND_CHART_FILE_POSTFIX = ".02";
         private double m_CurrentRisk = RISK_DEPOSIT_PERCENT;
@@ -50,7 +51,7 @@ namespace TradeKit.Core
         private readonly Color m_LongColor = Color.fromHex("#26A69A");
         private const double CHART_FONT_MAIN = 24;
 
-        protected readonly Color BlackColor = Color.fromARGB(255, 22, 26, 37);
+        protected readonly Color BlackColor =  Color.fromARGB(255, 22, 26, 37);
         protected readonly Color WhiteColor = Color.fromARGB(240, 209, 212, 220);
         protected readonly Color SemiWhiteColor = Color.fromARGB(80, 209, 212, 220);
         private int m_EnterCount;
@@ -842,7 +843,7 @@ namespace TradeKit.Core
         }
 
         protected Annotation GetAnnotation(
-            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text)
+            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text, StyleParam.VerticalAlign vAlign = null)
         {
             FSharpOption<double> doubleDef = 1d.ToFSharp();
             Annotation annotation = Annotation.init(
@@ -877,7 +878,7 @@ namespace TradeKit.Core
                 TemplateItemName: null,
                 Text: text,
                 TextAngle: null,
-                VAlign: StyleParam.VerticalAlign.Middle,
+                VAlign: vAlign ?? StyleParam.VerticalAlign.Middle,
                 Visible: null,
                 Width: null,
                 XAnchor: StyleParam.XAnchorPosition.Center,
@@ -928,6 +929,14 @@ namespace TradeKit.Core
                 Line: Line.init(Color: color));
 
             return shape;
+        }
+
+        protected void GetSetupEndRender(
+            DateTime openDateTime, TimeFrame tf, out  DateTime realStart, out DateTime realEnd)
+        {
+            TimeSpan timeFramePeriod = TimeFrameHelper.TimeFrames[tf].TimeSpan;
+            realStart = openDateTime.Add(timeFramePeriod);
+            realEnd = realStart.Add(timeFramePeriod * SETUP_MIN_WIDTH);
         }
 
         /// <summary>

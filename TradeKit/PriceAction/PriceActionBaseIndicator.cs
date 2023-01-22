@@ -253,19 +253,11 @@ namespace TradeKit.PriceAction
 
             if (FillWithColor)
             {
-                int startIndex = e.ResultPattern.BarIndex - e.ResultPattern.BarsCount + 1;
-                
-                double max = double.MinValue;// yes, the price can be negative
-                double min = double.MaxValue;
-                for (int i = startIndex; i <= e.ResultPattern.BarIndex; i++)
-                {
-                    max = Math.Max(m_BarsProvider.GetHighPrice(i), max);
-                    min = Math.Min(m_BarsProvider.GetLowPrice(i), min);
-                }
-
+                e.ResultPattern.GetDrawRectangle(m_BarsProvider,
+                    out int startIndex, out int endIndex, out double max, out double min);
                 Color patternColor = e.ResultPattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
-                Chart.DrawRectangle($"F{name}", startIndex - 1, min, e.ResultPattern.BarIndex + 1,
-                        max, patternColor, LINE_WIDTH)
+                Chart.DrawRectangle($"F{name}", 
+                        startIndex, min, endIndex, max, patternColor, LINE_WIDTH)
                     .SetFilled();
             }
 

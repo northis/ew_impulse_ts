@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;
+using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using Color = Plotly.NET.Color;
+using Shape = Plotly.NET.LayoutObjects.Shape;
 
 namespace TradeKit.PriceAction
 {
@@ -14,16 +17,16 @@ namespace TradeKit.PriceAction
         private const string BOT_NAME = "PriceActionRobot";
         private const int TREND_RATIO = 1;
 
-        private readonly Plotly.NET.Color m_BearColor = 
-            Plotly.NET.Color.fromARGB(240, 240, 128, 128);
-        private readonly Plotly.NET.Color m_BullColor = 
-            Plotly.NET.Color.fromARGB(240, 144, 238, 144);
-        private readonly Plotly.NET.Color m_PatternBearColor = 
-            Plotly.NET.Color.fromARGB(96, 240, 128, 128);
-        private readonly Plotly.NET.Color m_PatternBullColor = 
-            Plotly.NET.Color.fromARGB(96, 144, 238, 144);
-        private readonly Plotly.NET.Color m_SlColor = Plotly.NET.Color.fromARGB(80, 240, 0, 0);
-        private readonly Plotly.NET.Color m_TpColor = Plotly.NET.Color.fromARGB(80, 0, 240, 0);
+        private readonly Color m_BearColor = 
+            Color.fromARGB(240, 240, 128, 128);
+        private readonly Color m_BullColor = 
+            Color.fromARGB(240, 144, 238, 144);
+        private readonly Color m_PatternBearColor = 
+            Color.fromARGB(96, 240, 128, 128);
+        private readonly Color m_PatternBullColor = 
+            Color.fromARGB(96, 144, 238, 144);
+        private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
+        private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
 
         /// <summary>
         /// Gets the name of the bot.
@@ -204,55 +207,32 @@ namespace TradeKit.PriceAction
         protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, PriceActionSignalEventArgs signalEventArgs,
             PriceActionSetupFinder setupFinder, List<DateTime> chartDateTimes)
         {
-            //TODO
+            IBarsProvider prv = setupFinder.BarsProvider;
+            CandlesResult pattern = signalEventArgs.ResultPattern;
+            signalEventArgs.ResultPattern.GetDrawRectangle(prv,
+                out int startIndex, out int endIndex, out double max, out double min);
 
-            //int levelIndex = e.Level.BarIndex;
-            //string name = $"{levelIndex}{e.ResultPattern.GetHashCode()}";
-            //Color color = e.ResultPattern.IsBull ? m_BullColor : m_BearColor;
+            Color color = pattern.IsBull ? m_BullColor : m_BearColor;
+            DateTime setupStart = prv.GetOpenTime(startIndex);
+            DateTime setupEnd = prv.GetOpenTime(endIndex);
+            Shape patternRectangle = GetSetupRectangle(setupStart, setupEnd, color, max, min);
+            candlestickChart.WithShape(patternRectangle, true);
 
-            //Chart.DrawText($"PA{name}", e.ResultPattern.Type.Format(),
-            //        e.ResultPattern.StopLossBarIndex, e.ResultPattern.StopLoss, color)
-            //    .ChartTextAlign(!e.ResultPattern.IsBull);
+            Color colorFill = pattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
+            DateTime slIndex = prv.GetOpenTime(pattern.StopLossBarIndex);
+            Annotation label = GetAnnotation(slIndex, pattern.StopLoss, 
+                colorFill, CHART_FONT_HEADER, color, pattern.Type.Format(),
+                pattern.IsBull ? StyleParam.VerticalAlign.Bottom : StyleParam.VerticalAlign.Top);
+            candlestickChart.WithAnnotation(label, true);
 
-            //if (FillWithColor)
-            //{
-            //    int startIndex = e.ResultPattern.BarIndex - e.ResultPattern.BarsCount + 1;
+            GetSetupEndRender(signalEventArgs.Level.OpenTime, prv.TimeFrame,out DateTime realStart, out DateTime realEnd);
 
-            //    double max = double.MinValue;// yes, the price can be negative
-            //    double min = double.MaxValue;
-            //    for (int i = startIndex; i <= e.ResultPattern.BarIndex; i++)
-            //    {
-            //        max = Math.Max(m_BarsProvider.GetHighPrice(i), max);
-            //        min = Math.Min(m_BarsProvider.GetLowPrice(i), min);
-            //    }
-
-            //    Color patternColor = e.ResultPattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
-            //    Chart.DrawRectangle($"F{name}", startIndex - 1, min, e.ResultPattern.BarIndex + 1,
-            //            max, patternColor, LINE_WIDTH)
-            //        .SetFilled();
-            //}
-
-            //if (ShowSetups)
-            //{
-            //    Chart.DrawRectangle($"SL{name}", levelIndex, e.Level.Value, levelIndex + SETUP_WIDTH,
-            //            e.StopLoss.Value, m_SlColor, LINE_WIDTH)
-            //        .SetFilled();
-            //    Chart.DrawRectangle($"TP{name}", levelIndex, e.Level.Value, levelIndex + SETUP_WIDTH,
-            //            e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
-            //        .SetFilled();
-            //}
-
-            //Shape tp1 = GetSetupRectangle(
-            //    setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit1);
-            //candlestickChart.WithShape(tp1, true);
-            //Shape tp2 = GetSetupRectangle(
-            //    setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit2);
-            //candlestickChart.WithShape(tp2, true);
-            //Shape sl = GetSetupRectangle(
-            //    setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
-            //candlestickChart.WithShape(sl, true);
-            //candlestickChart.WithAnnotation(GetAnnotation(
-            //    b1, b2, colorBorder, ratio.Ratio(), chartDateTimes), true);
+            Shape tp = GetSetupRectangle(realStart, realEnd, m_TpColor, 
+                signalEventArgs.Level.Value, signalEventArgs.TakeProfit.Value);
+            candlestickChart.WithShape(tp, true);
+            Shape sl = GetSetupRectangle(realStart, realEnd, m_SlColor,
+                signalEventArgs.Level.Value, signalEventArgs.StopLoss.Value);
+            candlestickChart.WithShape(sl, true);
         }
 
         /// <summary>

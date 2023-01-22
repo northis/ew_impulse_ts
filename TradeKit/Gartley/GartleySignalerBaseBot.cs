@@ -24,7 +24,6 @@ namespace TradeKit.Gartley
 
         private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
         private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
-        private const int SETUP_MIN_WIDTH = 3;
         private const int LINE_WIDTH = 3;
         private readonly Color m_BearColorFill = Color.fromARGB(80, 240, 128, 128);
         private readonly Color m_BullColorFill = Color.fromARGB(80, 128, 240, 128);
@@ -188,12 +187,10 @@ namespace TradeKit.Gartley
                 Fillcolor: colorFill, 
                 Line: Line.init(Color: colorFill));
             candlestickChart.WithShape(patternPath, true);
-
-            TimeSpan timeFramePeriod = TimeFrameHelper.TimeFrames[setupFinder.TimeFrame].TimeSpan;
-            DateTime setupStart = gartley.ItemD.OpenTime.Add(timeFramePeriod);
+            
             double levelStart = setupFinder.BarsProvider.GetClosePrice(gartley.ItemD.BarIndex);
-            DateTime setupEnd = setupFinder.BarsProvider.GetLastBarOpenTime()
-                .Add(timeFramePeriod * SETUP_MIN_WIDTH);
+            GetSetupEndRender(gartley.ItemD.OpenTime, setupFinder.TimeFrame, 
+                out DateTime setupStart, out DateTime setupEnd);
 
             Shape tp1 = GetSetupRectangle(
                 setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit1);
