@@ -211,11 +211,11 @@ namespace TradeKit.PriceAction
             IBarsProvider prv = setupFinder.BarsProvider;
             CandlesResult pattern = signalEventArgs.ResultPattern;
             signalEventArgs.ResultPattern.GetDrawRectangle(prv,
-                out int startIndex, out int endIndex, out double max, out double min);
+                out int startIndex, out _, out double max, out double min);
 
             Color colorPattern = pattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
             DateTime setupStart = prv.GetOpenTime(startIndex);
-            DateTime setupEnd = prv.GetOpenTime(endIndex);
+            DateTime setupEnd = signalEventArgs.Level.OpenTime;
             Shape patternRectangle = GetSetupRectangle(setupStart, setupEnd, colorPattern, max, min);
             candlestickChart.WithShape(patternRectangle, true);
 
@@ -223,7 +223,7 @@ namespace TradeKit.PriceAction
             DateTime slIndex = prv.GetOpenTime(pattern.StopLossBarIndex);
 
             Annotation label = GetAnnotation(slIndex, pattern.StopLoss,
-                colorText, CHART_FONT_HEADER, Transparent, pattern.Type.Format(),
+                colorText, CHART_FONT_HEADER, BlackColor, pattern.Type.Format().Replace(" ",""),
                 pattern.IsBull ? StyleParam.YAnchorPosition.Top : StyleParam.YAnchorPosition.Bottom);
             
             candlestickChart.WithAnnotation(label, true);

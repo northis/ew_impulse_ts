@@ -266,7 +266,7 @@ namespace TradeKit.AlgoBase
             if (!m_useStrengthBar)
                 return true;
 
-            bool res = Math.Abs(candle.C - (isUp ? candle.H : candle.L)) < double.Epsilon;
+            bool res = Math.Abs(candle.C - (isUp ? candle.H : candle.L)) < candle.BodyLow / 100;
             return res;
         }
 

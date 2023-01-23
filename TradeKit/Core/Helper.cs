@@ -31,8 +31,8 @@ namespace TradeKit.Core
         public const double TRIGGER_SPEED_PERCENT = 0.2;
         public const double SPEED_TP_SL_RATIO = 2;
 
-        public const int GARTLEY_BARS_COUNT = 70;
-        public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 5;
+        public const int GARTLEY_BARS_COUNT = 120;
+        public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 25;
 
         public const int MACD_LONG_CYCLE = 26;
         public const int MACD_SHORT_CYCLE = 12;

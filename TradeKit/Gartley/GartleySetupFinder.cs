@@ -27,7 +27,6 @@ namespace TradeKit.Gartley
         //private readonly CandlePatternFinder m_CandlePatternFinder;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
         private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
-        private readonly CandlePatternFinder m_CandlePatternFinder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -42,7 +41,6 @@ namespace TradeKit.Gartley
         /// <param name="patterns">Patterns supported.</param>
         /// <param name="macdCrossOver">MACD Cross Over.</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
-        /// <param name="filterPatterns">The patterns to filter (null - no filtering).</param>
         public GartleySetupFinder(
             IBarsProvider mainBarsProvider,
             Symbol symbol,
@@ -53,8 +51,7 @@ namespace TradeKit.Gartley
             SuperTrendItem superTrendItem = null,
             HashSet<GartleyPatternType> patterns = null,
             MacdCrossOverIndicator macdCrossOver = null,
-            double? breakevenRatio = null,
-            HashSet<CandlePatternType> filterPatterns = null) : base(mainBarsProvider, symbol)
+            double? breakevenRatio = null) : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
             m_BarsDepth = barsDepth;
@@ -63,8 +60,6 @@ namespace TradeKit.Gartley
             m_SuperTrendItem = superTrendItem;
             m_MacdCrossOver = macdCrossOver;
             m_BreakevenRatio = breakevenRatio;
-
-            m_CandlePatternFinder = new CandlePatternFinder(mainBarsProvider, true, filterPatterns);
 
             m_PatternFinder = new GartleyPatternFinder(
                 m_MainBarsProvider, wickAllowance, patterns);
@@ -118,30 +113,6 @@ namespace TradeKit.Gartley
                 {
                     if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) || m_PatternsEntryMap.ContainsKey(localPattern))
                         continue;
-
-                    if (m_CandlePatternFinder != null)
-                    {
-                        bool gotCoTrendPatterns = true;
-                        for (int i = localPattern.ItemC.BarIndex; 
-                             i <= localPattern.ItemD.BarIndex; i++)
-                        {
-                            List<CandlesResult> patterns = m_CandlePatternFinder.GetCandlePatterns(i);
-                            if (patterns == null || patterns.Count == 0)
-                                continue;
-
-                            if (patterns.Any(a => a.IsBull != localPattern.IsBull))
-                            {
-                                gotCoTrendPatterns = false;
-                                break;
-                            }
-
-                            if (patterns.Any(a => a.IsBull == localPattern.IsBull))
-                                gotCoTrendPatterns = true;
-                        }
-
-                        if(!gotCoTrendPatterns)
-                            continue;
-                    }
 
                     if (m_SuperTrendItem != null)
                     {

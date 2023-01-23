@@ -31,7 +31,7 @@ namespace TradeKit.Gartley
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
 
-        private const int TREND_RATIO = 1;
+        private const int TREND_RATIO = 2;
         #region Input parameters
 
         /// <summary>
@@ -263,23 +263,7 @@ namespace TradeKit.Gartley
 
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity, BarAllowancePercent, BarDepthCount, UseDivergences,
-                FilterByAccuracy, superTrendItem, patternTypes, macdCrossover, breakEvenRatio,
-                new HashSet<CandlePatternType>
-                {
-                    CandlePatternType.UP_RAILS,
-                    CandlePatternType.DOWN_RAILS,
-                    CandlePatternType.UP_CPPR,
-                    CandlePatternType.UP_CPPR,
-                    CandlePatternType.DOWN_CPPR,
-                    CandlePatternType.UP_DOUBLE_INNER_BAR,
-                    CandlePatternType.DOWN_DOUBLE_INNER_BAR,
-                    CandlePatternType.UP_PPR_IB,
-                    CandlePatternType.DOWN_PPR_IB,
-                    //CandlePatternType.UP_INNER_BAR,
-                    //CandlePatternType.DOWN_INNER_BAR,
-                    //CandlePatternType.UP_OUTER_BAR,
-                    //CandlePatternType.DOWN_OUTER_BAR,
-                });
+                FilterByAccuracy, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;
         }

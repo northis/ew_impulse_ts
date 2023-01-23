@@ -605,6 +605,8 @@ namespace TradeKit.Core
 
             if (IsBacktesting || AllowToTrade)
             {
+                //isLong = !isLong;
+                //(sl, tp) = (tp, sl);
                 TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
                 double priceNow = isLong ? s.Ask : s.Bid;
 

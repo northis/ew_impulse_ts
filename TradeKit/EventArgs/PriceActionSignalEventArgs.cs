@@ -55,7 +55,8 @@ namespace TradeKit.EventArgs
                 ? currentPrice + slLen
                 : currentPrice - slLen;
 
-            DateTime startView = barsProvider.GetOpenTime(startIndex);
+            int startViewIndex = Math.Max(0, startIndex - localPattern.BarsCount * 10);
+            DateTime startView = barsProvider.GetOpenTime(startViewIndex);
             var args = new PriceActionSignalEventArgs(
                 new BarPoint(currentPrice, index, barsProvider),
                 new BarPoint(tp, index, barsProvider),
