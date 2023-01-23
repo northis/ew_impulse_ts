@@ -28,7 +28,6 @@ namespace TradeKit.PriceAction
             Color.fromARGB(96, 144, 238, 144);
         private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
         private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
-        private readonly Color m_Transparent = Color.fromARGB(0, 0, 0, 0);
 
         /// <summary>
         /// Gets the name of the bot.
@@ -224,7 +223,7 @@ namespace TradeKit.PriceAction
             DateTime slIndex = prv.GetOpenTime(pattern.StopLossBarIndex);
 
             Annotation label = GetAnnotation(slIndex, pattern.StopLoss,
-                colorText, CHART_FONT_HEADER, m_Transparent, pattern.Type.Format(),
+                colorText, CHART_FONT_HEADER, Transparent, pattern.Type.Format(),
                 pattern.IsBull ? StyleParam.YAnchorPosition.Top : StyleParam.YAnchorPosition.Bottom);
             
             candlestickChart.WithAnnotation(label, true);

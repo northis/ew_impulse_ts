@@ -30,7 +30,7 @@ namespace TradeKit.PriceAction
         /// <param name="symbol">The symbol.</param>
         /// <param name="useStrengthBar">Use "bar of the strength".</param>
         /// <param name="superTrendItem">Filter signals using  the "Super Trend" indicator</param>
-        /// <param name="patterns">The patterns.</param>
+        /// <param name="patterns">The patterns to analyze (null - all the patterns available).</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         public PriceActionSetupFinder(
             IBarsProvider mainBarsProvider, 

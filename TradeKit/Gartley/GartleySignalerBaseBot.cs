@@ -10,6 +10,7 @@ using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
+using TradeKit.PriceAction;
 using Shape = Plotly.NET.LayoutObjects.Shape;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
@@ -262,7 +263,23 @@ namespace TradeKit.Gartley
 
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity, BarAllowancePercent, BarDepthCount, UseDivergences,
-                FilterByAccuracy, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
+                FilterByAccuracy, superTrendItem, patternTypes, macdCrossover, breakEvenRatio,
+                new HashSet<CandlePatternType>
+                {
+                    CandlePatternType.UP_RAILS,
+                    CandlePatternType.DOWN_RAILS,
+                    CandlePatternType.UP_CPPR,
+                    CandlePatternType.UP_CPPR,
+                    CandlePatternType.DOWN_CPPR,
+                    CandlePatternType.UP_DOUBLE_INNER_BAR,
+                    CandlePatternType.DOWN_DOUBLE_INNER_BAR,
+                    CandlePatternType.UP_PPR_IB,
+                    CandlePatternType.DOWN_PPR_IB,
+                    //CandlePatternType.UP_INNER_BAR,
+                    //CandlePatternType.DOWN_INNER_BAR,
+                    //CandlePatternType.UP_OUTER_BAR,
+                    //CandlePatternType.DOWN_OUTER_BAR,
+                });
 
             return setupFinder;
         }

@@ -54,6 +54,7 @@ namespace TradeKit.Core
         protected readonly Color BlackColor =  Color.fromARGB(255, 22, 26, 37);
         protected readonly Color WhiteColor = Color.fromARGB(240, 209, 212, 220);
         protected readonly Color SemiWhiteColor = Color.fromARGB(80, 209, 212, 220);
+        protected readonly Color Transparent = Color.fromARGB(0, 0, 0, 0);
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
