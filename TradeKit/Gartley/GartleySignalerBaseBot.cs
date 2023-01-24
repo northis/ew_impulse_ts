@@ -54,43 +54,43 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseButterfly), DefaultValue = false)]
+        [Parameter(nameof(UseButterfly), DefaultValue = true)]
         public bool UseButterfly { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.SHARK"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseShark), DefaultValue = false)]
+        [Parameter(nameof(UseShark), DefaultValue = true)]
         public bool UseShark { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCrab), DefaultValue = false)]
+        [Parameter(nameof(UseCrab), DefaultValue = true)]
         public bool UseCrab { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseBat), DefaultValue = false)]
+        [Parameter(nameof(UseBat), DefaultValue = true)]
         public bool UseBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseAltBat), DefaultValue = false)]
+        [Parameter(nameof(UseAltBat), DefaultValue = true)]
         public bool UseAltBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CYPHER"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCypher), DefaultValue = false)]
+        [Parameter(nameof(UseCypher), DefaultValue = true)]
         public bool UseCypher { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseDeepCrab), DefaultValue = false)]
+        [Parameter(nameof(UseDeepCrab), DefaultValue = true)]
         public bool UseDeepCrab { get; set; }
 
         /// <summary>
@@ -100,15 +100,9 @@ namespace TradeKit.Gartley
         public bool UseDivergences { get; set; }
         
         /// <summary>
-        /// Gets or sets a value indicating whether we should filter signals by accuracy.
-        /// </summary>
-        [Parameter(nameof(FilterByAccuracy), DefaultValue = 0, MaxValue = 100)]
-        public int FilterByAccuracy { get; set; }
-        
-        /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
-        [Parameter(nameof(UseTrendOnly), DefaultValue = false)]
+        [Parameter(nameof(UseTrendOnly), DefaultValue = true)]
         public bool UseTrendOnly { get; set; }
 
         /// <summary>
@@ -262,7 +256,7 @@ namespace TradeKit.Gartley
 
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity, BarAllowancePercent, BarDepthCount, UseDivergences,
-                FilterByAccuracy, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
+                superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;
         }

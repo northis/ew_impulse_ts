@@ -169,7 +169,7 @@ namespace TradeKit.Gartley
                 breakEvenRatio = BreakEvenRatio;
 
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
-                BarDepthCount, UseDivergences, 0, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
+                BarDepthCount, UseDivergences, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
             Subscribe(m_SetupFinder);
         }
 
