@@ -30,8 +30,7 @@ namespace TradeKit.Gartley
         private readonly Color m_BullColorFill = Color.fromARGB(80, 128, 240, 128);
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
-
-        private const int TREND_RATIO = 2;
+        
         #region Input parameters
 
         /// <summary>
@@ -254,7 +253,7 @@ namespace TradeKit.Gartley
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
             {
-                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, TREND_RATIO, cTraderBarsProvider);
+                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, Helper.TREND_RATIO, cTraderBarsProvider);
             }
 
             double? breakEvenRatio = null;

@@ -16,7 +16,6 @@ namespace TradeKit.PriceAction
         BaseRobot<PriceActionSetupFinder, PriceActionSignalEventArgs>
     {
         private const string BOT_NAME = "PriceActionRobot";
-        private const int TREND_RATIO = 1;
 
         private readonly Color m_BearColor = 
             Color.fromARGB(240, 240, 128, 128);
@@ -193,7 +192,7 @@ namespace TradeKit.PriceAction
 
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, TREND_RATIO, barsProvider);
+                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, Helper.TREND_RATIO, barsProvider);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

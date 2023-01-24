@@ -21,7 +21,6 @@ namespace TradeKit.PriceAction
         private Color m_TpColor;
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
-        private const int TREND_RATIO = 1;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -41,7 +40,7 @@ namespace TradeKit.PriceAction
             
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(TimeFrame, this, TREND_RATIO, m_BarsProvider);
+                superTrendItem = SuperTrendItem.Create(TimeFrame, this, Helper.TREND_RATIO, m_BarsProvider);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

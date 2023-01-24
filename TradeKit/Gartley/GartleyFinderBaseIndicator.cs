@@ -25,7 +25,6 @@ namespace TradeKit.Gartley
         private const int SETUP_WIDTH = 3;
         private const int LINE_WIDTH = 1;
         private const int DIV_LINE_WIDTH = 3;
-        private const int TREND_RATIO = 1;
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
@@ -163,7 +162,7 @@ namespace TradeKit.Gartley
 
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(TimeFrame, this, TREND_RATIO, m_BarsProvider);
+                superTrendItem = SuperTrendItem.Create(TimeFrame, this, Helper.TREND_RATIO, m_BarsProvider);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

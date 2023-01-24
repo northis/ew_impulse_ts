@@ -49,6 +49,7 @@ namespace TradeKit.Core
 
         public const double BREAKEVEN_MIN = 0;
         public const double BREAKEVEN_MAX = 1;
+        public const int TREND_RATIO = 2;
 
         /// <summary>
         /// Gets the directory to save images.

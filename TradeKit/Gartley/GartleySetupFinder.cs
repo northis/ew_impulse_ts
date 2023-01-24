@@ -111,7 +111,7 @@ namespace TradeKit.Gartley
             {
                 foreach (GartleyItem localPattern in localPatterns)
                 {
-                    if (/*m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) ||*/ m_PatternsEntryMap.ContainsKey(localPattern))
+                    if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) || m_PatternsEntryMap.ContainsKey(localPattern))
                         continue;
 
                     if (m_SuperTrendItem != null)
