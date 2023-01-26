@@ -11,13 +11,14 @@ namespace TradeKit.Core
     /// </summary>
     internal static class TimeFrameHelper
     {
-        private static readonly List<TimeFrameInfo> m_TimeFramesList = null;
+        private static readonly List<TimeFrameInfo> TIME_FRAMES_LIST;
+        private static readonly List<TimeFrameInfo> TIME_FRAMES_LIST_SELECTED;
 
         static TimeFrameHelper()
         {
             int timeFrameTypeTimeEnum = 0;//TimeFrameType.Time
             Type timeFrameType = typeof(TimeFrame);
-            m_TimeFramesList = timeFrameType.GetFields(
+            TIME_FRAMES_LIST = timeFrameType.GetFields(
                     BindingFlags.Public | BindingFlags.Static)
                 .Where(a => a.FieldType == timeFrameType)
                 .Select(a => a.GetValue(null) as TimeFrame)
@@ -32,7 +33,23 @@ namespace TradeKit.Core
                 .OrderBy(a => a.TimeSpan)
                 .ToList();
 
-            TimeFrames = m_TimeFramesList.ToDictionary(a => a.TimeFrame, a => a);
+            TimeSpan[] selected =
+            {
+                TimeSpan.FromMinutes(1),
+                TimeSpan.FromMinutes(5),
+                TimeSpan.FromMinutes(15),
+                TimeSpan.FromMinutes(30),
+                TimeSpan.FromHours(1),
+                TimeSpan.FromHours(4),
+                TimeSpan.FromDays(1),
+                TimeSpan.FromDays(7)
+            };
+
+            TIME_FRAMES_LIST_SELECTED = TIME_FRAMES_LIST
+                .Where(a => selected.Contains(a.TimeSpan))
+                .ToList();
+
+            TimeFrames = TIME_FRAMES_LIST.ToDictionary(a => a.TimeFrame, a => a);
         }
 
         /// <summary>
@@ -84,9 +101,9 @@ namespace TradeKit.Core
         public static TimeFrameInfo GetNextTimeFrameInfo(TimeFrame tf)
         {
             TimeFrameInfo val = GetTimeFrameInfo(tf);
-            int index = m_TimeFramesList.IndexOf(val);
-            return index > 0 && index < m_TimeFramesList.Count - 1 
-                ? m_TimeFramesList[index + 1] 
+            int index = TIME_FRAMES_LIST_SELECTED.IndexOf(val);
+            return index > 0 && index < TIME_FRAMES_LIST.Count - 1 
+                ? TIME_FRAMES_LIST[index + 1] 
                 : val;
         }
 
@@ -97,8 +114,8 @@ namespace TradeKit.Core
         public static TimeFrameInfo GetPreviousTimeFrameInfo(TimeFrame tf)
         {
             TimeFrameInfo val = GetTimeFrameInfo(tf);
-            int index = m_TimeFramesList.IndexOf(val);
-            return index > 0 ? m_TimeFramesList[index - 1] : val;
+            int index = TIME_FRAMES_LIST_SELECTED.IndexOf(val);
+            return index > 0 ? TIME_FRAMES_LIST[index - 1] : val;
         }
     }
 }

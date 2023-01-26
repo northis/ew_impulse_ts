@@ -26,30 +26,23 @@ namespace TradeKit.AlgoBase
             if (sti.Indicators.Length == 0)
                 return TrendType.NoTrend;
 
-            bool? isBull = null;
+            int val = 0;
             foreach (SuperTrendIndicator ind in sti.Indicators)
             {
                 int index = ind.Bars.OpenTimes.GetIndexByTime(dateTimeBar);
                 if (index < 0)
                     ind.Bars.LoadMoreHistory();
-
                 double res = ind.Histogram[index];
-                if (res > 0 && isBull != false)
-                {
-                    isBull = true;
+                if (res == 0)
                     continue;
-                }
 
-                if (res < 0 && isBull != true)
-                {
-                    isBull = false;
-                    continue;
-                }
-
-                return TrendType.NoTrend;
+                val += ind.Histogram[index] > 0 ? 1 : -1;
             }
 
-            return isBull == true ? TrendType.Bullish : TrendType.Bearish;
+            if (Math.Abs(val) != sti.Indicators.Length)
+                return TrendType.NoTrend;
+
+            return val > 0 ? TrendType.Bullish : TrendType.Bearish;
         }
 
         /// <summary>

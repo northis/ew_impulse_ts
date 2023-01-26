@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using Microsoft.FSharp.Core;
 using Plotly.NET;
-using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
-using TradeKit.PriceAction;
 using Shape = Plotly.NET.LayoutObjects.Shape;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;

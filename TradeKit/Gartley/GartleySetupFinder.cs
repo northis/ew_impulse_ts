@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
@@ -113,7 +114,7 @@ namespace TradeKit.Gartley
                     {
                         // We want to find the trend before the pattern
                         TrendType trend = SignalFilters.GetTrend(
-                            m_SuperTrendItem, localPattern.ItemX.OpenTime);
+                            m_SuperTrendItem, localPattern.ItemD.OpenTime);
 
                         if (localPattern.IsBull)
                         {
