@@ -196,14 +196,14 @@ namespace TradeKit.Gartley
                 setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
             candlestickChart.WithShape(sl, true);
 
-            if (signalEventArgs.DivergenceStart is null)
-                return;
-
-            Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, LINE_WIDTH);
-            candlestickChart.WithShape(div, true);
-            candlestickChart.WithAnnotation(GetAnnotation(
-                    signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, DIVERGENCE_NAME, chartDateTimes),
-                true);
+            if (signalEventArgs.DivergenceStart is not null)
+            {
+                Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, LINE_WIDTH);
+                candlestickChart.WithShape(div, true);
+                candlestickChart.WithAnnotation(GetAnnotation(
+                        signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, DIVERGENCE_NAME, chartDateTimes),
+                    true);
+            }
 
             void AddLine(BarPoint b1, BarPoint b2, double ratio)
             {

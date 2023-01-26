@@ -54,5 +54,15 @@ namespace TradeKit.Core
         /// Gets the directory to save images.
         /// </summary>
         public static string DirectoryToSaveImages { get; }
+
+        /// <summary>
+        /// Gets the position identifier (string).
+        /// </summary>
+        /// <param name="setupId">The setup identifier.</param>
+        /// <param name="entryBarPoint">The entry bar point.</param>
+        internal static string GetPositionId(string setupId, BarPoint entryBarPoint)
+        {
+            return $"{setupId}{entryBarPoint.OpenTime:O}";
+        }
     }
 }

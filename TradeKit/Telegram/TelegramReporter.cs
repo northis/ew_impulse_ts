@@ -7,6 +7,7 @@ using Plotly.NET;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.InputFiles;
+using TradeKit.Core;
 using TradeKit.EventArgs;
 using File = System.IO.File;
 
@@ -72,41 +73,47 @@ namespace TradeKit.Telegram
         /// <summary>
         /// Reports the stop loss.
         /// </summary>
-        /// <param name="finderId">The finder identifier.</param>
-        public void ReportStopLoss(string finderId)
+        /// <param name="posId">The position identifier.</param>
+        public void ReportStopLoss(string posId)
         {
             if (m_ReportClose)
-                ReportClose(finderId, "SL hit");
+            {
+                ReportClose(posId, "SL hit");
+                m_SignalPostIds.Remove(posId);
+            }
         }
 
         /// <summary>
         /// Reports the take profit.
         /// </summary>
-        /// <param name="finderId">The finder identifier.</param>
-        public void ReportTakeProfit(string finderId)
+        /// <param name="posId">The position identifier.</param>
+        public void ReportTakeProfit(string posId)
         {
             if (m_ReportClose)
-                ReportClose(finderId, "TP hit");
+            {
+                ReportClose(posId, "TP hit");
+                m_SignalPostIds.Remove(posId);
+            }
         }
 
         /// <summary>
         /// Reports the breakeven.
         /// </summary>
-        /// <param name="finderId">The finder identifier.</param>
-        public void ReportBreakeven(string finderId)
+        /// <param name="posId">The position identifier.</param>
+        public void ReportBreakeven(string posId)
         {
             if (m_ReportClose)
-                ReportClose(finderId, "Move the stop to the entry point");
+                ReportClose(posId, "Move the stop to the entry point");
         }
 
         /// <summary>
         /// Reports the close of the position.
         /// </summary>
-        /// <param name="finderId">The finder identifier.</param>
+        /// <param name="posId">The position identifier.</param>
         /// <param name="text">The text.</param>
-        private void ReportClose(string finderId, string text)
+        private void ReportClose(string posId, string text)
         {
-            if (!m_SignalPostIds.TryGetValue(finderId, out int postId))
+            if (!m_SignalPostIds.TryGetValue(posId, out int postId))
             {
                 return;
             }
@@ -155,8 +162,8 @@ namespace TradeKit.Telegram
 
             if (den > 0)
             {
-                sb.AppendLine($"Risk/Reward {PriceFormat(100 * nom / den, 0)}%");
-                sb.AppendLine($"Spread/Reward {PriceFormat(100 * spread / den, 0)}%");
+                sb.AppendLine($"Risk:Reward = {PriceFormat(nom / den, 2)}");
+                sb.AppendLine($"Spread:Reward = {PriceFormat(spread / den, 2)}");
             }
 
             string alert = sb.ToString();
@@ -179,7 +186,8 @@ namespace TradeKit.Telegram
                     .Result;
             }
 
-            m_SignalPostIds[signalArgs.SenderId] = msgRes.MessageId;
+            string positionId = Helper.GetPositionId(signalArgs.SenderId, signalArgs.SignalEventArgs.Level);
+            m_SignalPostIds[positionId] = msgRes.MessageId;
         }
 
         /// <summary>
