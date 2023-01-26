@@ -4,13 +4,16 @@ using System.Globalization;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using Microsoft.FSharp.Core;
 using TradeKit.Gartley;
+
+#if !GARTLEY_PROD
 using TradeKit.PriceAction;
+using Microsoft.FSharp.Core;
+#endif
 
 namespace TradeKit.Core
 {
-    public static class Extensions
+    internal static class Extensions
     {
         private static readonly TimeSpan TIME_OFFSET = DateTime.UtcNow - DateTime.Now;
 
@@ -32,6 +35,7 @@ namespace TradeKit.Core
             return (item - DateTime.UnixEpoch).TotalMilliseconds;
         }
 
+#if !GARTLEY_PROD
         /// <summary>
         /// Converts to F# object.
         /// </summary>
@@ -39,6 +43,7 @@ namespace TradeKit.Core
         {
             return new FSharpOption<T>(item);
         }
+#endif
 
         /// <summary>
         /// Gets a new <see cref="BarPoint"/> with given index.
@@ -61,6 +66,8 @@ namespace TradeKit.Core
             return new BarPoint(price, bp.OpenTime, bp.BarTimeFrame, bp.BarIndex);
         }
 
+
+#if !GARTLEY_PROD
         private static readonly Dictionary<CandlePatternType, string> CANDLE_PATTERN_NAME_MAP = new()
         {
             {CandlePatternType.DOWN_PIN_BAR, "PB\n ↓"},
@@ -95,7 +102,7 @@ namespace TradeKit.Core
                 return val;
             return type.ToString();
         }
-
+#endif
         private static readonly Dictionary<GartleyPatternType, string> GARTLEY_PATTERN_NAME_MAP = new()
         {
             {GartleyPatternType.ALT_BAT, "Alt. Bat"},
@@ -146,7 +153,7 @@ namespace TradeKit.Core
         /// <param name="isUp">Label location.</param>
         /// <param name="horizontalAlignment">The horizontal alignment.</param>
         /// <returns>The <see cref="ChartText"/> ite</returns>
-        public static ChartText ChartTextAlign(this ChartText textItem, bool isUp, 
+        public static ChartText ChartTextAlign(this ChartText textItem, bool isUp,
             HorizontalAlignment horizontalAlignment = HorizontalAlignment.Center)
         {
             textItem.HorizontalAlignment = horizontalAlignment;
@@ -201,7 +208,7 @@ namespace TradeKit.Core
         {
             return inDoubles.SkipWhile(a => a < startValue).TakeWhile(a => a <= endValue).ToArray();
         }
-        
+
         /// <summary>
         /// Normalizes the extrema from Zigzag indicator.
         /// </summary>

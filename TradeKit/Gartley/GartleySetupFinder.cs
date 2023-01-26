@@ -184,7 +184,8 @@ namespace TradeKit.Gartley
                     isClosed = true;
                 }
                 else if (args.CanUseBreakeven && (pattern.IsBull && args.BreakEvenPrice <= high ||
-                                                  !pattern.IsBull && args.BreakEvenPrice >= low))
+                                                  !pattern.IsBull && args.BreakEvenPrice >= low) &&
+                         !args.HasBreakeven)
                 {
                     DateTime currentDt = BarsProvider.GetOpenTime(index);
                     args.HasBreakeven = true;

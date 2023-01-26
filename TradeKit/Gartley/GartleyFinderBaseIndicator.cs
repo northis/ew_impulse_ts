@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -109,12 +110,6 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter(nameof(UseTrendOnly), DefaultValue = true)]
         public bool UseTrendOnly { get; set; }
-        
-        /// <summary>
-        /// Gets or sets a breakeven level. Use 0 to disable
-        /// </summary>
-        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
-        public double BreakEvenRatio { get; set; }
 
         private HashSet<GartleyPatternType> GetPatternsType()
         {
@@ -162,14 +157,10 @@ namespace TradeKit.Gartley
 
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(TimeFrame, this, Helper.TREND_RATIO, m_BarsProvider);
-
-            double? breakEvenRatio = null;
-            if (BreakEvenRatio > 0)
-                breakEvenRatio = BreakEvenRatio;
-
+                superTrendItem = SuperTrendItem.Create(TimeFrame, this, Symbol.Name);
+            
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
-                BarDepthCount, UseDivergences, superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
+                BarDepthCount, UseDivergences, superTrendItem, patternTypes, macdCrossover);
             Subscribe(m_SetupFinder);
         }
 
@@ -239,10 +230,9 @@ namespace TradeKit.Gartley
             string xdRatio = HideRatio
                 ? string.Empty
                 : $"{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})";
-            Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD, colorBorder, LINE_WIDTH)
-                .TextForLine(Chart, $"{header}{xdRatio}",
-                    !isBull, indexX, indexD)
-                .IsHidden = HideRatio;
+            Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD,
+                    colorBorder, HideRatio ? 0 : LINE_WIDTH)
+                .TextForLine(Chart, $"{header}{xdRatio}", !isBull, indexX, indexD);
 
             if (!HideRatio)
             {

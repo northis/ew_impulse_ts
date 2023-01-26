@@ -192,7 +192,7 @@ namespace TradeKit.PriceAction
 
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, Helper.TREND_RATIO, barsProvider);
+                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

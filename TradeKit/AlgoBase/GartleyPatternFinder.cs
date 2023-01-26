@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using ICSharpCode.SharpZipLib;
 using TradeKit.Core;
 using TradeKit.Gartley;
 
@@ -13,8 +12,14 @@ namespace TradeKit.AlgoBase
         private readonly IBarsProvider m_BarsProvider;
         private const int GARTLEY_EXTREMA_COUNT = 6;
         private const int PRE_X_EXTREMA_BARS_COUNT = 7;
-        private const double SL_RATIO = 0.35;
+//#if GARTLEY_PROD
+        private const double SL_RATIO = 0.272;
         private const double TP1_RATIO = 0.382;
+
+//#else
+        //private const double SL_RATIO = 0.35;
+        //private const double TP1_RATIO = 0.45;
+//#endif 
         private const double TP2_RATIO = 0.618;
 
         private static readonly double[] LEVELS =
@@ -101,7 +106,7 @@ namespace TradeKit.AlgoBase
             HashSet<GartleyPatternType> patterns = null)
         {
             if (wickAllowance is < 0 or > 100)
-                throw new ValueOutOfRangeException(
+                throw new IndexOutOfRangeException(
                     $"{nameof(wickAllowance)} should be between 0 and 100");
 
             m_WickAllowanceRatio = wickAllowance / 100;

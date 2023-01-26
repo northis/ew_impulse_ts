@@ -247,7 +247,7 @@ namespace TradeKit.Gartley
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
             {
-                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, Helper.TREND_RATIO, cTraderBarsProvider);
+                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
             }
 
             double? breakEvenRatio = null;

@@ -9,13 +9,15 @@ namespace TradeKit.Core
     /// <summary>
     /// Handles all the Time Frame-related logic
     /// </summary>
-    public static class TimeFrameHelper
+    internal static class TimeFrameHelper
     {
+        private static readonly List<TimeFrameInfo> m_TimeFramesList = null;
+
         static TimeFrameHelper()
         {
             int timeFrameTypeTimeEnum = 0;//TimeFrameType.Time
             Type timeFrameType = typeof(TimeFrame);
-            TimeFrameInfo[] timeFramesArray = timeFrameType.GetFields(
+            m_TimeFramesList = timeFrameType.GetFields(
                     BindingFlags.Public | BindingFlags.Static)
                 .Where(a => a.FieldType == timeFrameType)
                 .Select(a => a.GetValue(null) as TimeFrame)
@@ -28,9 +30,9 @@ namespace TradeKit.Core
                         .GetProperty("Size", BindingFlags.NonPublic | BindingFlags.Instance)
                         ?.GetValue(a)))))
                 .OrderBy(a => a.TimeSpan)
-                .ToArray();
+                .ToList();
 
-            TimeFrames = timeFramesArray.ToDictionary(a => a.TimeFrame, a => a);
+            TimeFrames = m_TimeFramesList.ToDictionary(a => a.TimeFrame, a => a);
         }
 
         /// <summary>
@@ -43,11 +45,12 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="tf">The current time frame.</param>
         /// <param name="periodRatio">The period ratio - how bigger we want to get a TF. For periodRatio=2 and H1 tf the result will be H2</param>
-        /// <exception cref="NotSupportedException">$"The TF {tf.Name} is not supported!</exception>
         public static TimeFrameInfo GetNextTimeFrame(TimeFrame tf, double periodRatio)
         {
-            if (!TimeFrames.TryGetValue(tf, out TimeFrameInfo val))
-                throw new NotSupportedException($"The TF {tf.Name} is not supported!");
+            TimeFrameInfo val = GetTimeFrameInfo(tf);
+
+            if (periodRatio <= 0)
+                periodRatio = 1;
 
             TimeSpan nexTimeSpan = val.TimeSpan * periodRatio;
             TimeFrameInfo nextVal = TimeFrames
@@ -59,6 +62,43 @@ namespace TradeKit.Core
                 return val;
 
             return nextVal;
+        }
+
+        /// <summary>
+        /// Gets the time frame information.
+        /// </summary>
+        /// <param name="tf">The TimeFrame.</param>
+        /// <exception cref="NotSupportedException">The TF {tf.Name} is not supported!</exception>
+        internal static TimeFrameInfo GetTimeFrameInfo(TimeFrame tf)
+        {
+            if (!TimeFrames.TryGetValue(tf, out TimeFrameInfo val))
+                throw new NotSupportedException($"The TF {tf.Name} is not supported!");
+
+            return val;
+        }
+
+        /// <summary>
+        /// Gets the next time frame (bigger).
+        /// </summary>
+        /// <param name="tf">The current time frame.</param>
+        public static TimeFrameInfo GetNextTimeFrameInfo(TimeFrame tf)
+        {
+            TimeFrameInfo val = GetTimeFrameInfo(tf);
+            int index = m_TimeFramesList.IndexOf(val);
+            return index > 0 && index < m_TimeFramesList.Count - 1 
+                ? m_TimeFramesList[index + 1] 
+                : val;
+        }
+
+        /// <summary>
+        /// Gets the previous time frame (smaller).
+        /// </summary>
+        /// <param name="tf">The current time frame.</param>
+        public static TimeFrameInfo GetPreviousTimeFrameInfo(TimeFrame tf)
+        {
+            TimeFrameInfo val = GetTimeFrameInfo(tf);
+            int index = m_TimeFramesList.IndexOf(val);
+            return index > 0 ? m_TimeFramesList[index - 1] : val;
         }
     }
 }

@@ -3,7 +3,7 @@ using System.IO;
 
 namespace TradeKit.Core
 {
-    public static class Helper
+    internal static class Helper
     {
         static Helper()
         {
@@ -31,7 +31,7 @@ namespace TradeKit.Core
         public const double TRIGGER_SPEED_PERCENT = 0.2;
         public const double SPEED_TP_SL_RATIO = 2;
 
-        public const int GARTLEY_BARS_COUNT = 40;
+        public const int GARTLEY_BARS_COUNT = 100;
         public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 25;
 
         public const int MACD_LONG_CYCLE = 26;
@@ -49,7 +49,6 @@ namespace TradeKit.Core
 
         public const double BREAKEVEN_MIN = 0;
         public const double BREAKEVEN_MAX = 1;
-        public const double TREND_RATIO = 1.5;
 
         /// <summary>
         /// Gets the directory to save images.

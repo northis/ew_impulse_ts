@@ -30,7 +30,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the bars provider.
         /// </summary>
-        public IBarsProvider BarsProvider { get; }
+        internal IBarsProvider BarsProvider { get; }
 
         /// <summary>
         /// Gets the identifier of this setup finder.
@@ -52,7 +52,7 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="symbol">The symbol.</param>
-        protected BaseSetupFinder(
+        internal BaseSetupFinder(
             IBarsProvider mainBarsProvider,
             Symbol symbol)
         {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using Newtonsoft.Json.Linq;
 using TradeKit.Core;
 using TradeKit.Indicators;
 
@@ -24,26 +23,33 @@ namespace TradeKit.AlgoBase
         /// <param name="dateTimeBar">The date and time of the current bar .</param>
         public static TrendType GetTrend(SuperTrendItem sti, DateTime dateTimeBar)
         {
-            TrendType trendMajor = TrendType.NoTrend;
-            if (sti.SuperTrendMajor != null)
-            {
-                int majorIndex = GetActualIndex(sti.BarsProviderMajor, dateTimeBar);
-                double resMajor = sti.SuperTrendMajor.Histogram[majorIndex];
-                if (resMajor != 0)
-                {
-                    trendMajor = resMajor > 0 ? TrendType.Bullish : TrendType.Bearish;
-                }
-            }
-
-            int mainIndex = sti.BarsProviderMain.GetIndexByTime(dateTimeBar);
-            if (mainIndex <= 0)
+            if (sti.Indicators.Length == 0)
                 return TrendType.NoTrend;
 
-            double resMain = sti.SuperTrendMain.Histogram[mainIndex];
-            if (resMain < 0 && trendMajor == TrendType.Bearish || resMain > 0 && trendMajor == TrendType.Bullish)
-                return trendMajor;
+            bool? isBull = null;
+            foreach (SuperTrendIndicator ind in sti.Indicators)
+            {
+                int index = ind.Bars.OpenTimes.GetIndexByTime(dateTimeBar);
+                if (index < 0)
+                    ind.Bars.LoadMoreHistory();
 
-            return TrendType.NoTrend;
+                double res = ind.Histogram[index];
+                if (res > 0 && isBull != false)
+                {
+                    isBull = true;
+                    continue;
+                }
+
+                if (res < 0 && isBull != true)
+                {
+                    isBull = false;
+                    continue;
+                }
+
+                return TrendType.NoTrend;
+            }
+
+            return isBull == true ? TrendType.Bullish : TrendType.Bearish;
         }
 
         /// <summary>
@@ -61,7 +67,7 @@ namespace TradeKit.AlgoBase
 
             return majorIndex;
         }
-
+#if !GARTLEY_PROD
         /// <summary>
         /// Gets the trend based on the "Three Elder's Screens" strategy.
         /// </summary>
@@ -100,7 +106,7 @@ namespace TradeKit.AlgoBase
                 if (histValue >= 0 || histValue > histValuePrev)
                     return TrendType.NoTrend;
 
-                if(stochasticValue <= STOCHASTIC_UP && stochasticValuePrev > STOCHASTIC_UP)
+                if (stochasticValue <= STOCHASTIC_UP && stochasticValuePrev > STOCHASTIC_UP)
                     return TrendType.Bearish;
 
                 return TrendType.NoTrend;
@@ -108,7 +114,7 @@ namespace TradeKit.AlgoBase
 
             return TrendType.NoTrend;
         }
-
+#endif
         /// <summary>
         /// Finds the divergence for the possible signal.
         /// </summary>
@@ -139,7 +145,7 @@ namespace TradeKit.AlgoBase
                 if (isBullSignal && barsProvider.GetLowPrice(i) < end.Value ||
                     !isBullSignal && barsProvider.GetHighPrice(i) > end.Value)
                     break;
-                
+
                 if (isBullSignal && currentValHist <= macd ||
                     !isBullSignal && currentValHist >= macd)
                 {

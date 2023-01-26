@@ -8,7 +8,7 @@ namespace TradeKit.Indicators
     /// Calculates "Super Trend" - one of the most popular trend trading indicators.
     /// </summary>
     /// <seealso cref="Indicator" />
-    public class SuperTrendIndicator : Indicator
+    internal class SuperTrendIndicator : Indicator
     {
         private Supertrend m_SuperTrend;
 

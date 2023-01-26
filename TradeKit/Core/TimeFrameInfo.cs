@@ -6,7 +6,7 @@ namespace TradeKit.Core
     /// <summary>
     /// Class with handy info for <see cref="TimeFrame"/>
     /// </summary>
-    public class TimeFrameInfo
+    internal class TimeFrameInfo
     {
         /// <summary>
         /// Gets the time frame (initial).

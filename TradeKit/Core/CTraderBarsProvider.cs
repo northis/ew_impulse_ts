@@ -8,7 +8,7 @@ namespace TradeKit.Core
     /// Implements the <see cref="IBarsProvider"/> from the cTrader objects.
     /// </summary>
     /// <seealso cref="IBarsProvider" />
-    public class CTraderBarsProvider : IBarsProvider
+    internal class CTraderBarsProvider : IBarsProvider
     {
         private readonly Bars m_Bars;
 

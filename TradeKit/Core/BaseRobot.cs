@@ -45,7 +45,7 @@ namespace TradeKit.Core
         private Dictionary<string, Bars> m_BarsMap;
         private Dictionary<string, Symbol> m_SymbolsMap;
         private Dictionary<string, bool> m_BarsInitMap;
-        private Dictionary<string, bool> m_PositionFinderMap;
+        private Dictionary<string, List<int>> m_PositionFinderMap;
         private Dictionary<string, TK> m_ChartFileFinderMap;
         private readonly Color m_ShortColor = Color.fromHex("#EF5350");
         private readonly Color m_LongColor = Color.fromHex("#26A69A");
@@ -54,7 +54,6 @@ namespace TradeKit.Core
         protected readonly Color BlackColor =  Color.fromARGB(255, 22, 26, 37);
         protected readonly Color WhiteColor = Color.fromARGB(240, 209, 212, 220);
         protected readonly Color SemiWhiteColor = Color.fromARGB(80, 209, 212, 220);
-        protected readonly Color Transparent = Color.fromARGB(0, 0, 0, 0);
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -223,7 +222,7 @@ namespace TradeKit.Core
             m_BarsInitMap = new Dictionary<string, bool>();
             m_SymbolsMap = new Dictionary<string, Symbol>();
             m_SymbolFindersMap = new Dictionary<string, T[]>();
-            m_PositionFinderMap = new Dictionary<string, bool>();
+            m_PositionFinderMap = new Dictionary<string, List<int>>();
             m_ChartFileFinderMap = new Dictionary<string, TK>();
             m_CurrentRisk = RiskPercentFromDeposit;
 
@@ -363,12 +362,16 @@ namespace TradeKit.Core
         /// Closes or sets the breakeven for the symbol positions.
         /// </summary>
         /// <param name="setupId">Id of the setup finder.</param>
+        /// <param name="posId">Identity args to find the position</param>
         /// <param name="breakEvenPrice">If not null, sets this price as a breakeven</param>
-        private void ModifySymbolPositions(string setupId, double? breakEvenPrice = null)
+        private void ModifySymbolPositions(string setupId, string posId, double? breakEvenPrice = null)
         {
-            string symbolName = m_SetupFindersMap[setupId].Symbol.Name;
+            if (!m_PositionFinderMap.TryGetValue(setupId, out List<int> posIds)
+                || posIds == null || posIds.Count == 0)
+                return;
+
             Position[] positionsToModify = Positions
-                .Where(a => a.Label == GetBotName() && a.SymbolName == symbolName)
+                .Where(a => posIds.Contains(a.Id) && a.Comment == posId)
                 .ToArray();
 
             foreach (Position position in positionsToModify)
@@ -376,7 +379,12 @@ namespace TradeKit.Core
                 if (breakEvenPrice.HasValue)
                     position.ModifyStopLossPrice(breakEvenPrice.Value);
                 else
+                {
+                    posIds.Remove(position.Id);
                     position.Close();
+                }
+
+                break;
             }
         }
 
@@ -387,43 +395,34 @@ namespace TradeKit.Core
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         /// <param name="price">The price.</param>
         /// <param name="setupId">The setup identifier.</param>
-        /// <param name="isReallyClose">True, when we should mark the position as closed.</param>
-        protected bool HandleClose(object sender, LevelEventArgs e,
-            out string price, out string setupId, bool isReallyClose = true)
+        /// <returns>True, if the positions exist</returns>
+        protected void HandleClose(object sender, LevelEventArgs e,
+            out string price, out string setupId)
         {
             T sf = (T)sender;
             setupId = sf.Id;
-            price = null;
-            if (!m_PositionFinderMap.TryGetValue(sf.Id, out bool isInPosition))
-                return false;
-
             GetEventStrings(sender, e.Level, out price);
-            if (isReallyClose)
-                m_PositionFinderMap[sf.Id] = false;
+        }
 
-            return isInPosition;
+        private string GetPosId(string setupId, BarPoint entryBarPoint)
+        {
+            return $"{setupId}{entryBarPoint.OpenTime:O}";
         }
         
         protected void OnStopLoss(object sender, LevelEventArgs e)
         {
-            if (!HandleClose(sender, e, out string price, out string setupId))
-            {
-                return;
-            }
-            
+            HandleClose(sender, e, out string price, out string setupId);
             m_StopCount++;
             Logger.Write($"SL hit! {price}");
-            ModifySymbolPositions(setupId);
+            ModifySymbolPositions(setupId, GetPosId(setupId, e.FromLevel));
             ShowResultChart(sender);
 
             if (IsBacktesting || !TelegramReporter.IsReady)
-            {
                 return;
-            }
 
             TelegramReporter.ReportStopLoss(setupId);
         }
-        
+
         /// <summary>
         /// Generates the second result chart for the setup finder
         /// </summary>
@@ -448,14 +447,10 @@ namespace TradeKit.Core
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnTakeProfit(object sender, LevelEventArgs e)
         {
-            if (!HandleClose(sender, e, out string price, out string setupId))
-            {
-                return;
-            }
-
+            HandleClose(sender, e, out string price, out string setupId);
             m_TakeCount++;
             Logger.Write($"TP hit! {price}");
-            ModifySymbolPositions(setupId);
+            ModifySymbolPositions(setupId, GetPosId(setupId, e.FromLevel));
             ShowResultChart(sender);
 
             if (IsBacktesting || !TelegramReporter.IsReady)
@@ -473,13 +468,9 @@ namespace TradeKit.Core
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnBreakeven(object sender, LevelEventArgs e)
         {
-            if (!HandleClose(sender, e, out string price, out string setupId, false))
-            {
-                return;
-            }
-            
+            HandleClose(sender, e, out string price, out string setupId);
             Logger.Write($"Breakeven is set! {price}");
-            ModifySymbolPositions(setupId, e.Level.Value);
+            ModifySymbolPositions(setupId, GetPosId(setupId, e.FromLevel), e.Level.Value);
 
             if (IsBacktesting || !TelegramReporter.IsReady)
             {
@@ -557,7 +548,7 @@ namespace TradeKit.Core
                 return;
             }
             
-            if (!m_BarsMap.TryGetValue(sf.Id, out Bars bars))
+            if (!m_BarsMap.TryGetValue(sf.Id, out _))
             {
                 return;
             }
@@ -598,7 +589,10 @@ namespace TradeKit.Core
             }
 
             m_EnterCount++;
-            m_PositionFinderMap[sf.Id] = true;
+
+            if (!m_PositionFinderMap.ContainsKey(sf.Id))
+                m_PositionFinderMap[sf.Id] = new List<int>();
+
             GetEventStrings(sender, e.Level, out string price);
             Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
@@ -618,12 +612,13 @@ namespace TradeKit.Core
                     //System.Diagnostics.Debugger.Launch();
                     double volume = GetVolume(symbol, slP);
                     TradeResult order = ExecuteMarketOrder(
-                    type, sf.Symbol.Name, volume, GetBotName(), slP, tpP);
+                        type, sf.Symbol.Name, volume, GetBotName(), slP, tpP, GetPosId(sf.Id,e.Level));
 
                     if (order?.IsSuccessful == true)
                     {
                         order.Position.ModifyTakeProfitPrice(tp);
                         order.Position.ModifyStopLossPrice(sl);
+                        m_PositionFinderMap[sf.Id].Add(order.Position.Id);
                     }
                 }
             }
