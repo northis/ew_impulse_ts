@@ -113,17 +113,19 @@ namespace TradeKit.Gartley
                     if (m_SuperTrendItem != null)
                     {
                         // We want to find the trend before the pattern
-                        TrendType trend = SignalFilters.GetTrend(
+                        TrendType trendD = SignalFilters.GetTrend(
                             m_SuperTrendItem, localPattern.ItemD.OpenTime);
+                        TrendType trendX = SignalFilters.GetTrend(
+                            m_SuperTrendItem, localPattern.ItemX.OpenTime);
 
                         if (localPattern.IsBull)
                         {
-                            if (trend != TrendType.Bullish)
+                            if (trendD == TrendType.Bearish || trendX == TrendType.Bearish)
                                 continue;
                         }
                         else
                         {
-                            if (trend != TrendType.Bearish)
+                            if (trendD == TrendType.Bullish || trendX == TrendType.Bullish)
                                 continue;
                         }
                     }

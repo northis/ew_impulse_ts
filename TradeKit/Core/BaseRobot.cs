@@ -417,7 +417,7 @@ namespace TradeKit.Core
             if (IsBacktesting || !TelegramReporter.IsReady)
                 return;
 
-            TelegramReporter.ReportStopLoss(setupId);
+            TelegramReporter.ReportStopLoss(positionId);
         }
 
         /// <summary>
@@ -795,7 +795,8 @@ namespace TradeKit.Core
                         }
                     ), GridColor: SemiWhiteColor, ShowGrid: true))
                 .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    GridColor: SemiWhiteColor, ShowGrid: true));
+                    GridColor: SemiWhiteColor, ShowGrid: true))
+                .WithYAxisStyle(Side: StyleParam.Side.Right, title: null);
 
             string fileName = startView.ToString("s").Replace(":", "-");
             string postfix = string.Empty;

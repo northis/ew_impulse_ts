@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;
@@ -190,7 +191,7 @@ namespace TradeKit.Gartley
             Shape sl = GetSetupRectangle(
                 setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
             candlestickChart.WithShape(sl, true);
-
+            
             if (signalEventArgs.DivergenceStart is not null)
             {
                 Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, LINE_WIDTH);
@@ -235,9 +236,7 @@ namespace TradeKit.Gartley
             var cTraderBarsProvider = new CTraderBarsProvider(bars, symbolEntity);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            MacdCrossOverIndicator macdCrossover = UseDivergences
-                ? Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS)
-                : null;
+            MacdCrossOverIndicator macdCrossover = Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS);
             
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
