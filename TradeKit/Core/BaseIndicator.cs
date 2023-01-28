@@ -66,13 +66,12 @@ namespace TradeKit.Core
         /// <exception cref="NotSupportedException">Time frame {TimeFrame} isn't supported.</exception>
         protected override void Initialize()
         {
-            base.Initialize();
             Logger.SetWrite(a => Print(a));
             if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
-            {
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
-            }
+
+            base.Initialize();
         }
 
         /// <summary>
