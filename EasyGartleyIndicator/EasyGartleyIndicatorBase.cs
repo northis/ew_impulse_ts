@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Threading;
 using cAlgo.API;
 using TradeKit.Gartley;
 
@@ -10,7 +8,8 @@ namespace EasyGartleyIndicator
     /// Indicator can find possible setups based on Gartley patterns
     /// </summary>
     /// <seealso cref="Indicator" />
-    public class EasyGartleyIndicatorBase : GartleyFinderBaseIndicator
+    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.None)]
+    public class EasyGartleyIndicator : GartleyFinderBaseIndicator
     {
         private readonly DateTime m_DateTime = new DateTime(2023, 2, 15);
 

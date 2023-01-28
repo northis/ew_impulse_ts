@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Threading;
-using cAlgo.API;
+﻿using cAlgo.API;
 
 namespace EasyGartleyIndicator
 {
@@ -12,8 +6,10 @@ namespace EasyGartleyIndicator
     /// Indicator can find possible setups based on Gartley patterns
     /// </summary>
     /// <seealso cref="Indicator" />
-    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FileSystem)]
     public class EasyGartleyIndicator : EasyGartleyIndicatorBase
     {
     }
+
+    
 }

@@ -8,7 +8,9 @@ namespace TradeKit.Indicators
     /// Calculates the MACD (Moving Average Convergence/Divergence) indicator.
     /// </summary>
     /// <seealso cref="Indicator" />
+#if !GARTLEY_PROD
     [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
+#endif
     public class MacdCrossOverIndicator : Indicator
     {
         private MacdCrossOver m_MacdCrossOver;
