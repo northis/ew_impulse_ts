@@ -82,6 +82,7 @@ namespace TradeKit.Core
             {
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
+            }
 
             if (EnableLog)
                 Logger.SetWrite(a => Print(a));
