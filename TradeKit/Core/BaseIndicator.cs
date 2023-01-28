@@ -32,7 +32,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets a value indicating whether we should show possible SL and TP for each pattern.
         /// </summary>
-        [Parameter("Show Setups", DefaultValue = true)]
+        [Parameter(nameof(ShowSetups), DefaultValue = true)]
         public bool ShowSetups { get; set; }
 
         /// <summary>
