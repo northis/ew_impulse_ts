@@ -24,7 +24,7 @@ namespace TradeKit.Gartley
 
         private readonly GartleyPatternFinder m_PatternFinder;
         //private readonly CandlePatternFinder m_CandlePatternFinder;
-        private readonly GartleyItemComparer m_GartleyItemComparer = new();
+        private readonly GartleyItemComparer m_GartleyItemComparer = new GartleyItemComparer();
         private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
 
         /// <summary>
@@ -202,7 +202,7 @@ namespace TradeKit.Gartley
                     continue;
                 }
 
-                toRemove ??= new List<GartleyItem>();
+                toRemove = toRemove ?? new List<GartleyItem>();
                 toRemove.Add(pattern);
             }
 

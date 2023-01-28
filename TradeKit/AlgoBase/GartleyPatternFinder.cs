@@ -47,47 +47,27 @@ namespace TradeKit.AlgoBase
         {
             PATTERNS = new GartleyPattern[]
             {
-                new(GartleyPatternType.GARTLEY,
-                    XBValues: new[] {0.618},
-                    XDValues: new[] {0.786},
-                    BDValues: LEVELS.RangeVal(1.13, 1.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.BUTTERFLY,
-                    XBValues: new[] {0.786},
-                    XDValues: LEVELS.RangeVal(1.27, 1.414),
-                    BDValues: LEVELS.RangeVal(1.618, 2.24),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.SHARK,
-                    XBValues: Array.Empty<double>(),
-                    XDValues: LEVELS.RangeVal(0.886, 1.13),
-                    BDValues: LEVELS.RangeVal(1.618, 2.24),
-                    ACValues: LEVELS.RangeVal(1.13, 1.618)),
-                new(GartleyPatternType.CRAB,
-                    XBValues: LEVELS.RangeVal(0.382, 0.618),
-                    XDValues: new[] {1.618},
-                    BDValues: LEVELS.RangeVal(2.618, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.DEEP_CRAB,
-                    XBValues: new[] {0.886},
-                    XDValues: new[] {1.618},
-                    BDValues: LEVELS.RangeVal(2, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.BAT,
-                    XBValues: LEVELS.RangeVal(0.382, 0.5),
-                    XDValues: new[] {1.618},
-                    BDValues: LEVELS.RangeVal(1.618, 2.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.ALT_BAT,
-                    XBValues: new[] {0.382},
-                    XDValues: new[] {1.13},
-                    BDValues: LEVELS.RangeVal(2, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.CYPHER,
-                    XBValues: LEVELS.RangeVal(0.382, 0.618),
-                    XDValues: new[] {0.786},
-                    BDValues: LEVELS.RangeVal(1.272, 2),
-                    ACValues: LEVELS.RangeVal(1.13, 1.41),
-                    SetupType: GartleySetupType.CD)
+                new GartleyPattern(GartleyPatternType.GARTLEY, xbValues: new[] {0.618}, xdValues: new[] {0.786},
+                    bdValues: LEVELS.RangeVal(1.13, 1.618), acValues: LEVELS.RangeVal(0.382, 0.886)),
+                new GartleyPattern(GartleyPatternType.BUTTERFLY, xbValues: new[] {0.786},
+                    xdValues: LEVELS.RangeVal(1.27, 1.414), bdValues: LEVELS.RangeVal(1.618, 2.24),
+                    acValues: LEVELS.RangeVal(0.382, 0.886)),
+                new GartleyPattern(GartleyPatternType.SHARK, xbValues: Array.Empty<double>(),
+                    xdValues: LEVELS.RangeVal(0.886, 1.13), bdValues: LEVELS.RangeVal(1.618, 2.24),
+                    acValues: LEVELS.RangeVal(1.13, 1.618)),
+                new GartleyPattern(GartleyPatternType.CRAB, xbValues: LEVELS.RangeVal(0.382, 0.618),
+                    xdValues: new[] {1.618}, bdValues: LEVELS.RangeVal(2.618, 3.618),
+                    acValues: LEVELS.RangeVal(0.382, 0.886)),
+                new GartleyPattern(GartleyPatternType.DEEP_CRAB, xbValues: new[] {0.886}, xdValues: new[] {1.618},
+                    bdValues: LEVELS.RangeVal(2, 3.618), acValues: LEVELS.RangeVal(0.382, 0.886)),
+                new GartleyPattern(GartleyPatternType.BAT, xbValues: LEVELS.RangeVal(0.382, 0.5),
+                    xdValues: new[] {1.618}, bdValues: LEVELS.RangeVal(1.618, 2.618),
+                    acValues: LEVELS.RangeVal(0.382, 0.886)),
+                new GartleyPattern(GartleyPatternType.ALT_BAT, xbValues: new[] {0.382}, xdValues: new[] {1.13},
+                    bdValues: LEVELS.RangeVal(2, 3.618), acValues: LEVELS.RangeVal(0.382, 0.886)),
+                new GartleyPattern(GartleyPatternType.CYPHER, xbValues: LEVELS.RangeVal(0.382, 0.618),
+                    xdValues: new[] {0.786}, bdValues: LEVELS.RangeVal(1.272, 2), acValues: LEVELS.RangeVal(1.13, 1.41),
+                    setupType: GartleySetupType.CD)
             };
         }
 
@@ -105,7 +85,7 @@ namespace TradeKit.AlgoBase
             double wickAllowance, 
             HashSet<GartleyPatternType> patterns = null)
         {
-            if (wickAllowance is < 0 or > 100)
+            if (wickAllowance < 0 || wickAllowance > 100)
                 throw new IndexOutOfRangeException(
                     $"{nameof(wickAllowance)} should be between 0 and 100");
 
@@ -187,7 +167,7 @@ namespace TradeKit.AlgoBase
                 List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull, startIndex);
                 if (patternsIn != null)
                 {
-                    patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
+                    patterns = patterns ?? new HashSet<GartleyItem>(new GartleyItemComparer());
                     foreach (GartleyItem patternIn in patternsIn)
                     {
                         if (patterns.Add(patternIn))
@@ -219,26 +199,26 @@ namespace TradeKit.AlgoBase
 
             foreach (GartleyPattern pattern in m_RealPatterns)
             {
-                double[] pointsB = new double[pattern.BDValues.Length];
-                for (int i = 0; i < pattern.BDValues.Length; i++)
+                double[] pointsB = new double[pattern.BdValues.Length];
+                for (int i = 0; i < pattern.BdValues.Length; i++)
                 {
-                    double varBtoD = pattern.BDValues[i];
+                    double varBtoD = pattern.BdValues[i];
                     double ratio = valCtoD / varBtoD;
                     double varB = varC + ratio * (isBull ? -1 : 1);
                     pointsB[i] = varB;
                 }
                 
-                double[] pointsX = new double[pattern.XDValues.Length];
+                double[] pointsX = new double[pattern.XdValues.Length];
                 HashSet<double> pointsA = new HashSet<double>();
-                for (int i = 0; i < pattern.XDValues.Length; i++)
+                for (int i = 0; i < pattern.XdValues.Length; i++)
                 {
-                    double varXtoD = pattern.XDValues[i];
+                    double varXtoD = pattern.XdValues[i];
                     double ratio = valCtoD / varXtoD;
                     double varX = varC + ratio * (isBull ? -1 : 1);
                     pointsX[i] = varX;
 
                     double valXtoC = Math.Abs(pointC.Value - varX);
-                    foreach (double varAtoC in pattern.ACValues)
+                    foreach (double varAtoC in pattern.AcValues)
                     {
                         double ratioA = valXtoC / varAtoC;
                         double varA = varX + ratioA * (isBull ? 1 : -1);
@@ -270,14 +250,14 @@ namespace TradeKit.AlgoBase
                         {
                             if (lMin <= bMin && lMin <= pointB && lMin >= pointB - allowance)
                             {
-                                bExtrema ??= new HashSet<BarPoint>();
+                                bExtrema = bExtrema ?? new HashSet<BarPoint>();
                                 bExtrema.Add(new BarPoint(lMin, i, m_BarsProvider));
                                 // Got good B point
                             }
                         }
                         else if (lMax >= bMax && lMax >= pointB && lMin <= pointB + allowance)
                         {
-                            bExtrema ??= new HashSet<BarPoint>();
+                            bExtrema = bExtrema ?? new HashSet<BarPoint>();
                             bExtrema.Add(new BarPoint(lMax, i, m_BarsProvider));
                             // Got good B point
                         }
@@ -322,14 +302,14 @@ namespace TradeKit.AlgoBase
                                 {
                                     if (lMax >= aMax && lMax >= pointA && lMax <= pointA + allowance)
                                     {
-                                        aExtrema ??= new HashSet<BarPoint>();
+                                        aExtrema = aExtrema ?? new HashSet<BarPoint>();
                                         aExtrema.Add(new BarPoint(lMax, j, m_BarsProvider));
                                         // Got good A point
                                     }
                                 }
                                 else if (lMin <= aMin && lMin <= pointA && lMin >= pointA - allowance)
                                 {
-                                    aExtrema ??= new HashSet<BarPoint>();
+                                    aExtrema = aExtrema ?? new HashSet<BarPoint>();
                                     aExtrema.Add(new BarPoint(lMin, j, m_BarsProvider));
                                     // Got good A point
                                 }
@@ -376,14 +356,14 @@ namespace TradeKit.AlgoBase
                                         {
                                             if (lMin <= xMin && lMin <= pointX && lMin >= pointX - allowance)
                                             {
-                                                xExtrema ??= new HashSet<BarPoint>();
+                                                xExtrema = xExtrema ?? new HashSet<BarPoint>();
                                                 xExtrema.Add(new BarPoint(lMin, k, m_BarsProvider));
                                                 // Got good X point
                                             }
                                         }
                                         else if (lMax >= xMax && lMax >= pointX && lMax <= pointX + allowance)
                                         {
-                                            xExtrema ??= new HashSet<BarPoint>();
+                                            xExtrema = xExtrema ?? new HashSet<BarPoint>();
                                             xExtrema.Add(new BarPoint(lMax, k, m_BarsProvider));
                                             // Got good X point
                                         }
@@ -422,7 +402,7 @@ namespace TradeKit.AlgoBase
                                         if (patternFound == null)
                                             continue;
 
-                                        res ??= new List<GartleyItem>();
+                                        res = res ?? new List<GartleyItem>();
                                         res.Add(patternFound);
                                     }
                                 }
@@ -485,22 +465,22 @@ namespace TradeKit.AlgoBase
                 return fetched;
             }
 
-            double valAc = FetchCloseValue(pattern.ACValues, aC);
+            double valAc = FetchCloseValue(pattern.AcValues, aC);
             if (valAc == 0)
                 return null;
 
-            double valBd = FetchCloseValue(pattern.BDValues, bD);
+            double valBd = FetchCloseValue(pattern.BdValues, bD);
             if (valBd == 0)
                 return null;
 
-            double valXd = FetchCloseValue(pattern.XDValues, xD);
+            double valXd = FetchCloseValue(pattern.XdValues, xD);
             if (valXd == 0)
                 return null;
 
             double valXb = 0;
-            if (pattern.XBValues.Length > 0)
+            if (pattern.XbValues.Length > 0)
             {
-                valXb = FetchCloseValue(pattern.XBValues, xB);
+                valXb = FetchCloseValue(pattern.XbValues, xB);
                 if (valXb == 0)
                     return null;
             }

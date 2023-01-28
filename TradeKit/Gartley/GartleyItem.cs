@@ -7,26 +7,51 @@ namespace TradeKit.Gartley
     /// Represents the Gartley pattern on the chart
     /// </summary>
     /// <seealso cref="IEquatable&lt;GartleyItem&gt;" />
-    public sealed record GartleyItem(
-        int AccuracyPercent,
-        GartleyPatternType PatternType,
-        BarPoint ItemX,
-        BarPoint ItemA,
-        BarPoint ItemB,
-        BarPoint ItemC,
-        BarPoint ItemD,
-        double StopLoss,
-        double TakeProfit1,
-        double TakeProfit2,
-        double XtoDActual,
-        double XtoD,
-        double AtoCActual,
-        double AtoC,
-        double BtoDActual,
-        double BtoD,
-        double XtoBActual,
-        double XtoB = 0)
+    public sealed class GartleyItem
     {
+        /// <summary>
+        /// Represents the Gartley pattern on the chart
+        /// </summary>
+        /// <seealso cref="IEquatable&lt;GartleyItem&gt;" />
+        public GartleyItem(int accuracyPercent,
+            GartleyPatternType patternType,
+            BarPoint itemX,
+            BarPoint itemA,
+            BarPoint itemB,
+            BarPoint itemC,
+            BarPoint itemD,
+            double stopLoss,
+            double takeProfit1,
+            double takeProfit2,
+            double xtoDActual,
+            double xtoD,
+            double atoCActual,
+            double atoC,
+            double btoDActual,
+            double btoD,
+            double xtoBActual,
+            double xtoB = 0)
+        {
+            AccuracyPercent = accuracyPercent;
+            PatternType = patternType;
+            ItemX = itemX;
+            ItemA = itemA;
+            ItemB = itemB;
+            ItemC = itemC;
+            ItemD = itemD;
+            StopLoss = stopLoss;
+            TakeProfit1 = takeProfit1;
+            TakeProfit2 = takeProfit2;
+            XtoDActual = xtoDActual;
+            XtoD = xtoD;
+            AtoCActual = atoCActual;
+            AtoC = atoC;
+            BtoDActual = btoDActual;
+            BtoD = btoD;
+            XtoBActual = xtoBActual;
+            XtoB = xtoB;
+        }
+
         /// <summary>
         /// Gets true if this item equals to the passed one.
         /// </summary>
@@ -56,21 +81,39 @@ namespace TradeKit.Gartley
         /// </value>
         public bool IsBull => ItemX.Value < ItemA.Value;
 
+        public int AccuracyPercent { get; set; }
+        public GartleyPatternType PatternType { get; set; }
+        public BarPoint ItemX { get; }
+        public BarPoint ItemA { get; }
+        public BarPoint ItemB { get; }
+        public BarPoint ItemC { get; }
+        public BarPoint ItemD { get; }
+        public double StopLoss { get; set; }
+        public double TakeProfit1 { get; set; }
+        public double TakeProfit2 { get; set; }
+        public double XtoDActual { get; set; }
+        public double XtoD { get; set; }
+        public double AtoCActual { get; set; }
+        public double AtoC { get; set; }
+        public double BtoDActual { get; set; }
+        public double BtoD { get; set; }
+        public double XtoBActual { get; set; }
+        public double XtoB { get; set; }
+
         /// <summary>
-        /// Returns a hash code for this instance.
+        /// <inheritdoc cref="object"/>
         /// </summary>
-        /// <returns>
-        /// A hash code for this instance, suitable for use in hashing algorithms and data structures like a hash table. 
-        /// </returns>
         public override int GetHashCode()
         {
-            var hashCode = new HashCode();
-            hashCode.Add(ItemX);
-            hashCode.Add(ItemA);
-            hashCode.Add(ItemB);
-            hashCode.Add(ItemC);
-            hashCode.Add(ItemD);
-            return hashCode.ToHashCode();
+            unchecked
+            {
+                var hashCode = ItemX.GetHashCode();
+                hashCode = (hashCode * 397) ^ ItemA.GetHashCode();
+                hashCode = (hashCode * 397) ^ ItemB.GetHashCode();
+                hashCode = (hashCode * 397) ^ ItemC.GetHashCode();
+                hashCode = (hashCode * 397) ^ ItemD.GetHashCode();
+                return hashCode;
+            }
         }
     };
 }

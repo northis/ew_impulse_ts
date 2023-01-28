@@ -45,6 +45,7 @@ namespace TradeKit.AlgoBase
             return val > 0 ? TrendType.Bullish : TrendType.Bearish;
         }
 
+#if !GARTLEY_PROD
         /// <summary>
         /// Gets the actual index for other time frame.
         /// </summary>
@@ -60,7 +61,6 @@ namespace TradeKit.AlgoBase
 
             return majorIndex;
         }
-#if !GARTLEY_PROD
         /// <summary>
         /// Gets the trend based on the "Three Elder's Screens" strategy.
         /// </summary>

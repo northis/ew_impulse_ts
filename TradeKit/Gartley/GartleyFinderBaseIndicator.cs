@@ -133,7 +133,14 @@ namespace TradeKit.Gartley
 
             return res;
         }
-        
+
+#if GARTLEY_PROD
+        internal void InitializeInternal()
+        {
+            Initialize();
+        }
+#endif
+
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
@@ -282,7 +289,7 @@ namespace TradeKit.Gartley
                 .SetFilled();
 
             BarPoint div = e.DivergenceStart;
-            if (ShowDivergences && div is not null)
+            if (ShowDivergences && !(div is null))
             {
                 Chart.DrawTrendLine($"Div{name}", div.BarIndex, div.Value, indexD, valueD, colorBorder, DIV_LINE_WIDTH);
             }

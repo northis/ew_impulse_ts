@@ -255,3 +255,5 @@ paket-files/
 *.pyc
 
 ImpulseFinder.Tests/main_history.json
+/EasyGartleyIndicator/Obfuscated/EasyGartleyIndicatorLib_0.9.0.0.nrmap
+/EasyGartleyIndicator/Obfuscated/EasyGartleyIndicatorLib.dll

@@ -23,12 +23,11 @@ namespace TradeKit.Core
                 .Where(a => a.FieldType == timeFrameType)
                 .Select(a => a.GetValue(null) as TimeFrame)
                 .Where(a => Convert.ToInt32(timeFrameType
-                    .GetProperty("TimeFrameType",
-                        BindingFlags.NonPublic | BindingFlags.Instance)
+                    .GetProperty("TimeFrameType")
                     ?.GetValue(a)) == timeFrameTypeTimeEnum)
                 .Select(a => new TimeFrameInfo(a,
                     TimeSpan.FromMinutes(Convert.ToInt32(timeFrameType
-                        .GetProperty("Size", BindingFlags.NonPublic | BindingFlags.Instance)
+                        .GetProperty("Size")
                         ?.GetValue(a)))))
                 .OrderBy(a => a.TimeSpan)
                 .ToList();
@@ -56,7 +55,7 @@ namespace TradeKit.Core
         /// Gets the supported time frames.
         /// </summary>
         public static Dictionary<TimeFrame, TimeFrameInfo> TimeFrames { get; }
-
+#if !GARTLEY_PROD
         /// <summary>
         /// Gets the next time frame (bigger).
         /// </summary>
@@ -80,7 +79,7 @@ namespace TradeKit.Core
 
             return nextVal;
         }
-
+#endif
         /// <summary>
         /// Gets the time frame information.
         /// </summary>

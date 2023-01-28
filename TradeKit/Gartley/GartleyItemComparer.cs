@@ -30,21 +30,12 @@ namespace TradeKit.Gartley
 
         public int GetHashCode(GartleyItem obj)
         {
-            var hashCode = new HashCode();
-
-            hashCode.Add(obj.PatternType);
-            //hashCode.Add(obj.ItemA);
-            //hashCode.Add(obj.ItemB);
-            //hashCode.Add(obj.ItemC);
-            hashCode.Add(obj.ItemD);
-            //hashCode.Add(obj.StopLoss);
-            //hashCode.Add(obj.TakeProfit1);
-            //hashCode.Add(obj.TakeProfit2);
-            //hashCode.Add(obj.XtoDActual);
-            //hashCode.Add(obj.AtoCActual);
-            //hashCode.Add(obj.BtoDActual);
-            //hashCode.Add(obj.XtoBActual);
-            return hashCode.ToHashCode();
+            unchecked
+            {
+                var hashCode = obj.ItemD.GetHashCode();
+                hashCode = (hashCode * 397) ^ obj.ItemD.GetHashCode();
+                return hashCode;
+            }
         }
     }
 }

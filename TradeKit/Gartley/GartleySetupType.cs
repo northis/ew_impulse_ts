@@ -1,6 +1,6 @@
 ﻿namespace TradeKit.Gartley
 {
-    public enum GartleySetupType
+    internal enum GartleySetupType
     {
         AD,
         CD

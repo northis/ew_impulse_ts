@@ -17,6 +17,34 @@ namespace TradeKit.Core
     {
         private static readonly TimeSpan TIME_OFFSET = DateTime.UtcNow - DateTime.Now;
 
+        #region UnixEpoch
+
+        private const long TicksPerMillisecond = 10000;
+        private const long TicksPerSecond = TicksPerMillisecond * 1000;
+        private const long TicksPerMinute = TicksPerSecond * 60;
+        private const long TicksPerHour = TicksPerMinute * 60;
+        private const long TicksPerDay = TicksPerHour * 24;
+
+        // Number of days in a non-leap year
+        private const int DaysPerYear = 365;
+        // Number of days in 4 years
+        private const int DaysPer4Years = DaysPerYear * 4 + 1;       // 1461
+        // Number of days in 100 years
+        private const int DaysPer100Years = DaysPer4Years * 25 - 1;  // 36524
+        // Number of days in 400 years
+        private const int DaysPer400Years = DaysPer100Years * 4 + 1; // 146097
+
+        // Number of days from 1/1/0001 to 12/31/1600
+        private const int DaysTo1601 = DaysPer400Years * 4;          // 584388
+        // Number of days from 1/1/0001 to 12/30/1899
+        private const int DaysTo1899 = DaysPer400Years * 4 + DaysPer100Years * 3 - 367;
+        // Number of days from 1/1/0001 to 12/31/1969
+        internal const int DaysTo1970 = DaysPer400Years * 4 + DaysPer100Years * 3 + DaysPer4Years * 17 + DaysPerYear; // 719,162
+        internal const long UnixEpochTicks = DaysTo1970 * TicksPerDay;
+
+        #endregion
+        public static readonly DateTime UnixEpoch = new DateTime(UnixEpochTicks, DateTimeKind.Utc);
+
         /// <summary>
         /// To SVG path point.
         /// </summary>
@@ -32,7 +60,7 @@ namespace TradeKit.Core
         /// </summary>
         public static double ToUnixMilliseconds(this DateTime item)
         {
-            return (item - DateTime.UnixEpoch).TotalMilliseconds;
+            return (item - UnixEpoch).TotalMilliseconds;
         }
 
 #if !GARTLEY_PROD
@@ -68,7 +96,7 @@ namespace TradeKit.Core
 
 
 #if !GARTLEY_PROD
-        private static readonly Dictionary<CandlePatternType, string> CANDLE_PATTERN_NAME_MAP = new()
+        private static readonly Dictionary<CandlePatternType, string> CANDLE_PATTERN_NAME_MAP = new Dictionary<CandlePatternType, string>
         {
             {CandlePatternType.DOWN_PIN_BAR, "PB\n ↓"},
             {CandlePatternType.UP_PIN_BAR, " ↑\nPB"},
@@ -103,7 +131,7 @@ namespace TradeKit.Core
             return type.ToString();
         }
 #endif
-        private static readonly Dictionary<GartleyPatternType, string> GARTLEY_PATTERN_NAME_MAP = new()
+        private static readonly Dictionary<GartleyPatternType, string> GARTLEY_PATTERN_NAME_MAP = new Dictionary<GartleyPatternType, string>
         {
             {GartleyPatternType.ALT_BAT, "Alt. Bat"},
             {GartleyPatternType.BAT, "Bat"},
@@ -234,9 +262,9 @@ namespace TradeKit.Core
                     extrema.Insert(0, start);
                 }
 
-                if (extrema[^1].OpenTime == end.OpenTime)
+                if (extrema[extrema.Count-1].OpenTime == end.OpenTime)
                 {
-                    extrema[^1] = end;
+                    extrema[extrema.Count - 1] = end;
                 }
                 else
                 {
@@ -260,7 +288,7 @@ namespace TradeKit.Core
                 bool newDirection = current < extremum;
                 if (direction == newDirection)
                 {
-                    toDelete ??= new List<BarPoint>();
+                    toDelete = toDelete ?? new List<BarPoint>();
                     toDelete.Add(current);
                 }
 

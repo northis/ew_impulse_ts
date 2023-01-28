@@ -6,8 +6,42 @@ namespace TradeKit.Core
     /// <summary>
     /// Contains the bar point data
     /// </summary>
-    public record BarPoint : IComparable
+    public class BarPoint : IComparable
     {
+        /// <summary>
+        /// <inheritdoc cref="object"/>
+        /// </summary>
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = Value.GetHashCode();
+                hashCode = (hashCode * 397) ^ OpenTime.GetHashCode();
+                hashCode = (hashCode * 397) ^ BarTimeFrame.GetHashCode();
+                hashCode = (hashCode * 397) ^ BarIndex;
+                return hashCode;
+            }
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="object"/>
+        /// </summary>
+        protected bool Equals(BarPoint other)
+        {
+            return Value.Equals(other.Value) && OpenTime.Equals(other.OpenTime) && Equals(BarTimeFrame, other.BarTimeFrame) && BarIndex == other.BarIndex;
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="object"/>
+        /// </summary>
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((BarPoint) obj);
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="BarPoint"/> class.
         /// </summary>
@@ -42,12 +76,7 @@ namespace TradeKit.Core
             provider.GetOpenTime(barIndex), provider.TimeFrame, barIndex)
         {
         }
-
-        /// <inheritdoc cref="object"/>
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Value, OpenTime, BarTimeFrame);
-        }
+        
 
         /// <summary>
         /// Gets the value of the extremum.
@@ -219,7 +248,7 @@ namespace TradeKit.Core
         /// </returns>
         public static bool operator ==(double a, BarPoint b)
         {
-            return b is not null && Math.Abs(a - b.Value) < double.Epsilon;
+            return !(b is null) && Math.Abs(a - b.Value) < double.Epsilon;
         }
 
         /// <summary>
