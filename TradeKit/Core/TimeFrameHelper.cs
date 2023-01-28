@@ -12,42 +12,21 @@ namespace TradeKit.Core
     internal static class TimeFrameHelper
     {
         private static readonly List<TimeFrameInfo> TIME_FRAMES_LIST;
-        private static readonly List<TimeFrameInfo> TIME_FRAMES_LIST_SELECTED;
 
         static TimeFrameHelper()
         {
-            int timeFrameTypeTimeEnum = 0;//TimeFrameType.Time
-            Type timeFrameType = typeof(TimeFrame);
-            TIME_FRAMES_LIST = timeFrameType.GetFields(
-                    BindingFlags.Public | BindingFlags.Static)
-                .Where(a => a.FieldType == timeFrameType)
-                .Select(a => a.GetValue(null) as TimeFrame)
-                .Where(a => Convert.ToInt32(timeFrameType
-                    .GetProperty("TimeFrameType",
-                        BindingFlags.NonPublic | BindingFlags.Instance)
-                    ?.GetValue(a)) == timeFrameTypeTimeEnum)
-                .Select(a => new TimeFrameInfo(a,
-                    TimeSpan.FromMinutes(Convert.ToInt32(timeFrameType
-                        .GetProperty("Size", BindingFlags.NonPublic | BindingFlags.Instance)
-                        ?.GetValue(a)))))
-                .OrderBy(a => a.TimeSpan)
-                .ToList();
-
-            TimeSpan[] selected =
+            TIME_FRAMES_LIST = new List<TimeFrameInfo>
             {
-                TimeSpan.FromMinutes(1),
-                TimeSpan.FromMinutes(5),
-                TimeSpan.FromMinutes(15),
-                TimeSpan.FromMinutes(30),
-                TimeSpan.FromHours(1),
-                TimeSpan.FromHours(4),
-                TimeSpan.FromDays(1),
-                TimeSpan.FromDays(7)
+                new TimeFrameInfo(TimeFrame.Minute, TimeSpan.FromMinutes(1)),
+                new TimeFrameInfo(TimeFrame.Minute5, TimeSpan.FromMinutes(5)),
+                new TimeFrameInfo(TimeFrame.Minute15, TimeSpan.FromMinutes(15)),
+                new TimeFrameInfo(TimeFrame.Minute30, TimeSpan.FromMinutes(30)),
+                new TimeFrameInfo(TimeFrame.Hour, TimeSpan.FromHours(1)),
+                new TimeFrameInfo(TimeFrame.Hour4, TimeSpan.FromHours(4)),
+                new TimeFrameInfo(TimeFrame.Daily, TimeSpan.FromDays(1)),
+                new TimeFrameInfo(TimeFrame.Weekly, TimeSpan.FromDays(7)),
+                new TimeFrameInfo(TimeFrame.Monthly, TimeSpan.FromDays(30))
             };
-
-            TIME_FRAMES_LIST_SELECTED = TIME_FRAMES_LIST
-                .Where(a => selected.Contains(a.TimeSpan))
-                .ToList();
 
             TimeFrames = TIME_FRAMES_LIST.ToDictionary(a => a.TimeFrame, a => a);
         }
@@ -101,7 +80,7 @@ namespace TradeKit.Core
         public static TimeFrameInfo GetNextTimeFrameInfo(TimeFrame tf)
         {
             TimeFrameInfo val = GetTimeFrameInfo(tf);
-            int index = TIME_FRAMES_LIST_SELECTED.IndexOf(val);
+            int index = TIME_FRAMES_LIST.IndexOf(val);
             return index > 0 && index < TIME_FRAMES_LIST.Count - 1 
                 ? TIME_FRAMES_LIST[index + 1] 
                 : val;
@@ -114,7 +93,7 @@ namespace TradeKit.Core
         public static TimeFrameInfo GetPreviousTimeFrameInfo(TimeFrame tf)
         {
             TimeFrameInfo val = GetTimeFrameInfo(tf);
-            int index = TIME_FRAMES_LIST_SELECTED.IndexOf(val);
+            int index = TIME_FRAMES_LIST.IndexOf(val);
             return index > 0 ? TIME_FRAMES_LIST[index - 1] : val;
         }
     }

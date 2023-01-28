@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -133,7 +132,7 @@ namespace TradeKit.Gartley
 
             return res;
         }
-        
+
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
