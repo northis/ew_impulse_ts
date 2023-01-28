@@ -28,6 +28,12 @@ namespace TradeKit.Core
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
             m_SetupFinder.OnTakeProfit += OnBreakeven;
         }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether we should show possible SL and TP for each pattern.
+        /// </summary>
+        [Parameter("Show Setups", DefaultValue = true)]
+        public bool ShowSetups { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the logging is enabled.
