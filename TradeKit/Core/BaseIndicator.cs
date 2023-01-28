@@ -30,6 +30,12 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the logging is enabled.
+        /// </summary>
+        [Parameter(nameof(EnableLog), DefaultValue = true)]
+        public bool EnableLog { get; set; }
+
+        /// <summary>
         /// Called when stop event loss occurs.
         /// </summary>
         /// <param name="sender">The sender.</param>
@@ -66,10 +72,12 @@ namespace TradeKit.Core
         /// <exception cref="NotSupportedException">Time frame {TimeFrame} isn't supported.</exception>
         protected override void Initialize()
         {
-            Logger.SetWrite(a => Print(a));
             if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
+
+            if (EnableLog)
+                Logger.SetWrite(a => Print(a));
 
             base.Initialize();
         }
@@ -93,7 +101,8 @@ namespace TradeKit.Core
         public override void Calculate(int index)
         {
             if (m_SetupFinder == null)
-                throw new InvalidOperationException("Please, call Subscribe() first");
+                return;
+            //throw new InvalidOperationException("Please, call Subscribe() first");
 
             m_SetupFinder.CheckBar(m_IsInitialized ? index - 1 : index);
             if (IsLastBar && !m_IsInitialized)
