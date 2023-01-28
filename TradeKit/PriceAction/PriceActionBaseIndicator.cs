@@ -135,12 +135,6 @@ namespace TradeKit.PriceAction
         [Parameter("Fill With Color", DefaultValue = true)]
         public bool FillWithColor { get; set; }
 
-        /// <summary>
-        /// Gets or sets a value indicating whether we should show possible SL and TP for each pattern.
-        /// </summary>
-        [Parameter("Show Setups", DefaultValue = true)]
-        public bool ShowSetups { get; set; }
-
         private HashSet<CandlePatternType> GetPatternsType()
         {
             var res = new HashSet<CandlePatternType>();

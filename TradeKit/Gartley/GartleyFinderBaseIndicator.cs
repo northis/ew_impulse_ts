@@ -87,10 +87,10 @@ namespace TradeKit.Gartley
         public bool UseDeepCrab { get; set; }
         
         /// <summary>
-        /// Gets or sets a value indicating whether we should hide ratio values on patterns.
+        /// Gets or sets a value indicating whether we should show ratio values on patterns.
         /// </summary>
-        [Parameter(nameof(HideRatio), DefaultValue = true)]
-        public bool HideRatio { get; set; }
+        [Parameter(nameof(ShowRatio), DefaultValue = false)]
+        public bool ShowRatio { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should show divergences with the patterns.
@@ -222,18 +222,18 @@ namespace TradeKit.Gartley
             Chart.DrawTriangle($"P2{name}", indexB, valueB, indexC, valueC, indexD, valueD, colorFill, 0);
             p2.IsFilled = true;
 
-            string percent = HideRatio ? string.Empty : $" ({e.GartleyItem.AccuracyPercent}%)";
+            string percent = ShowRatio ? $" ({e.GartleyItem.AccuracyPercent}%)" : string.Empty;
             string header =
                 $"{(isBull ? "Bullish" : "Bearish")} {e.GartleyItem.PatternType.Format()}{percent}";
 
-            string xdRatio = HideRatio
-                ? string.Empty
-                : $"{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})";
+            string xdRatio = ShowRatio
+                ? $"{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})"
+                : string.Empty;
             Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD,
-                    colorBorder, HideRatio ? 0 : LINE_WIDTH)
+                    colorBorder, ShowRatio ? LINE_WIDTH : 0)
                 .TextForLine(Chart, $"{header}{xdRatio}", !isBull, indexX, indexD);
 
-            if (!HideRatio)
+            if (ShowRatio)
             {
                 Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
                     .ChartTextAlign(!isBull);
@@ -268,17 +268,20 @@ namespace TradeKit.Gartley
                     isBull, indexA, indexC);
             }
 
-            double closeD = m_BarsProvider.GetClosePrice(indexD);
+            if (ShowSetups)
+            {
+                double closeD = m_BarsProvider.GetClosePrice(indexD);
 
-            Chart.DrawRectangle($"SL{name}", indexD, closeD, indexD + SETUP_WIDTH,
-                    e.GartleyItem.StopLoss, m_SlColor, LINE_WIDTH)
-                .SetFilled();
-            Chart.DrawRectangle($"TP1{name}", indexD, closeD, indexD + SETUP_WIDTH,
-                    e.GartleyItem.TakeProfit1, m_TpColor, LINE_WIDTH)
-                .SetFilled();
-            Chart.DrawRectangle($"TP2{name}", indexD, closeD, indexD + SETUP_WIDTH,
-                    e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
-                .SetFilled();
+                Chart.DrawRectangle($"SL{name}", indexD, closeD, indexD + SETUP_WIDTH,
+                        e.GartleyItem.StopLoss, m_SlColor, LINE_WIDTH)
+                    .SetFilled();
+                Chart.DrawRectangle($"TP1{name}", indexD, closeD, indexD + SETUP_WIDTH,
+                        e.GartleyItem.TakeProfit1, m_TpColor, LINE_WIDTH)
+                    .SetFilled();
+                Chart.DrawRectangle($"TP2{name}", indexD, closeD, indexD + SETUP_WIDTH,
+                        e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
+                    .SetFilled();
+            }
 
             BarPoint div = e.DivergenceStart;
             if (ShowDivergences && !(div is null))
