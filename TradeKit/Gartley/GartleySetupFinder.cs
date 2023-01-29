@@ -120,12 +120,12 @@ namespace TradeKit.Gartley
 
                         if (localPattern.IsBull)
                         {
-                            if (trendD == TrendType.Bearish || trendX == TrendType.Bearish)
+                            if (trendD != TrendType.Bullish /*|| trendX == TrendType.Bearish*/)
                                 continue;
                         }
                         else
                         {
-                            if (trendD == TrendType.Bullish || trendX == TrendType.Bullish)
+                            if (trendD != TrendType.Bearish /*|| trendX == TrendType.Bullish*/)
                                 continue;
                         }
                     }
