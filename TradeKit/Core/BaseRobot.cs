@@ -73,6 +73,12 @@ namespace TradeKit.Core
         public double RiskPercentFromDepositMax { get; set; }
 
         /// <summary>
+        /// Gets or sets the max allowed volume in lots.
+        /// </summary>
+        [Parameter(nameof(MaxVolumeLots), DefaultValue = Helper.ALLOWED_VOLUME_LOTS, MaxValue = Helper.MAX_ALLOWED_VOLUME_LOTS, MinValue = Helper.MIN_ALLOWED_VOLUME_LOTS)]
+        public double MaxVolumeLots { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether this bot can trade.
         /// </summary>
         [Parameter(nameof(AllowToTrade), DefaultValue = false)]
@@ -593,21 +599,32 @@ namespace TradeKit.Core
             GetEventStrings(sender, e.Level, out string price);
             Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
+            double priceNow = isLong ? s.Ask : s.Bid;
+            double slLen = Math.Abs(priceNow - sl);
+            double tpLen = Math.Abs(priceNow - tp);
 
-            if (IsBacktesting || AllowToTrade)
+            //isLong = !isLong;
+            //(sl, tp) = (tp, sl);
+            TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
+
+            double slP = Math.Round(slLen / sf.Symbol.PipSize);
+            double tpP = Math.Round(tpLen / sf.Symbol.PipSize);
+
+            if (slP > 0)
             {
-                //isLong = !isLong;
-                //(sl, tp) = (tp, sl);
-                TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
-                double priceNow = isLong ? s.Ask : s.Bid;
+                //System.Diagnostics.Debugger.Launch();
+                double volume = GetVolume(symbol, slP);
+                double volumeInLots = volume / symbol.LotSize;
 
-                double slP = Math.Round(Math.Abs(priceNow - sl) / sf.Symbol.PipSize);
-                double tpP = Math.Round(Math.Abs(priceNow - tp) / sf.Symbol.PipSize);
-
-                if (slP > 0)
+                if (volumeInLots > MaxVolumeLots)
                 {
-                    //System.Diagnostics.Debugger.Launch();
-                    double volume = GetVolume(symbol, slP);
+                    Logger.Write(
+                        $"The calculated volume is too big - {volumeInLots:F2}; max value is {MaxVolumeLots:F2} lots");
+                    return;
+                }
+
+                if (IsBacktesting || AllowToTrade)
+                {
                     TradeResult order = ExecuteMarketOrder(
                         type, sf.Symbol.Name, volume, GetBotName(), slP, tpP,
                         Helper.GetPositionId(sf.Id, e.Level));
@@ -620,6 +637,7 @@ namespace TradeKit.Core
                     }
                 }
             }
+
 
             if (IsBacktesting && !SaveChartForManualAnalysis)
             {

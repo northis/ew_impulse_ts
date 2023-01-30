@@ -49,6 +49,9 @@ namespace TradeKit.Core
 
         public const double BREAKEVEN_MIN = 0;
         public const double BREAKEVEN_MAX = 1;
+        public const double ALLOWED_VOLUME_LOTS = 1;
+        public const double MIN_ALLOWED_VOLUME_LOTS = 0.01;
+        public const double MAX_ALLOWED_VOLUME_LOTS = 10;
 
         /// <summary>
         /// Gets the directory to save images.
