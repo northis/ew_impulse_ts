@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using Plotly.NET;
 using Telegram.Bot;
 using Telegram.Bot.Types;
-using Telegram.Bot.Types.InputFiles;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using File = System.IO.File;
@@ -31,7 +29,9 @@ namespace TradeKit.Telegram
             {"XAUUSD", "gold"},
             {"XAGUSD", "silver"},
             {"US 30", "us30"},
-            {"US TECH 100", "nas100"}
+            {"US TECH 100", "nas100"},
+            {"BTCUSD", "btc"},
+            {"ETHUSD", "eth"}
         };
 
         /// <summary>
