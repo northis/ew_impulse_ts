@@ -19,6 +19,27 @@ namespace TradeKit.AlgoBase
         private const int STOCHASTIC_DOWN_MIDDLE = 35;
 
         /// <summary>
+        /// Gets the spike based on the "Bollinger Bands" indicator.
+        /// </summary>
+        /// <param name="sti">The super trend input.</param>
+        /// <param name="barPoint">The bar to check.</param>
+        public static SpikeType GetSpike(SuperTrendItem sti, BarPoint barPoint)
+        {
+            double value = barPoint.Value;
+
+            double bandTop = sti.BollingerBands.Top[barPoint.BarIndex];
+            double bandBottom = sti.BollingerBands.Bottom[barPoint.BarIndex];
+
+            if (value >= bandTop)
+                return SpikeType.High;
+
+            if(value <= bandBottom)
+                return SpikeType.Low;
+
+            return SpikeType.NoSpike;
+        }
+
+        /// <summary>
         /// Gets the trend based on the "Super trend" indicator.
         /// </summary>
         /// <param name="sti">The super trend input.</param>

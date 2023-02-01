@@ -38,6 +38,9 @@ namespace TradeKit.Core
         public const int MACD_SHORT_CYCLE = 12;
         public const int MACD_SIGNAL_PERIODS = 9;
 
+        public const int BOLLINGER_PERIODS = 20;
+        public const double BOLLINGER_STANDARD_DEVIATIONS = 2;
+
         public const int MOVING_AVERAGE_PERIOD = 13;
 
         public const int STOCHASTIC_K_PERIODS = 5;

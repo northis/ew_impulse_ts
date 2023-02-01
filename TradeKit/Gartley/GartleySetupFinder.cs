@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -112,20 +113,17 @@ namespace TradeKit.Gartley
 
                     if (m_SuperTrendItem != null)
                     {
-                        // We want to find the trend before the pattern
-                        TrendType trendD = SignalFilters.GetTrend(
-                            m_SuperTrendItem, localPattern.ItemD.OpenTime);
-                        TrendType trendX = SignalFilters.GetTrend(
-                            m_SuperTrendItem, localPattern.ItemX.OpenTime);
+                        SpikeType spikeTrend = SignalFilters
+                            .GetSpike(m_SuperTrendItem, localPattern.ItemD);
 
                         if (localPattern.IsBull)
                         {
-                            if (trendD == TrendType.Bearish /*|| trendX == TrendType.Bearish*/)
+                            if (spikeTrend != SpikeType.Low)
                                 continue;
                         }
                         else
                         {
-                            if (trendD == TrendType.Bullish /*|| trendX == TrendType.Bullish*/)
+                            if (spikeTrend != SpikeType.High)
                                 continue;
                         }
                     }

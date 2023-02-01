@@ -13,15 +13,33 @@ namespace TradeKit.Core
         /// Initializes a new instance of the <see cref="SuperTrendItem"/> class.
         /// </summary>
         /// <param name="indicators">The indicators.</param>
-        private SuperTrendItem(SuperTrendIndicator[] indicators)
+        /// <param name="bollingerBandsIndicator">The bollinger bands indicators.</param>
+        private SuperTrendItem(
+            SuperTrendIndicator[] indicators, BollingerBandsIndicator bollingerBandsIndicator)
         {
             Indicators = indicators;
+            BollingerBands = bollingerBandsIndicator;
         }
         
         /// <summary>
-        /// The "Super trend" indicator (main)
+        /// The "Super trend" indicator
         /// </summary>
         internal SuperTrendIndicator[] Indicators { get; }
+
+        /// <summary>
+        /// The "Bollinger Bands" indicator
+        /// </summary>
+        internal BollingerBandsIndicator BollingerBands { get; }
+
+        private static BollingerBandsIndicator GetBollingerBandsIndicator(Algo algo, Bars bars)
+        {
+            BollingerBandsIndicator ind = algo.Indicators.GetIndicator<BollingerBandsIndicator>(
+                bars,
+                Helper.BOLLINGER_PERIODS,
+                Helper.BOLLINGER_STANDARD_DEVIATIONS);
+
+            return ind;
+        }
 
         private static SuperTrendIndicator GetTrendIndicator(Algo algo, Bars bars)
         {
@@ -52,8 +70,10 @@ namespace TradeKit.Core
                 Bars bars = algo.MarketData.GetBars(tfInfos[i].TimeFrame, symbolName);
                 indicators[i] = GetTrendIndicator(algo, bars);
             }
-            
-            return new SuperTrendItem(indicators);
+
+            Bars barsMain = algo.MarketData.GetBars(mainTimeFrame, symbolName);
+            BollingerBandsIndicator bollingerBands = GetBollingerBandsIndicator(algo, barsMain);
+            return new SuperTrendItem(indicators, bollingerBands);
         }
     }
 }

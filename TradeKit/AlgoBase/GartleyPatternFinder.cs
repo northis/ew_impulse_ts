@@ -515,19 +515,19 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
-            double barLen = m_BarsProvider.GetHighPrice(d.BarIndex) - 
-                            m_BarsProvider.GetLowPrice(d.BarIndex);
-            double wickAllowRange = barLen / 3;
+            //double barLen = m_BarsProvider.GetHighPrice(d.BarIndex) - 
+            //                m_BarsProvider.GetLowPrice(d.BarIndex);
+            //double wickAllowRange = barLen / 3;
 
-            if (barLen <= 0)
-                return null;
+            //if (barLen <= 0)
+            //    return null;
 
-            if (isBull && closeD - d.Value < wickAllowRange ||
-                !isBull && d.Value - closeD < wickAllowRange)
-            {
-                //Logger.Write("Candle body is too full.");
-                return null;
-            }
+            //if (isBull && closeD - d.Value < wickAllowRange ||
+            //    !isBull && d.Value - closeD < wickAllowRange)
+            //{
+            //    //Logger.Write("Candle body is too full.");
+            //    return null;
+            //}
 
             double actualSize = Math.Max(cD, aD);
 

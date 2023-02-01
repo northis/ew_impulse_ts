@@ -35,6 +35,8 @@
     <Compile Include="Core\Candle.cs" />
     <Compile Include="Core\SuperTrendItem.cs" />
     <Compile Include="Core\ElderScreensItem.cs" />
+    <Compile Include="Core\SpikeType.cs" />
+    <Compile Include="Indicators\BollingerBandsIndicator.cs" />
     <Compile Include="Indicators\SuperTrendIndicator.cs" />
     <Compile Include="Indicators\StochasticOscillatorIndicator.cs" />
     <Compile Include="Indicators\MovingAverageIndicator.cs" />
