@@ -61,7 +61,7 @@ namespace TradeKit.Core
             TimeFrameInfo[] tfInfos = {
                 TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame),
                 TimeFrameHelper.GetTimeFrameInfo(mainTimeFrame),
-                TimeFrameHelper.GetNextTimeFrameInfo(mainTimeFrame)
+                //TimeFrameHelper.GetNextTimeFrameInfo(mainTimeFrame)
             };
 
             var indicators = new SuperTrendIndicator[tfInfos.Length];

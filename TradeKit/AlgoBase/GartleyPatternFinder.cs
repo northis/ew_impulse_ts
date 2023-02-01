@@ -515,7 +515,7 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
-            //double barLen = m_BarsProvider.GetHighPrice(d.BarIndex) - 
+            //double barLen = m_BarsProvider.GetHighPrice(d.BarIndex) -
             //                m_BarsProvider.GetLowPrice(d.BarIndex);
             //double wickAllowRange = barLen / 3;
 

@@ -113,17 +113,17 @@ namespace TradeKit.Gartley
 
                     if (m_SuperTrendItem != null)
                     {
-                        SpikeType spikeTrend = SignalFilters
+                        SpikeType spikeD = SignalFilters
                             .GetSpike(m_SuperTrendItem, localPattern.ItemD);
 
                         if (localPattern.IsBull)
                         {
-                            if (spikeTrend != SpikeType.Low)
+                            if (spikeD != SpikeType.Low)
                                 continue;
                         }
                         else
                         {
-                            if (spikeTrend != SpikeType.High)
+                            if (spikeD != SpikeType.High)
                                 continue;
                         }
                     }

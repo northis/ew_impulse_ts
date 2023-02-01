@@ -14,16 +14,22 @@ namespace TradeKit.Indicators
         private BollingerBands m_BollingerBands;
         
         /// <summary>
+        /// The period used for the calculation of the signal.
+        /// </summary>
+        [Parameter(nameof(Periods), DefaultValue = Helper.BOLLINGER_PERIODS)]
+        public int Periods { get; set; }
+
+        /// <summary>
         /// The short period used calculation.
         /// </summary>
         [Parameter(nameof(StandardDeviations), DefaultValue = Helper.BOLLINGER_STANDARD_DEVIATIONS)]
         public double StandardDeviations { get; set; }
 
         /// <summary>
-        /// The period used for the calculation of the signal.
+        /// Main Bollinger line.
         /// </summary>
-        [Parameter(nameof(Periods), DefaultValue = Helper.BOLLINGER_PERIODS)]
-        public int Periods { get; set; }
+        [Output(nameof(Main), LineStyle = LineStyle.Lines)]
+        public IndicatorDataSeries Main { get; set; }
 
         /// <summary>
         /// Upper Bollinger Band.
@@ -51,8 +57,9 @@ namespace TradeKit.Indicators
         /// </summary>
         public override void Calculate(int index)
         {
-            Bottom[index] = m_BollingerBands.Bottom[index];
+            Main[index] = m_BollingerBands.Main[index];
             Top[index] = m_BollingerBands.Top[index];
+            Bottom[index] = m_BollingerBands.Bottom[index];
         }
     }
 }

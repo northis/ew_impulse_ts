@@ -26,7 +26,7 @@ namespace TradeKit.AlgoBase
         public static SpikeType GetSpike(SuperTrendItem sti, BarPoint barPoint)
         {
             double value = barPoint.Value;
-
+            
             double bandTop = sti.BollingerBands.Top[barPoint.BarIndex];
             double bandBottom = sti.BollingerBands.Bottom[barPoint.BarIndex];
 
