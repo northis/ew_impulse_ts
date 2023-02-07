@@ -64,91 +64,91 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets the risk percent from deposit (regular).
         /// </summary>
-        [Parameter(nameof(RiskPercentFromDeposit), DefaultValue = RISK_DEPOSIT_PERCENT)]
+        [Parameter(nameof(RiskPercentFromDeposit), DefaultValue = RISK_DEPOSIT_PERCENT, Group = Helper.TRADE_SETTINGS_NAME)]
         public double RiskPercentFromDeposit { get; set; }
 
         /// <summary>
         /// Gets or sets the risk percent from deposit (maximum).
         /// </summary>
-        [Parameter(nameof(RiskPercentFromDepositMax), DefaultValue = RISK_DEPOSIT_PERCENT_MAX)]
+        [Parameter(nameof(RiskPercentFromDepositMax), DefaultValue = RISK_DEPOSIT_PERCENT_MAX, Group = Helper.TRADE_SETTINGS_NAME)]
         public double RiskPercentFromDepositMax { get; set; }
 
         /// <summary>
         /// Gets or sets the max allowed volume in lots.
         /// </summary>
-        [Parameter(nameof(MaxVolumeLots), DefaultValue = Helper.ALLOWED_VOLUME_LOTS, MaxValue = Helper.MAX_ALLOWED_VOLUME_LOTS, MinValue = Helper.MIN_ALLOWED_VOLUME_LOTS)]
+        [Parameter(nameof(MaxVolumeLots), DefaultValue = Helper.ALLOWED_VOLUME_LOTS, MaxValue = Helper.MAX_ALLOWED_VOLUME_LOTS, MinValue = Helper.MIN_ALLOWED_VOLUME_LOTS, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxVolumeLots { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can trade.
         /// </summary>
-        [Parameter(nameof(AllowToTrade), DefaultValue = false)]
+        [Parameter(nameof(AllowToTrade), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowToTrade { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can pass positions overnight (to the next trade day).
         /// </summary>
-        [Parameter(nameof(AllowOvernightTrade), DefaultValue = false)]
+        [Parameter(nameof(AllowOvernightTrade), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowOvernightTrade { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can open positions while big spread (spread/(tp-sl) ratio more than <see cref="Helper.MAX_SPREAD_RATIO"/>.
         /// </summary>
-        [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = false)]
+        [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowEnterOnBigSpread { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should increase the volume every SL hit.
         /// </summary>
-        [Parameter(nameof(UseProgressiveVolume), DefaultValue = false)]
+        [Parameter(nameof(UseProgressiveVolume), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseProgressiveVolume { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use the symbols list.
         /// </summary>
-        [Parameter(nameof(UseSymbolsList), DefaultValue = false)]
+        [Parameter(nameof(UseSymbolsList), DefaultValue = false, Group = Helper.SYMBOL_SETTINGS_NAME)]
         public bool UseSymbolsList { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating we should use the TF list.
         /// </summary>
-        [Parameter(nameof(UseTimeFramesList), DefaultValue = false)]
+        [Parameter(nameof(UseTimeFramesList), DefaultValue = false, Group = Helper.SYMBOL_SETTINGS_NAME)]
         public bool UseTimeFramesList { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating we should save .png files of the charts for manual analysis.
         /// </summary>
-        [Parameter(nameof(SaveChartForManualAnalysis), DefaultValue = false)]
+        [Parameter(nameof(SaveChartForManualAnalysis), DefaultValue = false, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public bool SaveChartForManualAnalysis { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating we should post the close messages like "tp/sl hit".
         /// </summary>
-        [Parameter(nameof(PostCloseMessages), DefaultValue = true)]
+        [Parameter(nameof(PostCloseMessages), DefaultValue = true, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public bool PostCloseMessages { get; set; }
 
         /// <summary>
         /// Gets or sets the time frames we should use.
         /// </summary>
-        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute15,Minute20,Minute30,Minute45")]
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute15,Minute30,Hour", Group = Helper.SYMBOL_SETTINGS_NAME)]
         public string TimeFramesToProceed { get; set; }
 
         /// <summary>
         /// Gets the symbol names.
         /// </summary>
-        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100,USDNOK,USDSEK,USDDDK")]
+        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100,USDNOK,USDSEK,USDDDK", Group = Helper.SYMBOL_SETTINGS_NAME)]
         public string SymbolsToProceed { get; set; }
 
         /// <summary>
         /// Gets or sets the telegram bot token.
         /// </summary>
-        [Parameter("TelegramBotToken", DefaultValue = null)]
+        [Parameter("TelegramBotToken", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string TelegramBotToken { get; set; }
 
         /// <summary>
         /// Gets or sets the chat identifier where to send signals.
         /// </summary>
-        [Parameter("ChatId", DefaultValue = null)]
+        [Parameter("ChatId", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string ChatId { get; set; }
 
         #endregion

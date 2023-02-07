@@ -31,6 +31,11 @@ namespace TradeKit.Core
         public const double TRIGGER_SPEED_PERCENT = 0.2;
         public const double SPEED_TP_SL_RATIO = 2;
 
+        public const string GARTLEY_GROUP_NAME = "Patterns (manual)";
+        public const string GARTLEY_SETTINGS_NAME = "Settings (manual)";
+        public const string TELEGRAM_SETTINGS_NAME = "Telegram Settings";
+        public const string TRADE_SETTINGS_NAME = "Trade Settings";
+        public const string SYMBOL_SETTINGS_NAME = "Symbol Settings";
         public const int GARTLEY_BARS_COUNT = 100;
         public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 25;
 

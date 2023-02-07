@@ -18,9 +18,13 @@ namespace TradeKit.Core
             {
                 new TimeFrameInfo(TimeFrame.Minute, TimeSpan.FromMinutes(1)),
                 new TimeFrameInfo(TimeFrame.Minute5, TimeSpan.FromMinutes(5)),
+                new TimeFrameInfo(TimeFrame.Minute10, TimeSpan.FromMinutes(10)),
                 new TimeFrameInfo(TimeFrame.Minute15, TimeSpan.FromMinutes(15)),
+                new TimeFrameInfo(TimeFrame.Minute20, TimeSpan.FromMinutes(20)),
                 new TimeFrameInfo(TimeFrame.Minute30, TimeSpan.FromMinutes(30)),
+                new TimeFrameInfo(TimeFrame.Minute45, TimeSpan.FromMinutes(45)),
                 new TimeFrameInfo(TimeFrame.Hour, TimeSpan.FromHours(1)),
+                new TimeFrameInfo(TimeFrame.Hour2, TimeSpan.FromHours(2)),
                 new TimeFrameInfo(TimeFrame.Hour4, TimeSpan.FromHours(4)),
                 new TimeFrameInfo(TimeFrame.Daily, TimeSpan.FromDays(1)),
                 new TimeFrameInfo(TimeFrame.Weekly, TimeSpan.FromDays(7)),

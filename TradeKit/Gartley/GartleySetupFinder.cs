@@ -28,7 +28,6 @@ namespace TradeKit.Gartley
         //private readonly CandlePatternFinder m_CandlePatternFinder;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
         private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
-        private readonly CandlePatternFinder m_CandlePatternFinder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -38,8 +37,8 @@ namespace TradeKit.Gartley
         /// <param name="wickAllowance">The correction allowance percent for wicks.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
         /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
+        /// <param name="useAutoSettings">If true - we use pre-defined settings.</param>
         /// <param name="superTrendItem">For filtering by the trend.</param>
-        /// <param name="patterns">Patterns supported.</param>
         /// <param name="macdCrossOver">MACD Cross Over.</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         public GartleySetupFinder(
@@ -48,26 +47,57 @@ namespace TradeKit.Gartley
             double wickAllowance,
             int barsDepth,
             bool filterByDivergence,
+            bool useAutoSettings = false,
             SuperTrendItem superTrendItem = null,
             HashSet<GartleyPatternType> patterns = null,
             MacdCrossOverIndicator macdCrossOver = null,
             double? breakevenRatio = null) : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
-            m_BarsDepth = barsDepth;
-            m_FilterByDivergence = filterByDivergence;
             m_SuperTrendItem = superTrendItem;
             m_MacdCrossOver = macdCrossOver;
             m_BreakevenRatio = breakevenRatio;
 
-            m_CandlePatternFinder = new CandlePatternFinder(m_MainBarsProvider, true);
+            //m_CandlePatternFinder = new CandlePatternFinder(m_MainBarsProvider, true);
 
-            m_PatternFinder = new GartleyPatternFinder(
-                m_MainBarsProvider, wickAllowance, patterns);
+            if (useAutoSettings)
+            {
+                if (superTrendItem == null || macdCrossOver == null)
+                    throw new NotSupportedException("Supertrend and MACD indicators are required for auto mode");
+
+                SetAutoSettings(out wickAllowance, out filterByDivergence);
+                m_BarsDepth = Helper.GARTLEY_BARS_COUNT;
+                patterns = null;
+            }
+            else
+            {
+                m_BarsDepth = barsDepth;
+            }
+
+            m_FilterByDivergence = filterByDivergence;
+            m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, wickAllowance, patterns);
 
             var comparer = new GartleyItemComparer();
             m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
             m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
+        }
+
+        private void SetAutoSettings(out double wickAllowance, out bool filterByDivergence)
+        {
+            double minutes = TimeFrameHelper.GetTimeFrameInfo(m_MainBarsProvider.TimeFrame).TimeSpan.TotalMinutes;
+
+            filterByDivergence = minutes <= 30;
+            wickAllowance = minutes switch
+            {
+                >= 240 =>  38,
+                >= 120 => 29,
+                >= 60 => 26,
+                >= 45 => 24,
+                >= 30 => 23,
+                >= 15 => 15,
+                >= 10 => 8,
+                _ => 5
+            };
         }
 
         /// <summary>
