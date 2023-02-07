@@ -104,6 +104,11 @@ namespace TradeKit.Signals
 
                     double tp = signal.TakeProfits[i];
 
+                    //if (signal.IsLong)
+                    //    tp -= 5;
+                    //else
+                    //    tp += 5;
+
                     IsInSetup = true;
                     OnEnterInvoke(new SignalEventArgs(
                         LastEntry,
@@ -214,6 +219,8 @@ namespace TradeKit.Signals
                 }
 
                 signalOut.TakeProfits = tpList.ToArray();
+                if (!tpList.Any())
+                    continue;
 
                 if (!isTrueSignal)
                 {

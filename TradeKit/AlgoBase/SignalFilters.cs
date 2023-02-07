@@ -28,8 +28,10 @@ namespace TradeKit.AlgoBase
             double value = barPoint.Value;
             
             double bandTop = sti.BollingerBands.Top[barPoint.BarIndex];
+            //double bandMain = sti.BollingerBands.Main[barPoint.BarIndex];
             double bandBottom = sti.BollingerBands.Bottom[barPoint.BarIndex];
 
+            Bars bars = sti.BollingerBands.Bars;
             if (value >= bandTop)
                 return SpikeType.High;
 

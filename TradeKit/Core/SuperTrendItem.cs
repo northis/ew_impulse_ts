@@ -59,7 +59,7 @@ namespace TradeKit.Core
         public static SuperTrendItem Create(TimeFrame mainTimeFrame, Algo algo, string symbolName)
         {
             TimeFrameInfo[] tfInfos = {
-                TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame),
+                //TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame),
                 TimeFrameHelper.GetTimeFrameInfo(mainTimeFrame),
                 //TimeFrameHelper.GetNextTimeFrameInfo(mainTimeFrame)
             };

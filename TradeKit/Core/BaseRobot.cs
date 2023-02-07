@@ -30,6 +30,7 @@ namespace TradeKit.Core
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
+        protected const double SPREAD_MARGIN_RATIO = 1.1;
         protected const string CHART_FILE_TYPE_EXTENSION = ".png";
         protected const int CHART_BARS_MARGIN_COUNT = 5;
         protected const double CHART_FONT_HEADER = 36;
@@ -600,8 +601,15 @@ namespace TradeKit.Core
             Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
             double priceNow = isLong ? s.Ask : s.Bid;
+            if (!isLong)
+            {
+                sl += s.Spread * SPREAD_MARGIN_RATIO;
+                tp += s.Spread * SPREAD_MARGIN_RATIO;
+            }
+
             double slLen = Math.Abs(priceNow - sl);
             double tpLen = Math.Abs(priceNow - tp);
+
 
             //isLong = !isLong;
             //(sl, tp) = (tp, sl);
@@ -613,7 +621,7 @@ namespace TradeKit.Core
             if (slP > 0)
             {
                 //System.Diagnostics.Debugger.Launch();
-                double volume = GetVolume(symbol, slP);
+                double volume = GetVolume(symbol, Math.Max(tpP, slP));
                 double volumeInLots = volume / symbol.LotSize;
 
                 if (volumeInLots > MaxVolumeLots)
