@@ -1,14 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
-using TradeKit.PriceAction;
 
 namespace TradeKit.Gartley
 {
@@ -25,7 +22,6 @@ namespace TradeKit.Gartley
         private readonly double? m_BreakevenRatio;
 
         private readonly GartleyPatternFinder m_PatternFinder;
-        //private readonly CandlePatternFinder m_CandlePatternFinder;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
         private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
 
@@ -57,9 +53,7 @@ namespace TradeKit.Gartley
             m_SuperTrendItem = superTrendItem;
             m_MacdCrossOver = macdCrossOver;
             m_BreakevenRatio = breakevenRatio;
-
-            //m_CandlePatternFinder = new CandlePatternFinder(m_MainBarsProvider, true);
-
+            
             if (useAutoSettings)
             {
                 if (superTrendItem == null || macdCrossOver == null)
@@ -147,70 +141,12 @@ namespace TradeKit.Gartley
 
                     if (m_SuperTrendItem != null)
                     {
-                        //List<CandlesResult> candles = null;
-                        //TrendType candleTrend = TrendType.NoTrend;
-                        //for (int i = localPattern.ItemC.BarIndex + 1;
-                        //     i < localPattern.ItemD.BarIndex;
-                        //     i++)
-                        //{
-                        //    double candleDiff =
-                        //        BarsProvider.GetClosePrice(i) - BarsProvider.GetOpenPrice(i);
-                        //    if (candleDiff > 0)
-                        //    {
-                        //        if (candleTrend == TrendType.Bearish)
-                        //        {
-                        //            candleTrend = TrendType.NoTrend;
-                        //            break;
-                        //        }
-
-                        //        if (candleTrend == TrendType.NoTrend)
-                        //            candleTrend = TrendType.Bullish;
-                        //    }
-                        //    else if (candleDiff < 0)
-                        //    {
-                        //        if (candleTrend == TrendType.Bullish)
-                        //        {
-                        //            candleTrend = TrendType.NoTrend;
-                        //            break;
-                        //        }
-
-                        //        if (candleTrend == TrendType.NoTrend)
-                        //            candleTrend = TrendType.Bearish;
-                        //    }
-                        //    List<CandlesResult> patterns = m_CandlePatternFinder.GetCandlePatterns(i);
-                        //    if (patterns is { Count: > 0 } &&
-                        //        patterns.Any(a => a.Type != CandlePatternType.HAMMER &&
-                        //                          a.Type != CandlePatternType.INVERTED_HAMMER))
-                        //    {
-                        //        candles ??= new List<CandlesResult>();
-                        //        candles.AddRange(patterns);
-                        //    }
-                        //}
-
-                        //if (candles != null)
-                        //{
-                        //    candles = candles.OrderBy(a => a.BarIndex).ToList();
-                        //    if (candles.All(a => a.IsBull))
-                        //        candleTrend = TrendType.Bullish;
-                        //    else if (candles.All(a => !a.IsBull))
-                        //        candleTrend = TrendType.Bearish;
-                        //    //else if (candles[^1].IsBull)
-                        //    //    candleTrend = TrendType.Bullish;
-                        //    //else if (!candles[^1].IsBull)
-                        //    //    candleTrend = TrendType.Bearish;
-                        //}
-
-                        //TrendType xTrend = SignalFilters.GetTrend(m_SuperTrendItem, localPattern.ItemX.OpenTime);
-                        TrendType dTrend = SignalFilters.GetTrend(m_SuperTrendItem, localPattern.ItemD.OpenTime);
-                        //SpikeType spikeD = SignalFilters
-                        //    .GetSpike(m_SuperTrendItem, localPattern.ItemD);
-
                         int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemA.BarIndex;
                         if (patternLength <= 0)
                             continue;
 
-                        double dIndexFlat =
-                            m_SuperTrendItem.Indicators[0].HistogramFlat[localPattern.ItemD.BarIndex];
+                        double dIndexFlat = m_SuperTrendItem
+                            .MainTrendIndicator.HistogramFlat[localPattern.ItemD.BarIndex];
 
                         if (dIndexFlat == 0)
                             continue;

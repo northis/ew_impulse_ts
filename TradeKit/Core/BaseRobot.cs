@@ -610,7 +610,6 @@ namespace TradeKit.Core
             double slLen = Math.Abs(priceNow - sl);
             double tpLen = Math.Abs(priceNow - tp);
 
-
             //isLong = !isLong;
             //(sl, tp) = (tp, sl);
             TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
