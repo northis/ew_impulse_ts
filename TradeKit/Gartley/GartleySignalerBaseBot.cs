@@ -36,6 +36,12 @@ namespace TradeKit.Gartley
         public bool UseAutoSettings { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether we should filter by flat part of the trend.
+        /// </summary>
+        [Parameter(nameof(UseFlatFilter), DefaultValue = true)]
+        public bool UseFlatFilter { get; set; }
+
+        /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
         [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.GARTLEY_SETTINGS_NAME)]
@@ -256,7 +262,7 @@ namespace TradeKit.Gartley
 
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity, 
-                BarAllowancePercent, BarDepthCount, UseDivergences, UseAutoSettings,
+                BarAllowancePercent, BarDepthCount, UseDivergences, UseAutoSettings, UseFlatFilter,
                 superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;

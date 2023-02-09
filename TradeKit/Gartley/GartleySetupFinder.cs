@@ -17,6 +17,7 @@ namespace TradeKit.Gartley
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly int m_BarsDepth;
         private readonly bool m_FilterByDivergence;
+        private readonly bool m_UseFlatStrategy;
         private readonly SuperTrendItem m_SuperTrendItem;
         private readonly MacdCrossOverIndicator m_MacdCrossOver;
         private readonly double? m_BreakevenRatio;
@@ -34,6 +35,7 @@ namespace TradeKit.Gartley
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
         /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
         /// <param name="useAutoSettings">If true - we use pre-defined settings.</param>
+        /// <param name="useFlatStrategy">If true - we trade only flat parts of the chart.</param>
         /// <param name="superTrendItem">For filtering by the trend.</param>
         /// <param name="macdCrossOver">MACD Cross Over.</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
@@ -44,6 +46,7 @@ namespace TradeKit.Gartley
             int barsDepth,
             bool filterByDivergence,
             bool useAutoSettings = false,
+            bool useFlatStrategy = true,
             SuperTrendItem superTrendItem = null,
             HashSet<GartleyPatternType> patterns = null,
             MacdCrossOverIndicator macdCrossOver = null,
@@ -69,6 +72,7 @@ namespace TradeKit.Gartley
             }
 
             m_FilterByDivergence = filterByDivergence;
+            m_UseFlatStrategy = useFlatStrategy;
             m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, wickAllowance, patterns);
 
             var comparer = new GartleyItemComparer();
@@ -141,29 +145,36 @@ namespace TradeKit.Gartley
 
                     if (m_SuperTrendItem != null)
                     {
-                        int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemA.BarIndex;
-                        if (patternLength <= 0)
-                            continue;
+                        if (m_UseFlatStrategy)
+                        {
+                            int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemA.BarIndex;
+                            if (patternLength <= 0)
+                                continue;
 
-                        double dIndexFlat = m_SuperTrendItem
-                            .MainTrendIndicator.HistogramFlat[localPattern.ItemD.BarIndex];
+                            double dIndexFlat = m_SuperTrendItem
+                                .MainTrendIndicator.HistogramFlat[localPattern.ItemD.BarIndex];
 
-                        if (dIndexFlat == 0)
-                            continue;
+                            if (dIndexFlat == 0)
+                                continue;
 
-                        if (Math.Abs(dIndexFlat) < patternLength)
-                            continue;
-
-                        //if (localPattern.IsBull)
-                        //{
-                        //    if (dIndexFlat < 0)
-                        //        continue;
-                        //}
-                        //else
-                        //{
-                        //    if (dIndexFlat > 0)
-                        //        continue;
-                        //}
+                            if (Math.Abs(dIndexFlat) < patternLength)
+                                continue;
+                        }
+                        else
+                        {
+                            TrendType trend = SignalFilters.GetTrend(
+                                m_SuperTrendItem, localPattern.ItemD.OpenTime);
+                            if (localPattern.IsBull)
+                            {
+                                if (trend != TrendType.Bullish)
+                                    continue;
+                            }
+                            else
+                            {
+                                if (trend != TrendType.Bearish)
+                                    continue;
+                            }
+                        }
                     }
 
                     BarPoint divItem = null;

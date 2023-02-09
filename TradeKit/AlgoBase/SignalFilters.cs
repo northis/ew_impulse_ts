@@ -51,11 +51,32 @@ namespace TradeKit.AlgoBase
             if (sti.Indicators.Length == 0)
                 return TrendType.NoTrend;
 
+            TimeSpan mainPeriod = TimeFrameHelper.GetTimeFrameInfo(sti.MainTrendIndicator.TimeFrame).TimeSpan;
+            DateTime endDt = dateTimeBar + mainPeriod;
+
             int[] vals = new int[sti.Indicators.Length];
             for (var i = 0; i < sti.Indicators.Length; i++)
             {
                 SuperTrendIndicator ind = sti.Indicators[i];
-                int index = ind.Bars.OpenTimes.GetIndexByTime(dateTimeBar);
+
+                TimeSpan period = TimeFrameHelper.GetTimeFrameInfo(ind.TimeFrame).TimeSpan;
+                DateTime dt;
+                if (period < mainPeriod)
+                {
+                    dt = endDt - period;
+                }
+                else if(period > mainPeriod)
+                {
+                    DateTime localDt = 
+                        ind.Bars.OpenTimes[ind.Bars.OpenTimes.GetIndexByTime(dateTimeBar)];
+                    dt = localDt == dateTimeBar ? dateTimeBar : dateTimeBar - period;
+                }
+                else
+                {
+                    dt = dateTimeBar;
+                }
+
+                int index = ind.Bars.OpenTimes.GetIndexByTime(dt);
                 if (index < 0)
                     ind.Bars.LoadMoreHistory();
 
