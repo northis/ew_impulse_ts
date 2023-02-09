@@ -14,7 +14,7 @@ namespace TradeKit.AlgoBase
         private const int PRE_X_EXTREMA_BARS_COUNT = 7;
 //#if GARTLEY_PROD
         private const double SL_RATIO = 0.272;
-        private const double TP1_RATIO = 0.5;
+        private const double TP1_RATIO = 0.45;
 
 //#else
         //private const double SL_RATIO = 0.35;

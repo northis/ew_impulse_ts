@@ -147,12 +147,12 @@ namespace TradeKit.Gartley
                     {
                         if (m_UseFlatStrategy)
                         {
-                            int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemA.BarIndex;
+                            int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemX.BarIndex;
                             if (patternLength <= 0)
                                 continue;
 
                             double dIndexFlat = m_SuperTrendItem
-                                .MainTrendIndicator.HistogramFlat[localPattern.ItemD.BarIndex];
+                                .MainTrendIndicator.HistogramFlat[localPattern.ItemX.BarIndex];
 
                             if (dIndexFlat == 0)
                                 continue;
