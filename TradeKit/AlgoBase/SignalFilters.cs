@@ -17,7 +17,7 @@ namespace TradeKit.AlgoBase
         private const int STOCHASTIC_UP_MIDDLE = 65;
         private const int STOCHASTIC_DOWN = 30;
         private const int STOCHASTIC_DOWN_MIDDLE = 35;
-
+        
         /// <summary>
         /// Gets the spike based on the "Bollinger Bands" indicator.
         /// </summary>

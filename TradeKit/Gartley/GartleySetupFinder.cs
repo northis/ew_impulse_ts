@@ -143,6 +143,23 @@ namespace TradeKit.Gartley
                     if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) || m_PatternsEntryMap.ContainsKey(localPattern))
                         continue;
 
+                    bool hasTrendCandles = false;
+                    for (int i = localPattern.ItemC.BarIndex + 1; 
+                         i <= localPattern.ItemD.BarIndex; i++)
+                    {
+                        double openValue = BarsProvider.GetOpenPrice(i);
+                        double closeValue = BarsProvider.GetClosePrice(i);
+
+                        if (openValue < closeValue == localPattern.IsBull)
+                        {
+                            hasTrendCandles = true;
+                            break;
+                        }
+                    }
+
+                    if(!hasTrendCandles)
+                        continue;
+
                     if (m_SuperTrendItem != null)
                     {
                         if (m_UseFlatStrategy)
