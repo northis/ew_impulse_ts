@@ -97,6 +97,7 @@ namespace TradeKit.AlgoBase
             return TrendType.NoTrend;
         }
 
+#if !GARTLEY_PROD
         /// <summary>
         /// Determines whether a candle with open time <see cref="dateTimeCandleToCheck"/> is old enough to rely on (more than 50% has already past).
         /// </summary>
@@ -115,7 +116,6 @@ namespace TradeKit.AlgoBase
             return res;
         }
 
-#if !GARTLEY_PROD
         /// <summary>
         /// Gets the actual index for other time frame.
         /// </summary>

@@ -29,6 +29,8 @@
     <None Remove="createlinks.cmd" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\GartleyFinderIndicator\TradeKit\Core\SpikeType.cs" Link="SpikeType.cs" />
+    <Compile Include="..\..\GartleyFinderIndicator\TradeKit\Indicators\BollingerBandsIndicator.cs" Link="BollingerBandsIndicator.cs" />
     <Compile Include="..\TradeKit\AlgoBase\GartleyPatternFinder.cs" Link="GartleyPatternFinder.cs" />
     <Compile Include="..\TradeKit\AlgoBase\SignalFilters.cs" Link="SignalFilters.cs" />
     <Compile Include="..\TradeKit\Core\BarPoint.cs" Link="BarPoint.cs" />

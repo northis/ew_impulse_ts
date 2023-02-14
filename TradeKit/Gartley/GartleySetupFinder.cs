@@ -23,7 +23,7 @@ namespace TradeKit.Gartley
         private readonly double? m_BreakevenRatio;
 
         private readonly GartleyPatternFinder m_PatternFinder;
-        private readonly GartleyItemComparer m_GartleyItemComparer = new();
+        private readonly GartleyItemComparer m_GartleyItemComparer = new GartleyItemComparer();
         private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
 
         /// <summary>
