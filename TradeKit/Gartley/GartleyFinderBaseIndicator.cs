@@ -29,7 +29,7 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should set the parameters automatically.
         /// </summary>
-        [Parameter("Auto Settings", DefaultValue = false)]
+        [Parameter("Use auto settings", DefaultValue = false)]
         public bool UseAutoSettings { get; set; }
 
         ///// <summary>
@@ -41,25 +41,25 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should show ratio values on patterns.
         /// </summary>
-        [Parameter("Show Ratio Values", DefaultValue = false, Group = Helper.VIEW_SETTINGS_NAME)]
+        [Parameter("Show ratio values", DefaultValue = false, Group = Helper.VIEW_SETTINGS_NAME)]
         public bool ShowRatio { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should show divergences with the patterns.
         /// </summary>
-        [Parameter("Show Divergences", DefaultValue = true, Group = Helper.VIEW_SETTINGS_NAME)]
+        [Parameter("Show divergences", DefaultValue = true, Group = Helper.VIEW_SETTINGS_NAME)]
         public bool ShowDivergences { get; set; }
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
-        [Parameter("Bar Depth Count", DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Bar depth count", DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarDepthCount { get; set; }
 
         /// <summary>
         /// Gets or sets the percent of the allowance for the relations calculation.
         /// </summary>
-        [Parameter("Bar Allowance Percent", DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Bar allowance percent", DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarAllowancePercent { get; set; }
 
         /// <summary>
@@ -113,13 +113,13 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
-        [Parameter("Use Divergences", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Use divergences", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseDivergences { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
-        [Parameter("Trend Only", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Trend only patterns", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
 
         private HashSet<GartleyPatternType> GetPatternsType()

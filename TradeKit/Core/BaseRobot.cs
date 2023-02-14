@@ -142,13 +142,13 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets the telegram bot token.
         /// </summary>
-        [Parameter("TelegramBotToken", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
+        [Parameter("Telegram bot token", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string TelegramBotToken { get; set; }
 
         /// <summary>
         /// Gets or sets the chat identifier where to send signals.
         /// </summary>
-        [Parameter("ChatId", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
+        [Parameter("Chat ID", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string ChatId { get; set; }
 
         #endregion
