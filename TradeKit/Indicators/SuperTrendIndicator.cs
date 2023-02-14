@@ -1,4 +1,5 @@
-﻿using cAlgo.API;
+﻿using System;
+using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
 
@@ -8,8 +9,26 @@ namespace TradeKit.Indicators
     /// Calculates "Super Trend" - one of the most popular trend trading indicators.
     /// </summary>
     /// <seealso cref="Indicator" />
-    internal class SuperTrendIndicator : Indicator
+#if !GARTLEY_PROD
+    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
+#endif
+    public class SuperTrendIndicator : Indicator
     {
+        /// <summary>
+        /// Up value
+        /// </summary>
+        public const int UP_VALUE = 1;
+
+        /// <summary>
+        /// No value
+        /// </summary>
+        public const int NO_VALUE = 0;
+
+        /// <summary>
+        /// Down value
+        /// </summary>
+        public const int DOWN_VALUE = -1;
+
         private Supertrend m_SuperTrend;
 
         /// <summary>
@@ -29,6 +48,12 @@ namespace TradeKit.Indicators
         /// </summary>
         [Output(nameof(Histogram), PlotType = PlotType.Histogram)]
         public IndicatorDataSeries Histogram { get; set; }
+
+        /// <summary>
+        /// Gets or sets the histogram (diff flat sum).
+        /// </summary>
+        [Output(nameof(HistogramFlat), PlotType = PlotType.Histogram)]
+        public IndicatorDataSeries HistogramFlat { get; set; }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -51,32 +76,39 @@ namespace TradeKit.Indicators
 
             if (isDownNan && isUpNan || index <= 1)
             {
-                Histogram[index] = 0;
+                Histogram[index] = NO_VALUE;
+                HistogramFlat[index] = NO_VALUE;
                 return;
             }
 
             if (isDownNan)
             {
-                //double upPrev = m_SuperTrend.UpTrend[index-1];
-                //if (Math.Abs(upPrev - up) < double.Epsilon)
-                //{
-                //    Histogram[index] = 0;
-                //    return;
-                //}
+                double upPrev = m_SuperTrend.UpTrend[index - 1];
+                if (!double.IsNaN(upPrev) && Math.Abs(upPrev - up) < double.Epsilon)
+                {
+                    Histogram[index] = 0;
+                    HistogramFlat[index] = HistogramFlat[index - 1] + 1;
+                }
+                else
+                {
+                    HistogramFlat[index] = NO_VALUE;
+                }
 
-                Histogram[index] = 1;
+                Histogram[index] = UP_VALUE;
                 return;
             }
 
 
-            //double downPrev = m_SuperTrend.DownTrend[index-1];
-            //if (Math.Abs(downPrev - down) < double.Epsilon)
-            //{
-            //    Histogram[index] = 0;
-            //    return;
-            //}
+            double downPrev = m_SuperTrend.DownTrend[index - 1];
+            if (!double.IsNaN(downPrev) && Math.Abs(downPrev - down) < double.Epsilon)
+            {
+                Histogram[index] = 0;
+                HistogramFlat[index] = HistogramFlat[index - 1] - 1;
+                return;
+            }
 
-            Histogram[index] = -1;
+            HistogramFlat[index] = NO_VALUE;
+            Histogram[index] = DOWN_VALUE;
         }
     }
 }

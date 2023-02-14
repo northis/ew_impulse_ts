@@ -91,8 +91,8 @@ namespace TradeKit.PriceAction
                 {
                     TrendType trend = SignalFilters.GetTrend(m_SuperTrendItem, currentDt);
 
-                    if (isBull && trend != TrendType.Bullish ||
-                        !isBull && trend != TrendType.Bearish)
+                    if (isBull && trend == TrendType.Bearish ||
+                        !isBull && trend == TrendType.Bullish)
                     {
                        // Logger.Write($"Not a trend pattern {localPattern.Type}, ignore it");
                         return;

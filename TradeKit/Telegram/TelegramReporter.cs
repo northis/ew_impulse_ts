@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using Plotly.NET;
 using Telegram.Bot;
 using Telegram.Bot.Types;
-using Telegram.Bot.Types.InputFiles;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using File = System.IO.File;
@@ -25,6 +23,16 @@ namespace TradeKit.Telegram
 
         private const string TOKEN_NAME = "IMPULSE_FINDER_BOT_TOKEN_NAME";
         private const string CHAT_ID = "IMPULSE_FINDER_BOT_CHAT_ID";
+
+        private readonly Dictionary<string, string> m_SymbolsMap = new()
+        {
+            {"XAUUSD", "gold"},
+            {"XAGUSD", "silver"},
+            {"US 30", "us30"},
+            {"US TECH 100", "nas100"},
+            {"BTCUSD", "btc"},
+            {"ETHUSD", "eth"}
+        };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TelegramReporter"/> class.
@@ -156,7 +164,12 @@ namespace TradeKit.Telegram
             double den = Math.Abs(price - tp);
 
             var sb = new StringBuilder();
-            sb.AppendLine($"#{signalArgs.SymbolName.Replace(" ","")} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
+            string symbolViewName = 
+                m_SymbolsMap.TryGetValue(signalArgs.SymbolName, out string preDefValue)
+                ? preDefValue 
+                : signalArgs.SymbolName.Replace(" ", "");
+
+            sb.AppendLine($"#{symbolViewName} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
             sb.AppendLine($"TP {PriceFormat(signalEventArgs.TakeProfit.Value, signalArgs.Digits)}");
             sb.AppendLine($"SL {PriceFormat(signalEventArgs.StopLoss.Value, signalArgs.Digits)}");
 

@@ -14,7 +14,7 @@ namespace TradeKit.Signals
         /// <summary>
         /// Gets or sets the signal history file path.
         /// </summary>
-        [Parameter("SignalHistoryFilePath", DefaultValue = "")]
+        [Parameter("Signal history file path", DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
 
         /// <summary>
@@ -23,7 +23,7 @@ namespace TradeKit.Signals
         /// <value>
         ///   <c>true</c> if the date in the file is in UTC; otherwise, <c>false</c> and local time will be used.
         /// </value>
-        [Parameter("UseUtc", DefaultValue = true)]
+        [Parameter("Use UTC", DefaultValue = true)]
         public bool UseUtc { get; set; }
 
         private const int RECT_WIDTH_BARS = 10;

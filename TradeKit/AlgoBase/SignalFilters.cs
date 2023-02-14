@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
+using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Indicators;
 
@@ -15,6 +17,29 @@ namespace TradeKit.AlgoBase
         private const int STOCHASTIC_UP_MIDDLE = 65;
         private const int STOCHASTIC_DOWN = 30;
         private const int STOCHASTIC_DOWN_MIDDLE = 35;
+        
+        /// <summary>
+        /// Gets the spike based on the "Bollinger Bands" indicator.
+        /// </summary>
+        /// <param name="sti">The super trend input.</param>
+        /// <param name="barPoint">The bar to check.</param>
+        public static SpikeType GetSpike(SuperTrendItem sti, BarPoint barPoint)
+        {
+            double value = barPoint.Value;
+            
+            double bandTop = sti.BollingerBands.Top[barPoint.BarIndex];
+            //double bandMain = sti.BollingerBands.Main[barPoint.BarIndex];
+            double bandBottom = sti.BollingerBands.Bottom[barPoint.BarIndex];
+
+            Bars bars = sti.BollingerBands.Bars;
+            if (value >= bandTop)
+                return SpikeType.High;
+
+            if(value <= bandBottom)
+                return SpikeType.Low;
+
+            return SpikeType.NoSpike;
+        }
 
         /// <summary>
         /// Gets the trend based on the "Super trend" indicator.
@@ -26,23 +51,68 @@ namespace TradeKit.AlgoBase
             if (sti.Indicators.Length == 0)
                 return TrendType.NoTrend;
 
-            int val = 0;
-            foreach (SuperTrendIndicator ind in sti.Indicators)
+            TimeSpan mainPeriod = TimeFrameHelper.GetTimeFrameInfo(sti.MainTrendIndicator.TimeFrame).TimeSpan;
+            DateTime endDt = dateTimeBar + mainPeriod;
+
+            int[] vals = new int[sti.Indicators.Length];
+            for (var i = 0; i < sti.Indicators.Length; i++)
             {
-                int index = ind.Bars.OpenTimes.GetIndexByTime(dateTimeBar);
+                SuperTrendIndicator ind = sti.Indicators[i];
+
+                TimeSpan period = TimeFrameHelper.GetTimeFrameInfo(ind.TimeFrame).TimeSpan;
+                DateTime dt;
+                if (period < mainPeriod)
+                {
+                    dt = endDt - period;
+                }
+                else if(period > mainPeriod)
+                {
+                    DateTime localDt = 
+                        ind.Bars.OpenTimes[ind.Bars.OpenTimes.GetIndexByTime(dateTimeBar)];
+                    dt = localDt == dateTimeBar ? dateTimeBar : dateTimeBar - period;
+                }
+                else
+                {
+                    dt = dateTimeBar;
+                }
+
+                int index = ind.Bars.OpenTimes.GetIndexByTime(dt);
                 if (index < 0)
                     ind.Bars.LoadMoreHistory();
+
+                //if (!IsCandleReliable(dateTimeBar, ind.Bars.OpenTimes[index], ind.Bars.TimeFrame))
+                //    index--;
+
                 double res = ind.Histogram[index];
                 if (res == 0)
-                    continue;
-
-                val += ind.Histogram[index] > 0 ? 1 : -1;
+                    vals[i] = 0;
+                else
+                    vals[i] = ind.Histogram[index] > 0 ? 1 : -1;
             }
+            
+            if (vals.Count(a => a == 1) == sti.Indicators.Length)
+                return TrendType.Bullish;
+            if (vals.Count(a => a == -1) == sti.Indicators.Length)
+                return TrendType.Bearish;
+            return TrendType.NoTrend;
+        }
 
-            if (Math.Abs(val) != sti.Indicators.Length)
-                return TrendType.NoTrend;
+        /// <summary>
+        /// Determines whether a candle with open time <see cref="dateTimeCandleToCheck"/> is old enough to rely on (more than 50% has already past).
+        /// </summary>
+        /// <param name="dateTimeBar">The date time bar.</param>
+        /// <param name="dateTimeCandleToCheck">The date time candle to check.</param>
+        /// <param name="timeFrameToCheck">The time frame to check.</param>
+        /// <returns>
+        ///   <c>true</c> if the candle is reliable; otherwise, <c>false</c>.
+        /// </returns>
+        private static bool IsCandleReliable(
+            DateTime dateTimeBar, DateTime dateTimeCandleToCheck, TimeFrame timeFrameToCheck)
+        {
+            bool res = dateTimeBar < dateTimeCandleToCheck + 
+                      TimeFrameHelper.TimeFrames[timeFrameToCheck].TimeSpan / 2;
 
-            return val > 0 ? TrendType.Bullish : TrendType.Bearish;
+            return res;
         }
 
 #if !GARTLEY_PROD
@@ -55,8 +125,7 @@ namespace TradeKit.AlgoBase
         {
             int majorIndex = barProvider.GetIndexByTime(dateTimeBar);
             DateTime majorDateTime = barProvider.GetOpenTime(majorIndex);
-            if (majorDateTime <
-                majorDateTime + TimeFrameHelper.TimeFrames[barProvider.TimeFrame].TimeSpan / 2)
+            if (IsCandleReliable(dateTimeBar, majorDateTime, barProvider.TimeFrame))
                 majorIndex--;
 
             return majorIndex;

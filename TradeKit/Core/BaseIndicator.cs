@@ -32,13 +32,13 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets a value indicating whether we should show possible SL and TP for each pattern.
         /// </summary>
-        [Parameter(nameof(ShowSetups), DefaultValue = true)]
+        [Parameter("Show possible setups", DefaultValue = true, Group = Helper.VIEW_SETTINGS_NAME)]
         public bool ShowSetups { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the logging is enabled.
         /// </summary>
-        [Parameter(nameof(EnableLog), DefaultValue = true)]
+        [Parameter("Enable log", DefaultValue = true, Group = Helper.VIEW_SETTINGS_NAME)]
         public bool EnableLog { get; set; }
 
         /// <summary>
@@ -79,8 +79,10 @@ namespace TradeKit.Core
         protected override void Initialize()
         {
             if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
+            {
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");
+            }
 
             if (EnableLog)
                 Logger.SetWrite(a => Print(a));

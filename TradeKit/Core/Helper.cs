@@ -31,12 +31,20 @@ namespace TradeKit.Core
         public const double TRIGGER_SPEED_PERCENT = 0.2;
         public const double SPEED_TP_SL_RATIO = 2;
 
+        public const string GARTLEY_GROUP_NAME = "🦀 Patterns (manual)";
+        public const string VIEW_SETTINGS_NAME = "👀 View Settings";
+        public const string TELEGRAM_SETTINGS_NAME = "➤ Telegram Settings";
+        public const string TRADE_SETTINGS_NAME = "⚖ Trade Settings (manual)";
+        public const string SYMBOL_SETTINGS_NAME = "€ Symbol Settings";
         public const int GARTLEY_BARS_COUNT = 100;
         public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 25;
 
         public const int MACD_LONG_CYCLE = 26;
         public const int MACD_SHORT_CYCLE = 12;
         public const int MACD_SIGNAL_PERIODS = 9;
+
+        public const int BOLLINGER_PERIODS = 20;
+        public const double BOLLINGER_STANDARD_DEVIATIONS = 2;
 
         public const int MOVING_AVERAGE_PERIOD = 13;
 
@@ -45,10 +53,13 @@ namespace TradeKit.Core
         public const int STOCHASTIC_K_SLOWING = 3;
 
         public const int SUPERTREND_PERIOD = 10;
-        public const double SUPERTREND_MULTIPLIER = 3;
+        public const double SUPERTREND_MULTIPLIER = 2;
 
         public const double BREAKEVEN_MIN = 0;
         public const double BREAKEVEN_MAX = 1;
+        public const double ALLOWED_VOLUME_LOTS = 1;
+        public const double MIN_ALLOWED_VOLUME_LOTS = 0.01;
+        public const double MAX_ALLOWED_VOLUME_LOTS = 10;
 
         /// <summary>
         /// Gets the directory to save images.

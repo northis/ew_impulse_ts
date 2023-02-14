@@ -132,7 +132,7 @@ namespace TradeKit.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we fill the patterns with color.
         /// </summary>
-        [Parameter("Fill With Color", DefaultValue = true)]
+        [Parameter("Fill with color", DefaultValue = true)]
         public bool FillWithColor { get; set; }
 
         private HashSet<CandlePatternType> GetPatternsType()

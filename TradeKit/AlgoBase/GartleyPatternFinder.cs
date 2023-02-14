@@ -14,13 +14,14 @@ namespace TradeKit.AlgoBase
         private const int PRE_X_EXTREMA_BARS_COUNT = 7;
 //#if GARTLEY_PROD
         private const double SL_RATIO = 0.272;
-        private const double TP1_RATIO = 0.382;
+        private const double TP1_RATIO = 0.45;
 
 //#else
         //private const double SL_RATIO = 0.35;
         //private const double TP1_RATIO = 0.45;
 //#endif 
         private const double TP2_RATIO = 0.618;
+        private const double MAX_SL_TP_RATIO_ALLOWED = 2;
 
         private static readonly double[] LEVELS =
         {
@@ -495,13 +496,29 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
+            double barLen = Math.Abs(m_BarsProvider.GetHighPrice(d.BarIndex) -
+                                     m_BarsProvider.GetLowPrice(d.BarIndex));
+            double wickAllowRange = barLen / 3;
+
+            if (barLen <= 0)
+                return null;
+
+            if (isBull && closeD - d.Value < wickAllowRange ||
+                !isBull && d.Value - closeD < wickAllowRange)
+            {
+                //Logger.Write("Candle body is too full.");
+                return null;
+            }
+
             double actualSize = Math.Max(cD, aD);
 
             double slLen = actualSize * SL_RATIO;
             double tp1Len = actualSize * TP1_RATIO;
+            double sl = isBull ? -slLen + d : slLen + d;
+            //double tp1Len = Math.Abs(sl - closeD);
 
             double tp1 = isBull ? tp1Len + d : -tp1Len + d;
-            if (isBull && closeD >= tp1 || !isBull && closeD <= tp1)
+            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
             {
                 //Logger.Write("TP is already hit.");
                 return null;
@@ -509,7 +526,13 @@ namespace TradeKit.AlgoBase
 
             double tp2Len = actualSize * TP2_RATIO;
             double tp2 = isBull ? tp2Len + d : -tp2Len + d;
-            double sl = isBull ? -slLen + d : slLen + d;
+
+            double def = Math.Abs(closeD - sl)/ Math.Abs(closeD - tp1);
+            if (def > MAX_SL_TP_RATIO_ALLOWED)
+            {
+                //Logger.Write("SL/TP is too big.");
+                return null;
+            }
 
             return new GartleyItem(
                 Convert.ToInt32(accuracyList.Average() * 100),

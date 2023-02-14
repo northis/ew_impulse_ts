@@ -30,6 +30,7 @@ namespace TradeKit.Core
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
+        protected const double SPREAD_MARGIN_RATIO = 1.1;
         protected const string CHART_FILE_TYPE_EXTENSION = ".png";
         protected const int CHART_BARS_MARGIN_COUNT = 5;
         protected const double CHART_FONT_HEADER = 36;
@@ -63,85 +64,91 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets the risk percent from deposit (regular).
         /// </summary>
-        [Parameter(nameof(RiskPercentFromDeposit), DefaultValue = RISK_DEPOSIT_PERCENT)]
+        [Parameter(nameof(RiskPercentFromDeposit), DefaultValue = RISK_DEPOSIT_PERCENT, Group = Helper.TRADE_SETTINGS_NAME)]
         public double RiskPercentFromDeposit { get; set; }
 
         /// <summary>
         /// Gets or sets the risk percent from deposit (maximum).
         /// </summary>
-        [Parameter(nameof(RiskPercentFromDepositMax), DefaultValue = RISK_DEPOSIT_PERCENT_MAX)]
+        [Parameter(nameof(RiskPercentFromDepositMax), DefaultValue = RISK_DEPOSIT_PERCENT_MAX, Group = Helper.TRADE_SETTINGS_NAME)]
         public double RiskPercentFromDepositMax { get; set; }
+
+        /// <summary>
+        /// Gets or sets the max allowed volume in lots.
+        /// </summary>
+        [Parameter(nameof(MaxVolumeLots), DefaultValue = Helper.ALLOWED_VOLUME_LOTS, MaxValue = Helper.MAX_ALLOWED_VOLUME_LOTS, MinValue = Helper.MIN_ALLOWED_VOLUME_LOTS, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxVolumeLots { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can trade.
         /// </summary>
-        [Parameter(nameof(AllowToTrade), DefaultValue = false)]
+        [Parameter(nameof(AllowToTrade), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowToTrade { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can pass positions overnight (to the next trade day).
         /// </summary>
-        [Parameter(nameof(AllowOvernightTrade), DefaultValue = false)]
+        [Parameter(nameof(AllowOvernightTrade), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowOvernightTrade { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can open positions while big spread (spread/(tp-sl) ratio more than <see cref="Helper.MAX_SPREAD_RATIO"/>.
         /// </summary>
-        [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = false)]
+        [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowEnterOnBigSpread { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should increase the volume every SL hit.
         /// </summary>
-        [Parameter(nameof(UseProgressiveVolume), DefaultValue = false)]
+        [Parameter(nameof(UseProgressiveVolume), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseProgressiveVolume { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use the symbols list.
         /// </summary>
-        [Parameter(nameof(UseSymbolsList), DefaultValue = false)]
+        [Parameter(nameof(UseSymbolsList), DefaultValue = false, Group = Helper.SYMBOL_SETTINGS_NAME)]
         public bool UseSymbolsList { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating we should use the TF list.
         /// </summary>
-        [Parameter(nameof(UseTimeFramesList), DefaultValue = false)]
+        [Parameter(nameof(UseTimeFramesList), DefaultValue = false, Group = Helper.SYMBOL_SETTINGS_NAME)]
         public bool UseTimeFramesList { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating we should save .png files of the charts for manual analysis.
         /// </summary>
-        [Parameter(nameof(SaveChartForManualAnalysis), DefaultValue = false)]
+        [Parameter(nameof(SaveChartForManualAnalysis), DefaultValue = false, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public bool SaveChartForManualAnalysis { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating we should post the close messages like "tp/sl hit".
         /// </summary>
-        [Parameter(nameof(PostCloseMessages), DefaultValue = true)]
+        [Parameter(nameof(PostCloseMessages), DefaultValue = true, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public bool PostCloseMessages { get; set; }
 
         /// <summary>
         /// Gets or sets the time frames we should use.
         /// </summary>
-        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute15,Minute20,Minute30,Minute45")]
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute30,Hour", Group = Helper.SYMBOL_SETTINGS_NAME)]
         public string TimeFramesToProceed { get; set; }
 
         /// <summary>
         /// Gets the symbol names.
         /// </summary>
-        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100,USDNOK,USDSEK,USDDDK")]
+        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100,USDNOK,USDSEK,USDDDK", Group = Helper.SYMBOL_SETTINGS_NAME)]
         public string SymbolsToProceed { get; set; }
 
         /// <summary>
         /// Gets or sets the telegram bot token.
         /// </summary>
-        [Parameter("TelegramBotToken", DefaultValue = null)]
+        [Parameter("Telegram bot token", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string TelegramBotToken { get; set; }
 
         /// <summary>
         /// Gets or sets the chat identifier where to send signals.
         /// </summary>
-        [Parameter("ChatId", DefaultValue = null)]
+        [Parameter("Chat ID", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string ChatId { get; set; }
 
         #endregion
@@ -593,21 +600,38 @@ namespace TradeKit.Core
             GetEventStrings(sender, e.Level, out string price);
             Logger.Write($"New setup found! {price}");
             Symbol s = m_SymbolsMap[sf.Id];
-
-            if (IsBacktesting || AllowToTrade)
+            double priceNow = isLong ? s.Ask : s.Bid;
+            if (!isLong)
             {
-                //isLong = !isLong;
-                //(sl, tp) = (tp, sl);
-                TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
-                double priceNow = isLong ? s.Ask : s.Bid;
+                sl += s.Spread * SPREAD_MARGIN_RATIO;
+                tp += s.Spread * SPREAD_MARGIN_RATIO;
+            }
 
-                double slP = Math.Round(Math.Abs(priceNow - sl) / sf.Symbol.PipSize);
-                double tpP = Math.Round(Math.Abs(priceNow - tp) / sf.Symbol.PipSize);
+            double slLen = Math.Abs(priceNow - sl);
+            double tpLen = Math.Abs(priceNow - tp);
 
-                if (slP > 0)
+            //isLong = !isLong;
+            //(sl, tp) = (tp, sl);
+            TradeType type = isLong ? TradeType.Buy : TradeType.Sell;
+
+            double slP = Math.Round(slLen / sf.Symbol.PipSize);
+            double tpP = Math.Round(tpLen / sf.Symbol.PipSize);
+
+            if (slP > 0)
+            {
+                //System.Diagnostics.Debugger.Launch();
+                double volume = GetVolume(symbol, Math.Max(tpP, slP));
+                double volumeInLots = volume / symbol.LotSize;
+
+                if (volumeInLots > MaxVolumeLots)
                 {
-                    //System.Diagnostics.Debugger.Launch();
-                    double volume = GetVolume(symbol, slP);
+                    Logger.Write(
+                        $"The calculated volume is too big - {volumeInLots:F2}; max value is {MaxVolumeLots:F2} lots");
+                    return;
+                }
+
+                if (IsBacktesting || AllowToTrade)
+                {
                     TradeResult order = ExecuteMarketOrder(
                         type, sf.Symbol.Name, volume, GetBotName(), slP, tpP,
                         Helper.GetPositionId(sf.Id, e.Level));
@@ -620,6 +644,7 @@ namespace TradeKit.Core
                     }
                 }
             }
+
 
             if (IsBacktesting && !SaveChartForManualAnalysis)
             {

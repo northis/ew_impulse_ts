@@ -26,79 +26,91 @@ namespace TradeKit.Gartley
         private readonly Color m_BullColorFill = Color.fromARGB(80, 128, 240, 128);
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
-        
+
         #region Input parameters
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should set the parameters automatically.
+        /// </summary>
+        [Parameter(nameof(UseAutoSettings), DefaultValue = true)]
+        public bool UseAutoSettings { get; set; }
+
+        ///// <summary>
+        ///// Gets or sets a value indicating whether we should filter by flat part of the trend.
+        ///// </summary>
+        //[Parameter(nameof(UseFlatFilter), DefaultValue = true, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        //public bool UseFlatFilter { get; set; }
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
-        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000)]
+        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarDepthCount { get; set; }
 
         /// <summary>
         /// Gets or sets the percent of the allowance for the relations calculation.
         /// </summary>
-        [Parameter(nameof(BarAllowancePercent), DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50)]
+        [Parameter(nameof(BarAllowancePercent), DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarAllowancePercent { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseGartley), DefaultValue = true)]
+        [Parameter(nameof(UseGartley), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseGartley { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseButterfly), DefaultValue = true)]
+        [Parameter(nameof(UseButterfly), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseButterfly { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.SHARK"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseShark), DefaultValue = true)]
+        [Parameter(nameof(UseShark), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseShark { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCrab), DefaultValue = true)]
+        [Parameter(nameof(UseCrab), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseCrab { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseBat), DefaultValue = true)]
+        [Parameter(nameof(UseBat), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseAltBat), DefaultValue = true)]
+        [Parameter(nameof(UseAltBat), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseAltBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CYPHER"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCypher), DefaultValue = true)]
+        [Parameter(nameof(UseCypher), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseCypher { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseDeepCrab), DefaultValue = true)]
+        [Parameter(nameof(UseDeepCrab), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseDeepCrab { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
-        [Parameter(nameof(UseDivergences), DefaultValue = false)]
+        [Parameter(nameof(UseDivergences), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseDivergences { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
-        [Parameter(nameof(UseTrendOnly), DefaultValue = true)]
+        [Parameter(nameof(UseTrendOnly), DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
 
         /// <summary>
@@ -239,7 +251,7 @@ namespace TradeKit.Gartley
             MacdCrossOverIndicator macdCrossover = Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS);
             
             SuperTrendItem superTrendItem = null;
-            if (UseTrendOnly)
+            if (UseTrendOnly )
             {
                 superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
             }
@@ -249,7 +261,8 @@ namespace TradeKit.Gartley
                 breakEvenRatio = BreakEvenRatio;
 
             var setupFinder = new GartleySetupFinder(
-                cTraderBarsProvider, symbolEntity, BarAllowancePercent, BarDepthCount, UseDivergences,
+                cTraderBarsProvider, symbolEntity, 
+                BarAllowancePercent, BarDepthCount, UseDivergences, UseAutoSettings,
                 superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;

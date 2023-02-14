@@ -12,16 +12,41 @@ namespace TradeKit.Core
         /// <summary>
         /// Initializes a new instance of the <see cref="SuperTrendItem"/> class.
         /// </summary>
-        /// <param name="indicators">The indicators.</param>
-        private SuperTrendItem(SuperTrendIndicator[] indicators)
+        /// <param name="indicators">The trend indicators (minor, main and major TF).</param>
+        /// <param name="bollingerBandsIndicator">The bollinger bands indicators.</param>
+        /// <param name="mainTrendIndicator">The main TF trend indicator.</param>
+        private SuperTrendItem(
+            SuperTrendIndicator[] indicators, BollingerBandsIndicator bollingerBandsIndicator, SuperTrendIndicator mainTrendIndicator)
         {
             Indicators = indicators;
+            BollingerBands = bollingerBandsIndicator;
+            MainTrendIndicator = mainTrendIndicator;
         }
         
         /// <summary>
-        /// The "Super trend" indicator (main)
+        /// The "Super trend" indicators (3 TFs max)
         /// </summary>
         internal SuperTrendIndicator[] Indicators { get; }
+
+        /// <summary>
+        /// The "Super trend" indicator
+        /// </summary>
+        internal SuperTrendIndicator MainTrendIndicator { get; }
+
+        /// <summary>
+        /// The "Bollinger Bands" indicator
+        /// </summary>
+        internal BollingerBandsIndicator BollingerBands { get; }
+
+        private static BollingerBandsIndicator GetBollingerBandsIndicator(Algo algo, Bars bars)
+        {
+            BollingerBandsIndicator ind = algo.Indicators.GetIndicator<BollingerBandsIndicator>(
+                bars,
+                Helper.BOLLINGER_PERIODS,
+                Helper.BOLLINGER_STANDARD_DEVIATIONS);
+
+            return ind;
+        }
 
         private static SuperTrendIndicator GetTrendIndicator(Algo algo, Bars bars)
         {
@@ -46,14 +71,21 @@ namespace TradeKit.Core
                 TimeFrameHelper.GetNextTimeFrameInfo(mainTimeFrame)
             };
 
+            SuperTrendIndicator mainIndicator = null;
             var indicators = new SuperTrendIndicator[tfInfos.Length];
             for (int i = 0; i < tfInfos.Length; i++)
             {
-                Bars bars = algo.MarketData.GetBars(tfInfos[i].TimeFrame, symbolName);
+                TimeFrame tf = tfInfos[i].TimeFrame;
+                Bars bars = algo.MarketData.GetBars(tf, symbolName);
                 indicators[i] = GetTrendIndicator(algo, bars);
+
+                if (tf == mainTimeFrame)
+                    mainIndicator = indicators[i];
             }
-            
-            return new SuperTrendItem(indicators);
+
+            Bars barsMain = algo.MarketData.GetBars(mainTimeFrame, symbolName);
+            BollingerBandsIndicator bollingerBands = GetBollingerBandsIndicator(algo, barsMain);
+            return new SuperTrendItem(indicators, bollingerBands, mainIndicator);
         }
     }
 }
