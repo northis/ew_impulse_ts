@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -15,10 +16,10 @@ namespace TradeKit.Gartley
     public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     {
         private readonly IBarsProvider m_MainBarsProvider;
-        private readonly int m_BarsDepth;
-        private readonly bool m_FilterByDivergence;
-        private readonly bool m_UseFlatStrategy;
-        private readonly SuperTrendItem m_SuperTrendItem;
+        private int m_BarsDepth;
+        private bool m_FilterByDivergence;
+        private bool m_UseFlatStrategy;
+        private SuperTrendItem m_SuperTrendItem;
         private readonly MacdCrossOverIndicator m_MacdCrossOver;
         private readonly double? m_BreakevenRatio;
 
@@ -53,26 +54,24 @@ namespace TradeKit.Gartley
             double? breakevenRatio = null) : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
-            m_SuperTrendItem = superTrendItem;
             m_MacdCrossOver = macdCrossOver;
             m_BreakevenRatio = breakevenRatio;
-            
-            if (useAutoSettings)
-            {
-                if (superTrendItem == null || macdCrossOver == null)
-                    throw new NotSupportedException("Supertrend and MACD indicators are required for auto mode");
-
-                SetAutoSettings(out wickAllowance, out filterByDivergence);
-                m_BarsDepth = Helper.GARTLEY_BARS_COUNT;
-                patterns = null;
-            }
-            else
-            {
-                m_BarsDepth = barsDepth;
-            }
-
+            m_SuperTrendItem = superTrendItem;
+            m_SuperTrendItem = superTrendItem;
             m_FilterByDivergence = filterByDivergence;
             m_UseFlatStrategy = useFlatStrategy;
+            m_BarsDepth = barsDepth;
+
+            if (useAutoSettings)
+            {
+                if (macdCrossOver == null || m_SuperTrendItem == null)
+                    throw new NotSupportedException("MACD & Supertrend indicators are required for auto mode");
+
+                SetAutoSettings(out wickAllowance);
+                patterns = null;
+
+            }
+
             m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, wickAllowance, patterns);
 
             var comparer = new GartleyItemComparer();
@@ -80,22 +79,62 @@ namespace TradeKit.Gartley
             m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
         }
 
-        private void SetAutoSettings(out double wickAllowance, out bool filterByDivergence)
+        private void SetAutoSettings(out double wickAllowance)
         {
-            double minutes = TimeFrameHelper.GetTimeFrameInfo(m_MainBarsProvider.TimeFrame).TimeSpan.TotalMinutes;
+            TimeFrame tf = m_MainBarsProvider.TimeFrame;
+            m_BarsDepth = Helper.GARTLEY_BARS_COUNT;
 
-            filterByDivergence = minutes <= 30;
-            wickAllowance = minutes switch
+            if (tf == TimeFrame.Weekly || tf == TimeFrame.Monthly)
             {
-                >= 240 =>  38,
-                >= 120 => 29,
-                >= 60 => 26,
-                >= 45 => 24,
-                >= 30 => 23,
-                >= 15 => 15,
-                >= 10 => 8,
-                _ => 5
-            };
+                wickAllowance = 19;
+                m_SuperTrendItem = null;
+                m_FilterByDivergence = false;
+            }
+            else if (tf == TimeFrame.Daily)
+            {
+                wickAllowance = 17;
+                m_SuperTrendItem = null;
+                m_FilterByDivergence = false;
+            }
+            else if(tf == TimeFrame.Hour4)
+            {
+                wickAllowance = 10;
+                m_SuperTrendItem = null;
+                m_FilterByDivergence = false;
+
+            }
+            else if (tf == TimeFrame.Hour2)
+            {
+                wickAllowance = 13;
+                m_UseFlatStrategy = true;
+                m_FilterByDivergence = false;
+
+            }
+            else if (tf == TimeFrame.Hour)
+            {
+                wickAllowance = 10;
+                m_UseFlatStrategy = true;
+                m_FilterByDivergence = false;
+
+            }
+            else if (tf == TimeFrame.Minute45)
+            {
+                wickAllowance = 7;
+                m_UseFlatStrategy = true;
+                m_FilterByDivergence = false;
+            }
+            else if (tf == TimeFrame.Minute30)
+            {
+                wickAllowance = 16;
+                m_UseFlatStrategy = false;
+                m_FilterByDivergence = false;
+            }
+            else
+            {
+                m_UseFlatStrategy = false;
+                m_FilterByDivergence = true;
+                wickAllowance = 1;
+            }
         }
 
         /// <summary>
@@ -144,7 +183,7 @@ namespace TradeKit.Gartley
                         continue;
 
                     bool hasTrendCandles = false;
-                    for (int i = localPattern.ItemC.BarIndex + 1; 
+                    for (int i = localPattern.ItemC.BarIndex + 1;
                          i <= localPattern.ItemD.BarIndex; i++)
                     {
                         double openValue = BarsProvider.GetOpenPrice(i);
@@ -157,22 +196,38 @@ namespace TradeKit.Gartley
                         }
                     }
 
-                    if(!hasTrendCandles)
+                    if (!hasTrendCandles)
                         continue;
 
                     if (m_SuperTrendItem != null)
                     {
                         if (m_UseFlatStrategy)
                         {
-                            int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemX.BarIndex;
+                            int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex;
                             if (patternLength <= 0)
                                 continue;
 
                             double dIndexFlat = m_SuperTrendItem
-                                .MainTrendIndicator.HistogramFlat[localPattern.ItemX.BarIndex];
+                                .MainTrendIndicator.HistogramFlat[localPattern.ItemD.BarIndex];
 
                             if (dIndexFlat == 0)
                                 continue;
+
+                            //bool isCounterTrend = false;
+                            //for (int i = localPattern.ItemC.BarIndex; i < localPattern.ItemD.BarIndex; i++)
+                            //{
+                            //    if (localPattern.IsBull && m_SuperTrendItem
+                            //            .MainTrendIndicator.HistogramFlat[i] < 0 ||
+                            //        !localPattern.IsBull && m_SuperTrendItem
+                            //            .MainTrendIndicator.HistogramFlat[i] > 0)
+                            //    {
+                            //        isCounterTrend = true;
+                            //        break;
+                            //    }
+                            //}
+
+                            //if(isCounterTrend)
+                            //    continue;
 
                             if (Math.Abs(dIndexFlat) < patternLength)
                                 continue;

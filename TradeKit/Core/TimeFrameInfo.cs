@@ -14,6 +14,16 @@ namespace TradeKit.Core
         public TimeFrame TimeFrame { get; }
 
         /// <summary>
+        /// Gets the minor time span (previous).
+        /// </summary>
+        public TimeFrame PrevTimeFrame { get; }
+
+        /// <summary>
+        /// Gets the major time span (next).
+        /// </summary>
+        public TimeFrame NextTimeFrame { get; }
+
+        /// <summary>
         /// Gets the interval for the time span.
         /// </summary>
         public TimeSpan TimeSpan { get; }
@@ -24,10 +34,15 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="timeFrame">The time frame.</param>
         /// <param name="timeSpan">The time span.</param>
-        public TimeFrameInfo(TimeFrame timeFrame, TimeSpan timeSpan)
+        /// <param name="prevTimeFrame">The minor time span (previous).</param>
+        /// <param name="nextTimeFrame">The major time span (next).</param>
+        public TimeFrameInfo(
+            TimeFrame timeFrame, TimeSpan timeSpan, TimeFrame prevTimeFrame, TimeFrame nextTimeFrame)
         {
             TimeFrame = timeFrame;
             TimeSpan = timeSpan;
+            PrevTimeFrame = prevTimeFrame;
+            NextTimeFrame = nextTimeFrame;
         }
     }
 }

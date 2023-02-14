@@ -130,7 +130,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets the time frames we should use.
         /// </summary>
-        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute15,Minute30,Hour", Group = Helper.SYMBOL_SETTINGS_NAME)]
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute30,Hour", Group = Helper.SYMBOL_SETTINGS_NAME)]
         public string TimeFramesToProceed { get; set; }
 
         /// <summary>

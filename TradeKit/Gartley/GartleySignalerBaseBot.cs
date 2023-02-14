@@ -38,7 +38,7 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should filter by flat part of the trend.
         /// </summary>
-        [Parameter(nameof(UseFlatFilter), DefaultValue = true)]
+        [Parameter(nameof(UseFlatFilter), DefaultValue = true, Group = Helper.GARTLEY_SETTINGS_NAME)]
         public bool UseFlatFilter { get; set; }
 
         /// <summary>

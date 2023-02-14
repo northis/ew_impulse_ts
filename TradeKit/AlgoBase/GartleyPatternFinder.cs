@@ -21,7 +21,7 @@ namespace TradeKit.AlgoBase
         //private const double TP1_RATIO = 0.45;
 //#endif 
         private const double TP2_RATIO = 0.618;
-        private const double MAX_SL_TP_RATIO_ALLOWED = 3;
+        private const double MAX_SL_TP_RATIO_ALLOWED = 2;
 
         private static readonly double[] LEVELS =
         {
