@@ -29,97 +29,97 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should set the parameters automatically.
         /// </summary>
-        [Parameter(nameof(UseAutoSettings), DefaultValue = true)]
+        [Parameter("Auto Settings", DefaultValue = false)]
         public bool UseAutoSettings { get; set; }
 
-        /// <summary>
-        /// Gets or sets a value indicating whether we should filter by flat part of the trend.
-        /// </summary>
-        [Parameter(nameof(UseFlatFilter), DefaultValue = true)]
-        public bool UseFlatFilter { get; set; }
+        ///// <summary>
+        ///// Gets or sets a value indicating whether we should filter by flat part of the trend.
+        ///// </summary>
+        //[Parameter(nameof(UseFlatFilter), DefaultValue = true)]
+        //public bool UseFlatFilter { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should show ratio values on patterns.
         /// </summary>
-        [Parameter(nameof(ShowRatio), DefaultValue = false)]
+        [Parameter("Show Ratio Values", DefaultValue = false, Group = Helper.VIEW_SETTINGS_NAME)]
         public bool ShowRatio { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should show divergences with the patterns.
         /// </summary>
-        [Parameter(nameof(ShowDivergences), DefaultValue = true)]
+        [Parameter("Show Divergences", DefaultValue = true, Group = Helper.VIEW_SETTINGS_NAME)]
         public bool ShowDivergences { get; set; }
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
-        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter("Bar Depth Count", DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarDepthCount { get; set; }
 
         /// <summary>
         /// Gets or sets the percent of the allowance for the relations calculation.
         /// </summary>
-        [Parameter(nameof(BarAllowancePercent), DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter("Bar Allowance Percent", DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarAllowancePercent { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseGartley), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Gartley", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseGartley { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseButterfly), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Butterfly", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseButterfly { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.SHARK"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseShark), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Shark", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseShark { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCrab), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Crab", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseCrab { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseBat), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Bat", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseAltBat), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Alternative Bat", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseAltBat { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CYPHER"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseCypher), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Cypher", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseCypher { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
         /// </summary>
-        [Parameter(nameof(UseDeepCrab), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
+        [Parameter("Deep Crab", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
         public bool UseDeepCrab { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
-        [Parameter(nameof(UseDivergences), DefaultValue = false, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter("Use Divergences", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseDivergences { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
-        [Parameter(nameof(UseTrendOnly), DefaultValue = true, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter("Trend Only", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
 
         private HashSet<GartleyPatternType> GetPatternsType()
@@ -161,7 +161,7 @@ namespace TradeKit.Gartley
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            MacdCrossOverIndicator macdCrossover = UseDivergences || ShowDivergences || UseAutoSettings
+            MacdCrossOverIndicator macdCrossover = UseDivergences || ShowDivergences
                 ? Indicators.GetIndicator<MacdCrossOverIndicator>(
                     Bars, 
                     Helper.MACD_LONG_CYCLE, 
@@ -170,11 +170,11 @@ namespace TradeKit.Gartley
                 : null;
 
             SuperTrendItem superTrendItem = null;
-            if (UseTrendOnly || UseAutoSettings)
+            if (UseTrendOnly)
                 superTrendItem = SuperTrendItem.Create(TimeFrame, this, Symbol.Name);
             
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
-                BarDepthCount, UseDivergences, UseAutoSettings, UseFlatFilter, superTrendItem, patternTypes, macdCrossover);
+                BarDepthCount, UseDivergences, UseAutoSettings, superTrendItem, patternTypes, macdCrossover);
             Subscribe(m_SetupFinder);
         }
 

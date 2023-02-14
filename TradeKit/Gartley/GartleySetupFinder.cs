@@ -18,7 +18,6 @@ namespace TradeKit.Gartley
         private readonly IBarsProvider m_MainBarsProvider;
         private int m_BarsDepth;
         private bool m_FilterByDivergence;
-        private bool m_UseFlatStrategy;
         private SuperTrendItem m_SuperTrendItem;
         private readonly MacdCrossOverIndicator m_MacdCrossOver;
         private readonly double? m_BreakevenRatio;
@@ -36,7 +35,6 @@ namespace TradeKit.Gartley
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
         /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
         /// <param name="useAutoSettings">If true - we use pre-defined settings.</param>
-        /// <param name="useFlatStrategy">If true - we trade only flat parts of the chart.</param>
         /// <param name="superTrendItem">For filtering by the trend.</param>
         /// <param name="macdCrossOver">MACD Cross Over.</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
@@ -47,7 +45,6 @@ namespace TradeKit.Gartley
             int barsDepth,
             bool filterByDivergence,
             bool useAutoSettings = false,
-            bool useFlatStrategy = true,
             SuperTrendItem superTrendItem = null,
             HashSet<GartleyPatternType> patterns = null,
             MacdCrossOverIndicator macdCrossOver = null,
@@ -59,7 +56,6 @@ namespace TradeKit.Gartley
             m_SuperTrendItem = superTrendItem;
             m_SuperTrendItem = superTrendItem;
             m_FilterByDivergence = filterByDivergence;
-            m_UseFlatStrategy = useFlatStrategy;
             m_BarsDepth = barsDepth;
 
             if (useAutoSettings)
@@ -106,32 +102,32 @@ namespace TradeKit.Gartley
             else if (tf == TimeFrame.Hour2)
             {
                 wickAllowance = 13;
-                m_UseFlatStrategy = true;
+                //m_UseFlatStrategy = true;
                 m_FilterByDivergence = false;
 
             }
             else if (tf == TimeFrame.Hour)
             {
                 wickAllowance = 10;
-                m_UseFlatStrategy = true;
+                //m_UseFlatStrategy = true;
                 m_FilterByDivergence = false;
 
             }
             else if (tf == TimeFrame.Minute45)
             {
                 wickAllowance = 7;
-                m_UseFlatStrategy = true;
+                //m_UseFlatStrategy = true;
                 m_FilterByDivergence = false;
             }
             else if (tf == TimeFrame.Minute30)
             {
                 wickAllowance = 16;
-                m_UseFlatStrategy = false;
+                //m_UseFlatStrategy = false;
                 m_FilterByDivergence = false;
             }
             else
             {
-                m_UseFlatStrategy = false;
+                //m_UseFlatStrategy = false;
                 m_FilterByDivergence = true;
                 wickAllowance = 1;
             }
@@ -201,17 +197,17 @@ namespace TradeKit.Gartley
 
                     if (m_SuperTrendItem != null)
                     {
-                        if (m_UseFlatStrategy)
+                        bool FlatStrategy()
                         {
                             int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex;
                             if (patternLength <= 0)
-                                continue;
+                                return false;
 
                             double dIndexFlat = m_SuperTrendItem
                                 .MainTrendIndicator.HistogramFlat[localPattern.ItemD.BarIndex];
 
                             if (dIndexFlat == 0)
-                                continue;
+                                return false;
 
                             //bool isCounterTrend = false;
                             //for (int i = localPattern.ItemC.BarIndex; i < localPattern.ItemD.BarIndex; i++)
@@ -227,12 +223,15 @@ namespace TradeKit.Gartley
                             //}
 
                             //if(isCounterTrend)
-                            //    continue;
+                            //    return false;
 
                             if (Math.Abs(dIndexFlat) < patternLength)
-                                continue;
+                                return false;
+
+                            return true;
                         }
-                        else
+
+                        if (!FlatStrategy())
                         {
                             TrendType trend = SignalFilters.GetTrend(
                                 m_SuperTrendItem, localPattern.ItemD.OpenTime);

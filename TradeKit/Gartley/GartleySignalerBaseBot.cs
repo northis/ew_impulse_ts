@@ -35,22 +35,22 @@ namespace TradeKit.Gartley
         [Parameter(nameof(UseAutoSettings), DefaultValue = true)]
         public bool UseAutoSettings { get; set; }
 
-        /// <summary>
-        /// Gets or sets a value indicating whether we should filter by flat part of the trend.
-        /// </summary>
-        [Parameter(nameof(UseFlatFilter), DefaultValue = true, Group = Helper.GARTLEY_SETTINGS_NAME)]
-        public bool UseFlatFilter { get; set; }
+        ///// <summary>
+        ///// Gets or sets a value indicating whether we should filter by flat part of the trend.
+        ///// </summary>
+        //[Parameter(nameof(UseFlatFilter), DefaultValue = true, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        //public bool UseFlatFilter { get; set; }
 
         /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
-        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarDepthCount { get; set; }
 
         /// <summary>
         /// Gets or sets the percent of the allowance for the relations calculation.
         /// </summary>
-        [Parameter(nameof(BarAllowancePercent), DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter(nameof(BarAllowancePercent), DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarAllowancePercent { get; set; }
 
         /// <summary>
@@ -104,13 +104,13 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
-        [Parameter(nameof(UseDivergences), DefaultValue = false, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter(nameof(UseDivergences), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseDivergences { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
-        [Parameter(nameof(UseTrendOnly), DefaultValue = true, Group = Helper.GARTLEY_SETTINGS_NAME)]
+        [Parameter(nameof(UseTrendOnly), DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
 
         /// <summary>
@@ -262,7 +262,7 @@ namespace TradeKit.Gartley
 
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity, 
-                BarAllowancePercent, BarDepthCount, UseDivergences, UseAutoSettings, UseFlatFilter,
+                BarAllowancePercent, BarDepthCount, UseDivergences, UseAutoSettings,
                 superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;
