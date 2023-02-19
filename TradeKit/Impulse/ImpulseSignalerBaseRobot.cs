@@ -55,7 +55,8 @@ namespace TradeKit.Impulse
         protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
             var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
-            var sf = new ImpulseSetupFinder(barsProvider, symbolEntity);
+            var min1BarsProvider = new CTraderBarsProvider(MarketData.GetBars(TimeFrame.Minute), symbolEntity);
+            var sf = new ImpulseSetupFinder(barsProvider, min1BarsProvider, symbolEntity);
             return sf;
         }
 

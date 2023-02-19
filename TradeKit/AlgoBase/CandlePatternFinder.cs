@@ -331,16 +331,12 @@ namespace TradeKit.AlgoBase
             for (int i = 0; i <= MIN_BARS_INDEX; i++)
             {
                 int index = barIndex - MIN_BARS_INDEX + i;
-                double h = m_BarsProvider.GetHighPrice(index);
-                double l = m_BarsProvider.GetLowPrice(index);
-                double range = h - l;
-                if (range < 0)
+                Candle candle = Candle.FromIndex(m_BarsProvider, index);
+                
+                if (candle is null)
                     return null;
 
-                candles[i] = new Candle(m_BarsProvider.GetOpenPrice(index),
-                    h,
-                    l,
-                    m_BarsProvider.GetClosePrice(index));
+                candles[i] = candle;
             }
 
             

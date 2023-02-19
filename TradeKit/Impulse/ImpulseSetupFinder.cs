@@ -44,9 +44,11 @@ namespace TradeKit.Impulse
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
+        /// <param name="barsProvider1M">The bars provider 1min for precise actions.</param>
         /// <param name="symbol">The symbol.</param>
         public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider,
+            IBarsProvider barsProvider1M,
             Symbol symbol):base(mainBarsProvider, symbol)
         {
             var zoomMin = Helper.ZOOM_MIN;
@@ -58,7 +60,7 @@ namespace TradeKit.Impulse
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
 
-            m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, zoomMin);
+            m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsProvider1M, zoomMin);
         }
 
         /// <summary>

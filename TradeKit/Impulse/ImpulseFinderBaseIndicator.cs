@@ -21,7 +21,8 @@ namespace TradeKit.Impulse
         {
             base.Initialize();
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, Symbol);
+            var min1BarsProvider = new CTraderBarsProvider(MarketData.GetBars(TimeFrame.Minute), Symbol);
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, min1BarsProvider, Symbol);
             Subscribe(m_SetupFinder);
         }
         /// <summary>

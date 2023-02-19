@@ -88,46 +88,46 @@ namespace TradeKit.Gartley
             }
             else if (tf == TimeFrame.Daily)
             {
-                wickAllowance = 17;
+                wickAllowance = 15;
                 m_SuperTrendItem = null;
+                m_BarsDepth = 30;
                 m_FilterByDivergence = false;
             }
             else if(tf == TimeFrame.Hour4)
             {
-                wickAllowance = 10;
-                m_SuperTrendItem = null;
+                wickAllowance = 21;
+                m_BarsDepth = 40;
                 m_FilterByDivergence = false;
 
             }
             else if (tf == TimeFrame.Hour2)
             {
-                wickAllowance = 13;
-                //m_UseFlatStrategy = true;
+                wickAllowance = 16;
+                m_BarsDepth = 60;
                 m_FilterByDivergence = false;
 
             }
             else if (tf == TimeFrame.Hour)
             {
-                wickAllowance = 10;
-                //m_UseFlatStrategy = true;
+                wickAllowance = 18;
+                m_BarsDepth = 30;
                 m_FilterByDivergence = false;
 
             }
             else if (tf == TimeFrame.Minute45)
             {
-                wickAllowance = 7;
-                //m_UseFlatStrategy = true;
+                wickAllowance = 6;
                 m_FilterByDivergence = false;
+                m_BarsDepth = 35;
             }
             else if (tf == TimeFrame.Minute30)
             {
-                wickAllowance = 16;
-                //m_UseFlatStrategy = false;
-                m_FilterByDivergence = false;
+                wickAllowance = 10;
+                m_BarsDepth = 40;
+                m_FilterByDivergence = true;
             }
             else
             {
-                //m_UseFlatStrategy = false;
                 m_FilterByDivergence = true;
                 wickAllowance = 1;
             }
