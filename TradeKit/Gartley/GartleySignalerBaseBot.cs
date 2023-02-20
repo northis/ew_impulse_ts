@@ -251,7 +251,7 @@ namespace TradeKit.Gartley
             MacdCrossOverIndicator macdCrossover = Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS);
             
             SuperTrendItem superTrendItem = null;
-            if (UseTrendOnly )
+            if (UseTrendOnly || UseAutoSettings)
             {
                 superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
             }

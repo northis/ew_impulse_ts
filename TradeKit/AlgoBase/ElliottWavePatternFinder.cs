@@ -138,9 +138,29 @@ namespace TradeKit.AlgoBase
             return false;
         }
 
+        private double GetOverlapRatio(Candle left, Candle right)
+        {
+            if (left.H <= right.L || left.L >= right.H || left.Length == 0 || right.Length == 0)
+                return 0;
+
+            if (left.H >= right.H && left.L <= right.L ||
+                right.H >= left.H && right.L <= left.L)
+                return 1;
+
+            if (left.H >= right.H)
+            {
+                return (right.H - left.L) / left.Length;
+            }
+
+            return (left.H - right.L) / left.Length;
+        }
+
         private ElliottModelType FindModel(List<Candle> candles, bool isUp)
         {
             if (candles.Count == 0)
+                return ElliottModelType.NONE;
+
+            if (candles[0].O < candles[^1].C != isUp)
                 return ElliottModelType.NONE;
 
             if (candles.Count == 1)
@@ -149,13 +169,19 @@ namespace TradeKit.AlgoBase
                 if (single.O < single.C != isUp)
                     return ElliottModelType.NONE;
 
-                if (!single.IsHighFirst.HasValue ||
-                    single.IsHighFirst == true && isUp ||
-                    single.IsHighFirst == false && !isUp)
+                if (!single.IsHighFirst.HasValue || single.IsHighFirst == isUp)
                     return ElliottModelType.NONE;
 
                 // Here we can use zigzag or allow to treat this movement as a desired (expected) one.
                 return ElliottModelType.IMPULSE;
+            }
+
+            if (candles.Count == 2)
+            {
+                if (GetOverlapRatio(candles[0], candles[1]) > 23.6)
+                    return ElliottModelType.ZIGZAG;
+
+                return ElliottModelType.IMPULSE;// Or diagonal&
             }
 
 
