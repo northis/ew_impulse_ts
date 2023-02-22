@@ -39,35 +39,323 @@ namespace TradeKit.AlgoBase
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
             m_BarsProvider1M = barsProvider1M;
+        }
 
+        private void InitModelRules()
+        {
             m_ModelRules = new Dictionary<ElliottModelType, ModelRules>
             {
                 {
                     ElliottModelType.IMPULSE, new ModelRules(
-                        new[]
+                        new Dictionary<string, ElliottModelType[]>
                         {
-                            new[] {ElliottModelType.IMPULSE, ElliottModelType.DIAGONAL_INITIAL},
-                            new[]
                             {
-                                ElliottModelType.ZIGZAG, 
-                                ElliottModelType.DOUBLE_ZIGZAG, 
-                                ElliottModelType.FLAT_EXTENDED,
-                                ElliottModelType.FLAT_RUNNING
+                                "1", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.DIAGONAL_INITIAL
+                                }
                             },
-                            new[] {ElliottModelType.IMPULSE},
-                            new[]
                             {
-                                ElliottModelType.ZIGZAG,
-                                ElliottModelType.DOUBLE_ZIGZAG,
-                                ElliottModelType.FLAT_EXTENDED,
-                                ElliottModelType.FLAT_RUNNING,
-                                ElliottModelType.TRIANGLE_CONTRACTING,
-                                ElliottModelType.TRIANGLE_RUNNING
+                                "2", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                    ElliottModelType.FLAT_EXTENDED,
+                                    ElliottModelType.FLAT_RUNNING
+                                }
                             },
-                            new[] {ElliottModelType.IMPULSE, ElliottModelType.DIAGONAL_ENDING}
+                            {
+                                "3", new[] {ElliottModelType.IMPULSE}
+                            },
+                            {
+                                "4", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                    ElliottModelType.FLAT_EXTENDED,
+                                    ElliottModelType.FLAT_RUNNING,
+                                    ElliottModelType.TRIANGLE_CONTRACTING,
+                                    ElliottModelType.TRIANGLE_RUNNING
+                                }
+                            },
+                            {
+                                "5", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.DIAGONAL_ENDING
+                                }
+                            },
+                        },
+                        candels => { return null; })
+                },
+                {
+                    ElliottModelType.DIAGONAL_INITIAL, new ModelRules(
+                        new Dictionary<string, ElliottModelType[]>
+                        {
+                            {
+                                "1", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.DIAGONAL_INITIAL,
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                }
+                            },
+                            {
+                                "2", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "3", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                }
+                            },
+                            {
+                                "4", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "5", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.DIAGONAL_ENDING,
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                }
+                            },
+                        },
+                        candels => { return null; })
+                },
+                {
+                    ElliottModelType.DIAGONAL_ENDING, new ModelRules(
+                        new Dictionary<string, ElliottModelType[]>
+                        {
+                            {
+                                "1", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                }
+                            },
+                            {
+                                "2", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "3", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                }
+                            },
+                            {
+                                "4", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "5", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                }
+                            },
+                        },
+                        candels => { return null; })
+                },
+                {
+                    ElliottModelType.ZIGZAG, new ModelRules(
+                        new Dictionary<string, ElliottModelType[]>
+                        {
+                            {
+                                "a", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.DIAGONAL_INITIAL,
+                                }
+                            },
+                            {
+                                "b", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                    ElliottModelType.FLAT_EXTENDED,
+                                    ElliottModelType.FLAT_RUNNING,
+                                    ElliottModelType.TRIANGLE_CONTRACTING,
+                                    ElliottModelType.TRIANGLE_RUNNING
+                                }
+                            },
+                            {
+                                "c", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.DIAGONAL_ENDING,
+                                }
+                            },
+                        },
+                        candels => { return null; })
+                },
+                {
+                    ElliottModelType.DOUBLE_ZIGZAG, new ModelRules(
+                        new Dictionary<string, ElliottModelType[]>
+                        {
+                            {
+                                "w", new[]
+                                {
+                                    ElliottModelType.ZIGZAG
+                                }
+                            },
+                            {
+                                "x", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                    ElliottModelType.FLAT_EXTENDED,
+                                    ElliottModelType.FLAT_RUNNING,
+                                    ElliottModelType.TRIANGLE_CONTRACTING,
+                                    ElliottModelType.TRIANGLE_RUNNING
+                                }
+                            },
+                            {
+                                "y", new[]
+                                {
+                                    ElliottModelType.ZIGZAG
+                                }
+                            },
+                        },
+                        candels => { return null; })
+                },
+                {
+                    ElliottModelType.COMBINATION, new ModelRules(
+                        new Dictionary<string, ElliottModelType[]>
+                        {
+                            {
+                                "w", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.FLAT_EXTENDED,
+                                    ElliottModelType.FLAT_RUNNING,
+                                }
+                            },
+                            {
+                                "x", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG,
+                                    ElliottModelType.FLAT_EXTENDED,
+                                    ElliottModelType.FLAT_RUNNING,
+                                    ElliottModelType.TRIANGLE_CONTRACTING,
+                                    ElliottModelType.TRIANGLE_RUNNING
+                                }
+                            },
+                            {
+                                "y", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.FLAT_EXTENDED,
+                                    ElliottModelType.FLAT_RUNNING,
+                                    ElliottModelType.TRIANGLE_CONTRACTING,
+                                    ElliottModelType.TRIANGLE_RUNNING
+                                }
+                            },
+                        },
+                        candels => { return null; })
+                },
+                {
+                    ElliottModelType.TRIANGLE_CONTRACTING, new ModelRules(
+                        new Dictionary<string, ElliottModelType[]>
+                        {
+                            {
+                                "a", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "b", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "c", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "d", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "e", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            }
+                        },
+                        candels => { return null; })
+                },
+                {
+                    ElliottModelType.FLAT_EXTENDED, new ModelRules(
+                        new Dictionary<string, ElliottModelType[]>
+                        {
+                            {
+                                "a", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "b", new[]
+                                {
+                                    ElliottModelType.ZIGZAG,
+                                    ElliottModelType.DOUBLE_ZIGZAG
+                                }
+                            },
+                            {
+                                "c", new[]
+                                {
+                                    ElliottModelType.IMPULSE,
+                                    ElliottModelType.DIAGONAL_ENDING
+                                }
+                            }
                         },
                         candels => { return null; })
                 }
+            };
+
+            m_ModelRules[ElliottModelType.TRIANGLE_RUNNING] = m_ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
+            {
+                GetElliottModelResult = candels => { return null; }
+            }; 
+            
+            m_ModelRules[ElliottModelType.FLAT_RUNNING] = m_ModelRules[ElliottModelType.FLAT_EXTENDED] with
+            {
+                GetElliottModelResult = candels => { return null; }
             };
         }
 

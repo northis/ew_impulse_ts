@@ -4,6 +4,6 @@ using TradeKit.Core;
 
 namespace TradeKit.Impulse
 {
-    internal record ModelRules(ElliottModelType[][] Models,
+    internal record ModelRules(Dictionary<string, ElliottModelType[]> Models,
         Func<List<Candle>, ElliottModelResult> GetElliottModelResult);
 }
