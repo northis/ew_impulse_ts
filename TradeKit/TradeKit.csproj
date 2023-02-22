@@ -38,6 +38,7 @@
     <Compile Include="Core\SpikeType.cs" />
     <Compile Include="Impulse\ElliottModelResult.cs" />
     <Compile Include="Impulse\ElliottModelType.cs" />
+    <Compile Include="Impulse\ModelRules.cs" />
     <Compile Include="Indicators\BollingerBandsIndicator.cs" />
     <Compile Include="Indicators\SuperTrendIndicator.cs" />
     <Compile Include="Indicators\StochasticOscillatorIndicator.cs" />

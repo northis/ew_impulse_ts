@@ -20,6 +20,8 @@ namespace TradeKit.AlgoBase
         private const int ZIGZAG_EXTREMA_COUNT = 4;
         private const double FIBONACCI = 1.618;
 
+        private Dictionary<ElliottModelType, ModelRules> m_ModelRules;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
         /// </summary>
@@ -37,6 +39,36 @@ namespace TradeKit.AlgoBase
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
             m_BarsProvider1M = barsProvider1M;
+
+            m_ModelRules = new Dictionary<ElliottModelType, ModelRules>
+            {
+                {
+                    ElliottModelType.IMPULSE, new ModelRules(
+                        new[]
+                        {
+                            new[] {ElliottModelType.IMPULSE, ElliottModelType.DIAGONAL_INITIAL},
+                            new[]
+                            {
+                                ElliottModelType.ZIGZAG, 
+                                ElliottModelType.DOUBLE_ZIGZAG, 
+                                ElliottModelType.FLAT_EXTENDED,
+                                ElliottModelType.FLAT_RUNNING
+                            },
+                            new[] {ElliottModelType.IMPULSE},
+                            new[]
+                            {
+                                ElliottModelType.ZIGZAG,
+                                ElliottModelType.DOUBLE_ZIGZAG,
+                                ElliottModelType.FLAT_EXTENDED,
+                                ElliottModelType.FLAT_RUNNING,
+                                ElliottModelType.TRIANGLE_CONTRACTING,
+                                ElliottModelType.TRIANGLE_RUNNING
+                            },
+                            new[] {ElliottModelType.IMPULSE, ElliottModelType.DIAGONAL_ENDING}
+                        },
+                        candels => { return null; })
+                }
+            };
         }
 
         /// <summary>
@@ -225,8 +257,7 @@ namespace TradeKit.AlgoBase
             extrema = GetNormalizedExtrema(start, end, deviation);
 
             if (model == ElliottModelType.IMPULSE || 
-                model == ElliottModelType.DIAGONAL_CONTRACTING ||
-                model == ElliottModelType.DIAGONAL_EXPANDING)
+                model == ElliottModelType.DIAGONAL_INITIAL)
             {
                 return true;
             }
