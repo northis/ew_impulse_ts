@@ -64,10 +64,10 @@ namespace TradeKit.Impulse
         {
             int levelIndex = e.Level.BarIndex;
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
-            if (e.Waves is { Count: > 0 })
+            if (e.Waves is { Length: > 0 })
             {
                 BarPoint start = e.Waves[0];
-                BarPoint[] rest = e.Waves.ToArray()[1..];
+                BarPoint[] rest = e.Waves[1..];
                 for (int index = 0; index < rest.Length; index++)
                 {
                     BarPoint wave = rest[index];

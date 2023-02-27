@@ -213,7 +213,7 @@ namespace TradeKit.Impulse
 
                 m_PreFinder = null;
                 bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, finder.ScaleRate, out List<BarPoint> outExtrema);
+                    startItem.Value, endItem.Value, out ElliottModelResult outExtrema);
                 if (!isImpulse)
                 {
                     // The move is not an impulse.
@@ -308,7 +308,7 @@ namespace TradeKit.Impulse
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
-                    outExtrema,
+                    outExtrema.Extrema,
                     viewDateTime));
                 // Here we should give a trade signal.
             }

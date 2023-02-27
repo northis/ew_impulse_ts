@@ -6,7 +6,7 @@ namespace TradeKit.Core
     /// OHLC Candle
     /// </summary>
     /// <seealso cref="IEquatable&lt;Candle&gt;" />
-    public record Candle(double O, double H, double L, double C, bool? IsHighFirst = null)
+    public record Candle(double O, double H, double L, double C, bool? IsHighFirst = null, int? Index = null)
     {
         private double? m_BodyLow;
         public double BodyLow
@@ -66,6 +66,9 @@ namespace TradeKit.Core
                 DateTime endDate = startDate + timeFrameInfo.TimeSpan;
 
                 int startIndex1M = barsProvider1M.GetIndexByTime(startDate);
+                if (startIndex1M == -1)
+                    barsProvider1M.LoadBars(startDate);
+
                 int endIndex1M = barsProvider1M.GetIndexByTime(endDate);
 
                 var highIndex = 0;
@@ -96,7 +99,7 @@ namespace TradeKit.Core
             var res =  new Candle(barsProvider.GetOpenPrice(index),
                 h,
                 l,
-                barsProvider.GetClosePrice(index), isHighFirst);
+                barsProvider.GetClosePrice(index), isHighFirst, index);
             return res;
         }
     };

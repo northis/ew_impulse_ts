@@ -2,6 +2,6 @@
 
 namespace TradeKit.Impulse
 {
-    internal record ElliottModelResult(
+    public record ElliottModelResult(
         ElliottModelType Type, BarPoint[] Extrema, ElliottModelResult[] ChildModels);
 }

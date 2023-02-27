@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.Impulse;
@@ -39,6 +41,197 @@ namespace TradeKit.AlgoBase
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
             m_BarsProvider1M = barsProvider1M;
+            InitModelRules();
+        }
+
+        #region Rules
+
+        private ElliottModelResult CheckImpulseRules(List<BarPoint> barPoints)
+        {
+            if (barPoints.Count < 2)
+                return null;
+
+            Debugger.Launch();
+            if (barPoints.Count == 2)
+                return new ElliottModelResult(ElliottModelType.IMPULSE, barPoints.ToArray(), null);
+
+            bool isUp = barPoints[0] < barPoints[^1];
+            //Logger.Write($"Is Up {isUp}");
+            int bpCount = barPoints.Count;
+            var overlaps = new Dictionary<int, double>();
+
+            for (int i = 0; i < bpCount; i++)
+            {
+                var localOverlap = new List<double>();
+                for (int j = i + 1; j < bpCount; j++)
+                    localOverlap.Add(barPoints[i] - barPoints[j]);
+
+                if (localOverlap.Count == 0)
+                    overlaps[i] = 0;
+                else
+                    overlaps[i] = isUp ? localOverlap.Max() : localOverlap.Min();
+
+                //Logger.Write($"{i:D3}\t{barPoints[i].OpenTime:s}\t{barPoints[i].Value.ToString(CultureInfo.InvariantCulture)}\t{overlaps[i].ToString("F5", CultureInfo.InvariantCulture)}");
+            }
+
+            var firstIndices = new List<int>();
+            var secondIndices = new List<int>();
+            var thirdIndices = new List<int>();
+            var fourIndices = new List<int>();
+
+            KeyValuePair<int, double> lowestRetrace =
+                isUp ? overlaps.MinBy(a => a.Value) : overlaps.MaxBy(a => a.Value);
+            fourIndices.Add(lowestRetrace.Key);
+            secondIndices.Add(lowestRetrace.Key);
+
+            KeyValuePair<int, double>[] ib = overlaps.Take(lowestRetrace.Key).ToArray();
+            if (ib.Length == 0)
+                return null;
+
+            KeyValuePair<int, double> impulseBefore =
+                isUp ? ib.MaxBy(a => a.Value) : ib.MinBy(a => a.Value);
+            thirdIndices.Add(impulseBefore.Key);
+            firstIndices.Add(impulseBefore.Key);
+
+            KeyValuePair<int, double>[] lrl = overlaps.Take(impulseBefore.Key).ToArray();
+            if (lrl.Length != 0)
+            {
+                KeyValuePair<int, double> lowestRetraceLeft =
+                    isUp ? lrl.MinBy(a => a.Value) : lrl.MaxBy(a => a.Value);
+                secondIndices.Add(lowestRetraceLeft.Key);
+            }
+
+            KeyValuePair<int, double>[] ia = overlaps.Skip(lowestRetrace.Key).ToArray();
+            if (ia.Length != 0)
+            {
+                KeyValuePair<int, double> impulseAfter =
+                    isUp ? ia.MaxBy(a => a.Value) : ia.MinBy(a => a.Value);
+                thirdIndices.Add(impulseAfter.Key);
+
+                IEnumerable<KeyValuePair<int, double>> lrr = overlaps.Skip(impulseAfter.Key);
+                KeyValuePair<int, double> lowestRetraceRight =
+                    isUp ? lrr.MinBy(a => a.Value) : lrr.MaxBy(a => a.Value);
+                fourIndices.Add(lowestRetraceRight.Key);
+            }
+            
+            var impulseCandidates = new List<(int, int, int, int)>();
+
+            BarPoint bpStart = barPoints[0];
+            BarPoint bpEnd = barPoints[^1];
+            void CheckImpulse(ValueTuple<int, int, int, int> val)
+            {
+                int k = isUp ? 1 : -1;
+                double l1 = (barPoints[val.Item1] - bpStart) * k;
+                double l3 = (barPoints[val.Item3] - barPoints[val.Item2]) * k;
+                double l5 = (bpEnd.Value - barPoints[val.Item4]) * k;
+
+                if (l1 <= 0 || l3 <= 0 || l5 <= 0)
+                    return;
+
+                if (l3 < l1 && l3 < l5)
+                    return;
+
+                // We don't handle triangle/flat case or reduced impulses yet.
+                if (k * (barPoints[val.Item4] - barPoints[val.Item1]) <= 0)
+                    return;
+
+                // Check the inner structures
+                Dictionary<string, ElliottModelType[]> rules =
+                    m_ModelRules[ElliottModelType.IMPULSE].Models;
+                foreach (KeyValuePair<string, ElliottModelType[]> rule in rules)
+                {
+
+                }
+
+                impulseCandidates.Add(val);
+            }
+
+            foreach (int thirdIndex in thirdIndices)
+            {
+                foreach (int secondIndex in secondIndices)
+                {
+                    if(secondIndex>= thirdIndex)
+                        continue;
+
+                    foreach (int firstIndex in firstIndices)
+                    {
+                        if (firstIndex >= secondIndex)
+                            continue;
+
+                        foreach (int fourIndex in fourIndices)
+                        {
+                            if (fourIndex <= thirdIndex)
+                                continue;
+
+                            CheckImpulse(new ValueTuple<int, int, int, int>(
+                                firstIndex, secondIndex, thirdIndex, fourIndex));
+                        }
+                    }
+                }
+            }
+
+            foreach ((int, int, int, int) impulseCandidate in impulseCandidates)
+            {
+
+                var res = new ElliottModelResult(ElliottModelType.IMPULSE, new[]
+                {
+                    bpStart,
+                    barPoints[impulseCandidate.Item1],
+                    barPoints[impulseCandidate.Item2],
+                    barPoints[impulseCandidate.Item3],
+                    barPoints[impulseCandidate.Item4],
+                    bpEnd
+                }, null);
+                // We somehow should select from more then one option.
+                return res;
+            }
+
+            return null;
+        }
+
+        private ElliottModelResult CheckInitialDiagonalRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckEndingDiagonalRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckZigzagRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckDoubleZigzagRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckCombinationRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckTriangleRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckRunningTriangleRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckExtendedFlatRules(List<BarPoint> barPoints)
+        {
+            return null;
+        }
+
+        private ElliottModelResult CheckRunningFlatRules(List<BarPoint> barPoints)
+        {
+            return null;
         }
 
         private void InitModelRules()
@@ -87,7 +280,7 @@ namespace TradeKit.AlgoBase
                                 }
                             },
                         },
-                        candels => { return null; })
+                        CheckImpulseRules)
                 },
                 {
                     ElliottModelType.DIAGONAL_INITIAL, new ModelRules(
@@ -134,7 +327,7 @@ namespace TradeKit.AlgoBase
                                 }
                             },
                         },
-                        candels => { return null; })
+                        CheckInitialDiagonalRules)
                 },
                 {
                     ElliottModelType.DIAGONAL_ENDING, new ModelRules(
@@ -176,7 +369,7 @@ namespace TradeKit.AlgoBase
                                 }
                             },
                         },
-                        candels => { return null; })
+                        CheckEndingDiagonalRules)
                 },
                 {
                     ElliottModelType.ZIGZAG, new ModelRules(
@@ -208,7 +401,7 @@ namespace TradeKit.AlgoBase
                                 }
                             },
                         },
-                        candels => { return null; })
+                        CheckZigzagRules)
                 },
                 {
                     ElliottModelType.DOUBLE_ZIGZAG, new ModelRules(
@@ -238,7 +431,7 @@ namespace TradeKit.AlgoBase
                                 }
                             },
                         },
-                        candels => { return null; })
+                        CheckDoubleZigzagRules)
                 },
                 {
                     ElliottModelType.COMBINATION, new ModelRules(
@@ -274,7 +467,7 @@ namespace TradeKit.AlgoBase
                                 }
                             },
                         },
-                        candels => { return null; })
+                        CheckCombinationRules)
                 },
                 {
                     ElliottModelType.TRIANGLE_CONTRACTING, new ModelRules(
@@ -316,7 +509,7 @@ namespace TradeKit.AlgoBase
                                 }
                             }
                         },
-                        candels => { return null; })
+                        CheckTriangleRules)
                 },
                 {
                     ElliottModelType.FLAT_EXTENDED, new ModelRules(
@@ -344,119 +537,22 @@ namespace TradeKit.AlgoBase
                                 }
                             }
                         },
-                        candels => { return null; })
+                        CheckExtendedFlatRules)
                 }
             };
 
             m_ModelRules[ElliottModelType.TRIANGLE_RUNNING] = m_ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
             {
-                GetElliottModelResult = candels => { return null; }
+                GetElliottModelResult = CheckRunningTriangleRules
             }; 
             
             m_ModelRules[ElliottModelType.FLAT_RUNNING] = m_ModelRules[ElliottModelType.FLAT_EXTENDED] with
             {
-                GetElliottModelResult = candels => { return null; }
+                GetElliottModelResult = CheckRunningFlatRules
             };
         }
 
-        /// <summary>
-        /// Determines whether the specified interval has a zigzag.
-        /// </summary>
-        /// <param name="start">The start extremum.</param>
-        /// <param name="end">The end extremum.</param>
-        /// <param name="devStartMax">The deviation percent - start of the range</param>
-        /// <param name="devEndMin">The deviation percent - end of the range</param>
-        /// <returns>
-        ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
-        /// </returns>
-        public bool IsZigzag(BarPoint start, BarPoint end, int devStartMax, int devEndMin)
-        {
-            for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.ZOOM_STEP)
-            {
-                if (IsZigzag(start, end, dv))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public bool IsDoubleZigzag(BarPoint start, BarPoint end, int devStartMax, int devEndMin)
-        {
-            bool isUp = start < end;
-            for (int dv = devStartMax; dv >= devEndMin; dv -= Helper.ZOOM_STEP)
-            {
-                List<BarPoint> extrema = GetNormalizedExtrema(start, end, dv);
-                int count = extrema.Count;
-
-                if (count < ZIGZAG_EXTREMA_COUNT)
-                {
-                    continue;
-                }
-
-                bool isSimpleOverlap = isUp && extrema[1] > extrema[^2] ||
-                                       !isUp && extrema[1] < extrema[^2];
-                
-                if (isSimpleOverlap &&
-                    IsZigzag(extrema[0], extrema[1], dv, devEndMin) && 
-                    IsZigzag(extrema[^2], extrema[^1], dv, devEndMin))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private List<BarPoint> GetNormalizedExtrema(BarPoint start, BarPoint end, int scale)
-        {
-            bool isUp = start < end;
-            var minorExtremumFinder = new ExtremumFinder(scale, m_BarsProvider, isUp);
-            minorExtremumFinder.Calculate(start.OpenTime, end.OpenTime);
-            List<BarPoint> extrema = minorExtremumFinder.ToExtremaList();
-
-            extrema.NormalizeExtrema(start, end);
-            return extrema;
-        }
-
-        /// <summary>
-        /// Determines whether the specified interval has a zigzag.
-        /// </summary>
-        /// <param name="start">The start extremum.</param>
-        /// <param name="end">The end extremum.</param>
-        /// <param name="scale">The deviation percent</param>
-        /// <returns>
-        ///   <c>true</c> if the specified interval has a zigzag; otherwise, <c>false</c>.
-        /// </returns>
-        public bool IsZigzag(BarPoint start, BarPoint end, int scale)
-        {
-            List<BarPoint> extrema = GetNormalizedExtrema(start, end, scale);
-            int count = extrema.Count;
-
-            if (count < ZIGZAG_EXTREMA_COUNT)
-            {
-                return false;
-            }
-
-            if (count == ZIGZAG_EXTREMA_COUNT)
-            {
-                return true;
-            }
-
-            BarPoint first = extrema[0];
-            BarPoint second = extrema[1];
-            BarPoint subLast = extrema[^2];
-            BarPoint last = extrema[^1];
-            bool isUp = first < last;
-
-            if (isUp && second > subLast || !isUp && second < subLast)
-            {
-                return true;
-            }
-
-            return false;
-        }
+        #endregion
 
         private double GetOverlapRatio(Candle left, Candle right)
         {
@@ -475,233 +571,93 @@ namespace TradeKit.AlgoBase
             return (left.H - right.L) / left.Length;
         }
 
-        private ElliottModelType FindModel(List<Candle> candles, bool isUp)
+        private List<BarPoint> GetKeyBarPoints(List<Candle> candles, bool isUp)
         {
             if (candles.Count == 0)
-                return ElliottModelType.NONE;
+                return null;
 
             if (candles[0].O < candles[^1].C != isUp)
-                return ElliottModelType.NONE;
+                return null;
 
-            if (candles.Count == 1)
+            var bars = new List<BarPoint>();
+
+            BarPoint prevBarPoint = null;
+            bool? isLocalUp = null;
+            void AddBp(BarPoint bp)
             {
-                Candle single = candles[0];
-                if (single.O < single.C != isUp)
-                    return ElliottModelType.NONE;
+                if (prevBarPoint is null)
+                {
+                    prevBarPoint = bp;
+                    bars.Add(bp);
+                    return;
+                }
 
-                if (!single.IsHighFirst.HasValue || single.IsHighFirst == isUp)
-                    return ElliottModelType.NONE;
+                bool isCurrentUp = bp.Value >= prevBarPoint.Value;
+                prevBarPoint = bp;
+                if (isLocalUp is null)
+                {
+                    isLocalUp = isCurrentUp;
+                    return;
+                }
 
-                // Here we can use zigzag or allow to treat this movement as a desired (expected) one.
-                return ElliottModelType.IMPULSE;
+                if (isCurrentUp == isLocalUp)
+                    return;
+
+                bars.Add(bp);
+                isLocalUp = isCurrentUp;
             }
 
-            if (candles.Count == 2)
+            for (int i = 0; i < candles.Count; i++)
             {
-                if (GetOverlapRatio(candles[0], candles[1]) > 23.6)
-                    return ElliottModelType.ZIGZAG;
+                Candle c = candles[i];
 
-                return ElliottModelType.IMPULSE;// Or diagonal&
+                if (!c.IsHighFirst.HasValue || !c.Index.HasValue)
+                    return null; // Check this
+                int chartIndex = c.Index.Value;
+
+                BarPoint Bp(double v) => new(v, chartIndex, m_BarsProvider);
+
+                bool isNotFirst = i > 0;
+                bool isNotLast = i < candles.Count;
+                if (isNotFirst) AddBp(Bp(c.O));
+
+                if (c.IsHighFirst.Value)
+                {
+                    if (isNotFirst || !isUp) AddBp(Bp(c.H));
+                    if (isNotLast || !isUp) AddBp(Bp(c.L));
+                }
+                else
+                {
+                    if (isNotFirst || isUp) AddBp(Bp(c.L));
+                    if (isNotLast || isUp) AddBp(Bp(c.H));
+                }
+
+                if (isNotLast) AddBp(Bp(c.C));
             }
 
-
-            Candle[] highValues = candles.OrderByDescending(a => a.H).ToArray();
-            Candle[] lowValues = candles.OrderBy(a => a.L).ToArray();
-
-            return ElliottModelType.NONE;
-        }
-
-        /// <summary>
-        /// Determines whether the specified extrema is an impulse.
-        /// Simple impulse has <see cref="IMPULSE_EXTREMA_COUNT"/> extrema and 5 waves
-        /// </summary>
-        /// <param name="start">The start extremum.</param>
-        /// <param name="end">The end extremum.</param>
-        /// <param name="deviation">The deviation percent</param>
-        /// <param name="extrema">The impulse waves found.</param>
-        /// <param name="allowSimple">True if we treat count <see cref="SIMPLE_EXTREMA_COUNT"/>-movement as impulse.</param>
-        /// <returns>
-        ///   <c>true</c> if the specified extrema is an simple impulse; otherwise, <c>false</c>.
-        /// </returns>
-        private bool IsImpulseInner(
-            BarPoint start, BarPoint end,
-            int deviation, out List<BarPoint> extrema,
-            bool allowSimple = true)
-        {
-            var candles = new List<Candle>();
-
-            for (int i = start.BarIndex; i < start.BarIndex; i++)
-            {
-                var candle = Candle.FromIndex(m_BarsProvider, i, m_BarsProvider1M);
-                if(candle is null)
-                    continue;
-
-                candles.Add(candle);
-            }
-
-            bool isImpulseUp = start.Value < end.Value;
-            ElliottModelType model = FindModel(candles, isImpulseUp);
-
-            extrema = GetNormalizedExtrema(start, end, deviation);
-
-            if (model == ElliottModelType.IMPULSE || 
-                model == ElliottModelType.DIAGONAL_INITIAL)
-            {
-                return true;
-            }
-
-            return false;
-
-            //int count = extrema.Count;
-            //if (count < SIMPLE_EXTREMA_COUNT)
+            //if (candles.Count == 1)
             //{
-            //    return false;
+            //    Candle single = candles[0];
+            //    if (single.O < single.C != isUp)
+            //        return ElliottModelType.NONE;
+
+            //    if (!single.IsHighFirst.HasValue || single.IsHighFirst == isUp)
+            //        return ElliottModelType.NONE;
+
+            //    // Here we can use zigzag or allow to treat this movement as a desired (expected) one.
+            //    return ElliottModelType.IMPULSE;
             //}
 
-            //if (count == SIMPLE_EXTREMA_COUNT)
+            //if (candles.Count == 2)
             //{
-            //    return allowSimple;
+            //    if (GetOverlapRatio(candles[0], candles[1]) > 23.6)
+            //        return ElliottModelType.ZIGZAG;
+
+            //    return ElliottModelType.IMPULSE;// Or diagonal?
             //}
 
-            //if (count == ZIGZAG_EXTREMA_COUNT)
-            //{
-            //    return false;
-            //}
 
-            //BarPoint firstItem = extrema[0];
-            //BarPoint firstWaveEnd;
-            //BarPoint secondWaveEnd;
-            //BarPoint thirdWaveEnd;
-            //BarPoint fourthWaveEnd;
-            //BarPoint fifthWaveEnd= extrema[^1];
-            //int countRest = count - IMPULSE_EXTREMA_COUNT;
-
-            //bool CheckWaves()
-            //{
-            //    double secondWaveDuration = (secondWaveEnd.OpenTime - firstWaveEnd.OpenTime).TotalSeconds;
-            //    double fourthWaveDuration = (fourthWaveEnd.OpenTime - thirdWaveEnd.OpenTime).TotalSeconds;
-            //    if (secondWaveDuration <= 0 || fourthWaveDuration <= 0)
-            //    {
-            //        return false;
-            //    }
-
-            //    // Check harmony between the 2nd and the 4th waves 
-            //    double correctionRatio = fourthWaveDuration / secondWaveDuration;
-            //    if (correctionRatio * 100 > m_CorrectionAllowancePercent ||
-            //        correctionRatio < 100d / m_CorrectionAllowancePercent)
-            //    {
-            //        return false;
-            //    }
-
-            //    bool isImpulseUp = start.Value < end.Value;
-            //    // Check the overlap rule
-            //    if (isImpulseUp && firstWaveEnd.Value >= fourthWaveEnd.Value ||
-            //        !isImpulseUp && firstWaveEnd.Value <= fourthWaveEnd.Value)
-            //    {
-            //        return false;
-            //    }
-
-            //    double firstWaveLength = (isImpulseUp ? 1 : -1) *
-            //                             (firstWaveEnd.Value - firstItem.Value);
-
-            //    double thirdWaveLength = (isImpulseUp ? 1 : -1) *
-            //                             (thirdWaveEnd.Value - secondWaveEnd.Value);
-
-            //    double fifthWaveLength = (isImpulseUp ? 1 : -1) *
-            //                             (fifthWaveEnd.Value - fourthWaveEnd.Value);
-
-            //    if (firstWaveLength <= 0 || thirdWaveLength <= 0 || fifthWaveLength <= 0)
-            //    {
-            //        return false;
-            //    }
-
-            //    if (Math.Abs(thirdWaveEnd.Value - fifthWaveEnd.Value) / fifthWaveLength <
-            //        Helper.THIRD_FIFTH_BREAK_MIN_RATIO)
-            //    {
-            //        // We don't want to use impulse with short 5th wave, cause this is can be
-            //        // not accurate data from the market data provider.
-            //        return false;
-            //    }
-
-            //    if (Math.Abs(secondWaveEnd - firstItem) / firstWaveLength < Helper.SECOND_WAVE_PULLBACK_MIN_RATIO)
-            //    {
-            //        // The 2nd wave is too close to the impulse beginning
-            //        return false;
-            //    }
-
-            //    // Check the 3rd wave length
-            //    if (thirdWaveLength < firstWaveLength &&
-            //        thirdWaveLength < fifthWaveLength)
-            //    {
-            //        return false;
-            //    }
-
-            //    bool hasExtendedWave = firstWaveLength > thirdWaveLength * FIBONACCI ||
-            //                           thirdWaveLength > firstWaveLength * FIBONACCI ||
-            //                           fifthWaveLength > thirdWaveLength * FIBONACCI ||
-            //                           thirdWaveLength > fifthWaveLength * FIBONACCI ||
-            //                           firstWaveLength > fifthWaveLength * FIBONACCI ||
-            //                           fifthWaveLength > firstWaveLength * FIBONACCI;
-
-            //    if (!hasExtendedWave)
-            //    {
-            //        Logger.Write("No extended wave in impulse");
-            //        return false;
-            //    }
-
-            //    for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
-            //    {
-            //        if (IsZigzag(firstItem, firstWaveEnd, dv) ||
-            //            IsZigzag(secondWaveEnd, thirdWaveEnd, dv) ||
-            //            IsZigzag(fourthWaveEnd, fifthWaveEnd, dv))
-            //        {
-            //            return false;
-            //        }
-            //    }
-
-            //    bool ok1 = false, ok3 = false, ok5 = false;
-            //    for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
-            //    {
-            //        if (IsImpulseInner(firstItem, firstWaveEnd, dv, out _))
-            //        {
-            //            ok1 = true;
-            //        }
-
-            //        if (IsImpulseInner(secondWaveEnd, thirdWaveEnd, dv, out _))
-            //        {
-            //            ok3 = true;
-            //        }
-
-            //        if (IsImpulseInner(fourthWaveEnd, fifthWaveEnd, dv, out _))
-            //        {
-            //            ok5 = true;
-            //        }
-
-            //        if (ok1 && ok3 && ok5)
-            //        {
-            //            return true;
-            //        }
-            //    }
-
-            //    return true;
-            //}
-            
-            //if (countRest == 0)
-            //{
-            //    firstWaveEnd = extrema[1];
-            //    secondWaveEnd = extrema[2];
-            //    thirdWaveEnd = extrema[3];
-            //    fourthWaveEnd = extrema[4];
-            //    fifthWaveEnd = extrema[5];
-            //    return CheckWaves();
-            //}
-
-            //if (countRest < ZIGZAG_EXTREMA_COUNT)
-            //{
-            //    return false;
-            //}
-
-            return false;
+            return bars;
         }
 
         /// <summary>
@@ -709,37 +665,39 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="start">The start extremum.</param>
         /// <param name="end">The end extremum.</param>
-        /// <param name="deviation">The deviation to use.</param>
-        /// <param name="extrema">The impulse waves found.</param>
+        /// <param name="result">The impulse waves found or null if not found.</param>
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsImpulse(BarPoint start, BarPoint end, int deviation, out List<BarPoint> extrema)
+        public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
-            extrema = null;
-            //if (IsDoubleZigzag(start, end, deviation, m_ZoomMin))
-            //{
-            //    return false;
-            //}
+            var candles = new List<Candle>();
 
-            //if (IsZigzag(start, end, deviation, m_ZoomMin))
-            //{
-            //    return false;
-            //}
+            for (int i = start.BarIndex; i < end.BarIndex; i++)
+            {
+                var candle = Candle.FromIndex(m_BarsProvider, i, m_BarsProvider1M);
+                if (candle is null)
+                    continue;
 
-            return IsImpulseInner(start, end, deviation, out extrema);
+                candles.Add(candle);
+            }
 
-            //for (int dv = deviation; dv >= m_ZoomMin; dv -= Helper.ZOOM_STEP)
-            //{
-            //    // Debugger.Launch();
+            bool isImpulseUp = start.Value < end.Value;
+            List<BarPoint> barPoints = GetKeyBarPoints(candles, isImpulseUp);
 
-            //    if (IsImpulseInner(start, end, dv, out extrema, false))
-            //    {
-            //        return true;
-            //    }
-            //}
+            if (barPoints == null || barPoints.Count == 0)
+            {
+                result = null;
+                return false;
+            }
 
-            //return false;
+            result = m_ModelRules[ElliottModelType.IMPULSE]
+                         .GetElliottModelResult(barPoints)
+                     ?? m_ModelRules[ElliottModelType.DIAGONAL_INITIAL]
+                         .GetElliottModelResult(barPoints);
+
+            if (result == null) return false;
+            return true;
         }
     }
 }

@@ -57,9 +57,9 @@ namespace TradeKit.Core
         int Count { get; }
 
         /// <summary>
-        /// Loads the bars until <see cref="Limit"/> was reached.
+        /// Loads the bars until <see cref="date"/> is reached.
         /// </summary>
-        void LoadBars();
+        void LoadBars(DateTime date);
 
         /// <summary>
         /// Gets the limit amount for bars loaded.

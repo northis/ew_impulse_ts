@@ -94,9 +94,12 @@ namespace TradeKit.Core
         /// <summary>
         /// Loads the bars until <see cref="Limit" /> was reached.
         /// </summary>
-        public void LoadBars()
+        public void LoadBars(DateTime date)
         {
-            while (Count < Limit)
+            if (m_Bars.OpenTimes.Count == 0)
+                m_Bars.LoadMoreHistory();
+            
+            while (m_Bars.OpenTimes[0] > date)
             {
                 m_Bars.LoadMoreHistory();
             }
