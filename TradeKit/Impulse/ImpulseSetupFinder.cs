@@ -396,7 +396,7 @@ namespace TradeKit.Impulse
 
                 if (finder.Extrema.Count > Helper.EXTREMA_MAX)
                 { 
-                   Logger.Write("Cleaning the extrema...");
+                   //Logger.Write("Cleaning the extrema...");
                    DateTime[] oldKeys = finder.Extrema.Keys
                         .Take(finder.Extrema.Count - Helper.EXTREMA_MAX)
                         .ToArray();
