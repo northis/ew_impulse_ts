@@ -78,68 +78,32 @@ namespace TradeKit.AlgoBase
             var thirdIndices = new List<int>();
             var fourIndices = new List<int>();
 
-            KeyValuePair<int, (int, double)> m = overlaps.MaxBy(a => a.Value.Item2);
-            int[] extremumIndices1 = { m.Value.Item1, m.Key };
+            int FindExtrema(IEnumerable<KeyValuePair<int, (int, double)>> o)
+            {
+                KeyValuePair<int, (int, double)> m = o.MaxBy(a => a.Value.Item2);
+                int[] extremumIndices1 = { m.Value.Item1, m.Key };
 
-            int extremumImpulseIndex1 = isUp
-                ? extremumIndices1.MaxBy(a => barPoints[a].Value)
-                : extremumIndices1.MinBy(a => barPoints[a].Value);
+                int extremumImpulseIndex = isUp
+                    ? extremumIndices1.MaxBy(a => barPoints[a].Value)
+                    : extremumIndices1.MinBy(a => barPoints[a].Value);
 
-            int extremumRetraceIndex1 = isUp
-                ? extremumIndices1.MinBy(a => barPoints[a].Value)
-                : extremumIndices1.MaxBy(a => barPoints[a].Value);
+                int extremumRetraceIndex = isUp
+                    ? extremumIndices1.MinBy(a => barPoints[a].Value)
+                    : extremumIndices1.MaxBy(a => barPoints[a].Value);
 
-            fourIndices.Add(extremumRetraceIndex1);
-            secondIndices.Add(extremumRetraceIndex1);
-            firstIndices.Add(extremumImpulseIndex1);
-            thirdIndices.Add(extremumImpulseIndex1);
+                fourIndices.Add(extremumRetraceIndex);
+                secondIndices.Add(extremumRetraceIndex);
+                firstIndices.Add(extremumImpulseIndex);
+                thirdIndices.Add(extremumImpulseIndex);
 
-            KeyValuePair<int, (int, double)> l = overlaps.Take(extremumImpulseIndex1)
-                .MaxBy(a => a.Value.Item2);
-            int[] extremumIndicesLeft = { l.Value.Item1, l.Key };
-            
-            int extremumImpulseIndexLeft = isUp
-                ? extremumIndicesLeft.MaxBy(a => barPoints[a].Value)
-                : extremumIndicesLeft.MinBy(a => barPoints[a].Value);
+                return extremumImpulseIndex;
+            }
 
-            int extremumRetraceIndexLeft = isUp
-                ? extremumIndicesLeft.MinBy(a => barPoints[a].Value)
-                : extremumIndicesLeft.MaxBy(a => barPoints[a].Value);
+            int extremumImpulseIndex1 = FindExtrema(overlaps);
+            FindExtrema(overlaps.Take(extremumImpulseIndex1));
 
-            fourIndices.Add(extremumRetraceIndexLeft);
-            secondIndices.Add(extremumRetraceIndexLeft);
-            firstIndices.Add(extremumImpulseIndexLeft);
-            thirdIndices.Add(extremumImpulseIndexLeft);
-
-            //KeyValuePair<int, double>[] ib = overlaps.Take(lowestRetrace.Key).ToArray();
-            //if (ib.Length == 0)
-            //    return null;
-
-            //KeyValuePair<int, double> impulseBefore =
-            //    isUp ? ib.MaxBy(a => a.Value) : ib.MinBy(a => a.Value);
-            //thirdIndices.Add(impulseBefore.Key);
-            //firstIndices.Add(impulseBefore.Key);
-
-            //KeyValuePair<int, double>[] lrl = overlaps.Take(impulseBefore.Key).ToArray();
-            //if (lrl.Length != 0)
-            //{
-            //    KeyValuePair<int, double> lowestRetraceLeft =
-            //        isUp ? lrl.MinBy(a => a.Value) : lrl.MaxBy(a => a.Value);
-            //    secondIndices.Add(lowestRetraceLeft.Key);
-            //}
-
-            //KeyValuePair<int, double>[] ia = overlaps.Skip(lowestRetrace.Key).ToArray();
-            //if (ia.Length != 0)
-            //{
-            //    KeyValuePair<int, double> impulseAfter =
-            //        isUp ? ia.MaxBy(a => a.Value) : ia.MinBy(a => a.Value);
-            //    thirdIndices.Add(impulseAfter.Key);
-
-            //    IEnumerable<KeyValuePair<int, double>> lrr = overlaps.Skip(impulseAfter.Key);
-            //    KeyValuePair<int, double> lowestRetraceRight =
-            //        isUp ? lrr.MinBy(a => a.Value) : lrr.MaxBy(a => a.Value);
-            //    fourIndices.Add(lowestRetraceRight.Key);
-            //}
+            if (overlaps.Count > extremumImpulseIndex1 + 1)
+                FindExtrema(overlaps.Skip(extremumImpulseIndex1 + 1));
 
             var impulseCandidates = new List<(int, int, int, int)>();
 
@@ -582,23 +546,6 @@ namespace TradeKit.AlgoBase
 
         #endregion
 
-        private double GetOverlapRatio(Candle left, Candle right)
-        {
-            if (left.H <= right.L || left.L >= right.H || left.Length == 0 || right.Length == 0)
-                return 0;
-
-            if (left.H >= right.H && left.L <= right.L ||
-                right.H >= left.H && right.L <= left.L)
-                return 1;
-
-            if (left.H >= right.H)
-            {
-                return (right.H - left.L) / left.Length;
-            }
-
-            return (left.H - right.L) / left.Length;
-        }
-
         private List<BarPoint> GetKeyBarPoints(List<Candle> candles, bool isUp)
         {
             if (candles.Count == 0)
@@ -608,31 +555,9 @@ namespace TradeKit.AlgoBase
                 return null;
 
             var bars = new List<BarPoint>();
-
-            BarPoint prevBarPoint = null;
-            bool? isLocalUp = null;
             void AddBp(BarPoint bp)
             {
-                if (prevBarPoint is null)
-                {
-                    prevBarPoint = bp;
-                    bars.Add(bp);
-                    return;
-                }
-
-                bool isCurrentUp = bp.Value >= prevBarPoint.Value;
-                prevBarPoint = bp;
-                if (isLocalUp is null)
-                {
-                    isLocalUp = isCurrentUp;
-                    return;
-                }
-
-                if (isCurrentUp == isLocalUp)
-                    return;
-
                 bars.Add(bp);
-                isLocalUp = isCurrentUp;
             }
 
             for (int i = 0; i < candles.Count; i++)
@@ -646,7 +571,7 @@ namespace TradeKit.AlgoBase
                 BarPoint Bp(double v) => new(v, chartIndex, m_BarsProvider);
 
                 bool isNotFirst = i > 0;
-                bool isNotLast = i < candles.Count;
+                bool isNotLast = i < candles.Count - 1;
                 if (isNotFirst) AddBp(Bp(c.O));
 
                 if (c.IsHighFirst.Value)
@@ -662,28 +587,6 @@ namespace TradeKit.AlgoBase
 
                 if (isNotLast) AddBp(Bp(c.C));
             }
-
-            //if (candles.Count == 1)
-            //{
-            //    Candle single = candles[0];
-            //    if (single.O < single.C != isUp)
-            //        return ElliottModelType.NONE;
-
-            //    if (!single.IsHighFirst.HasValue || single.IsHighFirst == isUp)
-            //        return ElliottModelType.NONE;
-
-            //    // Here we can use zigzag or allow to treat this movement as a desired (expected) one.
-            //    return ElliottModelType.IMPULSE;
-            //}
-
-            //if (candles.Count == 2)
-            //{
-            //    if (GetOverlapRatio(candles[0], candles[1]) > 23.6)
-            //        return ElliottModelType.ZIGZAG;
-
-            //    return ElliottModelType.IMPULSE;// Or diagonal?
-            //}
-
 
             return bars;
         }
