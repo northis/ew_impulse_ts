@@ -9,9 +9,6 @@ namespace TradeKit.Indicators
     /// Calculates "Super Trend" - one of the most popular trend trading indicators.
     /// </summary>
     /// <seealso cref="Indicator" />
-#if !GARTLEY_PROD
-    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
-#endif
     public class SuperTrendIndicator : Indicator
     {
         /// <summary>
