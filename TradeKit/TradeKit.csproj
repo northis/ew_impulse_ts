@@ -29,6 +29,7 @@
   <ItemGroup>
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
     <Compile Include="AlgoBase\CandlePatternFinder.cs" />
+    <Compile Include="AlgoBase\PivotPointsFinder.cs" />
     <Compile Include="AlgoBase\SignalFilters.cs" />
     <Compile Include="Core\BaseIndicator.cs" />
     <Compile Include="Core\BaseRobot.cs" />

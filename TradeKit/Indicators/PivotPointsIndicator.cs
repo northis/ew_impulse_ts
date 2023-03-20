@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Linq;
 using cAlgo.API;
+using TradeKit.AlgoBase;
 using TradeKit.Core;
 
 namespace TradeKit.Indicators
@@ -15,9 +17,9 @@ namespace TradeKit.Indicators
     {
         private const string LOW = "L";
         private const string HIGH = "H";
-        private Color m_BearColorFill = Color.FromHex("#F0F08080");
-        private Color m_BullColorFill = Color.FromHex("#F090EE90");
-        private int m_PeriodX2;
+        private readonly Color m_BearColorFill = Color.FromHex("#F0F08080");
+        private readonly Color m_BullColorFill = Color.FromHex("#F090EE90");
+        private PivotPointsFinder m_PivotPointsFinder;
 
         /// <summary>
         /// The period used for the calculation of the signal.
@@ -25,18 +27,12 @@ namespace TradeKit.Indicators
         [Parameter(nameof(Period), DefaultValue = Helper.PIVOT_PERIOD)]
         public int Period { get; set; }
 
-        ///// <summary>
-        ///// The period used for the calculation of the signal.
-        ///// </summary>
-        //[Output(nameof(Result), LineStyle = LineStyle.Lines)]
-        //public IndicatorDataSeries Result { get; set; }
-
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
         protected override void Initialize()
         {
-            m_PeriodX2 = Period * 2;
+            m_PivotPointsFinder = new PivotPointsFinder(Period, new CTraderBarsProvider(Bars, Symbol));
         }
 
         /// <summary>
@@ -44,33 +40,19 @@ namespace TradeKit.Indicators
         /// </summary>
         public override void Calculate(int indexLast)
         {
-            if (indexLast < m_PeriodX2) // before+after
+            int index = m_PivotPointsFinder.Calculate(indexLast);
+            if (index <= 0)
                 return;
 
-            int index = indexLast - Period;
-            double max = Bars.HighPrices[index];
-            double min = Bars.LowPrices[index];
+            DateTime dt = Bars.OpenTimes[index];
 
-            bool gotHigh = true;
-            bool gotLow = true;
+            double max = m_PivotPointsFinder.HighValues[dt];
+            double min = m_PivotPointsFinder.LowValues[dt];
+            if (max is not double.NaN)
+                Chart.DrawText($"{HIGH}{index}", HIGH, index, max, m_BearColorFill).ChartTextAlign(true);
 
-            for (int i = index - Period; i < index + Period; i++)
-            {
-                if (i == index)
-                    continue;
-
-                double lMax = Bars.HighPrices[i];
-                double lMin = Bars.LowPrices[i];
-
-                if (lMax > max && gotHigh)
-                    gotHigh = false;
-
-                if(lMin < min && gotLow)
-                    gotLow = false;
-            }
-
-            if (gotHigh) Chart.DrawText($"{HIGH}{index}", HIGH, index, max, m_BearColorFill).ChartTextAlign(true);
-            if (gotLow) Chart.DrawText($"{LOW}{index}", LOW, index, min, m_BullColorFill).ChartTextAlign(false);
+            if (min is not double.NaN)
+                Chart.DrawText($"{LOW}{index}", LOW, index, min, m_BullColorFill).ChartTextAlign(false);
         }
     }
 }
