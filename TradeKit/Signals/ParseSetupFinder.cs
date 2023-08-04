@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -30,7 +31,7 @@ namespace TradeKit.Signals
 
         private static readonly Dictionary<string, string> SYMBOL_REGEX_MAP = new()
         {
-            {"XAUUSD", @"(gold)|(xau[\s\\\/-]*usd)"},
+            {"XAUUSD", @"(gold)|(xau[\s\\\/-]*usd)|(one\smore)"},
             {"XAUEUR", @"(xau[\s\\\/-]*eur)"},
             {"XAGUSD", @"(silver)|(xag[\s\\\/-]*usd)"},
             {"XAGEUR", @"(xag[\s\\\/-]*eur)"},
@@ -57,7 +58,8 @@ namespace TradeKit.Signals
             : base(mainBarsProvider, symbol)
         {
             m_MainBarsProvider = mainBarsProvider;
-            m_SignalHistoryFilePath = signalHistoryFilePath;
+            char[] trimChars = { '"', ' ' };
+            m_SignalHistoryFilePath = signalHistoryFilePath.TrimStart(trimChars).TrimEnd(trimChars);
             m_UseUtc = useUtc;
             m_UseOneTp = useOneTp;
             m_Signals = ParseSignals();
@@ -111,7 +113,8 @@ namespace TradeKit.Signals
 
                     IsInSetup = true;
                     OnEnterInvoke(new SignalEventArgs(
-                        LastEntry,
+                        new BarPoint(signal.Price ?? m_LastPrice, BarsProvider.GetIndexByTime(signal.DateTime),
+                            BarsProvider),
                         new BarPoint(tp, LastBar, BarsProvider),
                         new BarPoint(signal.StopLoss, LastBar, BarsProvider)));
                 }
@@ -202,7 +205,7 @@ namespace TradeKit.Signals
 
                 signalOut.StopLoss = slPrice;
 
-                var tpsCollection = Regex.Matches(textAll, TP_REGEX, RegexOptions.IgnoreCase);
+                MatchCollection tpsCollection = Regex.Matches(textAll, TP_REGEX, RegexOptions.IgnoreCase);
                 if (tpsCollection.Count == 0)
                 {
                     continue;

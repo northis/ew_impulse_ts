@@ -20,9 +20,9 @@ namespace TradeKit.Impulse
         protected override void Initialize()
         {
             base.Initialize();
-            m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
-            var min1BarsProvider = new CTraderBarsProvider(MarketData.GetBars(TimeFrameHelper.GetPreviousTimeFrameInfo(TimeFrame).TimeFrame), Symbol);
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, min1BarsProvider, Symbol);
+            var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
+            m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame);
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
             Subscribe(m_SetupFinder);
         }
         /// <summary>

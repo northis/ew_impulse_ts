@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Impulse;
 
@@ -16,31 +17,35 @@ namespace TradeKit.AlgoBase
         private readonly int m_ZoomMin;
         private readonly double m_CorrectionAllowancePercent;
         private readonly IBarsProvider m_BarsProvider;
-        private readonly IBarsProvider m_BarsProvider1M;
+        private readonly BarProvidersFactory m_BarsFactory;
         private const int IMPULSE_EXTREMA_COUNT = 6;
         private const int SIMPLE_EXTREMA_COUNT = 2;
         private const int ZIGZAG_EXTREMA_COUNT = 4;
         private const double FIBONACCI = 1.618;
 
         private Dictionary<ElliottModelType, ModelRules> m_ModelRules;
+        private readonly PivotPointsFinder m_PivotPointsFinder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
         /// </summary>
         /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        /// <param name="barsProvider1M">The bars provider 1min for precise actions.</param>
+        /// <param name="barsFactory">The factory for the bar providers.</param>
         /// <param name="zoomMin">The zoom minimum.</param>
         public ElliottWavePatternFinder(
             double correctionAllowancePercent, 
-            IBarsProvider barsProvider, 
-            IBarsProvider barsProvider1M, 
-            int zoomMin)
+            IBarsProvider barsProvider,
+            BarProvidersFactory barsFactory, 
+            int zoomMin)//InitIsHighFirst
         {
             m_ZoomMin = zoomMin;
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
-            m_BarsProvider1M = barsProvider1M;
+            m_BarsFactory = barsFactory;
+
+            m_PivotPointsFinder = new PivotPointsFinder(Helper.PIVOT_PERIOD, barsProvider);
+            
             InitModelRules();
         }
 
@@ -603,9 +608,12 @@ namespace TradeKit.AlgoBase
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
             var candles = new List<Candle>();
+            m_PivotPointsFinder.Reset();
+
+            m_PivotPointsFinder.Calculate(start.BarIndex, end.BarIndex);
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
             {
-                var candle = Candle.FromIndex(m_BarsProvider, i, m_BarsProvider1M);
+                var candle = Candle.FromIndex(m_BarsProvider, i);
                 if (candle is null)
                     continue;
 

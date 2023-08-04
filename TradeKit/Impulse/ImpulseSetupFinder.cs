@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -13,6 +14,7 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
+        private readonly BarProvidersFactory m_BarsFactory;
         private readonly ElliottWavePatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
@@ -44,13 +46,12 @@ namespace TradeKit.Impulse
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="barsProvider1M">The bars provider 1min for precise actions.</param>
-        /// <param name="symbol">The symbol.</param>
+        /// <param name="barsFactory">The factory for the bar providers.</param>
         public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider,
-            IBarsProvider barsProvider1M,
-            Symbol symbol):base(mainBarsProvider, symbol)
+            BarProvidersFactory barsFactory):base(mainBarsProvider, barsFactory.Symbol)
         {
+            m_BarsFactory = barsFactory;
             var zoomMin = Helper.ZOOM_MIN;
 
             for (int i = Helper.MIN_IMPULSE_SCALE; 
@@ -60,7 +61,7 @@ namespace TradeKit.Impulse
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
 
-            m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsProvider1M, zoomMin);
+            m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
         }
 
         /// <summary>
@@ -70,6 +71,7 @@ namespace TradeKit.Impulse
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
         /// <param name="finder">The extremum finder instance.</param>
+        /// <param name="channelDistance">The distance from the end of the movement to the previous counter-movement or how far this movement went away from the price channel (in bars).</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
@@ -77,11 +79,13 @@ namespace TradeKit.Impulse
             double startValue, 
             double endValue, 
             int startIndex, 
-            ExtremumFinder finder)
+            ExtremumFinder finder,
+            out int channelDistance)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
+            channelDistance = 0;
 
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
@@ -94,9 +98,10 @@ namespace TradeKit.Impulse
                         break;
                     }
 
-                    if (curValue - endValue >0)
+                    if (curValue - endValue > 0)
                     {
                         isInitialMove = true;
+                        channelDistance = startIndex - curIndex;
                         break;
                     }
 
@@ -149,7 +154,6 @@ namespace TradeKit.Impulse
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
-
                 if (endItem.Value.BarIndex - startItem.Value.BarIndex < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
                     //Debugger.Launch();
@@ -160,7 +164,7 @@ namespace TradeKit.Impulse
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
-                var isImpulseUp = endValue > startValue;
+                bool isImpulseUp = endValue > startValue;
                 double maxValue = Math.Max(startValue, endValue);
                 double minValue = Math.Min(startValue, endValue);
                 for (int i = endItem.Value.BarIndex + 1; i < index; i++)
@@ -173,7 +177,8 @@ namespace TradeKit.Impulse
                     }
                 }
                 
-                bool isInitialMove = IsInitialMovement(startValue, endValue, startIndex, finder);
+                bool isInitialMove = IsInitialMovement(
+                    startValue, endValue, startIndex, finder, out int channelDistanceInBars);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
@@ -234,22 +239,6 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                //if (startIndex > 0)
-                //{
-                //    // We want to check the previous movement - if it is a zigzag, this is may be
-                //    // a flat or a running triangle.
-                //    KeyValuePair<int, BarPoint> beforeStartItem
-                //        = extrema.ElementAt(startIndex - 1);
-                //    if (m_PatternFinder.IsZigzag(beforeStartItem.Value, startItem.Value,
-                //            finder.ScaleRate, m_ZoomMin)/* ||
-                //        m_PatternFinder.IsDoubleZigzag(beforeStartItem.Value, startItem.Value,
-                //            finder.ScaleRate, m_ZoomMin)*/)
-                //    { 
-                //        Logger.Write($"{Symbol}, {State.TimeFrame}: zigzag before the impulse");
-                //       return;
-                //    }
-                //}
-
                 double realPrice;
                 if (triggerLevel >= low && triggerLevel <= high)
                 {
@@ -309,7 +298,8 @@ namespace TradeKit.Impulse
                     tpArg,
                     slArg,
                     outExtrema.Extrema,
-                    viewDateTime));
+                    viewDateTime,
+                    channelDistanceInBars));
                 // Here we should give a trade signal.
             }
 

@@ -279,5 +279,68 @@ namespace TradeKit.Core
             }
         }
 
+        /// <summary>
+        /// Initializes the IsHighFirst property. This can be costy, we do this on-demand only.
+        /// </summary>
+        /// <param name="candle">The candle we should check</param>
+        /// <param name="barsFunc">The time frame to bars provider function.</param>
+        /// <param name="candleTimeFrame">The TF of the candle.</param>
+        public static void InitIsHighFirst(
+            this Candle candle, Func<TimeFrame, IBarsProvider> barsFunc, TimeFrame candleTimeFrame)
+        {
+            if (candle.IsHighFirst.HasValue || !candle.Index.HasValue)
+                return;
+
+            IBarsProvider currentBarsProvider = barsFunc(candleTimeFrame);
+
+            DateTime startDate = currentBarsProvider.GetOpenTime(candle.Index.Value);
+            TimeFrameInfo timeFrameInfo = TimeFrameHelper.GetTimeFrameInfo(candleTimeFrame);
+            DateTime endDate = startDate + timeFrameInfo.TimeSpan;
+
+            TimeFrame currentTimeFrame = candleTimeFrame;
+
+            for (;;)
+            {
+                TimeFrame prevTimeFrame = TimeFrameHelper.GetPreviousTimeFrameInfo(currentTimeFrame).TimeFrame;
+                if (currentTimeFrame == prevTimeFrame)
+                    break;
+
+                currentTimeFrame = prevTimeFrame;
+                IBarsProvider barsProvider1M = barsFunc(candleTimeFrame);
+                int startIndex1M = barsProvider1M.GetIndexByTime(startDate);
+                if (startIndex1M == -1)
+                    barsProvider1M.LoadBars(startDate);
+
+                int endIndex1M = barsProvider1M.GetIndexByTime(endDate);
+
+                var highIndex = 0;
+                var lowIndex = 0;
+                double? currentHigh = null;
+                double? currentLow = null;
+
+                for (int i = startIndex1M; i <= endIndex1M; i++)
+                {
+                    double high = barsProvider1M.GetHighPrice(i);
+                    if (!currentHigh.HasValue || currentHigh <= high)
+                    {
+                        currentHigh = high;
+                        highIndex++;
+                    }
+
+                    double low = barsProvider1M.GetLowPrice(i);
+                    if (!currentLow.HasValue || currentLow >= low)
+                    {
+                        currentLow = low;
+                        lowIndex++;
+                    }
+                }
+
+                if (highIndex == lowIndex)
+                    continue;
+
+                candle.IsHighFirst = highIndex < lowIndex;
+                break;
+            }
+        }
     }
 }

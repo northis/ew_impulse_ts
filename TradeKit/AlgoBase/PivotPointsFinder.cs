@@ -10,7 +10,7 @@ namespace TradeKit.AlgoBase
         private readonly IBarsProvider m_BarsProvider;
         private readonly int m_PeriodX2;
         
-        public const double DEFAULT_VALUE = double.NaN;
+        public double DEFAULT_VALUE = double.NaN;
 
         /// <summary>
         /// Gets the collection of pivot points (high) found.
@@ -29,6 +29,16 @@ namespace TradeKit.AlgoBase
             m_PeriodX2 = period * 2;
             HighValues = new SortedDictionary<DateTime, double>();
             LowValues = new SortedDictionary<DateTime, double>();
+        }
+
+        /// <summary>
+        /// Resets this instance.
+        /// </summary>
+        public void Reset()
+        {
+            HighValues.Clear();
+            LowValues.Clear();
+            DEFAULT_VALUE = double.NaN;
         }
 
         /// <summary>
