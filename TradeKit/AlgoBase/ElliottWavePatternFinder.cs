@@ -18,10 +18,6 @@ namespace TradeKit.AlgoBase
         private readonly double m_CorrectionAllowancePercent;
         private readonly IBarsProvider m_BarsProvider;
         private readonly BarProvidersFactory m_BarsFactory;
-        private const int IMPULSE_EXTREMA_COUNT = 6;
-        private const int SIMPLE_EXTREMA_COUNT = 2;
-        private const int ZIGZAG_EXTREMA_COUNT = 4;
-        private const double FIBONACCI = 1.618;
 
         private Dictionary<ElliottModelType, ModelRules> m_ModelRules;
         private readonly PivotPointsFinder m_PivotPointsFinder;
@@ -45,11 +41,10 @@ namespace TradeKit.AlgoBase
             m_BarsFactory = barsFactory;
 
             m_PivotPointsFinder = new PivotPointsFinder(Helper.PIVOT_PERIOD, barsProvider);
-            
-            InitModelRules();
+            //InitModelRules();
         }
 
-        #region Rules
+        #region EA model rules, may be I will use this one day
 
         private ElliottModelResult CheckImpulseRules(List<BarPoint> barPoints)
         {
@@ -58,7 +53,7 @@ namespace TradeKit.AlgoBase
 
             if (barPoints.Count == 2)
                 return new ElliottModelResult(ElliottModelType.IMPULSE, barPoints.ToArray(), null);
-
+            
             bool isUp = barPoints[0] < barPoints[^1];
             //Logger.Write($"Is Up {isUp}");
             int bpCount = barPoints.Count;
@@ -169,7 +164,6 @@ namespace TradeKit.AlgoBase
             //Debugger.Launch();
             foreach ((int, int, int, int) impulseCandidate in impulseCandidates)
             {
-
                 var res = new ElliottModelResult(ElliottModelType.IMPULSE, new[]
                 {
                     bpStart,
@@ -230,7 +224,6 @@ namespace TradeKit.AlgoBase
         {
             return null;
         }
-
         private void InitModelRules()
         {
             m_ModelRules = new Dictionary<ElliottModelType, ModelRules>
@@ -541,8 +534,8 @@ namespace TradeKit.AlgoBase
             m_ModelRules[ElliottModelType.TRIANGLE_RUNNING] = m_ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
             {
                 GetElliottModelResult = CheckRunningTriangleRules
-            }; 
-            
+            };
+
             m_ModelRules[ElliottModelType.FLAT_RUNNING] = m_ModelRules[ElliottModelType.FLAT_EXTENDED] with
             {
                 GetElliottModelResult = CheckRunningFlatRules
@@ -569,8 +562,8 @@ namespace TradeKit.AlgoBase
             {
                 Candle c = candles[i];
 
-                if (!c.IsHighFirst.HasValue || !c.Index.HasValue)
-                    return null; // Check this
+                if (!c.Index.HasValue)
+                    return null;
                 int chartIndex = c.Index.Value;
 
                 BarPoint Bp(double v) => new(v, chartIndex, m_BarsProvider);
@@ -579,16 +572,8 @@ namespace TradeKit.AlgoBase
                 bool isNotLast = i < candles.Count - 1;
                 if (isNotFirst) AddBp(Bp(c.O));
 
-                if (c.IsHighFirst.Value)
-                {
-                    if (isNotFirst || !isUp) AddBp(Bp(c.H));
-                    if (isNotLast || !isUp) AddBp(Bp(c.L));
-                }
-                else
-                {
-                    if (isNotFirst || isUp) AddBp(Bp(c.L));
-                    if (isNotLast || isUp) AddBp(Bp(c.H));
-                }
+                if (isNotFirst || !isUp) AddBp(Bp(c.H));
+                if (isNotLast || !isUp) AddBp(Bp(c.L));
 
                 if (isNotLast) AddBp(Bp(c.C));
             }
@@ -608,19 +593,44 @@ namespace TradeKit.AlgoBase
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
             var candles = new List<Candle>();
-            m_PivotPointsFinder.Reset();
+            var barsCount = end.BarIndex - start.BarIndex;
+            var period = barsCount / 2;
+            if (period < Helper.PIVOT_PERIOD_MIN)
+            {
+                result = null;
+                return false;
+            }
 
-            m_PivotPointsFinder.Calculate(start.BarIndex, end.BarIndex);
+            bool isImpulseUp = start.Value < end.Value;
+            for (int p = period; p > Helper.PIVOT_PERIOD_MIN; p--)
+            {
+                m_PivotPointsFinder.Reset(p);
+                m_PivotPointsFinder.Calculate(start.BarIndex - period, end.BarIndex + period);
+
+                if (isImpulseUp && (m_PivotPointsFinder.GetLowValue(start.OpenTime) == null ||
+                                    m_PivotPointsFinder.GetHighValue(end.OpenTime) == null) ||
+                    !isImpulseUp && (m_PivotPointsFinder.GetHighValue(start.OpenTime) == null ||
+                                     m_PivotPointsFinder.GetLowValue(end.OpenTime) == null))
+                {
+                    continue;
+                }
+            }
+
+
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
             {
                 var candle = Candle.FromIndex(m_BarsProvider, i);
                 if (candle is null)
                     continue;
 
-                candles.Add(candle);
+                DateTime openTime = m_BarsProvider.GetOpenTime(i);
+                if (m_PivotPointsFinder.HighValues.ContainsKey(openTime) && !double.IsNaN(m_PivotPointsFinder.HighValues[openTime]) ||
+                    m_PivotPointsFinder.LowValues.ContainsKey(openTime) && !double.IsNaN(m_PivotPointsFinder.LowValues[openTime]))
+                {
+                    candles.Add(candle);
+                }
             }
 
-            bool isImpulseUp = start.Value < end.Value;
             List<BarPoint> barPoints = GetKeyBarPoints(candles, isImpulseUp);
 
             if (barPoints == null || barPoints.Count == 0)
@@ -629,10 +639,8 @@ namespace TradeKit.AlgoBase
                 return false;
             }
 
-            result = m_ModelRules[ElliottModelType.IMPULSE]
-                         .GetElliottModelResult(barPoints)
-                     ?? m_ModelRules[ElliottModelType.DIAGONAL_INITIAL]
-                         .GetElliottModelResult(barPoints);
+            //result = m_ModelRules[ElliottModelType.IMPULSE].GetElliottModelResult(barPoints);
+            result = null;
 
             if (result == null) return false;
             return true;

@@ -6,9 +6,9 @@ namespace TradeKit.AlgoBase
 {
     internal class PivotPointsFinder
     {
-        private readonly int m_Period;
+        private int m_Period;
+        private int m_PeriodX2;
         private readonly IBarsProvider m_BarsProvider;
-        private readonly int m_PeriodX2;
         
         public double DEFAULT_VALUE = double.NaN;
 
@@ -24,11 +24,40 @@ namespace TradeKit.AlgoBase
 
         public PivotPointsFinder(int period, IBarsProvider barsProvider)
         {
-            m_Period = period;
+            SetPeriod(period);
             m_BarsProvider = barsProvider;
-            m_PeriodX2 = period * 2;
             HighValues = new SortedDictionary<DateTime, double>();
             LowValues = new SortedDictionary<DateTime, double>();
+        }
+
+        /// <summary>
+        /// Gets the high value.
+        /// </summary>
+        /// <param name="dateTime">The date time.</param>
+        public double? GetHighValue(DateTime dateTime)
+        {
+            if (!HighValues.TryGetValue(dateTime, out double res) || double.IsNaN(res))
+                return null;
+
+            return res;
+        }
+
+        /// <summary>
+        /// Gets the low value.
+        /// </summary>
+        /// <param name="dateTime">The date time.</param>
+        public double? GetLowValue(DateTime dateTime)
+        {
+            if (!LowValues.TryGetValue(dateTime, out double res) || double.IsNaN(res))
+                return null;
+
+            return res;
+        }
+
+        private void SetPeriod(int period)
+        {
+            m_Period = period;
+            m_PeriodX2 = period * 2;
         }
 
         /// <summary>
@@ -39,6 +68,16 @@ namespace TradeKit.AlgoBase
             HighValues.Clear();
             LowValues.Clear();
             DEFAULT_VALUE = double.NaN;
+        }
+
+        /// <summary>
+        /// Resets and sets the specified period.
+        /// </summary>
+        /// <param name="period">The period.</param>
+        public void Reset(int period)
+        {
+            Reset();
+            SetPeriod(period);
         }
 
         /// <summary>
