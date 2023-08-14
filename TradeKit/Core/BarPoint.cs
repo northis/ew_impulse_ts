@@ -36,6 +36,16 @@ namespace TradeKit.Core
         /// <summary>
         /// Initializes a new instance of the <see cref="BarPoint"/> class.
         /// </summary>
+        /// <param name="value">The value.</param>
+        /// <param name="provider">The bar provider we base on.</param>
+        /// <param name="openTime">The open time.</param>
+        public BarPoint(double value, DateTime openTime, IBarsProvider provider) : this(value, openTime, provider.TimeFrame, provider.GetIndexByTime(openTime))
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BarPoint"/> class.
+        /// </summary>
         /// <param name="provider">The bar provider we base on.</param>
         /// <param name="barIndex">Index of the bar.</param>
         public BarPoint(int barIndex, IBarsProvider provider) : this(provider.GetClosePrice(barIndex),

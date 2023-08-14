@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
@@ -19,7 +20,7 @@ namespace TradeKit.Impulse
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
 
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.2;
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.4;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
 
         private const int IMPULSE_END_NUMBER = 1;
@@ -154,7 +155,7 @@ namespace TradeKit.Impulse
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
-                if (endItem.Value.BarIndex - startItem.Value.BarIndex < Helper.MINIMUM_BARS_IN_IMPULSE)
+                if (endItem.Value.BarIndex - startItem.Value.BarIndex + 1 < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
                     //Debugger.Launch();
                     //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");

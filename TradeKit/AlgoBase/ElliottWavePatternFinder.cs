@@ -592,20 +592,28 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
-            var candles = new List<Candle>();
             var barsCount = end.BarIndex - start.BarIndex;
-            var period = barsCount / 2;
+            var period = barsCount;
             if (period < Helper.PIVOT_PERIOD_MIN)
             {
                 result = null;
                 return false;
             }
 
-            bool isImpulseUp = start.Value < end.Value;
-            for (int p = period; p > Helper.PIVOT_PERIOD_MIN; p--)
+            void RecalculatePivots(int p)
             {
                 m_PivotPointsFinder.Reset(p);
-                m_PivotPointsFinder.Calculate(start.BarIndex - period, end.BarIndex + period);
+                m_PivotPointsFinder.Calculate(start.BarIndex - p, end.BarIndex + p);
+            }
+            // add stochastic filter
+
+            bool isImpulseUp = start.Value < end.Value;
+            int? smoothImpulsePeriod = null; //In what period we can get only two pivot points
+            // on the start and on the end.
+
+            for (int p = period; p > Helper.PIVOT_PERIOD_MIN; p--)
+            {
+                RecalculatePivots(p);
 
                 if (isImpulseUp && (m_PivotPointsFinder.GetLowValue(start.OpenTime) == null ||
                                     m_PivotPointsFinder.GetHighValue(end.OpenTime) == null) ||
@@ -614,35 +622,90 @@ namespace TradeKit.AlgoBase
                 {
                     continue;
                 }
-            }
 
+                var highValues = m_PivotPointsFinder.HighValues.Where(
+                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value)).AsQueryable();
+                var lowValues = m_PivotPointsFinder.LowValues.Where(
+                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value)).AsQueryable();
 
-            for (int i = start.BarIndex; i <= end.BarIndex; i++)
-            {
-                var candle = Candle.FromIndex(m_BarsProvider, i);
-                if (candle is null)
-                    continue;
+                var highValuesCount = highValues.Count();
+                var lowValuesCount = lowValues.Count();
 
-                DateTime openTime = m_BarsProvider.GetOpenTime(i);
-                if (m_PivotPointsFinder.HighValues.ContainsKey(openTime) && !double.IsNaN(m_PivotPointsFinder.HighValues[openTime]) ||
-                    m_PivotPointsFinder.LowValues.ContainsKey(openTime) && !double.IsNaN(m_PivotPointsFinder.LowValues[openTime]))
+                var pivotCount = highValuesCount + lowValuesCount;
+
+                if (!smoothImpulsePeriod.HasValue && pivotCount == 0)
                 {
-                    candles.Add(candle);
+                    smoothImpulsePeriod = p;
+                    continue;
+                }
+
+                if (!smoothImpulsePeriod.HasValue || pivotCount == 0)
+                {
+                    continue;
+                }
+
+                // filter pivots that go in a row
+                var values = new SortedDictionary<DateTime, double>(
+                    highValues.ToDictionary(a => a.Key, a => a.Value));
+                foreach (var lowValue in lowValues)
+                {
+                    if (values.ContainsKey(lowValue.Key))
+                    {
+                        result = null; // We don't handle one-candle multi-pivot bars,
+                        // don't want to load minor time-frames
+                        return false;
+                    }
+
+                    values[lowValue.Key] = lowValue.Value;
+                }
+
+                if (values.Count == 2) // Zig-zag, adios.
+                {
+                    result = null;
+                    return false;
+                }
+
+                BarPoint GetBarPoint(int position)
+                {
+                    KeyValuePair<DateTime, double> item = values.ElementAt(position);
+                    return new BarPoint(item.Value, item.Key, m_BarsProvider);
+                }
+
+                if (values.Count == 4) // Looks like an impulse, let's take a look on it.
+                {
+                    result = null;
+                    return false;
+                    var firstEnd = GetBarPoint(0);
+                    var secondEnd = GetBarPoint(1);
+                    var thirdEnd = GetBarPoint(2);
+                    var forthEnd = GetBarPoint(3);
+
+                    //Check rules
+
+                    result = new ElliottModelResult(ElliottModelType.IMPULSE,
+                        new[] {start, firstEnd, secondEnd, thirdEnd, forthEnd, end}, null);
+                    return true;
+                }
+
+                if (values.Count == 1 || values.Count == 3) // what the hell are you?
+                {
+                    continue;
+                }
+
+                if (values.Count > 4) // Too many sub-waves, we can analyze them some day.
+                {
+                    result = null;
+                    return false;
                 }
             }
 
-            List<BarPoint> barPoints = GetKeyBarPoints(candles, isImpulseUp);
-
-            if (barPoints == null || barPoints.Count == 0)
+            if (!smoothImpulsePeriod.HasValue)
             {
                 result = null;
                 return false;
             }
 
-            //result = m_ModelRules[ElliottModelType.IMPULSE].GetElliottModelResult(barPoints);
-            result = null;
-
-            if (result == null) return false;
+            result = new ElliottModelResult(ElliottModelType.IMPULSE, new[] {start, end}, null);
             return true;
         }
     }
