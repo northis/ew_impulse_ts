@@ -72,7 +72,9 @@ namespace TradeKit.Impulse
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
         /// <param name="finder">The extremum finder instance.</param>
+        /// <param name="barsCount">The impulse bars count.</param>
         /// <param name="channelDistance">The distance from the end of the movement to the previous counter-movement or how far this movement went away from the price channel (in bars).</param>
+        /// <param name="stochasticValue">How big the impulse are (from 0 to 1), stochastic value.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
@@ -81,17 +83,31 @@ namespace TradeKit.Impulse
             double endValue, 
             int startIndex, 
             ExtremumFinder finder,
-            out int channelDistance)
+            int barsCount,
+            out int channelDistance,
+            out double stochasticValue)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
             channelDistance = 0;
+            stochasticValue = -1;
+            int startStochasticIndex = startIndex - barsCount;
+
+            double max = isImpulseUp ? endValue : startValue;
+            double min = isImpulseUp ? startValue : endValue;
 
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
                 BarPoint edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
                 double curValue = edgeExtremum.Value;
+                double curBarIndex = edgeExtremum.BarIndex;
+                if (startStochasticIndex < curBarIndex)
+                {
+                    if (curValue > max) max = curValue;
+                    if (curValue < min) min = curValue;
+                }
+
                 if (isImpulseUp)
                 {
                     if (curValue <= startValue)
@@ -103,6 +119,7 @@ namespace TradeKit.Impulse
                     {
                         isInitialMove = true;
                         channelDistance = startIndex - curIndex;
+                        stochasticValue = (endValue - min) / (max - min);
                         break;
                     }
 
@@ -117,6 +134,8 @@ namespace TradeKit.Impulse
                 if (curValue - endValue < 0)
                 {
                     isInitialMove = true;
+                    channelDistance = startIndex - curIndex;
+                    stochasticValue = (max - endValue) / (max - min);
                     break;
                 }
             }
@@ -151,11 +170,12 @@ namespace TradeKit.Impulse
                 .ElementAt(startIndex);
             KeyValuePair<DateTime, BarPoint> endItem = extrema
                 .ElementAt(endIndex);
-            
+
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
-                if (endItem.Value.BarIndex - startItem.Value.BarIndex + 1 < Helper.MINIMUM_BARS_IN_IMPULSE)
+                int barsCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
+                if (barsCount + 1 < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
                     //Debugger.Launch();
                     //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
@@ -177,12 +197,20 @@ namespace TradeKit.Impulse
                         // The setup is no longer valid, TP or SL is already hit.
                     }
                 }
-                
+
                 bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startIndex, finder, out int channelDistanceInBars);
+                    startValue, endValue, startIndex, finder, barsCount, out int channelDistanceInBars,
+                    out double stochasticValue);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
+                    return;
+                }
+
+                if (isImpulseUp && (stochasticValue < 0.8 || stochasticValue >1) || 
+                    (!isImpulseUp && stochasticValue > 0.2 || stochasticValue<0))
+                {
+                    // The move (impulse candidate) is too small.
                     return;
                 }
 
