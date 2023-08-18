@@ -135,7 +135,7 @@ namespace TradeKit.Impulse
                 {
                     isInitialMove = true;
                     channelDistance = startIndex - curIndex;
-                    stochasticValue = (max - endValue) / (max - min);
+                    stochasticValue = (endValue - min) / (max - min);
                     break;
                 }
             }
@@ -207,8 +207,8 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                if (isImpulseUp && (stochasticValue < 0.8 || stochasticValue >1) || 
-                    (!isImpulseUp && stochasticValue > 0.2 || stochasticValue<0))
+                if (isImpulseUp && (stochasticValue < 0.8 || stochasticValue > 1) ||
+                    (!isImpulseUp && stochasticValue > 0.2 || stochasticValue < 0))
                 {
                     // The move (impulse candidate) is too small.
                     return;
