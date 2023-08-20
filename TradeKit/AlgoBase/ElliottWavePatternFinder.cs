@@ -660,7 +660,7 @@ namespace TradeKit.AlgoBase
                 }
                 
                 int pivotCount = allPivots.Count;
-                if (!smoothImpulsePeriod.HasValue && pivotCount == 0)
+                if (!smoothImpulsePeriod.HasValue && pivotCount == 0 && mergedDates.Count == 0)
                 {
                     smoothImpulsePeriod = p;
                     continue;
@@ -671,7 +671,7 @@ namespace TradeKit.AlgoBase
                     continue;
                 }
 
-                if (allPivots.Count == 2) // Zig-zag, adios.
+                if (allPivots.Count < 4) // Zig-zag, adios.
                 {
                     result = null;
                     return false;
@@ -699,11 +699,6 @@ namespace TradeKit.AlgoBase
                     return true;
                 }
 
-                if (allPivots.Count == 1 || allPivots.Count == 3) // what the hell are you?
-                {
-                    continue;
-                }
-
                 if (allPivots.Count > 4) // Too many sub-waves, we can analyze them some day.
                 {
                     result = null;
@@ -711,14 +706,14 @@ namespace TradeKit.AlgoBase
                 }
             }
 
-            if (!smoothImpulsePeriod.HasValue)
+            if (smoothImpulsePeriod.HasValue)
             {
-                result = null;
-                return false;
+                result = new ElliottModelResult(ElliottModelType.IMPULSE, new[] { start, end }, null);
+                return true;
             }
 
-            result = new ElliottModelResult(ElliottModelType.IMPULSE, new[] {start, end}, null);
-            return true;
+            result = null;
+            return false;
         }
     }
 }

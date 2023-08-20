@@ -55,9 +55,9 @@ namespace TradeKit.Impulse
             m_BarsFactory = barsFactory;
             var zoomMin = Helper.ZOOM_MIN;
 
-            for (int i = Helper.MIN_IMPULSE_SCALE; 
-                 i <= Helper.MAX_IMPULSE_SCALE; 
-                 i+= Helper.STEP_IMPULSE_SCALE)
+            for (int i = Helper.MIN_IMPULSE_SCALE;
+                 i <= Helper.MAX_IMPULSE_SCALE;
+                 i += Helper.STEP_IMPULSE_SCALE)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
@@ -72,9 +72,7 @@ namespace TradeKit.Impulse
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
         /// <param name="finder">The extremum finder instance.</param>
-        /// <param name="barsCount">The impulse bars count.</param>
         /// <param name="channelDistance">The distance from the end of the movement to the previous counter-movement or how far this movement went away from the price channel (in bars).</param>
-        /// <param name="stochasticValue">How big the impulse are (from 0 to 1), stochastic value.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
@@ -83,30 +81,17 @@ namespace TradeKit.Impulse
             double endValue, 
             int startIndex, 
             ExtremumFinder finder,
-            int barsCount,
-            out int channelDistance,
-            out double stochasticValue)
+            out int channelDistance)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
             channelDistance = 0;
-            stochasticValue = -1;
-            int startStochasticIndex = startIndex - barsCount;
-
-            double max = isImpulseUp ? endValue : startValue;
-            double min = isImpulseUp ? startValue : endValue;
-
+            
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
                 BarPoint edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
                 double curValue = edgeExtremum.Value;
-                double curBarIndex = edgeExtremum.BarIndex;
-                if (startStochasticIndex < curBarIndex)
-                {
-                    if (curValue > max) max = curValue;
-                    if (curValue < min) min = curValue;
-                }
 
                 if (isImpulseUp)
                 {
@@ -119,7 +104,6 @@ namespace TradeKit.Impulse
                     {
                         isInitialMove = true;
                         channelDistance = startIndex - curIndex;
-                        stochasticValue = (endValue - min) / (max - min);
                         break;
                     }
 
@@ -131,13 +115,14 @@ namespace TradeKit.Impulse
                     break;
                 }
 
-                if (curValue - endValue < 0)
+                if (!(curValue - endValue < 0))
                 {
-                    isInitialMove = true;
-                    channelDistance = startIndex - curIndex;
-                    stochasticValue = (endValue - min) / (max - min);
-                    break;
+                    continue;
                 }
+
+                isInitialMove = true;
+                channelDistance = startIndex - curIndex;
+                break;
             }
 
             return isInitialMove;
@@ -171,11 +156,16 @@ namespace TradeKit.Impulse
             KeyValuePair<DateTime, BarPoint> endItem = extrema
                 .ElementAt(endIndex);
 
+            //if (endItem.Key > new DateTime(2023, 7, 14, 14, 0, 0))
+            //{
+            //    Debugger.Launch();
+            //}
+
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
-                int barsCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
-                if (barsCount + 1 < Helper.MINIMUM_BARS_IN_IMPULSE)
+                int barsCount = endItem.Value.BarIndex - startItem.Value.BarIndex + 1;
+                if (barsCount < Helper.MINIMUM_BARS_IN_IMPULSE)
                 {
                     //Debugger.Launch();
                     //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
@@ -198,17 +188,28 @@ namespace TradeKit.Impulse
                     }
                 }
 
+                double max = isImpulseUp ? endValue : startValue;
+                double min = isImpulseUp ? startValue : endValue;
                 bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startIndex, finder, barsCount, out int channelDistanceInBars,
-                    out double stochasticValue);
+                    startValue, endValue, startIndex, finder, out int channelDistanceInBars);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
                     return;
                 }
 
-                if (isImpulseUp && (stochasticValue < 0.8 || stochasticValue > 1) ||
-                    (!isImpulseUp && stochasticValue > 0.2 || stochasticValue < 0))
+                for (int i = startItem.Value.BarIndex; i >= startItem.Value.BarIndex - barsCount; i--)
+                {
+                    double localMax = BarsProvider.GetHighPrice(i);
+                    double localMin = BarsProvider.GetLowPrice(i);
+                    if (localMax > max) max = localMax;
+                    if (localMin < min) min = localMin;
+                }
+
+                //How big the impulse are (from 0 to 1)
+                double stochasticValue = (endValue - min) / (max - min);
+                if (isImpulseUp && (stochasticValue < 0.9 || stochasticValue > 1) ||
+                    (!isImpulseUp && stochasticValue > 0.1 || stochasticValue < 0))
                 {
                     // The move (impulse candidate) is too small.
                     return;
@@ -344,7 +345,7 @@ namespace TradeKit.Impulse
                     // We don't know how far we are from the nearest initial impulse
                     // so we go deep and check
 
-                    if (index - startIndex > Helper.BARS_DEPTH)
+                    if (index - startItem.Value.BarIndex > Helper.BARS_DEPTH)
                     {
                         //Logger.Write($"{m_Symbol}, {State.TimeFrame}: maximum bar depth is exceeded");
                         break;
