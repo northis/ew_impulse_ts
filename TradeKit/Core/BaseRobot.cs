@@ -790,7 +790,7 @@ namespace TradeKit.Core
             }
 
             DateTime lastOpenDateTime = d[^1];
-            DateTime lastCloseDateTime = lastOpenDateTime + timeFrameInfo.TimeSpan;
+            DateTime lastCloseDateTime = lastOpenDateTime;
             
             GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
                     <double, double, double, double, DateTime, string>(o, h, l, c, d,
