@@ -624,15 +624,42 @@ namespace TradeKit.AlgoBase
                 }
 
                 var highValues = m_PivotPointsFinder.HighValues.Where(
-                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value)).AsQueryable();
+                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value));
                 var lowValues = m_PivotPointsFinder.LowValues.Where(
-                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value)).AsQueryable();
+                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value));
 
-                var highValuesCount = highValues.Count();
-                var lowValuesCount = lowValues.Count();
+                var mergedDates = new HashSet<DateTime>();
+                foreach (KeyValuePair<DateTime, double> highValue in highValues)
+                {
+                    mergedDates.Add(highValue.Key);
+                }
+                foreach (KeyValuePair<DateTime, double> lowValue in lowValues)
+                {
+                    if (mergedDates.Contains(lowValue.Key))
+                        continue;
+                    mergedDates.Add(lowValue.Key);
+                }
 
-                var pivotCount = highValuesCount + lowValuesCount;
-
+                bool direction = isImpulseUp;
+                // We want to remove the same direction pivot points in a row
+                var allPivots = new SortedDictionary<DateTime, double>();
+                foreach (DateTime mergedDate in mergedDates.OrderBy(a=>a))
+                {
+                    if (direction)// We expect next high
+                    {
+                        if (!m_PivotPointsFinder.HighValues.ContainsKey(mergedDate)) continue;
+                        allPivots.Add(mergedDate, m_PivotPointsFinder.HighValues[mergedDate]);
+                        direction = false;
+                    }
+                    else// We expect next low
+                    {
+                        if (!m_PivotPointsFinder.LowValues.ContainsKey(mergedDate)) continue;
+                        allPivots.Add(mergedDate, m_PivotPointsFinder.LowValues[mergedDate]);
+                        direction = true;
+                    }
+                }
+                
+                int pivotCount = allPivots.Count;
                 if (!smoothImpulsePeriod.HasValue && pivotCount == 0)
                 {
                     smoothImpulsePeriod = p;
@@ -644,22 +671,7 @@ namespace TradeKit.AlgoBase
                     continue;
                 }
 
-                // filter pivots that go in a row
-                var values = new SortedDictionary<DateTime, double>(
-                    highValues.ToDictionary(a => a.Key, a => a.Value));
-                foreach (var lowValue in lowValues)
-                {
-                    if (values.ContainsKey(lowValue.Key))
-                    {
-                        result = null; // We don't handle one-candle multi-pivot bars,
-                        // don't want to load minor time-frames
-                        return false;
-                    }
-
-                    values[lowValue.Key] = lowValue.Value;
-                }
-
-                if (values.Count == 2) // Zig-zag, adios.
+                if (allPivots.Count == 2) // Zig-zag, adios.
                 {
                     result = null;
                     return false;
@@ -667,11 +679,11 @@ namespace TradeKit.AlgoBase
 
                 BarPoint GetBarPoint(int position)
                 {
-                    KeyValuePair<DateTime, double> item = values.ElementAt(position);
+                    KeyValuePair<DateTime, double> item = allPivots.ElementAt(position);
                     return new BarPoint(item.Value, item.Key, m_BarsProvider);
                 }
 
-                if (values.Count == 4) // Looks like an impulse, let's take a look on it.
+                if (allPivots.Count == 4) // Looks like an impulse, let's take a look on it.
                 {
                     result = null;
                     return false;
@@ -687,12 +699,12 @@ namespace TradeKit.AlgoBase
                     return true;
                 }
 
-                if (values.Count == 1 || values.Count == 3) // what the hell are you?
+                if (allPivots.Count == 1 || allPivots.Count == 3) // what the hell are you?
                 {
                     continue;
                 }
 
-                if (values.Count > 4) // Too many sub-waves, we can analyze them some day.
+                if (allPivots.Count > 4) // Too many sub-waves, we can analyze them some day.
                 {
                     result = null;
                     return false;
