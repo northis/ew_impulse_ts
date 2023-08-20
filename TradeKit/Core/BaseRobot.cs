@@ -39,6 +39,7 @@ namespace TradeKit.Core
         private const int SETUP_MIN_WIDTH = 3;
         protected const string FIRST_CHART_FILE_POSTFIX = ".01";
         protected const string SECOND_CHART_FILE_POSTFIX = ".02";
+        protected const string STATE_SAVE_KEY = "ReportStateMap";
         private double m_CurrentRisk = RISK_DEPOSIT_PERCENT;
         protected TelegramReporter TelegramReporter;
         private Dictionary<string, T> m_SetupFindersMap;
@@ -278,8 +279,20 @@ namespace TradeKit.Core
             }
 
             Positions.Closed += OnPositionsClosed;
-            TelegramReporter = new TelegramReporter(TelegramBotToken, ChatId, PostCloseMessages);
+
+            Dictionary<string, int> stateMap = LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
+            TelegramReporter = new TelegramReporter(
+                TelegramBotToken, ChatId, PostCloseMessages, stateMap, OnReportStateSave);
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
+        }
+
+        /// <summary>
+        /// Called when on saving the report state.
+        /// </summary>
+        /// <param name="stateMap">The state map (signal id-post Id).</param>
+        protected void OnReportStateSave(Dictionary<string, int> stateMap)
+        {
+            LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Instance);
         }
 
         /// <summary>

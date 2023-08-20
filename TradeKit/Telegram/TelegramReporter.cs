@@ -17,6 +17,7 @@ namespace TradeKit.Telegram
     public class TelegramReporter
     {
         private readonly bool m_ReportClose;
+        private readonly Action<Dictionary<string, int>> m_OnSaveState;
         private readonly TelegramBotClient m_TelegramBotClient;
         private readonly ChatId m_TelegramChatId;
         private readonly Dictionary<string, int> m_SignalPostIds;
@@ -40,10 +41,13 @@ namespace TradeKit.Telegram
         /// <param name="botToken">The bot token.</param>
         /// <param name="chatId">The chat identifier.</param>
         /// <param name="reportClose">If true - the close messages will be posted (tp hit)</param>
-        public TelegramReporter(string botToken, string chatId, bool reportClose = true)
+        /// <param name="signalPostIds">Optional signal-post id map to keep the state between runs.</param>
+        /// <param name="onSaveState">Delegate for saving the state (signal-post id map).</param>
+        public TelegramReporter(string botToken, string chatId, bool reportClose = true, Dictionary<string, int> signalPostIds = null, Action<Dictionary<string, int>> onSaveState = null)
         {
             m_ReportClose = reportClose;
-            m_SignalPostIds = new Dictionary<string, int>();
+            m_OnSaveState = onSaveState;
+            m_SignalPostIds = signalPostIds ?? new Dictionary<string, int>();
             if (string.IsNullOrEmpty(botToken))
             {
                 botToken = Environment.GetEnvironmentVariable(TOKEN_NAME);
@@ -88,6 +92,7 @@ namespace TradeKit.Telegram
             {
                 ReportClose(posId, "SL hit");
                 m_SignalPostIds.Remove(posId);
+                m_OnSaveState?.Invoke(m_SignalPostIds);
             }
         }
 
@@ -101,6 +106,7 @@ namespace TradeKit.Telegram
             {
                 ReportClose(posId, "TP hit");
                 m_SignalPostIds.Remove(posId);
+                m_OnSaveState?.Invoke(m_SignalPostIds);
             }
         }
 
@@ -201,6 +207,7 @@ namespace TradeKit.Telegram
 
             string positionId = Helper.GetPositionId(signalArgs.SenderId, signalArgs.SignalEventArgs.Level);
             m_SignalPostIds[positionId] = msgRes.MessageId;
+            m_OnSaveState?.Invoke(m_SignalPostIds);
         }
 
         /// <summary>
