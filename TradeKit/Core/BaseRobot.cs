@@ -434,7 +434,7 @@ namespace TradeKit.Core
             ModifySymbolPositions(setupId, positionId);
             ShowResultChart(sender);
 
-            if (IsBacktesting || !TelegramReporter.IsReady)
+            if (!TelegramReporter.IsReady)
                 return;
 
             TelegramReporter.ReportStopLoss(positionId);
@@ -470,7 +470,7 @@ namespace TradeKit.Core
             ModifySymbolPositions(setupId, positionId);
             ShowResultChart(sender);
 
-            if (IsBacktesting || !TelegramReporter.IsReady)
+            if (!TelegramReporter.IsReady)
             {
                 return;
             }
@@ -489,7 +489,7 @@ namespace TradeKit.Core
             Logger.Write($"Breakeven is set! {price}");
             ModifySymbolPositions(setupId, positionId, e.Level.Value);
 
-            if (IsBacktesting || !TelegramReporter.IsReady)
+            if (!TelegramReporter.IsReady)
             {
                 return;
             }

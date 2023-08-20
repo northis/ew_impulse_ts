@@ -611,7 +611,7 @@ namespace TradeKit.AlgoBase
             int? smoothImpulsePeriod = null; //In what period we can get only two pivot points
             // on the start and on the end.
 
-            for (int p = period; p > Helper.PIVOT_PERIOD_MIN; p--)
+            for (int p = period; p >= Helper.PIVOT_PERIOD_MIN; p--)
             {
                 RecalculatePivots(p);
 

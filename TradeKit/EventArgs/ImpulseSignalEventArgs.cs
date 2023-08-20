@@ -6,15 +6,12 @@ namespace TradeKit.EventArgs
     public class ImpulseSignalEventArgs : SignalEventArgs
     {
         public ImpulseSignalEventArgs(
-            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, BarPoint[] waves, DateTime startViewBarIndex, int channelDistanceInBars)
-            : base(level, takeProfit, stopLoss, startViewBarIndex)
+            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, BarPoint[] waves, DateTime startViewBarIndex, string comment)
+            : base(level, takeProfit, stopLoss, startViewBarIndex,null, comment)
         {
             Waves = waves;
-            ChannelDistanceInBars = channelDistanceInBars;
         }
 
         public BarPoint[] Waves { get; }
-
-        public int ChannelDistanceInBars { get; }
     }
 }

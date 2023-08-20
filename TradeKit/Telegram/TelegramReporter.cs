@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -27,12 +28,12 @@ namespace TradeKit.Telegram
 
         private readonly Dictionary<string, string> m_SymbolsMap = new()
         {
-            {"XAUUSD", "gold"},
-            {"XAGUSD", "silver"},
-            {"US 30", "us30"},
-            {"US TECH 100", "nas100"},
-            {"BTCUSD", "btc"},
-            {"ETHUSD", "eth"}
+            {"XAUUSD", "GOLD"},
+            {"XAGUSD", "SILVER"},
+            {"US 30", "US30"},
+            {"US TECH 100", "NAS100"},
+            {"BTCUSD", "BTC"},
+            {"ETHUSD", "ETH"}
         };
 
         /// <summary>
@@ -183,6 +184,12 @@ namespace TradeKit.Telegram
             {
                 sb.AppendLine($"Risk:Reward = {PriceFormat(nom / den, 2)}");
                 sb.AppendLine($"Spread:Reward = {PriceFormat(spread / den, 2)}");
+            }
+
+            string comment = signalArgs.SignalEventArgs.Comment;
+            if (!string.IsNullOrEmpty(comment))
+            {
+                sb.AppendLine(comment);
             }
 
             string alert = sb.ToString();

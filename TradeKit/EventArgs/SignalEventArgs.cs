@@ -10,7 +10,6 @@ namespace TradeKit.EventArgs
     public class SignalEventArgs : System.EventArgs
     {
         private readonly double? m_BreakevenRatio;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="SignalEventArgs"/> class.
         /// </summary>
@@ -19,18 +18,21 @@ namespace TradeKit.EventArgs
         /// <param name="stopLoss">The stop loss.</param>
         /// <param name="startViewBarTime">The bar time we should visually analyze the chart from. Optional</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
+        /// <param name="comment">The optional comment text to show.</param>
         public SignalEventArgs(
             BarPoint level,
             BarPoint takeProfit,
             BarPoint stopLoss,
             DateTime startViewBarTime = default,
-            double? breakevenRatio = null)
+            double? breakevenRatio = null,
+            string comment = null)
         {
             m_BreakevenRatio = breakevenRatio;
             Level = level;
             TakeProfit = takeProfit;
             StopLoss = stopLoss;
             StartViewBarTime = startViewBarTime;
+            Comment = comment;
         }
 
         /// <summary>
@@ -53,6 +55,11 @@ namespace TradeKit.EventArgs
         /// Gets the start bar time we should visually analyze the chart from.
         /// </summary>
         public DateTime StartViewBarTime { get; }
+
+        /// <summary>
+        /// Gets the optional comment text to show.
+        /// </summary>
+        public string Comment { get; }
 
         /// <summary>
         /// Gets or sets a value indicating whether a breakeven was set on this signal.

@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using cAlgo.API;
-using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -72,7 +70,7 @@ namespace TradeKit.Impulse
         /// <param name="endValue">The end value.</param>
         /// <param name="startIndex">The start index.</param>
         /// <param name="finder">The extremum finder instance.</param>
-        /// <param name="channelDistance">The distance from the end of the movement to the previous counter-movement or how far this movement went away from the price channel (in bars).</param>
+        /// <param name="edgeExtremum">The extremum from the end of the movement to the previous counter-movement or how far this movement went away from the price channel.</param>
         /// <returns>
         ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
         /// </returns>
@@ -81,16 +79,16 @@ namespace TradeKit.Impulse
             double endValue, 
             int startIndex, 
             ExtremumFinder finder,
-            out int channelDistance)
+            out BarPoint edgeExtremum)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
             bool isImpulseUp = endValue > startValue;
-            channelDistance = 0;
-            
+            edgeExtremum = null;
+
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                BarPoint edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
+                edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
                 double curValue = edgeExtremum.Value;
 
                 if (isImpulseUp)
@@ -103,7 +101,6 @@ namespace TradeKit.Impulse
                     if (curValue - endValue > 0)
                     {
                         isInitialMove = true;
-                        channelDistance = startIndex - curIndex;
                         break;
                     }
 
@@ -121,7 +118,6 @@ namespace TradeKit.Impulse
                 }
 
                 isInitialMove = true;
-                channelDistance = startIndex - curIndex;
                 break;
             }
 
@@ -191,7 +187,7 @@ namespace TradeKit.Impulse
                 double max = isImpulseUp ? endValue : startValue;
                 double min = isImpulseUp ? startValue : endValue;
                 bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startIndex, finder, out int channelDistanceInBars);
+                    startValue, endValue, startIndex, finder, out BarPoint edgeExtremum);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
@@ -322,14 +318,17 @@ namespace TradeKit.Impulse
 
                 var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
-                DateTime viewDateTime = startItem.Value.OpenTime;
+                DateTime viewDateTime = edgeExtremum.OpenTime;
+                int channelDistance = startItem.Value.BarIndex - edgeExtremum.BarIndex + 1;
+
+                string paramsStringComment = $"∠ {channelDistance} ({barsCount}), 💪 {stochasticValue:F2}";
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
                     outExtrema.Extrema,
                     viewDateTime,
-                    channelDistanceInBars));
+                    paramsStringComment));
                 // Here we should give a trade signal.
             }
 
