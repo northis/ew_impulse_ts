@@ -212,7 +212,7 @@ namespace TradeKit.Telegram
             InlineKeyboardMarkup chartLink = new(new[]
             {
                 InlineKeyboardButton.WithUrl(
-                    text: "Chart",
+                    text: $"Chart {tfTs.TotalMinutes}m",
                     url: $"{Helper.PrivateChartUrl}?symbol={provPart}&interval={tfTs.TotalMinutes}")
             });
 
