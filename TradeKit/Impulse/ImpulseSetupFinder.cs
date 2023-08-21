@@ -204,12 +204,12 @@ namespace TradeKit.Impulse
 
                 //How big the impulse are (from 0 to 1)
                 double stochasticValue = (endValue - min) / (max - min);
-                if (isImpulseUp && (stochasticValue < 0.9 || stochasticValue > 1) ||
-                    (!isImpulseUp && stochasticValue > 0.1 || stochasticValue < 0))
-                {
-                    // The move (impulse candidate) is too small.
-                    return;
-                }
+                //if (isImpulseUp && (stochasticValue < 0.9 || stochasticValue > 1) ||
+                //    (!isImpulseUp && stochasticValue > 0.1 || stochasticValue < 0))
+                //{
+                //    // The move (impulse candidate) is too small.
+                //    return;
+                //}
 
                 double triggerLevel;
                 bool GotSetup(double levelRatio)
@@ -320,8 +320,9 @@ namespace TradeKit.Impulse
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
                 int channelDistance = startItem.Value.BarIndex - edgeExtremum.BarIndex + 1;
+                double impulseLengthPercent = 100 * Math.Abs(setupLength) / startValue;
 
-                string paramsStringComment = $"∠ {channelDistance} ({barsCount}), 💪 {stochasticValue:F2}";
+                string paramsStringComment = $"∠{channelDistance}({barsCount}) 💪{stochasticValue:F2} 📏{impulseLengthPercent:F2}%".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,

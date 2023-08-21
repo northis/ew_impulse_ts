@@ -11,6 +11,10 @@ namespace TradeKit.Core
                 Path.Combine(Environment.CurrentDirectory, "TradeKitTelegramSend");
         }
         
+        public const string ENV_PRIVATE_URL_KEY = "TRADE_KIT_TW_URL";
+        public static string PrivateChartUrl = Environment.GetEnvironmentVariable(ENV_PRIVATE_URL_KEY) ?? "https://www.tradingview.com/chart/";
+
+
         public const int ZOOM_MIN = 1;
         public const double MINIMUM_BARS_IN_IMPULSE = 5;
         public const double BARS_DEPTH = 100;

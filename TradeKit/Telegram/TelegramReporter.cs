@@ -6,6 +6,8 @@ using System.IO;
 using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using File = System.IO.File;
@@ -34,6 +36,13 @@ namespace TradeKit.Telegram
             {"US TECH 100", "NAS100"},
             {"BTCUSD", "BTC"},
             {"ETHUSD", "ETH"}
+        };
+
+        private const string DEFULT_PROVIDER = "OANDA:";
+        private readonly Dictionary<string, string> m_ProviderMap = new()
+        {
+            {"BTCUSD", "BINANCE:BTCUSDT"},
+            {"ETHUSD", "BINANCE:ETHUSDT"}
         };
 
         /// <summary>
@@ -192,13 +201,26 @@ namespace TradeKit.Telegram
                 sb.AppendLine(comment);
             }
 
-            string alert = sb.ToString();
-            Message msgRes;
+            TimeSpan tfTs = TimeFrameHelper.GetTimeFrameInfo(signalArgs.SignalEventArgs.Level.BarTimeFrame).TimeSpan;
 
+            if (!m_ProviderMap.TryGetValue(signalArgs.SymbolName, out string provPart))
+            {
+                provPart = $"{DEFULT_PROVIDER}{signalArgs.SymbolName}";
+            }
+
+            string alert = sb.ToString();
+            InlineKeyboardMarkup chartLink = new(new[]
+            {
+                InlineKeyboardButton.WithUrl(
+                    text: "Chart",
+                    url: $"{Helper.PrivateChartUrl}?symbol={provPart}&interval={tfTs.TotalMinutes}")
+            });
+
+            Message msgRes;
             if (string.IsNullOrEmpty(signalArgs.PlotImagePath))
             {
                 msgRes = m_TelegramBotClient
-                    .SendTextMessageAsync(m_TelegramChatId, alert)
+                    .SendTextMessageAsync(m_TelegramChatId, alert, replyMarkup: chartLink)
                     .Result;
             }
             else
@@ -208,7 +230,7 @@ namespace TradeKit.Telegram
                                   ?? Guid.NewGuid().ToString();
 
                 msgRes = m_TelegramBotClient
-                    .SendPhotoAsync(m_TelegramChatId, new InputMedia(fileStream, fileName), alert)
+                    .SendPhotoAsync(m_TelegramChatId, new InputMedia(fileStream, fileName), alert, replyMarkup: chartLink)
                     .Result;
             }
 
