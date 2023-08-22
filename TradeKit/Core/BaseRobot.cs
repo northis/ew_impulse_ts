@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -240,7 +239,6 @@ namespace TradeKit.Core
             string[] timeFrames = !UseTimeFramesList || string.IsNullOrEmpty(TimeFramesToProceed)
                 ? new[] {TimeFrame.Name}
                 : SplitString(TimeFramesToProceed);
-
             foreach (string symbolName in symbols)
             {
                 if (!Symbols.Exists(symbolName))
