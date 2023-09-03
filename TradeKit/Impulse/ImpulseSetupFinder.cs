@@ -66,65 +66,46 @@ namespace TradeKit.Impulse
 
         private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, double endValue, int barsCount, double max, double min, out double stochasticPercent, out double overlapsePercent)
         {
-            var listRanges = new List<Tuple<double, double>>();
+            var candles = new List<Candle>();
+            var points = new List<double>();
             for (int i = startItem.Value.BarIndex; i >= startItem.Value.BarIndex - barsCount; i--)
             {
-                double localMax = BarsProvider.GetHighPrice(i);
-                double localMin = BarsProvider.GetLowPrice(i);
-                if (localMax > max) max = localMax;
-                if (localMin < min) min = localMin;
+                Candle cdl = Candle.FromIndex(BarsProvider, i);
+                if (cdl.H > max) max = cdl.H;
+                if (cdl.L < min) min = cdl.L;
 
-                bool shouldAdd = true;
-                foreach (Tuple<double, double> range in listRanges)
+                candles.Add(cdl);
+                points.Add(cdl.H);
+                points.Add(cdl.L);
+            }
+
+            double currentPoint = min;
+            double overlapsedRange = 0;
+
+            void NextPoint(double nextPoint)
+            {
+                int cdlCount = candles.Count(a => a.L <= currentPoint && a.H >= nextPoint);
+                if (cdlCount <= 1) // gap (<1) or single candle (=1)
                 {
-                    if (range.Item1 < localMin && range.Item2 > localMax)
-                    {
-                        listRanges.Remove(range);
-                        listRanges.Add(new Tuple<double, double>(range.Item1, localMin));
-                        listRanges.Add(new Tuple<double, double>(range.Item2, localMax));
-                        shouldAdd = false;
-                        break;
-                    }
-
-                    if (range.Item1 >= localMin && range.Item2 >= localMax)
-                    {
-                        listRanges.Remove(range);
-                        listRanges.Add(new Tuple<double, double>(localMax, range.Item2));
-                        listRanges.Add(new Tuple<double, double>(localMin, range.Item1));
-                        shouldAdd = false;
-                        break;
-                    }
-
-                    if (range.Item1 <= localMin && range.Item2 <= localMax)
-                    {
-                        listRanges.Remove(range);
-                        listRanges.Add(new Tuple<double, double>(range.Item1, localMin));
-                        listRanges.Add(new Tuple<double, double>(range.Item2, localMax));
-                        shouldAdd = false;
-                        break;
-                    }
+                    return;
                 }
 
-                if (shouldAdd || listRanges.Count == 0)
-                {
-                    listRanges.Add(new Tuple<double, double>(localMin, localMax));
-                }
+                overlapsedRange += nextPoint - currentPoint;
+            }
+
+            foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
+            {
+                NextPoint(nextPoint);
+                currentPoint = nextPoint;
             }
 
             double totalLength = max - min;
-            double currentLength = 0;
-
-
-            foreach (Tuple<double, double> ranges in listRanges)
-            {
-                currentLength += Math.Abs(ranges.Item2 - ranges.Item1);
-            }
 
             //How many overlapses (from 0 to 100)
-            stochasticPercent = totalLength > 0 ? 100 * currentLength / totalLength : 0;
+            overlapsePercent = totalLength > 0 ? 100 * overlapsedRange / totalLength : 0;
 
             //How big the impulse are (from 0 to 100)
-            overlapsePercent = 100* (endValue - min) / (max - min);
+             stochasticPercent = 100 * (endValue - min) / (max - min);
         }
 
         /// <summary>
@@ -373,7 +354,7 @@ namespace TradeKit.Impulse
                 int channelDistance = startItem.Value.BarIndex - edgeExtremum.BarIndex + 1;
                 double impulseLengthPercent = 100 * Math.Abs(setupLength) / startValue;
 
-                string paramsStringComment = $"∠{channelDistance}({barsCount}) 💪{stochasticPercent:F2}/{overlapsePercent:F2} 📏{impulseLengthPercent:F2}%".Replace(",",".");
+                string paramsStringComment = $"∠{channelDistance}({barsCount}) 💪{stochasticPercent:F2} 🠙🠛{overlapsePercent:F2} 📏{impulseLengthPercent:F2}%".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
