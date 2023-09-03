@@ -80,7 +80,7 @@ namespace TradeKit.Impulse
             }
 
             double currentPoint = min;
-            double overlapsedRange = 0;
+            double overlapsedIndex = 0;
 
             void NextPoint(double nextPoint)
             {
@@ -90,7 +90,7 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                overlapsedRange += nextPoint - currentPoint;
+                overlapsedIndex += (nextPoint - currentPoint) * cdlCount;
             }
 
             foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
@@ -102,7 +102,7 @@ namespace TradeKit.Impulse
             double totalLength = max - min;
 
             //How many overlapses (from 0 to 100)
-            overlapsePercent = totalLength > 0 ? 100 * overlapsedRange / totalLength : 0;
+            overlapsePercent = totalLength > 0 ? 100 * overlapsedIndex / (totalLength * barsCount) : 0;
 
             //How big the impulse are (from 0 to 100)
              stochasticPercent = 100 * (endValue - min) / (max - min);
@@ -351,10 +351,11 @@ namespace TradeKit.Impulse
                 var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
-                int channelDistance = startItem.Value.BarIndex - edgeExtremum.BarIndex + 1;
+                double channelAngle = 180 / Math.PI * Math.Atan2(
+                    startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount);
                 double impulseLengthPercent = 100 * Math.Abs(setupLength) / startValue;
 
-                string paramsStringComment = $"∠{channelDistance}({barsCount}) 💪{stochasticPercent:F2} 🠙🠛{overlapsePercent:F2} 📏{impulseLengthPercent:F2}%".Replace(",",".");
+                string paramsStringComment = $"∠{channelAngle:F0}° 💪{stochasticPercent:F0}% 🠙🠛{overlapsePercent:F0}% 📏{impulseLengthPercent:F2}%".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
