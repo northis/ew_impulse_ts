@@ -64,19 +64,27 @@ namespace TradeKit.Impulse
             m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
         }
 
-        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, BarPoint edgeExtremum,double endValue, int barsCount, double max, double min, out double stochasticPercent, out double overlapsePercent, out double channelAngle)
+        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, BarPoint edgeExtremum,double endValue, int barsCount, double max, double min, out int stochasticPercent, out int overlapsePercent, out int channelAngle)
         {
-            channelAngle = 180 / Math.PI * Math.Atan2(
-                startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount);
+            channelAngle = Convert.ToInt32(180 / Math.PI * Math.Atan2(
+                startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount));
 
             var candles = new List<Candle>();
             var points = new List<double>();
+            double stochH = max;
+            double stochL = min;
+
             for (int i = startItem.Value.BarIndex; i >= startItem.Value.BarIndex - barsCount; i--)
             {
-                Candle cdl = Candle.FromIndex(BarsProvider, i);
-                if (cdl.H > max) max = cdl.H;
-                if (cdl.L < min) min = cdl.L;
+                double localH = BarsProvider.GetHighPrice(i);
+                double localL = BarsProvider.GetLowPrice(i);
+                if (localH > stochH) stochH = localH;
+                if (localL < stochL) stochL = localL;
+            }
 
+            for (int i = startItem.Value.BarIndex; i < startItem.Value.BarIndex + barsCount; i++)
+            {
+                Candle cdl = Candle.FromIndex(BarsProvider, i);
                 candles.Add(cdl);
                 points.Add(cdl.H);
                 points.Add(cdl.L);
@@ -87,7 +95,10 @@ namespace TradeKit.Impulse
 
             void NextPoint(double nextPoint)
             {
-                int cdlCount = candles.Count(a => a.L <= currentPoint && a.H >= nextPoint);
+                int cdlCount = candles.Count(a => a.L < currentPoint && a.H > currentPoint ||
+                                                  a.L >= currentPoint && a.H <= nextPoint ||
+                                                  a.L < nextPoint && a.H > nextPoint ||
+                                                  a.L <= currentPoint && a.H >= nextPoint);
                 if (cdlCount <= 1) // gap (<1) or single candle (=1)
                 {
                     return;
@@ -95,7 +106,7 @@ namespace TradeKit.Impulse
 
                 overlapsedIndex += (nextPoint - currentPoint) * cdlCount;
             }
-
+            
             foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
             {
                 NextPoint(nextPoint);
@@ -103,12 +114,14 @@ namespace TradeKit.Impulse
             }
 
             double totalLength = max - min;
+            double stochLength = stochH - stochL;
 
             //How many overlapses (from 0 to 100)
-            overlapsePercent = totalLength > 0 ? 100 * overlapsedIndex / (totalLength * barsCount) : 0;
-
+            overlapsePercent =
+                Convert.ToInt32(totalLength > 0 ? 100 * overlapsedIndex / (totalLength * barsCount) : 0);
+            
             //How big the impulse are (from 0 to 100)
-             stochasticPercent = 100 * (endValue - min) / (max - min);
+            stochasticPercent = Convert.ToInt32(stochLength > 0 ? 100 * (endValue - stochL) / stochLength : 0);
         }
 
         /// <summary>
@@ -235,11 +248,6 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                GetStatistics(startItem, edgeExtremum, endValue, barsCount, max, min, 
-                    out double stochasticPercent,
-                    out double overlapsePercent,
-                    out double channelAngle);
-
                 double triggerLevel;
                 bool GotSetup(double levelRatio)
                 {
@@ -350,7 +358,18 @@ namespace TradeKit.Impulse
                 DateTime viewDateTime = edgeExtremum.OpenTime;
                 double impulseLengthPercent = 100 * Math.Abs(setupLength) / startValue;
 
-                string paramsStringComment = $"∠{channelAngle:F0}° 💪{stochasticPercent:F0}% 🠙🠛{overlapsePercent:F0}% 📏{impulseLengthPercent:F2}%".Replace(",",".");
+                GetStatistics(startItem, edgeExtremum, endValue, barsCount, max, min,
+                    out int stochasticPercent,
+                    out int overlapsePercent,
+                    out int channelAngle);
+
+                if (!isImpulseUp)
+                {
+                    // for sell movements normalize impulse strength value
+                    stochasticPercent = 100 - stochasticPercent;
+                }
+
+                string paramsStringComment = $"∠{channelAngle}° 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}%".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
