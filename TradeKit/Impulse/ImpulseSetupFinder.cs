@@ -64,8 +64,11 @@ namespace TradeKit.Impulse
             m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
         }
 
-        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, double endValue, int barsCount, double max, double min, out double stochasticPercent, out double overlapsePercent)
+        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, BarPoint edgeExtremum,double endValue, int barsCount, double max, double min, out double stochasticPercent, out double overlapsePercent, out double channelAngle)
         {
+            channelAngle = 180 / Math.PI * Math.Atan2(
+                startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount);
+
             var candles = new List<Candle>();
             var points = new List<double>();
             for (int i = startItem.Value.BarIndex; i >= startItem.Value.BarIndex - barsCount; i--)
@@ -232,16 +235,10 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                GetStatistics(startItem, endValue, barsCount, max, min, 
+                GetStatistics(startItem, edgeExtremum, endValue, barsCount, max, min, 
                     out double stochasticPercent,
-                    out double overlapsePercent);
-
-                //if (isImpulseUp && (stochasticPercent < 90 || stochasticPercent > 100) ||
-                //    (!isImpulseUp && stochasticPercent > 10 || stochasticPercent < 0))
-                //{
-                //    // The move (impulse candidate) is too small.
-                //    return;
-                //}
+                    out double overlapsePercent,
+                    out double channelAngle);
 
                 double triggerLevel;
                 bool GotSetup(double levelRatio)
@@ -351,8 +348,6 @@ namespace TradeKit.Impulse
                 var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
-                double channelAngle = 180 / Math.PI * Math.Atan2(
-                    startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount);
                 double impulseLengthPercent = 100 * Math.Abs(setupLength) / startValue;
 
                 string paramsStringComment = $"∠{channelAngle:F0}° 💪{stochasticPercent:F0}% 🠙🠛{overlapsePercent:F0}% 📏{impulseLengthPercent:F2}%".Replace(",",".");
