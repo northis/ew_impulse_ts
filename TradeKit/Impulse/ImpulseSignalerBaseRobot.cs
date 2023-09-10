@@ -48,13 +48,24 @@ namespace TradeKit.Impulse
         }
 
         /// <summary>
+        /// Gets the bars provider.
+        /// </summary>
+        /// <param name="bars">The bars.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
+        protected override IBarsProvider GetBarsProvider(Bars bars, Symbol symbolEntity)
+        {
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            return barsProvider;
+        }
+
+        /// <summary>
         /// Creates the setup finder.
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
         protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            var barsProvider = GetBarsProvider(bars, symbolEntity);
             var barProvidersFactory = new BarProvidersFactory(symbolEntity, MarketData);
             var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
             return sf;

@@ -75,9 +75,20 @@ namespace TradeKit.Signals
             Positions.Closed += OnPositionClosed;
         }
 
+        /// <summary>
+        /// Gets the bars provider.
+        /// </summary>
+        /// <param name="bars">The bars.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
+        protected override IBarsProvider GetBarsProvider(Bars bars, Symbol symbolEntity)
+        {
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            return barsProvider;
+        }
+
         protected override ParseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            CTraderBarsProvider barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            IBarsProvider barsProvider = GetBarsProvider(bars, symbolEntity);
             string path;
             if (string.IsNullOrEmpty(SignalHistoryFilePath))
             {

@@ -181,13 +181,24 @@ namespace TradeKit.PriceAction
         }
 
         /// <summary>
+        /// Gets the bars provider.
+        /// </summary>
+        /// <param name="bars">The bars.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
+        protected override IBarsProvider GetBarsProvider(Bars bars, Symbol symbolEntity)
+        {
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            return barsProvider;
+        }
+
+        /// <summary>
         /// Creates the setup finder and returns it.
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
         protected override PriceActionSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            IBarsProvider barsProvider = GetBarsProvider(bars, symbolEntity);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
             SuperTrendItem superTrendItem = null;
@@ -204,22 +215,28 @@ namespace TradeKit.PriceAction
             return setupFinder;
         }
 
+        /// <summary>
+        /// Gets the additional chart layers.
+        /// </summary>
+        /// <param name="candlestickChart">The main chart with candles.</param>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        /// <param name="barProvider">Bars provider for the TF and symbol.</param>
+        /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, PriceActionSignalEventArgs signalEventArgs,
-            PriceActionSetupFinder setupFinder, List<DateTime> chartDateTimes)
+            IBarsProvider barProvider, List<DateTime> chartDateTimes)
         {
-            IBarsProvider prv = setupFinder.BarsProvider;
             CandlesResult pattern = signalEventArgs.ResultPattern;
-            signalEventArgs.ResultPattern.GetDrawRectangle(prv,
+            signalEventArgs.ResultPattern.GetDrawRectangle(barProvider,
                 out int startIndex, out _, out double max, out double min);
 
             Color colorPattern = pattern.IsBull ? m_PatternBullColor : m_PatternBearColor;
-            DateTime setupStart = prv.GetOpenTime(startIndex);
+            DateTime setupStart = barProvider.GetOpenTime(startIndex);
             DateTime setupEnd = signalEventArgs.Level.OpenTime;
             Shape patternRectangle = GetSetupRectangle(setupStart, setupEnd, colorPattern, max, min);
             candlestickChart.WithShape(patternRectangle, true);
 
             Color colorText = pattern.IsBull ? m_BullColor : m_BearColor;
-            DateTime slIndex = prv.GetOpenTime(pattern.StopLossBarIndex);
+            DateTime slIndex = barProvider.GetOpenTime(pattern.StopLossBarIndex);
 
             Annotation label = GetAnnotation(slIndex, pattern.StopLoss,
                 colorText, CHART_FONT_HEADER, BlackColor, pattern.Type.Format().Replace(" ",""),
@@ -227,7 +244,9 @@ namespace TradeKit.PriceAction
             
             candlestickChart.WithAnnotation(label, true);
 
-            GetSetupEndRender(signalEventArgs.Level.OpenTime, prv.TimeFrame, out DateTime realStart,
+            GetSetupEndRender(
+                signalEventArgs.Level.OpenTime, barProvider.TimeFrame, 
+                out DateTime realStart,
                 out DateTime realEnd);
 
             double startPrice = signalEventArgs.ResultPattern.LimitPrice ?? signalEventArgs.Level.Value;

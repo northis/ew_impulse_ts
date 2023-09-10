@@ -167,12 +167,12 @@ namespace TradeKit.Gartley
         /// </summary>
         /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
-        /// <param name="setupFinder">The setup finder.</param>
+        /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected override void OnDrawChart(
             GenericChart.GenericChart candlestickChart,
             GartleySignalEventArgs signalEventArgs, 
-            GartleySetupFinder setupFinder,
+            IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
         {
             GartleyItem gartley = signalEventArgs.GartleyItem;
@@ -190,8 +190,8 @@ namespace TradeKit.Gartley
                 Line: Line.init(Color: colorFill));
             candlestickChart.WithShape(patternPath, true);
             
-            double levelStart = setupFinder.BarsProvider.GetClosePrice(gartley.ItemD.BarIndex);
-            GetSetupEndRender(gartley.ItemD.OpenTime, setupFinder.TimeFrame, 
+            double levelStart = barProvider.GetClosePrice(gartley.ItemD.BarIndex);
+            GetSetupEndRender(gartley.ItemD.OpenTime, barProvider.TimeFrame, 
                 out DateTime setupStart, out DateTime setupEnd);
 
             Shape tp1 = GetSetupRectangle(
@@ -239,13 +239,24 @@ namespace TradeKit.Gartley
         }
 
         /// <summary>
+        /// Gets the bars provider.
+        /// </summary>
+        /// <param name="bars">The bars.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
+        protected override IBarsProvider GetBarsProvider(Bars bars, Symbol symbolEntity)
+        {
+            var cTraderBarsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            return cTraderBarsProvider;
+        }
+
+        /// <summary>
         /// Creates the setup finder and returns it.
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
         protected override GartleySetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            var cTraderBarsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            IBarsProvider cTraderBarsProvider = GetBarsProvider(bars, symbolEntity);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
             MacdCrossOverIndicator macdCrossover = Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS);

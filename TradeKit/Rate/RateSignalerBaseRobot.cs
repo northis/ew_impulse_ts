@@ -48,6 +48,17 @@ namespace TradeKit.Rate
         public int TradeVolume { get; set; }
 
         /// <summary>
+        /// Gets the bars provider.
+        /// </summary>
+        /// <param name="bars">The bars.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
+        protected override IBarsProvider GetBarsProvider(Bars bars, Symbol symbolEntity)
+        {
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            return barsProvider;
+        }
+
+        /// <summary>
         /// Creates the setup finder and returns it.
         /// </summary>
         /// <param name="bars">The bars.</param>
@@ -55,7 +66,7 @@ namespace TradeKit.Rate
         protected override RateSetupFinder CreateSetupFinder(
             Bars bars,  Symbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            var barsProvider = GetBarsProvider(bars, symbolEntity);
             var sf = new RateSetupFinder(barsProvider, symbolEntity, MaxBarSpeed, MinBarSpeed, SpeedPercent,
                 SpeedTpSlRatio);
             return sf;

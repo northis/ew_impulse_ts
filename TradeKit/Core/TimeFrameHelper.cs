@@ -15,8 +15,9 @@ namespace TradeKit.Core
             var timeFramesList = new List<TimeFrameInfo>
             {
                 new(TimeFrame.Minute, TimeSpan.FromMinutes(1), TimeFrame.Minute, TimeFrame.Minute5),
-                new(TimeFrame.Minute5, TimeSpan.FromMinutes(5), TimeFrame.Minute, TimeFrame.Minute15),
-                new(TimeFrame.Minute15, TimeSpan.FromMinutes(15), TimeFrame.Minute5, TimeFrame.Minute30),
+                new(TimeFrame.Minute5, TimeSpan.FromMinutes(5), TimeFrame.Minute, TimeFrame.Minute10),
+                new(TimeFrame.Minute10, TimeSpan.FromMinutes(10), TimeFrame.Minute5, TimeFrame.Minute15),
+                new(TimeFrame.Minute15, TimeSpan.FromMinutes(15), TimeFrame.Minute10, TimeFrame.Minute30),
                 new(TimeFrame.Minute30, TimeSpan.FromMinutes(30), TimeFrame.Minute15, TimeFrame.Hour),
                 new(TimeFrame.Minute45, TimeSpan.FromMinutes(45), TimeFrame.Minute30, TimeFrame.Hour),
                 new(TimeFrame.Hour, TimeSpan.FromHours(1), TimeFrame.Minute30, TimeFrame.Hour2),

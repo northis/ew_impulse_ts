@@ -43,7 +43,8 @@ namespace TradeKit.Core
         protected TelegramReporter TelegramReporter;
         private Dictionary<string, T> m_SetupFindersMap;
         private Dictionary<string, T[]> m_SymbolFindersMap;
-        private Dictionary<string, Bars> m_BarsMap;
+        private Dictionary<string, Bars> m_SetupIdBarsMap;
+        private Dictionary<string, IBarsProvider> m_FinderIdChartBarProviderMap;
         private Dictionary<string, Symbol> m_SymbolsMap;
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, List<int>> m_PositionFinderMap;
@@ -225,7 +226,8 @@ namespace TradeKit.Core
         {
             Logger.SetWrite(a => Print(a));
             m_SetupFindersMap = new Dictionary<string, T>();
-            m_BarsMap = new Dictionary<string, Bars>();
+            m_SetupIdBarsMap = new Dictionary<string, Bars>();
+            m_FinderIdChartBarProviderMap = new Dictionary<string, IBarsProvider>();
             m_BarsInitMap = new Dictionary<string, bool>();
             m_SymbolsMap = new Dictionary<string, Symbol>();
             m_SymbolFindersMap = new Dictionary<string, T[]>();
@@ -248,20 +250,20 @@ namespace TradeKit.Core
 
                 Symbol symbolEntity = Symbols.GetSymbol(symbolName);
                 var finders = new List<T>();
+
                 foreach (string timeFrameStr in timeFrames)
                 {
                     if (!TimeFrame.TryParse(timeFrameStr, out TimeFrame timeFrame))
-                    {
                         continue;
-                    }
-                    
+
                     Bars bars = MarketData.GetBars(timeFrame, symbolName);
                     T sf = CreateSetupFinder(bars, symbolEntity);
                     string key = sf.Id;
-                    m_BarsMap[key] = bars;
-                    m_BarsMap[key].BarOpened += BarOpened;
+
+                    m_SetupIdBarsMap[key] = bars;
+                    m_SetupIdBarsMap[key].BarOpened += BarOpened;
                     m_SymbolsMap[key] = symbolEntity;
-                    m_SymbolsMap[key].Tick += OnTick;
+                    //m_SymbolsMap[key].Tick += OnTick; // Check if it works
                     m_SetupFindersMap[key] = sf;
                     m_BarsInitMap[key] = false;
                     finders.Add(sf);
@@ -269,6 +271,27 @@ namespace TradeKit.Core
                 }
                 
                 m_SymbolFindersMap[symbolName] = finders.ToArray();
+            }
+
+            foreach (KeyValuePair<string, T> finder in m_SetupFindersMap)
+            {
+                TimeFrame chartTimeFrame = TimeFrameHelper
+                    .GetPreviousTimeFrameInfo(finder.Value.TimeFrame).TimeFrame;
+
+                IBarsProvider barProvider = m_SetupFindersMap
+                    .Where(a =>
+                        a.Value.Symbol == finder.Value.Symbol &&
+                        a.Value.TimeFrame == chartTimeFrame)
+                    .Select(a => a.Value.BarsProvider)
+                    .FirstOrDefault();
+
+                if (barProvider == null)
+                {
+                    Bars bars = MarketData.GetBars(chartTimeFrame, finder.Value.Symbol.Name);
+                    barProvider = GetBarsProvider(bars, finder.Value.Symbol);
+                }
+
+                m_FinderIdChartBarProviderMap[finder.Key] = barProvider;
             }
 
             if (SaveChartForManualAnalysis)
@@ -292,6 +315,13 @@ namespace TradeKit.Core
         {
             LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Instance);
         }
+
+        /// <summary>
+        /// Gets the bars provider.
+        /// </summary>
+        /// <param name="bars">The bars.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
+        protected abstract IBarsProvider GetBarsProvider(Bars bars, Symbol symbolEntity);
 
         /// <summary>
         /// Creates the setup finder and returns it.
@@ -451,7 +481,7 @@ namespace TradeKit.Core
                 return;
             }
 
-            GeneratePlotImageFile(sf, signalEventArgs, true);
+            GeneratePlotImageFile(sf.BarsProvider, signalEventArgs, true);
             m_ChartFileFinderMap.Remove(sf.Id);
         }
 
@@ -563,7 +593,7 @@ namespace TradeKit.Core
                 return;
             }
             
-            if (!m_BarsMap.TryGetValue(sf.Id, out _))
+            if (!m_SetupIdBarsMap.TryGetValue(sf.Id, out _))
             {
                 return;
             }
@@ -671,7 +701,7 @@ namespace TradeKit.Core
                 }
             }
             
-            string plotImagePath = GeneratePlotImageFile(sf, e);
+            string plotImagePath = GeneratePlotImageFile(sf.BarsProvider, e);
             if (SaveChartForManualAnalysis)
             {
                 m_ChartFileFinderMap[sf.Id] = e;
@@ -699,12 +729,12 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="candlestickChart">The main chart with candles.</param>
         /// <param name="signalEventArgs">The signal event arguments.</param>
-        /// <param name="setupFinder">The setup finder.</param>
+        /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected virtual void OnDrawChart(
             GenericChart.GenericChart candlestickChart, 
             TK signalEventArgs, 
-            T setupFinder, 
+            IBarsProvider barProvider, 
             List<DateTime> chartDateTimes)
         {
         }
@@ -723,15 +753,15 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the path to the generated chart image file.
         /// </summary>
-        /// <param name="setupFinder">Source setup finder</param>
+        /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="signalEventArgs">Signal info args</param>
         /// <param name="showTradeResult">True if we want to see the result of the first trade.</param>
         /// <returns>Path to file</returns>
         protected string GeneratePlotImageFile(
-            T setupFinder, TK signalEventArgs, bool showTradeResult = false)
+            IBarsProvider barProvider, TK signalEventArgs, bool showTradeResult = false)
         {
             DateTime startView = signalEventArgs.StartViewBarTime;
-            IBarsProvider barProvider = setupFinder.BarsProvider;
+
             int firstIndex = barProvider.GetIndexByTime(signalEventArgs.StartViewBarTime);
             int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
 
@@ -797,7 +827,7 @@ namespace TradeKit.Core
                         Name: barProvider.Symbol.Name,
                         ShowLegend: false);
 
-            OnDrawChart(candlestickChart, signalEventArgs, setupFinder, validDateTimes);
+            OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
             GenericChart.GenericChart[] layers = 
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
                 ?? Array.Empty<GenericChart.GenericChart>();
@@ -995,7 +1025,7 @@ namespace TradeKit.Core
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
                 sf.OnTakeProfit -= OnBreakeven;
-                m_BarsMap[sf.Id].BarOpened -= BarOpened;
+                m_SetupIdBarsMap[sf.Id].BarOpened -= BarOpened;
                 m_SymbolsMap[sf.Id].Tick -= OnTick;
             }
 
