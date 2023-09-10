@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -272,7 +273,7 @@ namespace TradeKit.Core
                 
                 m_SymbolFindersMap[symbolName] = finders.ToArray();
             }
-
+            
             foreach (KeyValuePair<string, T> finder in m_SetupFindersMap)
             {
                 TimeFrame chartTimeFrame = TimeFrameHelper
