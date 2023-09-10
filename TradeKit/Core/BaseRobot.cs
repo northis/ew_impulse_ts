@@ -481,7 +481,8 @@ namespace TradeKit.Core
                 return;
             }
 
-            GeneratePlotImageFile(sf.BarsProvider, signalEventArgs, true);
+            IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
+            GeneratePlotImageFile(bp, signalEventArgs, true);
             m_ChartFileFinderMap.Remove(sf.Id);
         }
 
@@ -700,8 +701,9 @@ namespace TradeKit.Core
                     File.Delete(file);
                 }
             }
-            
-            string plotImagePath = GeneratePlotImageFile(sf.BarsProvider, e);
+
+            IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
+            string plotImagePath = GeneratePlotImageFile(bp, e);
             if (SaveChartForManualAnalysis)
             {
                 m_ChartFileFinderMap[sf.Id] = e;
