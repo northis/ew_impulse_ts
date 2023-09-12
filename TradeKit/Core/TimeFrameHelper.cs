@@ -16,16 +16,17 @@ namespace TradeKit.Core
             {
                 new(TimeFrame.Minute, TimeSpan.FromMinutes(1), TimeFrame.Minute, TimeFrame.Minute5),
                 new(TimeFrame.Minute5, TimeSpan.FromMinutes(5), TimeFrame.Minute, TimeFrame.Minute10),
-                new(TimeFrame.Minute10, TimeSpan.FromMinutes(10), TimeFrame.Minute5, TimeFrame.Minute15),
-                new(TimeFrame.Minute15, TimeSpan.FromMinutes(15), TimeFrame.Minute10, TimeFrame.Minute30),
-                new(TimeFrame.Minute30, TimeSpan.FromMinutes(30), TimeFrame.Minute15, TimeFrame.Hour),
-                new(TimeFrame.Minute45, TimeSpan.FromMinutes(45), TimeFrame.Minute30, TimeFrame.Hour),
-                new(TimeFrame.Hour, TimeSpan.FromHours(1), TimeFrame.Minute30, TimeFrame.Hour2),
-                new(TimeFrame.Hour2, TimeSpan.FromHours(2), TimeFrame.Hour, TimeFrame.Hour4),
-                new(TimeFrame.Hour4, TimeSpan.FromHours(4), TimeFrame.Hour2, TimeFrame.Daily),
-                new(TimeFrame.Daily, TimeSpan.FromDays(1), TimeFrame.Hour4, TimeFrame.Weekly),
-                new(TimeFrame.Weekly, TimeSpan.FromDays(7), TimeFrame.Daily, TimeFrame.Monthly),
-                new(TimeFrame.Monthly, TimeSpan.FromDays(30), TimeFrame.Weekly, TimeFrame.Monthly)
+                new(TimeFrame.Minute10, TimeSpan.FromMinutes(10), TimeFrame.Minute, TimeFrame.Minute15),
+                new(TimeFrame.Minute15, TimeSpan.FromMinutes(15), TimeFrame.Minute, TimeFrame.Minute30),
+                new(TimeFrame.Minute20, TimeSpan.FromMinutes(20), TimeFrame.Minute5, TimeFrame.Minute30),
+                new(TimeFrame.Minute30, TimeSpan.FromMinutes(30), TimeFrame.Minute5, TimeFrame.Minute45),
+                new(TimeFrame.Minute45, TimeSpan.FromMinutes(45), TimeFrame.Minute15, TimeFrame.Hour),
+                new(TimeFrame.Hour, TimeSpan.FromHours(1), TimeFrame.Minute15, TimeFrame.Hour2),
+                new(TimeFrame.Hour2, TimeSpan.FromHours(2), TimeFrame.Minute15, TimeFrame.Hour4),
+                new(TimeFrame.Hour4, TimeSpan.FromHours(4), TimeFrame.Hour, TimeFrame.Daily),
+                new(TimeFrame.Daily, TimeSpan.FromDays(1), TimeFrame.Hour, TimeFrame.Weekly),
+                new(TimeFrame.Weekly, TimeSpan.FromDays(7), TimeFrame.Hour4, TimeFrame.Monthly),
+                new(TimeFrame.Monthly, TimeSpan.FromDays(30), TimeFrame.Daily, TimeFrame.Monthly)
             };
 
             TimeFrames = timeFramesList.ToDictionary(a => a.TimeFrame, a => a);
