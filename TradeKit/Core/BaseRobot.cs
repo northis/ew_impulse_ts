@@ -45,6 +45,7 @@ namespace TradeKit.Core
         private Dictionary<string, T> m_SetupFindersMap;
         private Dictionary<string, T[]> m_SymbolFindersMap;
         private Dictionary<string, Bars> m_SetupIdBarsMap;
+        private HashSet<Bars> m_MinimalBars;
         private Dictionary<string, IBarsProvider> m_FinderIdChartBarProviderMap;
         private Dictionary<string, Symbol> m_SymbolsMap;
         private Dictionary<string, bool> m_BarsInitMap;
@@ -234,6 +235,7 @@ namespace TradeKit.Core
             m_SymbolFindersMap = new Dictionary<string, T[]>();
             m_PositionFinderMap = new Dictionary<string, List<int>>();
             m_ChartFileFinderMap = new Dictionary<string, TK>();
+            m_MinimalBars = new HashSet<Bars>();
             m_CurrentRisk = RiskPercentFromDeposit;
 
             string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
@@ -251,7 +253,6 @@ namespace TradeKit.Core
 
                 Symbol symbolEntity = Symbols.GetSymbol(symbolName);
                 var finders = new List<T>();
-
                 foreach (string timeFrameStr in timeFrames)
                 {
                     if (!TimeFrame.TryParse(timeFrameStr, out TimeFrame timeFrame))
@@ -264,7 +265,6 @@ namespace TradeKit.Core
                     m_SetupIdBarsMap[key] = bars;
                     m_SetupIdBarsMap[key].BarOpened += BarOpened;
                     m_SymbolsMap[key] = symbolEntity;
-                    //m_SymbolsMap[key].Tick += OnTick; // Check if it works
                     m_SetupFindersMap[key] = sf;
                     m_BarsInitMap[key] = false;
                     finders.Add(sf);
@@ -276,6 +276,8 @@ namespace TradeKit.Core
 
 
             Logger.Write("Creating chart dictionaries...");
+
+            var symbolTfMap = new Dictionary<Symbol, TimeFrame>();
             foreach (KeyValuePair<string, T> finder in m_SetupFindersMap)
             {
                 TimeFrame chartTimeFrame = TimeFrameHelper
@@ -288,10 +290,15 @@ namespace TradeKit.Core
                     .Select(a => a.Value.BarsProvider)
                     .FirstOrDefault();
 
-                if (barProvider == null)
+                if (barProvider == null && 
+                    !(symbolTfMap.ContainsKey(finder.Value.Symbol) &&
+                    symbolTfMap[finder.Value.Symbol].Equals(chartTimeFrame)))
                 {
                     Bars bars = MarketData.GetBars(chartTimeFrame, finder.Value.Symbol.Name);
                     barProvider = GetBarsProvider(bars, finder.Value.Symbol);
+                    bars.BarOpened += MinimalBarOpened;
+                    m_MinimalBars.Add(bars);
+                    symbolTfMap[finder.Value.Symbol] = chartTimeFrame;
                 }
 
                 m_FinderIdChartBarProviderMap[finder.Key] = barProvider;
@@ -308,6 +315,31 @@ namespace TradeKit.Core
             TelegramReporter = new TelegramReporter(
                 TelegramBotToken, ChatId, PostCloseMessages, stateMap, OnReportStateSave);
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
+        }
+        
+        private void MinimalBarOpened(BarOpenedEventArgs obj)
+        {
+            try
+            {
+                if (!m_SymbolFindersMap.TryGetValue(obj.Bars.SymbolName, out T[] finders))
+                {
+                    return;
+                }
+                
+                foreach (T sf in finders)
+                {
+                    if (!m_BarsInitMap[sf.Id])
+                    {
+                        continue;
+                    }
+
+                    sf.CheckTick(obj.Bars.LastBar.Close);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Write($"{nameof(MinimalBarOpened)} error: {ex.Message} {ex.StackTrace}");
+            }
         }
 
         /// <summary>
@@ -347,26 +379,6 @@ namespace TradeKit.Core
             }
         }
 
-        private void OnTick(SymbolTickEventArgs obj)
-        {
-            try
-            {
-                if (!m_SymbolFindersMap.TryGetValue(obj.SymbolName, out T[] finders))
-                {
-                    return;
-                }
-
-                foreach (T sf in finders)
-                {
-                    sf.CheckTick(obj.Bid);
-                }
-            }
-            catch (Exception ex)
-            {
-               Logger.Write($"{nameof(OnTick)}: {ex.Message}");
-            }
-        }
-
         private void BarOpened(BarOpenedEventArgs obj)
         {
             try
@@ -387,6 +399,7 @@ namespace TradeKit.Core
 
                 if (m_BarsInitMap[finderId])
                 {
+                    Logger.Write($"{nameof(BarOpened)}: {obj.Bars.SymbolName} {obj.Bars.TimeFrame.ShortName}");
                     sf.CheckBar(index);
                     return;
                 }
@@ -402,6 +415,7 @@ namespace TradeKit.Core
                 sf.OnBreakEven += OnBreakeven;
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[finderId] = true;
+                Logger.Write($"{nameof(BarOpened)}: Bars initialized - {obj.Bars.SymbolName} {obj.Bars.TimeFrame.ShortName}");
             }
             catch (Exception ex)
             {
@@ -1031,7 +1045,11 @@ namespace TradeKit.Core
                 sf.OnTakeProfit -= OnTakeProfit;
                 sf.OnTakeProfit -= OnBreakeven;
                 m_SetupIdBarsMap[sf.Id].BarOpened -= BarOpened;
-                m_SymbolsMap[sf.Id].Tick -= OnTick;
+            }
+
+            foreach (Bars minimalBar in m_MinimalBars)
+            {
+                minimalBar.BarOpened -= MinimalBarOpened;
             }
 
             Logger.Write($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");

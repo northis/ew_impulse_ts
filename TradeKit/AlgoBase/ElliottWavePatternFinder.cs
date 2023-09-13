@@ -611,7 +611,9 @@ namespace TradeKit.AlgoBase
             int? smoothImpulsePeriod = null; //In what period we can get only two pivot points
             // on the start and on the end.
 
-            for (int p = period; p >= Helper.PIVOT_PERIOD_MIN; p--)
+            
+
+            for (int p = Math.Min(period, Helper.PIVOT_PERIOD); p >= Helper.PIVOT_PERIOD_MIN; p--)
             {
                 RecalculatePivots(p);
 
@@ -633,6 +635,7 @@ namespace TradeKit.AlgoBase
                 {
                     mergedDates.Add(highValue.Key);
                 }
+
                 foreach (KeyValuePair<DateTime, double> lowValue in lowValues)
                 {
                     if (mergedDates.Contains(lowValue.Key))
@@ -643,72 +646,73 @@ namespace TradeKit.AlgoBase
                 bool direction = isImpulseUp;
                 // We want to remove the same direction pivot points in a row
                 var allPivots = new SortedDictionary<DateTime, double>();
-                foreach (DateTime mergedDate in mergedDates.OrderBy(a=>a))
+                foreach (DateTime mergedDate in mergedDates.OrderBy(a => a))
                 {
-                    if (direction)// We expect next high
+                    if (direction) // We expect next high
                     {
                         if (!m_PivotPointsFinder.HighValues.ContainsKey(mergedDate)) continue;
                         allPivots.Add(mergedDate, m_PivotPointsFinder.HighValues[mergedDate]);
                         direction = false;
                     }
-                    else// We expect next low
+                    else // We expect next low
                     {
                         if (!m_PivotPointsFinder.LowValues.ContainsKey(mergedDate)) continue;
                         allPivots.Add(mergedDate, m_PivotPointsFinder.LowValues[mergedDate]);
                         direction = true;
                     }
                 }
-                
+
                 int pivotCount = allPivots.Count;
-                if (!smoothImpulsePeriod.HasValue && pivotCount == 0 && mergedDates.Count == 0)
+                if (pivotCount == 0 && mergedDates.Count == 0)
                 {
                     smoothImpulsePeriod = p;
-                    continue;
+                    break;
+                    //continue;
                 }
 
-                if (!smoothImpulsePeriod.HasValue || pivotCount == 0)
-                {
-                    continue;
-                }
+                //if (!smoothImpulsePeriod.HasValue || pivotCount == 0)
+                //{
+                //    continue;
+                //}
 
-                if (allPivots.Count < 4) // Zig-zag, adios.
-                {
-                    result = null;
-                    return false;
-                }
+                //if (allPivots.Count < 4) // Zig-zag, adios.
+                //{
+                //    result = null;
+                //    return false;
+                //}
 
-                BarPoint GetBarPoint(int position)
-                {
-                    KeyValuePair<DateTime, double> item = allPivots.ElementAt(position);
-                    return new BarPoint(item.Value, item.Key, m_BarsProvider);
-                }
+                //BarPoint GetBarPoint(int position)
+                //{
+                //    KeyValuePair<DateTime, double> item = allPivots.ElementAt(position);
+                //    return new BarPoint(item.Value, item.Key, m_BarsProvider);
+                //}
 
-                if (allPivots.Count == 4) // Looks like an impulse, let's take a look on it.
-                {
-                    result = null;
-                    return false;
-                    var firstEnd = GetBarPoint(0);
-                    var secondEnd = GetBarPoint(1);
-                    var thirdEnd = GetBarPoint(2);
-                    var forthEnd = GetBarPoint(3);
+                //if (allPivots.Count == 4) // Looks like an impulse, let's take a look on it.
+                //{
+                //    result = null;
+                //    return false;
+                //    var firstEnd = GetBarPoint(0);
+                //    var secondEnd = GetBarPoint(1);
+                //    var thirdEnd = GetBarPoint(2);
+                //    var forthEnd = GetBarPoint(3);
 
-                    //Check rules
+                //    //Check rules
 
-                    result = new ElliottModelResult(ElliottModelType.IMPULSE,
-                        new[] {start, firstEnd, secondEnd, thirdEnd, forthEnd, end}, null);
-                    return true;
-                }
+                //    result = new ElliottModelResult(ElliottModelType.IMPULSE,
+                //        new[] {start, firstEnd, secondEnd, thirdEnd, forthEnd, end}, null);
+                //    return true;
+                //}
 
-                if (allPivots.Count > 4) // Too many sub-waves, we can analyze them some day.
-                {
-                    result = null;
-                    return false;
-                }
+                //if (allPivots.Count > 4) // Too many sub-waves, we can analyze them some day.
+                //{
+                //    result = null;
+                //    return false;
+                //}
             }
 
             if (smoothImpulsePeriod.HasValue)
             {
-                result = new ElliottModelResult(ElliottModelType.IMPULSE, new[] { start, end }, null);
+                result = new ElliottModelResult(ElliottModelType.IMPULSE, new[] {start, end}, null);
                 return true;
             }
 
