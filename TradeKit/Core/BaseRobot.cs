@@ -316,7 +316,7 @@ namespace TradeKit.Core
         /// <param name="stateMap">The state map (signal id-post Id).</param>
         protected void OnReportStateSave(Dictionary<string, int> stateMap)
         {
-            LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Instance);
+            LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Device);
         }
 
         /// <summary>

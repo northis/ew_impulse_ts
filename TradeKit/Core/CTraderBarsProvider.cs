@@ -21,6 +21,7 @@ namespace TradeKit.Core
         {
             m_Bars = bars;
             Symbol = symbolEntity;
+            bars.LoadMoreHistory();
         }
 
         /// <summary>
