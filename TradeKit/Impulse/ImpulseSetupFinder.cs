@@ -1,11 +1,14 @@
-﻿using System;
+﻿using cAlgo.API.Indicators;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Intrinsics.X86;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using static Plotly.NET.StyleParam.Range;
 
 namespace TradeKit.Impulse
 {
@@ -64,7 +67,8 @@ namespace TradeKit.Impulse
             m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
         }
 
-        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, BarPoint edgeExtremum,double endValue, int barsCount, double max, double min, out int stochasticPercent, out int overlapsePercent, out int channelAngle)
+        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, BarPoint edgeExtremum,double endValue, int barsCount, double max, double min, out int stochasticPercent, out int overlapsePercent, out int channelAngle, 
+            out double standardDeviation)
         {
             channelAngle = Convert.ToInt32(180 / Math.PI * Math.Atan2(
                 startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount));
@@ -93,12 +97,15 @@ namespace TradeKit.Impulse
             double currentPoint = min;
             double overlapsedIndex = 0;
 
+            var countParts = new List<int>();
             void NextPoint(double nextPoint)
             {
                 int cdlCount = candles.Count(a => a.L < currentPoint && a.H > currentPoint ||
                                                   a.L >= currentPoint && a.H <= nextPoint ||
                                                   a.L < nextPoint && a.H > nextPoint ||
                                                   a.L <= currentPoint && a.H >= nextPoint);
+
+                countParts.Add(cdlCount == 0 ? 1 : cdlCount);
                 if (cdlCount <= 1) // gap (<1) or single candle (=1)
                 {
                     return;
@@ -106,12 +113,16 @@ namespace TradeKit.Impulse
 
                 overlapsedIndex += (nextPoint - currentPoint) * cdlCount;
             }
-            
+
             foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
             {
                 NextPoint(nextPoint);
                 currentPoint = nextPoint;
             }
+
+            double avgParts = countParts.Average();
+            double sum = countParts.Sum(d => Math.Pow(d - avgParts, 2));
+            standardDeviation = Math.Sqrt((sum) / (countParts.Count - 1));
 
             double totalLength = max - min;
             double stochLength = stochH - stochL;
@@ -350,6 +361,7 @@ namespace TradeKit.Impulse
                 {
                     // TP or SL is already hit, cannot use this signal
                     Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
+                    IsInSetup = false;
                     return;
                 }
 
@@ -361,7 +373,14 @@ namespace TradeKit.Impulse
                 GetStatistics(startItem, edgeExtremum, endValue, barsCount, max, min,
                     out int stochasticPercent,
                     out int overlapsePercent,
-                    out int channelAngle);
+                    out int channelAngle,
+                    out double standardDeviation);
+
+                if (standardDeviation > 0.7)
+                {
+                    IsInSetup = false;
+                    return;
+                }
 
                 if (!isImpulseUp)
                 {
@@ -369,7 +388,7 @@ namespace TradeKit.Impulse
                     stochasticPercent = 100 - stochasticPercent;
                 }
 
-                string paramsStringComment = $"∠{channelAngle}° 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}%".Replace(",",".");
+                string paramsStringComment = $"∠{channelAngle}° 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}% σ{standardDeviation:F2}".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,

@@ -666,20 +666,16 @@ namespace TradeKit.AlgoBase
                 if (pivotCount == 0 && mergedDates.Count == 0)
                 {
                     smoothImpulsePeriod = p;
-                    break;
-                    //continue;
+                    continue;
                 }
 
-                //if (!smoothImpulsePeriod.HasValue || pivotCount == 0)
-                //{
-                //    continue;
-                //}
+                smoothImpulsePeriod = null;
 
-                //if (allPivots.Count < 4) // Zig-zag, adios.
-                //{
-                //    result = null;
-                //    return false;
-                //}
+                if (allPivots.Count < 4) // Zig-zag, adios.
+                {
+                    result = null;
+                    return false;
+                }
 
                 //BarPoint GetBarPoint(int position)
                 //{
