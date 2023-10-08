@@ -23,9 +23,9 @@ namespace TradeKit.Core
         public const double PERCENT_ALLOWANCE_TP = 0;
         public const double PERCENT_CORRECTION_DEF = 200;
         public const double MAX_SPREAD_RATIO = 0.15;
-        public const int MIN_IMPULSE_SCALE = 10;
+        public const int MIN_IMPULSE_SCALE = 50;
         public const int MAX_IMPULSE_SCALE = 50;
-        public const int STEP_IMPULSE_SCALE = 40;
+        public const int STEP_IMPULSE_SCALE = 1;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;
@@ -49,8 +49,8 @@ namespace TradeKit.Core
 
         public const int MOVING_AVERAGE_PERIOD = 13;
 
-        public const int PIVOT_PERIOD = 3;// yes
-        public const int PIVOT_PERIOD_MIN = 3;
+        public const int PIVOT_PERIOD = 2;// yes
+        public const int PIVOT_PERIOD_MIN = 2;
 
         public const int STOCHASTIC_K_PERIODS = 5;
         public const int STOCHASTIC_D_PERIODS = 3;

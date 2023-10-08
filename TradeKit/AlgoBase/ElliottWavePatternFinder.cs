@@ -17,6 +17,7 @@ namespace TradeKit.AlgoBase
         private readonly int m_ZoomMin;
         private readonly double m_CorrectionAllowancePercent;
         private readonly IBarsProvider m_BarsProvider;
+        private readonly IBarsProvider m_BarsProviderMinor;
         private readonly BarProvidersFactory m_BarsFactory;
 
         private Dictionary<ElliottModelType, ModelRules> m_ModelRules;
@@ -39,6 +40,9 @@ namespace TradeKit.AlgoBase
             m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
             m_BarsFactory = barsFactory;
+            m_BarsProviderMinor =
+                barsFactory.GetBarsProvider(
+                    TimeFrameHelper.GetPreviousTimeFrameInfo(barsProvider.TimeFrame).TimeFrame);
 
             m_PivotPointsFinder = new PivotPointsFinder(Helper.PIVOT_PERIOD, barsProvider);
             //InitModelRules();
@@ -46,12 +50,18 @@ namespace TradeKit.AlgoBase
 
         #region EA model rules, may be I will use this one day
 
+        private ElliottModelResult CheckImpulseRules2(List<BarPoint> barPoints)
+        {
+            if (barPoints.Count <= 2)
+                return new ElliottModelResult(ElliottModelType.IMPULSE, barPoints.ToArray(), null);
+
+            return null;
+        }
+
+
         private ElliottModelResult CheckImpulseRules(List<BarPoint> barPoints)
         {
-            if (barPoints.Count < 2)
-                return null;
-
-            if (barPoints.Count == 2)
+            if (barPoints.Count <= 2)
                 return new ElliottModelResult(ElliottModelType.IMPULSE, barPoints.ToArray(), null);
             
             bool isUp = barPoints[0] < barPoints[^1];
@@ -592,6 +602,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
+            result = null;
             var barsCount = end.BarIndex - start.BarIndex;
             var period = barsCount;
             if (period < Helper.PIVOT_PERIOD_MIN)
@@ -600,120 +611,126 @@ namespace TradeKit.AlgoBase
                 return false;
             }
 
-            void RecalculatePivots(int p)
-            {
-                m_PivotPointsFinder.Reset(p);
-                m_PivotPointsFinder.Calculate(start.BarIndex - p, end.BarIndex + p);
-            }
-            // add stochastic filter
-
             bool isImpulseUp = start.Value < end.Value;
-            int? smoothImpulsePeriod = null; //In what period we can get only two pivot points
-            // on the start and on the end.
+            int p = Helper.PIVOT_PERIOD_MIN;
+            m_PivotPointsFinder.Reset(p);
+            m_PivotPointsFinder.Calculate(start.BarIndex - p, end.BarIndex + p);
 
-            
-
-            for (int p = Math.Min(period, Helper.PIVOT_PERIOD); p >= Helper.PIVOT_PERIOD_MIN; p--)
+            if (isImpulseUp && (m_PivotPointsFinder.GetLowValue(start.OpenTime) == null ||
+                                m_PivotPointsFinder.GetHighValue(end.OpenTime) == null) ||
+                !isImpulseUp && (m_PivotPointsFinder.GetHighValue(start.OpenTime) == null ||
+                                 m_PivotPointsFinder.GetLowValue(end.OpenTime) == null))
             {
-                RecalculatePivots(p);
+                return false;
+            }
 
-                if (isImpulseUp && (m_PivotPointsFinder.GetLowValue(start.OpenTime) == null ||
-                                    m_PivotPointsFinder.GetHighValue(end.OpenTime) == null) ||
-                    !isImpulseUp && (m_PivotPointsFinder.GetHighValue(start.OpenTime) == null ||
-                                     m_PivotPointsFinder.GetLowValue(end.OpenTime) == null))
+            Dictionary<DateTime, double> highValues = m_PivotPointsFinder.HighValues
+                .Where(a => a.Key >= start.OpenTime && 
+                            a.Key <= end.OpenTime && !double.IsNaN(a.Value))
+                .ToDictionary(a => a.Key, a => a.Value);
+            Dictionary<DateTime, double> lowValues = m_PivotPointsFinder.LowValues
+                .Where(a => a.Key >= start.OpenTime && 
+                            a.Key <= end.OpenTime && !double.IsNaN(a.Value))
+                .ToDictionary(a => a.Key, a => a.Value);
+
+            var mergedDates = new HashSet<DateTime>();
+            foreach (KeyValuePair<DateTime, double> highValue in highValues)
+            {
+                mergedDates.Add(highValue.Key);
+            }
+
+            var collisionLows = new Dictionary<DateTime, double>();
+            foreach (KeyValuePair<DateTime, double> lowValue in lowValues)
+            {
+                if (!mergedDates.Contains(lowValue.Key))
                 {
-                    continue;
-                }
-
-                var highValues = m_PivotPointsFinder.HighValues.Where(
-                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value));
-                var lowValues = m_PivotPointsFinder.LowValues.Where(
-                    a => a.Key > start.OpenTime && a.Key < end.OpenTime && !double.IsNaN(a.Value));
-
-                var mergedDates = new HashSet<DateTime>();
-                foreach (KeyValuePair<DateTime, double> highValue in highValues)
-                {
-                    mergedDates.Add(highValue.Key);
-                }
-
-                foreach (KeyValuePair<DateTime, double> lowValue in lowValues)
-                {
-                    if (mergedDates.Contains(lowValue.Key))
-                        continue;
                     mergedDates.Add(lowValue.Key);
-                }
-
-                bool direction = isImpulseUp;
-                // We want to remove the same direction pivot points in a row
-                var allPivots = new SortedDictionary<DateTime, double>();
-                foreach (DateTime mergedDate in mergedDates.OrderBy(a => a))
-                {
-                    if (direction) // We expect next high
-                    {
-                        if (!m_PivotPointsFinder.HighValues.ContainsKey(mergedDate)) continue;
-                        allPivots.Add(mergedDate, m_PivotPointsFinder.HighValues[mergedDate]);
-                        direction = false;
-                    }
-                    else // We expect next low
-                    {
-                        if (!m_PivotPointsFinder.LowValues.ContainsKey(mergedDate)) continue;
-                        allPivots.Add(mergedDate, m_PivotPointsFinder.LowValues[mergedDate]);
-                        direction = true;
-                    }
-                }
-
-                int pivotCount = allPivots.Count;
-                if (pivotCount == 0 && mergedDates.Count == 0)
-                {
-                    smoothImpulsePeriod = p;
                     continue;
                 }
 
-                smoothImpulsePeriod = null;
+                //a collision
+                DateTime startKey = lowValue.Key;
+                DateTime endKey = startKey.Add(
+                    TimeFrameHelper.GetTimeFrameInfo(m_BarsProvider.TimeFrame).TimeSpan);
 
-                if (allPivots.Count < 4) // Zig-zag, adios.
+                highValues.Remove(lowValue.Key);
+                mergedDates.Remove(lowValue.Key);
+                KeyValuePair<DateTime, double> low =
+                    m_BarsProviderMinor.GetLowPrice(startKey, endKey);
+                KeyValuePair<DateTime, double> high =
+                    m_BarsProviderMinor.GetHighPrice(startKey, endKey);
+                highValues.Add(high.Key, high.Value);
+                collisionLows.Add(low.Key, low.Value);
+                mergedDates.Add(high.Key);
+
+                if (low.Key != high.Key)
+                    mergedDates.Add(low.Key);
+            }
+
+            foreach (KeyValuePair<DateTime, double> colLow in collisionLows)
+            {
+                if (lowValues.ContainsKey(colLow.Key))
+                    continue;
+
+                lowValues.Add(colLow.Key, colLow.Value);
+            }
+
+            bool direction = !isImpulseUp;
+            // We want to remove the same direction pivot points in a row
+            List<BarPoint> extrema = new List<BarPoint>();
+            DateTime[] dates = mergedDates.OrderBy(a => a).ToArray();
+
+            foreach (DateTime mergedDate in dates)
+            {
+                if (direction) // We expect next high
                 {
-                    result = null;
-                    return false;
+                    if (!highValues.ContainsKey(mergedDate))
+                    {
+                        // we should restore the missed low
+                        if (!lowValues.ContainsKey(mergedDate))
+                        {
+                            Logger.Write("Low is not found, rewrite this");
+                            return false;
+                        }
+
+                        extrema.Add(new BarPoint(
+                            lowValues[mergedDate], mergedDate,
+                            m_BarsProvider));
+                        continue;
+                    }
+
+                    extrema.Add(new BarPoint(
+                        highValues[mergedDate], mergedDate,
+                        m_BarsProvider));
+                    direction = false;
+                    continue;
                 }
 
-                //BarPoint GetBarPoint(int position)
-                //{
-                //    KeyValuePair<DateTime, double> item = allPivots.ElementAt(position);
-                //    return new BarPoint(item.Value, item.Key, m_BarsProvider);
-                //}
+                // We expect next low
+                if (!lowValues.ContainsKey(mergedDate))
+                {
+                    // we should restore the missed high
+                    if (!highValues.ContainsKey(mergedDate))
+                    {
+                        Logger.Write("High is not found, rewrite this");
+                        return false;
+                    }
 
-                //if (allPivots.Count == 4) // Looks like an impulse, let's take a look on it.
-                //{
-                //    result = null;
-                //    return false;
-                //    var firstEnd = GetBarPoint(0);
-                //    var secondEnd = GetBarPoint(1);
-                //    var thirdEnd = GetBarPoint(2);
-                //    var forthEnd = GetBarPoint(3);
+                    // TODO Refactor this loop
+                    extrema.Add(new BarPoint(
+                        highValues[mergedDate], mergedDate,
+                        m_BarsProvider));
+                    continue;
+                }
 
-                //    //Check rules
-
-                //    result = new ElliottModelResult(ElliottModelType.IMPULSE,
-                //        new[] {start, firstEnd, secondEnd, thirdEnd, forthEnd, end}, null);
-                //    return true;
-                //}
-
-                //if (allPivots.Count > 4) // Too many sub-waves, we can analyze them some day.
-                //{
-                //    result = null;
-                //    return false;
-                //}
+                extrema.Add(new BarPoint(
+                    lowValues[mergedDate], mergedDate,
+                    m_BarsProvider));
+                direction = true;
             }
-
-            if (smoothImpulsePeriod.HasValue)
-            {
-                result = new ElliottModelResult(ElliottModelType.IMPULSE, new[] {start, end}, null);
-                return true;
-            }
-
-            result = null;
-            return false;
+            
+            result = CheckImpulseRules2(extrema);
+            return result != null;
         }
     }
 }

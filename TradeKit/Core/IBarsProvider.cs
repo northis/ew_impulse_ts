@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
 
@@ -16,10 +17,38 @@ namespace TradeKit.Core
         double GetLowPrice(int index);
 
         /// <summary>
+        /// Gets the [low price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
+        /// </summary>
+        /// <param name="startIndex">The start index.</param>
+        /// <param name="endIndex">The end index.</param>
+        KeyValuePair<int, double> GetLowPrice(int startIndex, int endIndex);
+
+        /// <summary>
+        /// Gets the [low price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
+        /// </summary>
+        /// <param name="startDate">The start date.</param>
+        /// <param name="endDate">The end date.</param>
+        KeyValuePair<DateTime, double> GetLowPrice(DateTime startDate, DateTime endDate);
+
+        /// <summary>
         /// Gets the high price of the candle by the <see cref="index"/> specified.
         /// </summary>
         /// <param name="index">The index.</param>
         double GetHighPrice(int index);
+
+        /// <summary>
+        /// Gets the [high price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
+        /// </summary>
+        /// <param name="startIndex">The start index.</param>
+        /// <param name="endIndex">The end index.</param>
+        KeyValuePair<int, double> GetHighPrice(int startIndex, int endIndex);
+
+        /// <summary>
+        /// Gets the [high price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
+        /// </summary>
+        /// <param name="startDate">The start date.</param>
+        /// <param name="endDate">The end date.</param>
+        KeyValuePair<DateTime, double> GetHighPrice(DateTime startDate, DateTime endDate);
 
         /// <summary>
         /// Gets the open price of the candle by the <see cref="index" /> specified.

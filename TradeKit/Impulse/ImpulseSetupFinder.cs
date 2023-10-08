@@ -97,7 +97,7 @@ namespace TradeKit.Impulse
             double currentPoint = min;
             double overlapsedIndex = 0;
 
-            var countParts = new List<int>();
+            var countParts = new List<double>();
             void NextPoint(double nextPoint)
             {
                 int cdlCount = candles.Count(a => a.L < currentPoint && a.H > currentPoint ||
@@ -111,7 +111,8 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                overlapsedIndex += (nextPoint - currentPoint) * cdlCount;
+                double diff = nextPoint - currentPoint;
+                overlapsedIndex += diff * cdlCount;
             }
 
             foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
@@ -121,8 +122,8 @@ namespace TradeKit.Impulse
             }
 
             double avgParts = countParts.Average();
-            double sum = countParts.Sum(d => Math.Pow(d - avgParts, 2));
-            standardDeviation = Math.Sqrt((sum) / (countParts.Count - 1));
+            double sum = countParts.Sum(a => Math.Pow(a - avgParts, 2));
+            standardDeviation = Math.Sqrt(sum / (countParts.Count - 1));
 
             double totalLength = max - min;
             double stochLength = stochH - stochL;
@@ -299,6 +300,7 @@ namespace TradeKit.Impulse
                     // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
                     return;
                 }
+                //Debugger.Launch();
 
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)
@@ -376,11 +378,11 @@ namespace TradeKit.Impulse
                     out int channelAngle,
                     out double standardDeviation);
 
-                if (standardDeviation > 0.7)
-                {
-                    IsInSetup = false;
-                    return;
-                }
+                //if (standardDeviation > 0.7)
+                //{
+                //    IsInSetup = false;
+                //    return;
+                //}
 
                 if (!isImpulseUp)
                 {

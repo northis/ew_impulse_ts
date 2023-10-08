@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
 
@@ -11,6 +12,7 @@ namespace TradeKit.Core
     internal class CTraderBarsProvider : IBarsProvider
     {
         private readonly Bars m_Bars;
+        private const int MAX_LOAD_ATTEMPTS = 5;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
@@ -33,12 +35,98 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Gets the extremum price.
+        /// </summary>
+        /// <param name="startIndex">The start index.</param>
+        /// <param name="endIndex">The end index.</param>
+        /// <param name="isHigh">The end index.</param>
+        private KeyValuePair<int, double> GetExtremumPrice(
+            int startIndex, int endIndex, bool isHigh)
+        {
+            double extrema = isHigh ? double.NegativeInfinity : double.PositiveInfinity;
+            int index = startIndex;
+            for (int i = startIndex; i <= endIndex; i++)
+            {
+                if (isHigh)
+                {
+                    double high = m_Bars.HighPrices[i];
+                    if(double.IsNaN(high))
+                        continue;
+
+                    if (high > extrema)
+                    {
+                        index = i;
+                        extrema = high;
+                    }
+
+                    continue;
+                }
+
+                double low = m_Bars.LowPrices[i];
+                if (double.IsNaN(low))
+                    continue;
+
+                if (low < extrema)
+                {
+                    index = i;
+                    extrema = low;
+                }
+            }
+
+            return new KeyValuePair<int, double>(index, extrema);
+        }
+
+        /// <summary>
+        /// Gets the [low price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
+        /// </summary>
+        /// <param name="startIndex">The start index.</param>
+        /// <param name="endIndex">The end index.</param>
+        public KeyValuePair<int, double> GetLowPrice(int startIndex, int endIndex)
+        {
+            return GetExtremumPrice(startIndex, endIndex, false);
+        }
+
+        /// <summary>
+        /// Gets the [low price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
+        /// </summary>
+        /// <param name="startDate">The start date.</param>
+        /// <param name="endDate">The end date.</param>
+        public KeyValuePair<DateTime, double> GetLowPrice(DateTime startDate, DateTime endDate)
+        {
+            KeyValuePair<int, double> res = GetLowPrice(
+                GetIndexByTime(startDate), GetIndexByTime(startDate));
+            return new KeyValuePair<DateTime, double>(m_Bars.OpenTimes[res.Key], res.Value);
+        }
+
+        /// <summary>
         /// Gets the high price of the candle by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
         public virtual double GetHighPrice(int index)
         {
             return m_Bars.HighPrices[index];
+        }
+
+        /// <summary>
+        /// Gets the [high price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
+        /// </summary>
+        /// <param name="startIndex">The start index.</param>
+        /// <param name="endIndex">The end index.</param>
+        public KeyValuePair<int, double> GetHighPrice(int startIndex, int endIndex)
+        {
+            return GetExtremumPrice(startIndex, endIndex, true);
+        }
+
+        /// <summary>
+        /// Gets the [high price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
+        /// </summary>
+        /// <param name="startDate">The start index.</param>
+        /// <param name="endDate">The end index.</param>
+        public KeyValuePair<DateTime, double> GetHighPrice(DateTime startDate, DateTime endDate)
+        {
+            KeyValuePair<int, double> res = GetHighPrice(
+                GetIndexByTime(startDate), GetIndexByTime(startDate));
+            return new KeyValuePair<DateTime, double>(m_Bars.OpenTimes[res.Key], res.Value);
         }
 
         /// <summary>
@@ -131,7 +219,25 @@ namespace TradeKit.Core
         /// <param name="dateTime">The date time.</param>
         public int GetIndexByTime(DateTime dateTime)
         {
-            return m_Bars.OpenTimes.GetIndexByTime(dateTime);
+            int index;
+            int attempts = 0;
+            do
+            {
+                index = m_Bars.OpenTimes.GetIndexByTime(dateTime);
+                if (index < 0)
+                {
+                    m_Bars.LoadMoreHistory();
+                }
+                else
+                {
+                    break;
+                }
+
+                attempts++;
+
+            } while (attempts < MAX_LOAD_ATTEMPTS);
+
+            return index;
         }
 
         /// <summary>
