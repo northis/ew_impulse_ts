@@ -1,4 +1,8 @@
-﻿using cAlgo.API;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 
@@ -67,16 +71,18 @@ namespace TradeKit.Impulse
             if (e.Waves is { Length: > 0 })
             {
                 BarPoint start = e.Waves[0];
+                BarPoint currentBar = start;
                 BarPoint[] rest = e.Waves[1..];
+                int startIndex = start.BarIndex;
                 for (int index = 0; index < rest.Length; index++)
                 {
                     BarPoint wave = rest[index];
-                    int startIndex = m_BarsProvider.GetIndexByTime(start.OpenTime);
-                    int endIndex = m_BarsProvider.GetIndexByTime(wave.OpenTime);
+                    int endIndex = wave.BarIndex;
                     Chart.DrawTrendLine($"Impulse{levelIndex}+{index}", 
-                        startIndex, start.Value, endIndex, wave.Value, Color.LightBlue);
-                    start = wave;
+                        startIndex, currentBar.Value, endIndex, wave.Value, Color.LightBlue);
+                    currentBar = wave;
                 }
+
             }
 
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");

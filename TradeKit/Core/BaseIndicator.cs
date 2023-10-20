@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.EventArgs;
 

@@ -67,8 +67,98 @@ namespace TradeKit.Impulse
             m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
         }
 
-        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, BarPoint edgeExtremum,double endValue, int barsCount, double max, double min, out int stochasticPercent, out int overlapsePercent, out int channelAngle, 
-            out double standardDeviation)
+        private bool IsImpulseProfile(
+            SortedDictionary<double, int> profile, double startValue, double endValue)
+        {
+            //double currentHistogramPrice = Math.Min(start.Value, end.Value);
+            bool inGroup = false;
+
+            List<List<double>> CheckGroups(double levelHist)
+            {
+                List<List<double>> groups = new List<List<double>>();
+
+                foreach (KeyValuePair<double, int> item in profile)
+                {
+                    if (item.Value >= levelHist)
+                    {
+                        if (!inGroup)
+                        {
+                            inGroup = true;
+                            groups.Add(new List<double> { item.Key });
+                        }
+                        else
+                        {
+                            groups[^1].Add(item.Key);
+                        }
+
+                    }
+                    else
+                    {
+                        inGroup = false;
+                    }
+
+                    //currentHistogramPrice = item.Key;
+                }
+
+                return groups;
+            }
+
+            int maxHist = profile.Max(a => a.Value);
+            double deepRatio = maxHist * Helper.IMPULSE_PROFILE_THRESHOLD;
+            List<List<double>> groups = null;
+            foreach (int val in profile.Values
+                         .Where(a => a > deepRatio)
+                         .OrderByDescending(a => a))
+            {
+                List<List<double>> groupsInner = CheckGroups(val);
+
+                groups = groupsInner;
+                break;
+            }
+
+            if (groups == null)
+            {
+                return false;
+            }
+
+            double lenFibo = Math.Abs(startValue - endValue) * Helper.IMPULSE_PROFILE_FIBO;
+            double middlePriceDown = Math.Min(startValue, endValue) + lenFibo;
+            double middlePriceUp = Math.Max(startValue, endValue) - lenFibo;
+
+            double? bottomDouble = null;
+            double? topDouble = null;
+
+            foreach (List<double> group in groups)
+            {
+                if (group[^1] < middlePriceDown)
+                {
+                    bottomDouble = group[^1];
+                    continue;
+                }
+
+                if (group[0] > middlePriceUp)
+                {
+                    if (!topDouble.HasValue)
+                    {
+                        topDouble = group[0];
+                    }
+                }
+            }
+
+            return bottomDouble.HasValue && topDouble.HasValue;
+        }
+
+        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, 
+            BarPoint edgeExtremum, 
+            double endValue,
+            int barsCount, 
+            double max, 
+            double min, 
+            out int stochasticPercent, 
+            out int overlapsePercent,
+            out int channelAngle,
+            out double standardDeviation, 
+            out SortedDictionary<double, int> profile)
         {
             channelAngle = Convert.ToInt32(180 / Math.PI * Math.Atan2(
                 startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount));
@@ -97,7 +187,8 @@ namespace TradeKit.Impulse
             double currentPoint = min;
             double overlapsedIndex = 0;
 
-            var countParts = new List<double>();
+            var profileInner = new SortedDictionary<double, int>();
+
             void NextPoint(double nextPoint)
             {
                 int cdlCount = candles.Count(a => a.L < currentPoint && a.H > currentPoint ||
@@ -105,22 +196,30 @@ namespace TradeKit.Impulse
                                                   a.L < nextPoint && a.H > nextPoint ||
                                                   a.L <= currentPoint && a.H >= nextPoint);
 
-                countParts.Add(cdlCount == 0 ? 1 : cdlCount);
-                if (cdlCount <= 1) // gap (<1) or single candle (=1)
+                cdlCount = cdlCount == 0 ? 1 : cdlCount;
+                double diff = nextPoint - currentPoint;
+                profileInner.Add(nextPoint, cdlCount);
+
+                if (cdlCount == 1) // gap (<1) or single candle (=1)
                 {
                     return;
                 }
 
-                double diff = nextPoint - currentPoint;
                 overlapsedIndex += diff * cdlCount;
             }
 
             foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
             {
+                if (Math.Abs(nextPoint - currentPoint) <= double.Epsilon)
+                    continue;
+
                 NextPoint(nextPoint);
                 currentPoint = nextPoint;
             }
 
+            profile = profileInner;
+
+            SortedDictionary<double, int>.ValueCollection countParts = profile.Values;
             double avgParts = countParts.Average();
             double sum = countParts.Sum(a => Math.Pow(a - avgParts, 2));
             standardDeviation = Math.Sqrt(sum / (countParts.Count - 1));
@@ -128,10 +227,10 @@ namespace TradeKit.Impulse
             double totalLength = max - min;
             double stochLength = stochH - stochL;
 
-            //How many overlapses (from 0 to 100)
+            //How many do candles overlapse (from 0 to 100)
             overlapsePercent =
                 Convert.ToInt32(totalLength > 0 ? 100 * overlapsedIndex / (totalLength * barsCount) : 0);
-            
+
             //How big the impulse are (from 0 to 100)
             stochasticPercent = Convert.ToInt32(stochLength > 0 ? 100 * (endValue - stochL) / stochLength : 0);
         }
@@ -376,7 +475,15 @@ namespace TradeKit.Impulse
                     out int stochasticPercent,
                     out int overlapsePercent,
                     out int channelAngle,
-                    out double standardDeviation);
+                    out double standardDeviation,
+                    out SortedDictionary<double, int> profile);
+
+                bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
+                if (!isImpulseProfile)
+                {
+                    IsInSetup = false;
+                    return;
+                }
 
                 //if (standardDeviation > 0.7)
                 //{
@@ -390,6 +497,18 @@ namespace TradeKit.Impulse
                     stochasticPercent = 100 - stochasticPercent;
                 }
 
+                if (stochasticPercent < 100)
+                {
+                    IsInSetup = false;
+                    return;
+                }
+
+                if (impulseLengthPercent < 0.2)
+                {
+                    IsInSetup = false;
+                    return;
+                }
+
                 string paramsStringComment = $"∠{channelAngle}° 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}% σ{standardDeviation:F2}".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
@@ -397,7 +516,8 @@ namespace TradeKit.Impulse
                     slArg,
                     outExtrema.Extrema,
                     viewDateTime,
-                    paramsStringComment));
+                    paramsStringComment,
+                    profile));
                 // Here we should give a trade signal.
             }
 
