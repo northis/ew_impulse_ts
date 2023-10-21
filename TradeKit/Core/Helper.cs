@@ -16,19 +16,19 @@ namespace TradeKit.Core
 
 
         public const int ZOOM_MIN = 1;
-        public const double MINIMUM_BARS_IN_IMPULSE = 2;
+        public const double MINIMUM_BARS_IN_IMPULSE = 4;
         public const double BARS_DEPTH = 40;
         public const int EXTREMA_MAX = 40;
         public const double PERCENT_ALLOWANCE_SL = 2;
         public const double PERCENT_ALLOWANCE_TP = 0;
         public const double PERCENT_CORRECTION_DEF = 200;
         public const double MAX_SPREAD_RATIO = 0.15;
-        public const int MIN_IMPULSE_SCALE = 20;
-        public const int MAX_IMPULSE_SCALE = 420;
-        public const int STEP_IMPULSE_SCALE = 100;
+        public const int MIN_IMPULSE_SCALE = 10;
+        public const int MAX_IMPULSE_SCALE = 100;
+        public const int STEP_IMPULSE_SCALE = 30;
 
-        public const double IMPULSE_PROFILE_THRESHOLD = 0.85;
-        public const double IMPULSE_PROFILE_FIBO = 0.45;
+        public const double IMPULSE_PROFILE_THRESHOLD = 0.75;
+        public const double IMPULSE_PROFILE_FIBO = 0.44;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;

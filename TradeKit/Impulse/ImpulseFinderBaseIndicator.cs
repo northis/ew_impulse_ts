@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -81,6 +82,17 @@ namespace TradeKit.Impulse
                     Chart.DrawTrendLine($"Impulse{levelIndex}+{index}", 
                         startIndex, currentBar.Value, endIndex, wave.Value, Color.LightBlue);
                     currentBar = wave;
+                }
+
+                BarPoint end = e.Waves[^1];
+                var currentLevel = Math.Min(start.Value, end.Value);
+                var currentIndex = startIndex;
+                foreach (KeyValuePair<double, int> profile in e.Profile)
+                {
+                    Chart.DrawTrendLine($"P{levelIndex}+{profile.Key}",
+                        currentIndex, currentLevel, startIndex + profile.Value, profile.Key, Color.MediumVioletRed);
+                    currentLevel = profile.Key;
+                    currentIndex = startIndex + profile.Value;
                 }
 
             }

@@ -17,8 +17,8 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
-        private readonly BarProvidersFactory m_BarsFactory;
-        private readonly ElliottWavePatternFinder m_PatternFinder;
+        //private readonly BarProvidersFactory m_BarsFactory;
+        //private readonly ElliottWavePatternFinder m_PatternFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
 
@@ -54,7 +54,7 @@ namespace TradeKit.Impulse
             IBarsProvider mainBarsProvider,
             BarProvidersFactory barsFactory):base(mainBarsProvider, barsFactory.Symbol)
         {
-            m_BarsFactory = barsFactory;
+            //m_BarsFactory = barsFactory;
             var zoomMin = Helper.ZOOM_MIN;
 
             for (int i = Helper.MIN_IMPULSE_SCALE;
@@ -64,7 +64,7 @@ namespace TradeKit.Impulse
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
 
-            m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
+            //m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
         }
 
         private bool IsImpulseProfile(
@@ -103,17 +103,26 @@ namespace TradeKit.Impulse
                 return groups;
             }
 
-            int maxHist = profile.Max(a => a.Value);
-            double deepRatio = maxHist * Helper.IMPULSE_PROFILE_THRESHOLD;
+            double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD;
             List<List<double>> groups = null;
-            foreach (int val in profile.Values
-                         .Where(a => a > deepRatio)
-                         .OrderByDescending(a => a))
-            {
-                List<List<double>> groupsInner = CheckGroups(val);
+            List<int> profileLevels = profile.Values
+                .Where(a => a > maxHist)
+                .OrderByDescending(a => a)
+                .ToList();
 
+            foreach (int profileLevel in profileLevels)
+            {
+                List<List<double>> groupsInner = CheckGroups(profileLevel);
                 groups = groupsInner;
-                break;
+
+                if (groups == null || groups.Count == 0)
+                    continue;
+
+                if (groups.Count > 2)
+                    return false;
+
+                if (groups.Count == 2)// the 2nd and the 4th wave
+                    break;
             }
 
             if (groups == null)
@@ -157,11 +166,13 @@ namespace TradeKit.Impulse
             out int stochasticPercent, 
             out int overlapsePercent,
             out int channelAngle,
+            out double channelRatio,
             out double standardDeviation, 
             out SortedDictionary<double, int> profile)
         {
             channelAngle = Convert.ToInt32(180 / Math.PI * Math.Atan2(
                 startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount));
+            channelRatio = (startItem.Value.BarIndex - edgeExtremum.BarIndex)/ (double)barsCount;
 
             var candles = new List<Candle>();
             var points = new List<double>();
@@ -391,14 +402,14 @@ namespace TradeKit.Impulse
                 }
 
                 m_PreFinder = null;
-                bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, out ElliottModelResult outExtrema);
-                if (!isImpulse)
-                {
-                    // The move is not an impulse.
-                    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
-                    return;
-                }
+                //bool isImpulse = m_PatternFinder.IsImpulse(
+                //    startItem.Value, endItem.Value, out ElliottModelResult outExtrema);
+                //if (!isImpulse)
+                //{
+                //    // The move is not an impulse.
+                //    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
+                //    return;
+                //}
                 //Debugger.Launch();
 
                 if (SetupStartIndex == startItem.Value.BarIndex ||
@@ -475,6 +486,7 @@ namespace TradeKit.Impulse
                     out int stochasticPercent,
                     out int overlapsePercent,
                     out int channelAngle,
+                    out double channelRatio,
                     out double standardDeviation,
                     out SortedDictionary<double, int> profile);
 
@@ -497,24 +509,30 @@ namespace TradeKit.Impulse
                     stochasticPercent = 100 - stochasticPercent;
                 }
 
-                if (stochasticPercent < 100)
-                {
-                    IsInSetup = false;
-                    return;
-                }
+                //if (stochasticPercent < 100)
+                //{
+                //    IsInSetup = false;
+                //    return;
+                //}
 
-                if (impulseLengthPercent < 0.2)
-                {
-                    IsInSetup = false;
-                    return;
-                }
+                //if (channelRatio <= 3)
+                //{
+                //    IsInSetup = false;
+                //    return;
+                //}
+
+                //if (impulseLengthPercent < 0.1)
+                //{
+                //    IsInSetup = false;
+                //    return;
+                //}
 
                 string paramsStringComment = $"∠{channelAngle}° 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}% σ{standardDeviation:F2}".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
-                    outExtrema.Extrema,
+                    new[] { startItem.Value, endItem.Value },
                     viewDateTime,
                     paramsStringComment,
                     profile));

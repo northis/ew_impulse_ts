@@ -611,10 +611,7 @@ namespace TradeKit.AlgoBase
                 result = null;
                 return false;
             }
-
-            result = new ElliottModelResult(ElliottModelType.IMPULSE, new[] {start, end}, null);
-            return true;
-
+            
             bool isImpulseUp = start.Value < end.Value;
             int p = Helper.PIVOT_PERIOD_MIN;
             m_PivotPointsFinder.Reset(p);
