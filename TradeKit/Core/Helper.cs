@@ -16,7 +16,7 @@ namespace TradeKit.Core
 
 
         public const int ZOOM_MIN = 1;
-        public const double MINIMUM_BARS_IN_IMPULSE = 4;
+        public const double MINIMUM_BARS_IN_IMPULSE = 5;
         public const double BARS_DEPTH = 40;
         public const int EXTREMA_MAX = 40;
         public const double PERCENT_ALLOWANCE_SL = 2;
@@ -28,7 +28,7 @@ namespace TradeKit.Core
         public const int STEP_IMPULSE_SCALE = 30;
 
         public const double IMPULSE_PROFILE_THRESHOLD = 0.75;
-        public const double IMPULSE_PROFILE_FIBO = 0.44;
+        public const double IMPULSE_PROFILE_FIBO = 0.383;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;

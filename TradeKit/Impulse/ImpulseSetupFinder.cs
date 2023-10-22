@@ -70,12 +70,10 @@ namespace TradeKit.Impulse
         private bool IsImpulseProfile(
             SortedDictionary<double, int> profile, double startValue, double endValue)
         {
-            //double currentHistogramPrice = Math.Min(start.Value, end.Value);
             bool inGroup = false;
-
-            List<List<double>> CheckGroups(double levelHist)
+            List<List<KeyValuePair<double, int>>> CheckGroups(double levelHist)
             {
-                List<List<double>> groups = new List<List<double>>();
+                var groups = new List<List<KeyValuePair<double, int>>>();
 
                 foreach (KeyValuePair<double, int> item in profile)
                 {
@@ -84,11 +82,11 @@ namespace TradeKit.Impulse
                         if (!inGroup)
                         {
                             inGroup = true;
-                            groups.Add(new List<double> { item.Key });
+                            groups.Add(new List<KeyValuePair<double, int>> { item });
                         }
                         else
                         {
-                            groups[^1].Add(item.Key);
+                            groups[^1].Add(item);
                         }
 
                     }
@@ -104,57 +102,48 @@ namespace TradeKit.Impulse
             }
 
             double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD;
-            List<List<double>> groups = null;
-            List<int> profileLevels = profile.Values
+            int profileLevel = profile.Values
                 .Where(a => a > maxHist)
-                .OrderByDescending(a => a)
-                .ToList();
+                .MaxBy(a => a);
 
-            foreach (int profileLevel in profileLevels)
-            {
-                List<List<double>> groupsInner = CheckGroups(profileLevel);
-                groups = groupsInner;
-
-                if (groups == null || groups.Count == 0)
-                    continue;
-
-                if (groups.Count > 2)
-                    return false;
-
-                if (groups.Count == 2)// the 2nd and the 4th wave
-                    break;
-            }
-
-            if (groups == null)
+            List<List<KeyValuePair<double, int>>> groups = CheckGroups(profileLevel);
+            if (groups == null || groups.Count < 2)
             {
                 return false;
             }
 
-            double lenFibo = Math.Abs(startValue - endValue) * Helper.IMPULSE_PROFILE_FIBO;
-            double middlePriceDown = Math.Min(startValue, endValue) + lenFibo;
-            double middlePriceUp = Math.Max(startValue, endValue) - lenFibo;
+            double len = Math.Abs(startValue - endValue);
+            double lenFibo = len /2;
+            double middlePrice = Math.Min(startValue, endValue) + lenFibo;
+            
+            KeyValuePair<double, int>[] topGroups = groups
+                .OrderByDescending(a => a.Max(b => b.Value))
+                .Take(2)
+                .Select(a => a.MaxBy(b => b.Value))
+                .ToArray();
+            KeyValuePair<double, int> firstGroup = topGroups[0];// check low between
+            KeyValuePair<double, int> secondGroup = topGroups[1];
 
-            double? bottomDouble = null;
-            double? topDouble = null;
+            int diff = firstGroup.Value / secondGroup.Value;
+            double peakDistance = Math.Abs(firstGroup.Key - secondGroup.Key);
 
-            foreach (List<double> group in groups)
+            if (peakDistance < len * 0.35)// peaks are too close
             {
-                if (group[^1] < middlePriceDown)
-                {
-                    bottomDouble = group[^1];
-                    continue;
-                }
-
-                if (group[0] > middlePriceUp)
-                {
-                    if (!topDouble.HasValue)
-                    {
-                        topDouble = group[0];
-                    }
-                }
+                return false;
             }
 
-            return bottomDouble.HasValue && topDouble.HasValue;
+            if (diff > 1.5)
+            {
+                return false;
+            }
+
+            if (firstGroup.Key < middlePrice && secondGroup.Key < middlePrice ||
+                firstGroup.Key > middlePrice && secondGroup.Key > middlePrice)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, 
