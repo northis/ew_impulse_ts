@@ -27,7 +27,7 @@ namespace TradeKit.Impulse
             base.Initialize();
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
             m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame);
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider);
             Subscribe(m_SetupFinder);
         }
         /// <summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;
@@ -11,8 +11,18 @@ namespace TradeKit.Impulse
     public class ImpulseSignalerBaseRobot : BaseRobot<ImpulseSetupFinder, ImpulseSignalEventArgs>
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
+        private const string IMPULSE_SETTINGS = "⚡ImpulseSettings";
         private readonly Plotly.NET.Color m_ShortColor = Plotly.NET.Color.fromHex("#EF5350");
         private readonly Plotly.NET.Color m_LongColor = Plotly.NET.Color.fromHex("#26A69A");
+
+        [Parameter(nameof(UseStochasticFilter), DefaultValue = Helper.IMPULSE_USE_STOCHASTIC_FILTER, Group = IMPULSE_SETTINGS)]
+        public bool UseStochasticFilter { get; set; }
+
+        [Parameter(nameof(ChannelFilterRatio), DefaultValue = Helper.IMPULSE_CHANNEL_FILTER_RATIO, Group = IMPULSE_SETTINGS)]
+        public double ChannelFilterRatio { get; set; }
+
+        [Parameter(nameof(ImpulseLengthPercent), DefaultValue = Helper.IMPULSE_LENGTH_PERCENT, Group = IMPULSE_SETTINGS)]
+        public double ImpulseLengthPercent { get; set; }
 
         /// <summary>
         /// Gets the name of the bot.
@@ -66,8 +76,7 @@ namespace TradeKit.Impulse
         protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
             var barsProvider = GetBarsProvider(bars, symbolEntity);
-            var barProvidersFactory = new BarProvidersFactory(symbolEntity, MarketData);
-            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
+            var sf = new ImpulseSetupFinder(barsProvider, UseStochasticFilter,ChannelFilterRatio,ImpulseLengthPercent);
             return sf;
         }
 

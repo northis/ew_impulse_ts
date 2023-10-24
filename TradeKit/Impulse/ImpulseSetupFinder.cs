@@ -1,14 +1,9 @@
-﻿using cAlgo.API.Indicators;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.Intrinsics.X86;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
-using static Plotly.NET.StyleParam.Range;
 
 namespace TradeKit.Impulse
 {
@@ -17,8 +12,9 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
-        //private readonly BarProvidersFactory m_BarsFactory;
-        //private readonly ElliottWavePatternFinder m_PatternFinder;
+        private readonly bool m_ImpulseUseStochasticFilter;
+        private readonly double m_ImpulseChannelFilterRatio;
+        private readonly double m_ImpulseLengthPercent;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
 
@@ -45,26 +41,29 @@ namespace TradeKit.Impulse
         
         public int TriggerBarIndex { get; set; }
 
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="barsFactory">The factory for the bar providers.</param>
-        public ImpulseSetupFinder(
-            IBarsProvider mainBarsProvider,
-            BarProvidersFactory barsFactory):base(mainBarsProvider, barsFactory.Symbol)
+        /// <param name="impulseUseStochasticFilter">if set to <c>true</c> only a 100% stochastic impulse will be used.</param>
+        /// <param name="impulseChannelFilterRatio">How far the impulse went from the previous movement, broke the channel or not.</param>
+        /// <param name="impulseLengthPercent">The impulse length percent.</param>
+        public ImpulseSetupFinder(IBarsProvider mainBarsProvider, 
+            bool impulseUseStochasticFilter = Helper.IMPULSE_USE_STOCHASTIC_FILTER,
+            double impulseChannelFilterRatio = Helper.IMPULSE_CHANNEL_FILTER_RATIO,
+            double impulseLengthPercent = Helper.IMPULSE_LENGTH_PERCENT)
+            :base(mainBarsProvider, mainBarsProvider.Symbol)
         {
-            //m_BarsFactory = barsFactory;
-            var zoomMin = Helper.ZOOM_MIN;
-
+            m_ImpulseUseStochasticFilter = impulseUseStochasticFilter;
+            m_ImpulseChannelFilterRatio = impulseChannelFilterRatio;
+            m_ImpulseLengthPercent = impulseLengthPercent;
             for (int i = Helper.MIN_IMPULSE_SCALE;
                  i <= Helper.MAX_IMPULSE_SCALE;
                  i += Helper.STEP_IMPULSE_SCALE)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
-
-            //m_PatternFinder = new ElliottWavePatternFinder(Helper.PERCENT_CORRECTION_DEF, mainBarsProvider, barsFactory, zoomMin);
         }
 
         private bool IsImpulseProfile(
@@ -101,10 +100,10 @@ namespace TradeKit.Impulse
                 return groups;
             }
 
-            double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD;
+            double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD_TIMES;
             int profileLevel = profile.Values
                 .Where(a => a > maxHist)
-                .MaxBy(a => a);
+                .MinBy(a => a);
 
             List<List<KeyValuePair<double, int>>> groups = CheckGroups(profileLevel);
             if (groups == null || groups.Count < 2)
@@ -113,26 +112,41 @@ namespace TradeKit.Impulse
             }
 
             double len = Math.Abs(startValue - endValue);
-            double lenFibo = len /2;
+            double lenFibo = len / 2;
             double middlePrice = Math.Min(startValue, endValue) + lenFibo;
-            
-            KeyValuePair<double, int>[] topGroups = groups
-                .OrderByDescending(a => a.Max(b => b.Value))
-                .Take(2)
+
+            KeyValuePair<double, int>[] maxPeaks = groups
                 .Select(a => a.MaxBy(b => b.Value))
                 .ToArray();
-            KeyValuePair<double, int> firstGroup = topGroups[0];// check low between
+
+            KeyValuePair<double, int>[] topGroups = maxPeaks
+                .OrderByDescending(a => a.Value)
+                .Take(2)
+                .ToArray();
+            KeyValuePair<double, int> firstGroup = topGroups[0];
             KeyValuePair<double, int> secondGroup = topGroups[1];
+            //double topPeakPrice = Math.Max(firstGroup.Key, secondGroup.Key);
+            //double lowPeakPrice = Math.Min(firstGroup.Key, secondGroup.Key);
+
+            //KeyValuePair<double, int> lowBetween = profile// check low between
+            //    .Where(a => a.Key > lowPeakPrice &&
+            //           a.Key < topPeakPrice)
+            //    .MaxBy(a => a.Value);
+
+            //if (firstGroup.Value / lowBetween.Value < 3 && lowBetween.Value > 1)
+            //{
+            //    return false;
+            //}
 
             int diff = firstGroup.Value / secondGroup.Value;
             double peakDistance = Math.Abs(firstGroup.Key - secondGroup.Key);
 
-            if (peakDistance < len * 0.35)// peaks are too close
+            if (peakDistance < len * Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES)// peaks are too close
             {
                 return false;
             }
 
-            if (diff > 1.5)
+            if (diff > Helper.IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES)
             {
                 return false;
             }
@@ -154,13 +168,10 @@ namespace TradeKit.Impulse
             double min, 
             out int stochasticPercent, 
             out int overlapsePercent,
-            out int channelAngle,
             out double channelRatio,
             out double standardDeviation, 
             out SortedDictionary<double, int> profile)
         {
-            channelAngle = Convert.ToInt32(180 / Math.PI * Math.Atan2(
-                startItem.Value.BarIndex - edgeExtremum.BarIndex + 1, barsCount));
             channelRatio = (startItem.Value.BarIndex - edgeExtremum.BarIndex)/ (double)barsCount;
 
             var candles = new List<Candle>();
@@ -391,15 +402,6 @@ namespace TradeKit.Impulse
                 }
 
                 m_PreFinder = null;
-                //bool isImpulse = m_PatternFinder.IsImpulse(
-                //    startItem.Value, endItem.Value, out ElliottModelResult outExtrema);
-                //if (!isImpulse)
-                //{
-                //    // The move is not an impulse.
-                //    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
-                //    return;
-                //}
-                //Debugger.Launch();
 
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)
@@ -474,7 +476,6 @@ namespace TradeKit.Impulse
                 GetStatistics(startItem, edgeExtremum, endValue, barsCount, max, min,
                     out int stochasticPercent,
                     out int overlapsePercent,
-                    out int channelAngle,
                     out double channelRatio,
                     out double standardDeviation,
                     out SortedDictionary<double, int> profile);
@@ -486,37 +487,31 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                //if (standardDeviation > 0.7)
-                //{
-                //    IsInSetup = false;
-                //    return;
-                //}
-
                 if (!isImpulseUp)
                 {
                     // for sell movements normalize impulse strength value
                     stochasticPercent = 100 - stochasticPercent;
                 }
 
-                //if (stochasticPercent < 100)
-                //{
-                //    IsInSetup = false;
-                //    return;
-                //}
+                if (m_ImpulseUseStochasticFilter && stochasticPercent < 100)
+                {
+                    IsInSetup = false;
+                    return;
+                }
 
-                //if (channelRatio <= 3)
-                //{
-                //    IsInSetup = false;
-                //    return;
-                //}
+                if (channelRatio <= m_ImpulseChannelFilterRatio)
+                {
+                    IsInSetup = false;
+                    return;
+                }
 
-                //if (impulseLengthPercent < 0.1)
-                //{
-                //    IsInSetup = false;
-                //    return;
-                //}
+                if (impulseLengthPercent < m_ImpulseLengthPercent)
+                {
+                    IsInSetup = false;
+                    return;
+                }
 
-                string paramsStringComment = $"∠{channelAngle}° 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}% σ{standardDeviation:F2}".Replace(",",".");
+                string paramsStringComment = $"∠{channelRatio:F1} 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}% σ{standardDeviation:F2}".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
