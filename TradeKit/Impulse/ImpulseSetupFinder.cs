@@ -12,9 +12,9 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
-        private readonly bool m_ImpulseUseStochasticFilter;
-        private readonly double m_ImpulseChannelFilterRatio;
-        private readonly double m_ImpulseLengthPercent;
+        private readonly double m_ImpulseProfileThresholdTimes;
+        private readonly double m_ImpulseProfilePeaksDistanceTimes;
+        private readonly double m_ImpulseProfilePeaksDifferenceTimes;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
 
@@ -41,23 +41,22 @@ namespace TradeKit.Impulse
         
         public int TriggerBarIndex { get; set; }
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="impulseUseStochasticFilter">if set to <c>true</c> only a 100% stochastic impulse will be used.</param>
-        /// <param name="impulseChannelFilterRatio">How far the impulse went from the previous movement, broke the channel or not.</param>
-        /// <param name="impulseLengthPercent">The impulse length percent.</param>
-        public ImpulseSetupFinder(IBarsProvider mainBarsProvider, 
-            bool impulseUseStochasticFilter = Helper.IMPULSE_USE_STOCHASTIC_FILTER,
-            double impulseChannelFilterRatio = Helper.IMPULSE_CHANNEL_FILTER_RATIO,
-            double impulseLengthPercent = Helper.IMPULSE_LENGTH_PERCENT)
+        /// <param name="impulseProfileThresholdTimes">The impulse profile threshold (in times).</param>
+        /// <param name="impulseProfilePeaksDistanceTimes">The impulse profile peaks distance (in times, by price).</param>
+        /// <param name="impulseProfilePeaksDifferenceTimes">The impulse profile peaks difference  (in times, by value).</param>
+        public ImpulseSetupFinder(IBarsProvider mainBarsProvider,
+            double impulseProfileThresholdTimes = Helper.IMPULSE_PROFILE_THRESHOLD_TIMES,
+            double impulseProfilePeaksDistanceTimes = Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES,
+            double impulseProfilePeaksDifferenceTimes = Helper.IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES)
             :base(mainBarsProvider, mainBarsProvider.Symbol)
         {
-            m_ImpulseUseStochasticFilter = impulseUseStochasticFilter;
-            m_ImpulseChannelFilterRatio = impulseChannelFilterRatio;
-            m_ImpulseLengthPercent = impulseLengthPercent;
+            m_ImpulseProfileThresholdTimes = impulseProfileThresholdTimes;
+            m_ImpulseProfilePeaksDistanceTimes = impulseProfilePeaksDistanceTimes;
+            m_ImpulseProfilePeaksDifferenceTimes = impulseProfilePeaksDifferenceTimes;
             for (int i = Helper.MIN_IMPULSE_SCALE;
                  i <= Helper.MAX_IMPULSE_SCALE;
                  i += Helper.STEP_IMPULSE_SCALE)
@@ -100,7 +99,7 @@ namespace TradeKit.Impulse
                 return groups;
             }
 
-            double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD_TIMES;
+            double maxHist = profile.Max(a => a.Value) * m_ImpulseProfileThresholdTimes;
             int profileLevel = profile.Values
                 .Where(a => a > maxHist)
                 .MinBy(a => a);
@@ -141,12 +140,12 @@ namespace TradeKit.Impulse
             int diff = firstGroup.Value / secondGroup.Value;
             double peakDistance = Math.Abs(firstGroup.Key - secondGroup.Key);
 
-            if (peakDistance < len * Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES)// peaks are too close
+            if (peakDistance < len * m_ImpulseProfilePeaksDistanceTimes)// peaks are too close
             {
                 return false;
             }
 
-            if (diff > Helper.IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES)
+            if (diff > m_ImpulseProfilePeaksDifferenceTimes)
             {
                 return false;
             }
@@ -491,24 +490,6 @@ namespace TradeKit.Impulse
                 {
                     // for sell movements normalize impulse strength value
                     stochasticPercent = 100 - stochasticPercent;
-                }
-
-                if (m_ImpulseUseStochasticFilter && stochasticPercent < 100)
-                {
-                    IsInSetup = false;
-                    return;
-                }
-
-                if (channelRatio <= m_ImpulseChannelFilterRatio)
-                {
-                    IsInSetup = false;
-                    return;
-                }
-
-                if (impulseLengthPercent < m_ImpulseLengthPercent)
-                {
-                    IsInSetup = false;
-                    return;
                 }
 
                 string paramsStringComment = $"∠{channelRatio:F1} 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}% σ{standardDeviation:F2}".Replace(",",".");

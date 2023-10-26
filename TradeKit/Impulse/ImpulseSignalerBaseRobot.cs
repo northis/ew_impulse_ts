@@ -4,7 +4,6 @@ using cAlgo.API.Internals;
 using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.EventArgs;
-using Color = cAlgo.API.Color;
 
 namespace TradeKit.Impulse
 {
@@ -15,14 +14,14 @@ namespace TradeKit.Impulse
         private readonly Plotly.NET.Color m_ShortColor = Plotly.NET.Color.fromHex("#EF5350");
         private readonly Plotly.NET.Color m_LongColor = Plotly.NET.Color.fromHex("#26A69A");
 
-        [Parameter(nameof(UseStochasticFilter), DefaultValue = Helper.IMPULSE_USE_STOCHASTIC_FILTER, Group = IMPULSE_SETTINGS)]
-        public bool UseStochasticFilter { get; set; }
+        [Parameter(nameof(ProfileThresholdTimes), DefaultValue = Helper.IMPULSE_PROFILE_THRESHOLD_TIMES, Group = IMPULSE_SETTINGS, Step = 0.1, MinValue = 0.1, MaxValue = 1)]
+        public double ProfileThresholdTimes { get; set; }
 
-        [Parameter(nameof(ChannelFilterRatio), DefaultValue = Helper.IMPULSE_CHANNEL_FILTER_RATIO, Group = IMPULSE_SETTINGS)]
-        public double ChannelFilterRatio { get; set; }
+        [Parameter(nameof(ProfilePeaksDistanceTimes), DefaultValue = Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES, Group = IMPULSE_SETTINGS, Step = 0.1, MinValue = 0.1, MaxValue = 1)]
+        public double ProfilePeaksDistanceTimes { get; set; }
 
-        [Parameter(nameof(ImpulseLengthPercent), DefaultValue = Helper.IMPULSE_LENGTH_PERCENT, Group = IMPULSE_SETTINGS)]
-        public double ImpulseLengthPercent { get; set; }
+        [Parameter(nameof(ProfilePeaksDifferenceTimes), DefaultValue = Helper.IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES, Group = IMPULSE_SETTINGS, Step = 0.1, MinValue = 1)]
+        public double ProfilePeaksDifferenceTimes { get; set; }
 
         /// <summary>
         /// Gets the name of the bot.
@@ -76,7 +75,7 @@ namespace TradeKit.Impulse
         protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
             var barsProvider = GetBarsProvider(bars, symbolEntity);
-            var sf = new ImpulseSetupFinder(barsProvider, UseStochasticFilter,ChannelFilterRatio,ImpulseLengthPercent);
+            var sf = new ImpulseSetupFinder(barsProvider, ProfileThresholdTimes, ProfilePeaksDistanceTimes, ProfilePeaksDifferenceTimes);
             return sf;
         }
 
