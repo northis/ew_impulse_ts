@@ -12,9 +12,6 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
-        private readonly double m_ImpulseProfileThresholdTimes;
-        private readonly double m_ImpulseProfilePeaksDistanceTimes;
-        private readonly double m_ImpulseProfilePeaksDifferenceTimes;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
 
@@ -45,18 +42,9 @@ namespace TradeKit.Impulse
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="impulseProfileThresholdTimes">The impulse profile threshold (in times).</param>
-        /// <param name="impulseProfilePeaksDistanceTimes">The impulse profile peaks distance (in times, by price).</param>
-        /// <param name="impulseProfilePeaksDifferenceTimes">The impulse profile peaks difference  (in times, by value).</param>
-        public ImpulseSetupFinder(IBarsProvider mainBarsProvider,
-            double impulseProfileThresholdTimes = Helper.IMPULSE_PROFILE_THRESHOLD_TIMES,
-            double impulseProfilePeaksDistanceTimes = Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES,
-            double impulseProfilePeaksDifferenceTimes = Helper.IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES)
+        public ImpulseSetupFinder(IBarsProvider mainBarsProvider)
             :base(mainBarsProvider, mainBarsProvider.Symbol)
         {
-            m_ImpulseProfileThresholdTimes = impulseProfileThresholdTimes;
-            m_ImpulseProfilePeaksDistanceTimes = impulseProfilePeaksDistanceTimes;
-            m_ImpulseProfilePeaksDifferenceTimes = impulseProfilePeaksDifferenceTimes;
             for (int i = Helper.MIN_IMPULSE_SCALE;
                  i <= Helper.MAX_IMPULSE_SCALE;
                  i += Helper.STEP_IMPULSE_SCALE)
@@ -99,7 +87,7 @@ namespace TradeKit.Impulse
                 return groups;
             }
 
-            double maxHist = profile.Max(a => a.Value) * m_ImpulseProfileThresholdTimes;
+            double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD_TIMES;
             int profileLevel = profile.Values
                 .Where(a => a > maxHist)
                 .MinBy(a => a);
@@ -140,12 +128,12 @@ namespace TradeKit.Impulse
             int diff = firstGroup.Value / secondGroup.Value;
             double peakDistance = Math.Abs(firstGroup.Key - secondGroup.Key);
 
-            if (peakDistance < len * m_ImpulseProfilePeaksDistanceTimes)// peaks are too close
+            if (peakDistance < len * Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES)// peaks are too close
             {
                 return false;
             }
 
-            if (diff > m_ImpulseProfilePeaksDifferenceTimes)
+            if (diff > Helper.IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES)
             {
                 return false;
             }

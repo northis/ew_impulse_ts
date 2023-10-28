@@ -27,7 +27,7 @@ namespace TradeKit.Core
 
         public const double IMPULSE_PROFILE_THRESHOLD_TIMES = 0.6;
         public const double IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES = 0.4;
-        public const double IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES = 1.5;
+        public const double IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES = 2;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;
