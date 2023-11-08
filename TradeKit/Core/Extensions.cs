@@ -306,7 +306,7 @@ namespace TradeKit.Core
                     break;
 
                 currentTimeFrame = prevTimeFrame;
-                IBarsProvider barsProvider1M = barsFunc(candleTimeFrame);
+                IBarsProvider barsProvider1M = barsFunc(prevTimeFrame);
                 int startIndex1M = barsProvider1M.GetIndexByTime(startDate);
                 if (startIndex1M == -1)
                     barsProvider1M.LoadBars(startDate);
@@ -315,28 +315,26 @@ namespace TradeKit.Core
 
                 var highIndex = 0;
                 var lowIndex = 0;
-                double? currentHigh = null;
-                double? currentLow = null;
 
                 for (int i = startIndex1M; i <= endIndex1M; i++)
                 {
                     double high = barsProvider1M.GetHighPrice(i);
-                    if (!currentHigh.HasValue || currentHigh <= high)
+                    if (Math.Abs(candle.H - high) < double.Epsilon)
                     {
-                        currentHigh = high;
                         highIndex++;
                     }
 
                     double low = barsProvider1M.GetLowPrice(i);
-                    if (!currentLow.HasValue || currentLow >= low)
+                    if (Math.Abs(candle.L - low) < double.Epsilon)
                     {
-                        currentLow = low;
                         lowIndex++;
                     }
-                }
 
-                if (highIndex == lowIndex)
-                    continue;
+                    if (highIndex == lowIndex)
+                        continue;
+
+                    break;
+                }
 
                 candle.IsHighFirst = highIndex < lowIndex;
                 break;

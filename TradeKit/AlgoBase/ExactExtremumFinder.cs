@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Diagnostics;
+using cAlgo.API;
 using TradeKit.Core;
 
 namespace TradeKit.AlgoBase
@@ -8,13 +9,25 @@ namespace TradeKit.AlgoBase
     /// </summary>
     public class ExactExtremumFinder : ExtremumFinderBase
     {
+        private readonly BarProvidersFactory m_BarsProviderFactory;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
         /// </summary>
         /// <param name="barsProvider">The source bars provider.</param>
+        /// <param name="barsProviderFactory">The bars provider factory.</param>
         /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
-        public ExactExtremumFinder(IBarsProvider barsProvider, bool isUpDirection = false):base(barsProvider,isUpDirection)
+        public ExactExtremumFinder(
+            IBarsProvider barsProvider,
+            BarProvidersFactory barsProviderFactory,
+            bool isUpDirection = false) : base(barsProvider, isUpDirection)
         {
+            m_BarsProviderFactory = barsProviderFactory;
+        }
+
+        private IBarsProvider GetBarProvider(TimeFrame timeFrame)
+        {
+            return m_BarsProviderFactory.GetBarsProvider(timeFrame);
         }
 
         /// <summary>
@@ -28,22 +41,22 @@ namespace TradeKit.AlgoBase
                 return;
             }
 
-            double low = BarsProvider.GetLowPrice(index);
-            double high = BarsProvider.GetHighPrice(index);
-
-            Extremum ??= new BarPoint(high, index, BarsProvider);
-            var dh = Math.Abs(Extremum.Value - high);
-            var dl = Math.Abs(Extremum.Value - low);
-            double val = dh > dl ? high : low;
-            if (IsUpDirection && high > Extremum.Value ||
-                !IsUpDirection && low < Extremum.Value)
+            Candle candle = Candle.FromIndex(BarsProvider, index);
+            candle.InitIsHighFirst(GetBarProvider, BarsProvider.TimeFrame);
+            if (!candle.IsHighFirst.HasValue)
             {
-
-                var newExtremum = new BarPoint(val, index, BarsProvider);
-                MoveExtremum(newExtremum);
+                Debugger.Launch();
+                return;
             }
+            
+            Extremum ??= new BarPoint(candle.H, index, BarsProvider);
 
-            var extremum = new BarPoint(val, Extremum.OpenTime.AddSeconds(1),
+            var extremum = new BarPoint(
+                candle.IsHighFirst.Value ? candle.L : candle.H, Extremum.OpenTime,
+                BarsProvider.TimeFrame, index);
+            SetExtremum(extremum);
+            extremum = new BarPoint(
+                candle.IsHighFirst.Value ? candle.H : candle.L, Extremum.OpenTime.AddSeconds(1),
                 BarsProvider.TimeFrame, index);
 
             SetExtremum(extremum);
