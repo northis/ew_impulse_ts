@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using cAlgo.API;
+﻿using cAlgo.API;
 using TradeKit.Core;
 
 namespace TradeKit.AlgoBase
@@ -45,7 +44,6 @@ namespace TradeKit.AlgoBase
             candle.InitIsHighFirst(GetBarProvider, BarsProvider.TimeFrame);
             if (!candle.IsHighFirst.HasValue)
             {
-                Debugger.Launch();
                 return;
             }
             

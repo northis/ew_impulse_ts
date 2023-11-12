@@ -1,6 +1,5 @@
 ﻿using cAlgo.API;
 using TradeKit.Impulse;
-using TradeKit.Indicators;
 
 namespace ImpulseFinderIndicator
 {
@@ -9,7 +8,7 @@ namespace ImpulseFinderIndicator
     /// </summary>
     /// <seealso cref="Indicator" />
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-    public class ImpulseFinderIndicator : ExactZigzagIndicator
+    public class ImpulseFinderIndicator : ImpulseFinderBaseIndicator
     {
 
     }

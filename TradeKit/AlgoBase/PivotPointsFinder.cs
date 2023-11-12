@@ -10,7 +10,7 @@ namespace TradeKit.AlgoBase
         private int m_PeriodX2;
         private readonly IBarsProvider m_BarsProvider;
         
-        public double DEFAULT_VALUE = double.NaN;
+        public double DefaultValue = double.NaN;
 
         /// <summary>
         /// Gets the collection of pivot points (high) found.
@@ -67,7 +67,7 @@ namespace TradeKit.AlgoBase
         {
             HighValues.Clear();
             LowValues.Clear();
-            DEFAULT_VALUE = double.NaN;
+            DefaultValue = double.NaN;
         }
 
         /// <summary>
@@ -138,8 +138,8 @@ namespace TradeKit.AlgoBase
             }
 
             DateTime dt = m_BarsProvider.GetOpenTime(index);
-            HighValues[dt] = gotHigh ? max : DEFAULT_VALUE;
-            LowValues[dt] = gotLow ? min : DEFAULT_VALUE;
+            HighValues[dt] = gotHigh ? max : DefaultValue;
+            LowValues[dt] = gotLow ? min : DefaultValue;
 
             return index;
         }

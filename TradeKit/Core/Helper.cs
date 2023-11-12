@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace TradeKit.Core
@@ -80,6 +81,43 @@ namespace TradeKit.Core
         internal static string GetPositionId(string setupId, BarPoint entryBarPoint)
         {
             return $"{setupId}{entryBarPoint.OpenTime:O}";
+        }
+
+        /// <summary>
+        /// Finds the groups of values, that go in a row.
+        /// </summary>
+        /// <param name="profile">The profile collection.</param>
+        /// <param name="levelHist">The level hist.</param>
+        /// <returns>List of groups found.</returns>
+        internal static List<List<KeyValuePair<double, double>>> FindGroups(
+            SortedDictionary<double, double> profile, double levelHist)
+        {
+            bool inGroup = false;
+            var groups = new List<List<KeyValuePair<double, double>>>();
+            foreach (KeyValuePair<double, double> item in profile)
+            {
+                if (item.Value >= levelHist)
+                {
+                    if (!inGroup)
+                    {
+                        inGroup = true;
+                        groups.Add(new List<KeyValuePair<double, double>> { item });
+                    }
+                    else
+                    {
+                        groups[^1].Add(item);
+                    }
+
+                }
+                else
+                {
+                    inGroup = false;
+                }
+
+                //currentHistogramPrice = item.Key;
+            }
+
+            return groups;
         }
     }
 }

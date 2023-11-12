@@ -20,11 +20,6 @@ namespace TradeKit.AlgoBase
         protected bool IsUpDirection;
 
         /// <summary>
-        /// Occurs on move extremum.
-        /// </summary>
-        public event EventHandler<BarPointEventArgs> OnMoveExtremum;
-
-        /// <summary>
         /// Occurs on set extremum.
         /// </summary>
         public event EventHandler<BarPointEventArgs> OnSetExtremum;
@@ -42,7 +37,16 @@ namespace TradeKit.AlgoBase
         {
             Extrema.Remove(m_ExtremumOpenDate);
             SetExtremumInner(extremum);
-            OnMoveExtremum?.Invoke(this, new BarPointEventArgs {EventExtremum = extremum});
+        }
+
+        /// <summary>
+        /// Resets this instance.
+        /// </summary>
+        public void Reset()
+        {
+            Extrema.Clear();
+            Extremum = null;
+            m_ExtremumOpenDate = DateTime.MinValue;
         }
 
         /// <summary>

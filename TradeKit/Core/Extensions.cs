@@ -305,7 +305,6 @@ namespace TradeKit.Core
                 if (currentTimeFrame == prevTimeFrame)
                     break;
 
-                currentTimeFrame = prevTimeFrame;
                 IBarsProvider barsProvider1M = barsFunc(prevTimeFrame);
                 int startIndex1M = barsProvider1M.GetIndexByTime(startDate);
                 if (startIndex1M == -1)

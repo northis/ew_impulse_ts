@@ -54,45 +54,15 @@ namespace TradeKit.Impulse
         }
 
         private bool IsImpulseProfile(
-            SortedDictionary<double, int> profile, double startValue, double endValue)
+            SortedDictionary<double, double> profile, double startValue, double endValue)
         {
-            bool inGroup = false;
-            List<List<KeyValuePair<double, int>>> CheckGroups(double levelHist)
-            {
-                var groups = new List<List<KeyValuePair<double, int>>>();
-
-                foreach (KeyValuePair<double, int> item in profile)
-                {
-                    if (item.Value >= levelHist)
-                    {
-                        if (!inGroup)
-                        {
-                            inGroup = true;
-                            groups.Add(new List<KeyValuePair<double, int>> { item });
-                        }
-                        else
-                        {
-                            groups[^1].Add(item);
-                        }
-
-                    }
-                    else
-                    {
-                        inGroup = false;
-                    }
-
-                    //currentHistogramPrice = item.Key;
-                }
-
-                return groups;
-            }
-
             double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD_TIMES;
-            int profileLevel = profile.Values
+            double profileLevel = profile.Values
                 .Where(a => a > maxHist)
                 .MinBy(a => a);
 
-            List<List<KeyValuePair<double, int>>> groups = CheckGroups(profileLevel);
+            List<List<KeyValuePair<double, double>>> groups = 
+                Helper.FindGroups(profile, profileLevel);
             if (groups == null || groups.Count < 2)
             {
                 return false;
@@ -102,20 +72,20 @@ namespace TradeKit.Impulse
             double lenFibo = len / 2;
             double middlePrice = Math.Min(startValue, endValue) + lenFibo;
 
-            KeyValuePair<double, int>[] maxPeaks = groups
+            KeyValuePair<double, double>[] maxPeaks = groups
                 .Select(a => a.MaxBy(b => b.Value))
                 .ToArray();
 
-            KeyValuePair<double, int>[] topGroups = maxPeaks
+            KeyValuePair<double, double>[] topGroups = maxPeaks
                 .OrderByDescending(a => a.Value)
                 .Take(2)
                 .ToArray();
-            KeyValuePair<double, int> firstGroup = topGroups[0];
-            KeyValuePair<double, int> secondGroup = topGroups[1];
+            KeyValuePair<double, double> firstGroup = topGroups[0];
+            KeyValuePair<double, double> secondGroup = topGroups[1];
             //double topPeakPrice = Math.Max(firstGroup.Key, secondGroup.Key);
             //double lowPeakPrice = Math.Min(firstGroup.Key, secondGroup.Key);
 
-            //KeyValuePair<double, int> lowBetween = profile// check low between
+            //KeyValuePair<double, double> lowBetween = profile// check low between
             //    .Where(a => a.Key > lowPeakPrice &&
             //           a.Key < topPeakPrice)
             //    .MaxBy(a => a.Value);
@@ -125,7 +95,7 @@ namespace TradeKit.Impulse
             //    return false;
             //}
 
-            int diff = firstGroup.Value / secondGroup.Value;
+            int diff = Convert.ToInt32(firstGroup.Value / secondGroup.Value);
             double peakDistance = Math.Abs(firstGroup.Key - secondGroup.Key);
 
             if (peakDistance < len * Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES)// peaks are too close
@@ -157,7 +127,7 @@ namespace TradeKit.Impulse
             out int overlapsePercent,
             out double channelRatio,
             out double standardDeviation, 
-            out SortedDictionary<double, int> profile)
+            out SortedDictionary<double, double> profile)
         {
             channelRatio = (startItem.Value.BarIndex - edgeExtremum.BarIndex)/ (double)barsCount;
 
@@ -185,7 +155,7 @@ namespace TradeKit.Impulse
             double currentPoint = min;
             double overlapsedIndex = 0;
 
-            var profileInner = new SortedDictionary<double, int>();
+            var profileInner = new SortedDictionary<double, double>();
 
             void NextPoint(double nextPoint)
             {
@@ -217,7 +187,7 @@ namespace TradeKit.Impulse
 
             profile = profileInner;
 
-            SortedDictionary<double, int>.ValueCollection countParts = profile.Values;
+            SortedDictionary<double, double>.ValueCollection countParts = profile.Values;
             double avgParts = countParts.Average();
             double sum = countParts.Sum(a => Math.Pow(a - avgParts, 2));
             standardDeviation = Math.Sqrt(sum / (countParts.Count - 1));
@@ -465,7 +435,7 @@ namespace TradeKit.Impulse
                     out int overlapsePercent,
                     out double channelRatio,
                     out double standardDeviation,
-                    out SortedDictionary<double, int> profile);
+                    out SortedDictionary<double, double> profile);
 
                 bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
                 if (!isImpulseProfile)

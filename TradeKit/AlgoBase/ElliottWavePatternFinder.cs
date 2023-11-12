@@ -22,7 +22,7 @@ namespace TradeKit.AlgoBase
         private readonly BarProvidersFactory m_BarsFactory;
 
         private Dictionary<ElliottModelType, ModelRules> m_ModelRules;
-        private readonly PivotPointsFinder m_PivotPointsFinder;
+        private readonly ExactExtremumFinder m_ExactExtremumFinder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
@@ -45,7 +45,7 @@ namespace TradeKit.AlgoBase
                 barsFactory.GetBarsProvider(
                     TimeFrameHelper.GetPreviousTimeFrameInfo(barsProvider.TimeFrame).TimeFrame);
 
-            m_PivotPointsFinder = new PivotPointsFinder(Helper.PIVOT_PERIOD, barsProvider);
+            m_ExactExtremumFinder = new ExactExtremumFinder(barsProvider, barsFactory);
             //InitModelRules();
         }
 
@@ -74,12 +74,14 @@ namespace TradeKit.AlgoBase
             {
                 var localOverlap = new List<ValueTuple<int, double>>();
                 for (int j = i + 1; j < bpCount; j++)
-                    localOverlap.Add(new ValueTuple<int,double>(j,barPoints[i].Value - barPoints[j].Value));
+                    localOverlap.Add(new ValueTuple<int, double>(j, barPoints[i].Value - barPoints[j].Value));
 
                 if (localOverlap.Count == 0)
                     overlaps[i] = new ValueTuple<int, double>(0, 0);
                 else
-                    overlaps[i] = isUp? localOverlap.MaxBy(a => a.Item2): localOverlap.MinBy(a => a.Item2);
+                    overlaps[i] = isUp
+                        ? localOverlap.MaxBy(a => a.Item2)
+                        : localOverlap.MinBy(a => a.Item2);
 
                 //Logger.Write($"{i:D3}\t{barPoints[i].OpenTime:s}\t{barPoints[i].Value.ToString(CultureInfo.InvariantCulture)}\t{overlaps[i].ToString("F5", CultureInfo.InvariantCulture)}");
             }
@@ -614,123 +616,41 @@ namespace TradeKit.AlgoBase
             
             bool isImpulseUp = start.Value < end.Value;
             int p = Helper.PIVOT_PERIOD_MIN;
-            m_PivotPointsFinder.Reset(p);
-            m_PivotPointsFinder.Calculate(start.BarIndex - p, end.BarIndex + p);
+            m_ExactExtremumFinder.Reset();
+            m_ExactExtremumFinder.Calculate(start.BarIndex - p, end.BarIndex + p);
+            SortedDictionary<DateTime, BarPoint> extremaDict = m_ExactExtremumFinder.Extrema;
 
-            if (isImpulseUp && (m_PivotPointsFinder.GetLowValue(start.OpenTime) == null ||
-                                m_PivotPointsFinder.GetHighValue(end.OpenTime) == null) ||
-                !isImpulseUp && (m_PivotPointsFinder.GetHighValue(start.OpenTime) == null ||
-                                 m_PivotPointsFinder.GetLowValue(end.OpenTime) == null))
+            if (isImpulseUp && (!extremaDict.ContainsKey(start.OpenTime) ||
+                                !extremaDict.ContainsKey(end.OpenTime)) ||
+                !isImpulseUp && (!extremaDict.ContainsKey(start.OpenTime) ||
+                                 !extremaDict.ContainsKey(end.OpenTime)))
             {
                 return false;
             }
 
-            Dictionary<DateTime, double> highValues = m_PivotPointsFinder.HighValues
-                .Where(a => a.Key >= start.OpenTime && 
-                            a.Key <= end.OpenTime && !double.IsNaN(a.Value))
-                .ToDictionary(a => a.Key, a => a.Value);
-            Dictionary<DateTime, double> lowValues = m_PivotPointsFinder.LowValues
-                .Where(a => a.Key >= start.OpenTime && 
-                            a.Key <= end.OpenTime && !double.IsNaN(a.Value))
-                .ToDictionary(a => a.Key, a => a.Value);
-
-            var mergedDates = new HashSet<DateTime>();
-            foreach (KeyValuePair<DateTime, double> highValue in highValues)
-            {
-                mergedDates.Add(highValue.Key);
-            }
-
-            var collisionLows = new Dictionary<DateTime, double>();
-            foreach (KeyValuePair<DateTime, double> lowValue in lowValues)
-            {
-                if (!mergedDates.Contains(lowValue.Key))
-                {
-                    mergedDates.Add(lowValue.Key);
-                    continue;
-                }
-
-                //a collision
-                DateTime startKey = lowValue.Key;
-                DateTime endKey = startKey.Add(
-                    TimeFrameHelper.GetTimeFrameInfo(m_BarsProvider.TimeFrame).TimeSpan);
-
-                highValues.Remove(lowValue.Key);
-                mergedDates.Remove(lowValue.Key);
-                KeyValuePair<DateTime, double> low =
-                    m_BarsProviderMinor.GetLowPrice(startKey, endKey);
-                KeyValuePair<DateTime, double> high =
-                    m_BarsProviderMinor.GetHighPrice(startKey, endKey);
-                highValues.Add(high.Key, high.Value);
-                collisionLows.Add(low.Key, low.Value);
-                mergedDates.Add(high.Key);
-
-                if (low.Key != high.Key)
-                    mergedDates.Add(low.Key);
-            }
-
-            foreach (KeyValuePair<DateTime, double> colLow in collisionLows)
-            {
-                if (lowValues.ContainsKey(colLow.Key))
-                    continue;
-
-                lowValues.Add(colLow.Key, colLow.Value);
-            }
-
-            bool direction = !isImpulseUp;
+            bool direction = isImpulseUp;
             // We want to remove the same direction pivot points in a row
             List<BarPoint> extrema = new List<BarPoint>();
-            DateTime[] dates = mergedDates.OrderBy(a => a).ToArray();
+            BarPoint currentExtremum = null;
 
-            foreach (DateTime mergedDate in dates)
+            foreach (KeyValuePair<DateTime, BarPoint> val in extremaDict)
             {
-                if (direction) // We expect next high
+                if (currentExtremum == null)
                 {
-                    if (!highValues.ContainsKey(mergedDate))
-                    {
-                        // we should restore the missed low
-                        if (!lowValues.ContainsKey(mergedDate))
-                        {
-                            Logger.Write("Low is not found, rewrite this");
-                            return false;
-                        }
-
-                        extrema.Add(new BarPoint(
-                            lowValues[mergedDate], mergedDate,
-                            m_BarsProvider));
-                        continue;
-                    }
-
-                    extrema.Add(new BarPoint(
-                        highValues[mergedDate], mergedDate,
-                        m_BarsProvider));
-                    direction = false;
+                    currentExtremum = val.Value;
+                    extrema.Add(val.Value);
                     continue;
                 }
 
-                // We expect next low
-                if (!lowValues.ContainsKey(mergedDate))
+                if (currentExtremum.Value > val.Value.Value == direction)
                 {
-                    // we should restore the missed high
-                    if (!highValues.ContainsKey(mergedDate))
-                    {
-                        Logger.Write("High is not found, rewrite this");
-                        return false;
-                    }
-
-                    // TODO Refactor this loop
-                    extrema.Add(new BarPoint(
-                        highValues[mergedDate], mergedDate,
-                        m_BarsProvider));
-                    continue;
+                    direction = !direction;
+                    currentExtremum = val.Value;
+                    extrema.Add(val.Value);
                 }
-
-                extrema.Add(new BarPoint(
-                    lowValues[mergedDate], mergedDate,
-                    m_BarsProvider));
-                direction = true;
             }
             
-            result = CheckImpulseRules2(extrema);
+            result = CheckImpulseRules(extrema);
             return result != null;
         }
     }
