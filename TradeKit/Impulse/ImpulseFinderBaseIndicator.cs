@@ -87,12 +87,12 @@ namespace TradeKit.Impulse
                 BarPoint end = e.Waves[^1];
                 var currentLevel = Math.Min(start.Value, end.Value);
                 var currentIndex = startIndex;
-                foreach (KeyValuePair<double, int> profile in e.Profile)
+                foreach (KeyValuePair<double, double> profile in e.Profile)
                 {
                     Chart.DrawTrendLine($"P{levelIndex}+{profile.Key}",
-                        currentIndex, currentLevel, startIndex + profile.Value, profile.Key, Color.MediumVioletRed);
+                        currentIndex, currentLevel, startIndex + (int)profile.Value, profile.Key, Color.MediumVioletRed);
                     currentLevel = profile.Key;
-                    currentIndex = startIndex + profile.Value;
+                    currentIndex = startIndex + (int)profile.Value;
                 }
 
             }
