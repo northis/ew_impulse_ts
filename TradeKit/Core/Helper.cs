@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace TradeKit.Core
 {
@@ -25,8 +26,7 @@ namespace TradeKit.Core
         public const int MIN_IMPULSE_SCALE = 25;
         public const int MAX_IMPULSE_SCALE = 100;
         public const int STEP_IMPULSE_SCALE = 25;
-
-        public const double IMPULSE_PROFILE_THRESHOLD_TIMES = 0.6;
+        
         public const double IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES = 0.4;
         public const double IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES = 2;
 
@@ -87,25 +87,58 @@ namespace TradeKit.Core
         /// Finds the groups of values, that go in a row.
         /// </summary>
         /// <param name="profile">The profile collection.</param>
-        /// <param name="levelHist">The level hist.</param>
-        /// <returns>List of groups found.</returns>
-        internal static List<List<KeyValuePair<double, double>>> FindGroups(
-            SortedDictionary<double, double> profile, double levelHist)
+        /// <returns>List of groups found (keys).</returns>
+        internal static List<HashSet<int>> FindGroups(
+            SortedDictionary<int, double> profile)
+        {
+            List<HashSet<int>> res = FindGroups(profile, (a, b) => a >= b);
+            return res;
+        }
+
+        /// <summary>
+        /// Finds the groups of values, that go in a row.
+        /// </summary>
+        /// <param name="profile">The profile collection.</param>
+        /// <returns>List of groups found (keys).</returns>
+        internal static List<HashSet<double>> FindGroups(
+            SortedDictionary<double, int> profile)
+        {
+            List<HashSet<double>> res = FindGroups(profile, (a, b) => a >= b);
+            return res;
+        }
+
+        /// <summary>
+        /// Finds the groups of values, that go in a row.
+        /// </summary>
+        /// <param name="profile">The profile collection.</param>
+        /// <param name="compare"></param>
+        /// <returns>List of groups found (keys).</returns>
+        private static List<HashSet<TK>> FindGroups<TK, TV>(
+            SortedDictionary<TK, TV> profile,
+            Func<TV, TV, bool> compare)
         {
             bool inGroup = false;
-            var groups = new List<List<KeyValuePair<double, double>>>();
-            foreach (KeyValuePair<double, double> item in profile)
+            var groups = new List<HashSet<TK>>();
+            int length = profile.Count;
+            if (length == 0)
             {
-                if (item.Value >= levelHist)
+                return groups;
+            }
+
+            TV median = profile.Values.OrderBy(a => a)
+                .Skip(profile.Count / 2).FirstOrDefault();
+            foreach (KeyValuePair<TK, TV> item in profile)
+            {
+                if (compare(item.Value, median))
                 {
                     if (!inGroup)
                     {
                         inGroup = true;
-                        groups.Add(new List<KeyValuePair<double, double>> { item });
+                        groups.Add(new HashSet<TK> { item.Key });
                     }
                     else
                     {
-                        groups[^1].Add(item);
+                        groups[^1].Add(item.Key);
                     }
 
                 }

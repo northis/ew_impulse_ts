@@ -50,11 +50,11 @@ namespace TradeKit.AlgoBase
             Extremum ??= new BarPoint(candle.H, index, BarsProvider);
 
             var extremum = new BarPoint(
-                candle.IsHighFirst.Value ? candle.L : candle.H, Extremum.OpenTime,
+                candle.IsHighFirst.Value ? candle.L : candle.H, BarsProvider.GetOpenTime(index),
                 BarsProvider.TimeFrame, index);
             SetExtremum(extremum);
             extremum = new BarPoint(
-                candle.IsHighFirst.Value ? candle.H : candle.L, Extremum.OpenTime.AddSeconds(1),
+                candle.IsHighFirst.Value ? candle.H : candle.L, extremum.OpenTime.AddSeconds(1),
                 BarsProvider.TimeFrame, index);
 
             SetExtremum(extremum);

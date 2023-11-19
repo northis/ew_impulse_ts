@@ -15,8 +15,6 @@ namespace TradeKit.AlgoBase
     /// </summary>
     public class ElliottWavePatternFinder
     {
-        private readonly int m_ZoomMin;
-        private readonly double m_CorrectionAllowancePercent;
         private readonly IBarsProvider m_BarsProvider;
         private readonly IBarsProvider m_BarsProviderMinor;
         private readonly BarProvidersFactory m_BarsFactory;
@@ -27,18 +25,11 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
         /// </summary>
-        /// <param name="correctionAllowancePercent">The correction allowance percent.</param>
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="barsFactory">The factory for the bar providers.</param>
-        /// <param name="zoomMin">The zoom minimum.</param>
         public ElliottWavePatternFinder(
-            double correctionAllowancePercent, 
-            IBarsProvider barsProvider,
-            BarProvidersFactory barsFactory, 
-            int zoomMin)//InitIsHighFirst
+            IBarsProvider barsProvider, BarProvidersFactory barsFactory)
         {
-            m_ZoomMin = zoomMin;
-            m_CorrectionAllowancePercent = correctionAllowancePercent;
             m_BarsProvider = barsProvider;
             m_BarsFactory = barsFactory;
             m_BarsProviderMinor =
@@ -74,7 +65,10 @@ namespace TradeKit.AlgoBase
             {
                 var localOverlap = new List<ValueTuple<int, double>>();
                 for (int j = i + 1; j < bpCount; j++)
-                    localOverlap.Add(new ValueTuple<int, double>(j, barPoints[i].Value - barPoints[j].Value));
+                {
+                    double diff = barPoints[i].Value - barPoints[j].Value;
+                    localOverlap.Add(new ValueTuple<int, double>(j, isUp ? diff : -diff));
+                }
 
                 if (localOverlap.Count == 0)
                     overlaps[i] = new ValueTuple<int, double>(0, 0);
@@ -82,9 +76,24 @@ namespace TradeKit.AlgoBase
                     overlaps[i] = isUp
                         ? localOverlap.MaxBy(a => a.Item2)
                         : localOverlap.MinBy(a => a.Item2);
-
-                //Logger.Write($"{i:D3}\t{barPoints[i].OpenTime:s}\t{barPoints[i].Value.ToString(CultureInfo.InvariantCulture)}\t{overlaps[i].ToString("F5", CultureInfo.InvariantCulture)}");
             }
+
+            var sortedOverlapse = new SortedDictionary<int, double>();
+            foreach (KeyValuePair<int, (int, double)> pair in overlaps)
+                sortedOverlapse.Add(pair.Key, pair.Value.Item2);
+
+            IOrderedEnumerable<int> maxKeys = Helper.FindGroups(sortedOverlapse)
+                .Select(a => a.MaxBy(b => overlaps[b].Item2))
+                .OrderByDescending(a => overlaps[a].Item2);
+
+            foreach (int maxKey in maxKeys)
+            {
+               (int, double) overlap = overlaps[maxKey];
+
+
+            }
+
+            Debugger.Launch();
 
             var firstIndices = new List<int>();
             var secondIndices = new List<int>();
@@ -635,6 +644,12 @@ namespace TradeKit.AlgoBase
 
             foreach (KeyValuePair<DateTime, BarPoint> val in extremaDict)
             {
+                // We don't want to add extra bars (int p) in the left and in the right.
+                if (start.BarIndex < start || start > end)
+                {
+                    continue;
+                }
+
                 if (currentExtremum == null)
                 {
                     currentExtremum = val.Value;

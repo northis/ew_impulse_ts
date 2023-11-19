@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -27,7 +24,7 @@ namespace TradeKit.Impulse
             base.Initialize();
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
             m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame);
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider);
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
             Subscribe(m_SetupFinder);
         }
         /// <summary>
@@ -87,12 +84,12 @@ namespace TradeKit.Impulse
                 BarPoint end = e.Waves[^1];
                 var currentLevel = Math.Min(start.Value, end.Value);
                 var currentIndex = startIndex;
-                foreach (KeyValuePair<double, double> profile in e.Profile)
+                foreach (KeyValuePair<double, int> profile in e.Profile)
                 {
                     Chart.DrawTrendLine($"P{levelIndex}+{profile.Key}",
-                        currentIndex, currentLevel, startIndex + (int)profile.Value, profile.Key, Color.MediumVioletRed);
+                        currentIndex, currentLevel, startIndex + profile.Value, profile.Key, Color.MediumVioletRed);
                     currentLevel = profile.Key;
-                    currentIndex = startIndex + (int)profile.Value;
+                    currentIndex = startIndex + profile.Value;
                 }
 
             }

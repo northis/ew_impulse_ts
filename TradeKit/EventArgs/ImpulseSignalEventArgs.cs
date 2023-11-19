@@ -7,7 +7,7 @@ namespace TradeKit.EventArgs
     public class ImpulseSignalEventArgs : SignalEventArgs
     {
         public ImpulseSignalEventArgs(
-            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, BarPoint[] waves, DateTime startViewBarIndex, string comment, SortedDictionary<double, double> profile)
+            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, BarPoint[] waves, DateTime startViewBarIndex, string comment, SortedDictionary<double, int> profile)
             : base(level, takeProfit, stopLoss, startViewBarIndex,null, comment)
         {
             Waves = waves;
@@ -16,6 +16,6 @@ namespace TradeKit.EventArgs
 
         public BarPoint[] Waves { get; }
 
-        public SortedDictionary<double, double> Profile { get; }
+        public SortedDictionary<double, int> Profile { get; }
     }
 }

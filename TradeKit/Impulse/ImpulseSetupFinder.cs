@@ -14,6 +14,7 @@ namespace TradeKit.Impulse
     {
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
+        private readonly ElliottWavePatternFinder m_PatternFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.4;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
@@ -42,7 +43,9 @@ namespace TradeKit.Impulse
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        public ImpulseSetupFinder(IBarsProvider mainBarsProvider)
+        /// <param name="barsFactory">The factory for the bar providers.</param>
+        public ImpulseSetupFinder(
+            IBarsProvider mainBarsProvider, BarProvidersFactory barsFactory)
             :base(mainBarsProvider, mainBarsProvider.Symbol)
         {
             for (int i = Helper.MIN_IMPULSE_SCALE;
@@ -51,18 +54,14 @@ namespace TradeKit.Impulse
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
+            
+            m_PatternFinder = new ElliottWavePatternFinder(mainBarsProvider, barsFactory);
         }
 
         private bool IsImpulseProfile(
-            SortedDictionary<double, double> profile, double startValue, double endValue)
+            SortedDictionary<double, int> profile, double startValue, double endValue)
         {
-            double maxHist = profile.Max(a => a.Value) * Helper.IMPULSE_PROFILE_THRESHOLD_TIMES;
-            double profileLevel = profile.Values
-                .Where(a => a > maxHist)
-                .MinBy(a => a);
-
-            List<List<KeyValuePair<double, double>>> groups = 
-                Helper.FindGroups(profile, profileLevel);
+            List<HashSet<double>> groups = Helper.FindGroups(profile);
             if (groups == null || groups.Count < 2)
             {
                 return false;
@@ -72,33 +71,22 @@ namespace TradeKit.Impulse
             double lenFibo = len / 2;
             double middlePrice = Math.Min(startValue, endValue) + lenFibo;
 
-            KeyValuePair<double, double>[] maxPeaks = groups
-                .Select(a => a.MaxBy(b => b.Value))
+            double[] maxPeaksKeys = groups
+                .Select(a => a.MaxBy(b => profile[b]))
                 .ToArray();
 
-            KeyValuePair<double, double>[] topGroups = maxPeaks
-                .OrderByDescending(a => a.Value)
+            double[] topGroupsKeys = maxPeaksKeys
+                .OrderByDescending(a => profile[a])
                 .Take(2)
                 .ToArray();
-            KeyValuePair<double, double> firstGroup = topGroups[0];
-            KeyValuePair<double, double> secondGroup = topGroups[1];
-            //double topPeakPrice = Math.Max(firstGroup.Key, secondGroup.Key);
-            //double lowPeakPrice = Math.Min(firstGroup.Key, secondGroup.Key);
-
-            //KeyValuePair<double, double> lowBetween = profile// check low between
-            //    .Where(a => a.Key > lowPeakPrice &&
-            //           a.Key < topPeakPrice)
-            //    .MaxBy(a => a.Value);
-
-            //if (firstGroup.Value / lowBetween.Value < 3 && lowBetween.Value > 1)
-            //{
-            //    return false;
-            //}
+            KeyValuePair<double, double> firstGroup = new KeyValuePair<double, double>(topGroupsKeys[0], profile[topGroupsKeys[0]]);
+            KeyValuePair<double, double> secondGroup = new KeyValuePair<double, double>(topGroupsKeys[1], profile[topGroupsKeys[1]]);
 
             int diff = Convert.ToInt32(firstGroup.Value / secondGroup.Value);
             double peakDistance = Math.Abs(firstGroup.Key - secondGroup.Key);
 
-            if (peakDistance < len * Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES)// peaks are too close
+            if (peakDistance < len * Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES)
+                // peaks are too close
             {
                 return false;
             }
@@ -127,7 +115,7 @@ namespace TradeKit.Impulse
             out int overlapsePercent,
             out double channelRatio,
             out double standardDeviation, 
-            out SortedDictionary<double, double> profile)
+            out SortedDictionary<double, int> profile)
         {
             channelRatio = (startItem.Value.BarIndex - edgeExtremum.BarIndex)/ (double)barsCount;
 
@@ -155,7 +143,7 @@ namespace TradeKit.Impulse
             double currentPoint = min;
             double overlapsedIndex = 0;
 
-            var profileInner = new SortedDictionary<double, double>();
+            var profileInner = new SortedDictionary<double, int>();
 
             void NextPoint(double nextPoint)
             {
@@ -187,7 +175,7 @@ namespace TradeKit.Impulse
 
             profile = profileInner;
 
-            SortedDictionary<double, double>.ValueCollection countParts = profile.Values;
+            SortedDictionary<double, int>.ValueCollection countParts = profile.Values;
             double avgParts = countParts.Average();
             double sum = countParts.Sum(a => Math.Pow(a - avgParts, 2));
             standardDeviation = Math.Sqrt(sum / (countParts.Count - 1));
@@ -359,6 +347,14 @@ namespace TradeKit.Impulse
                 }
 
                 m_PreFinder = null;
+                bool isImpulse = m_PatternFinder.IsImpulse(
+                    startItem.Value, endItem.Value, out ElliottModelResult outExtrema);
+                if (!isImpulse)
+                {
+                    // The move is not an impulse.
+                    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
+                    return;
+                }
 
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)
@@ -435,14 +431,14 @@ namespace TradeKit.Impulse
                     out int overlapsePercent,
                     out double channelRatio,
                     out double standardDeviation,
-                    out SortedDictionary<double, double> profile);
+                    out SortedDictionary<double, int> profile);
 
-                bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
-                if (!isImpulseProfile)
-                {
-                    IsInSetup = false;
-                    return;
-                }
+                //bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
+                //if (!isImpulseProfile)
+                //{
+                //    IsInSetup = false;
+                //    return;
+                //}
 
                 if (!isImpulseUp)
                 {
