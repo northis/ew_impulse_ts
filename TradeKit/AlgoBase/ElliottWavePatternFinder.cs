@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
+using cAlgo.API.Indicators;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using static Plotly.NET.StyleParam;
@@ -40,7 +41,7 @@ namespace TradeKit.AlgoBase
             //InitModelRules();
         }
 
-        #region EA model rules, may be I will use this one day
+        #region EA model rules
 
         private bool CheckImpulseRulesPoints(List<BarPoint> barPoints)
         {
@@ -90,12 +91,18 @@ namespace TradeKit.AlgoBase
             return orderRule && lengthRule;
         }
 
-        private ElliottModelResult CheckImpulseRulesLight(List<BarPoint> barPoints)
+        private bool CheckSmoothImpulse(
+            Dictionary<int, ValueTuple<int, double>> points, double fullLength)
         {
+            double[] pullbacks = points.Select(a => a.Value.Item2).ToArray();
+            double pullbackAvg = pullbacks.Average();
+            double pullbackMax = pullbacks.Max();
+            double pullbackSum = pullbacks.Sum(a => Math.Pow(a - pullbackAvg, 2));
+            double standardDeviation = Math.Sqrt(pullbackSum / (pullbacks.Length - 1));
+            if (pullbackMax / fullLength <= 0.05 || standardDeviation <= 0.7)
+                return true;
 
-            bool isUp = barPoints[0] < barPoints[^1];
-
-            return null;
+            return false;
         }
 
 
@@ -110,6 +117,11 @@ namespace TradeKit.AlgoBase
 
             BarPoint wave0 = barPoints[0];
             BarPoint wave5 = barPoints[^1];
+
+            double lengthImpulse = Math.Abs(wave5 - wave0);
+            if (lengthImpulse < double.Epsilon)
+                return null;
+            Debugger.Launch();
 
             bool isUp = wave0 < wave5;
             int bpCount = barPoints.Count;
@@ -137,6 +149,12 @@ namespace TradeKit.AlgoBase
             var sortedOverlapse = new SortedDictionary<int, double>();
             foreach (KeyValuePair<int, (int, double)> pair in overlaps)
                 sortedOverlapse.Add(pair.Key, pair.Value.Item2);
+            
+            if (CheckSmoothImpulse(overlaps, lengthImpulse))
+            {
+                return new ElliottModelResult(
+                    ElliottModelType.IMPULSE, new[] {wave0, wave5}, null);
+            }
 
             int[] maxKeys = Helper.FindGroups(sortedOverlapse)
                 .Select(a => a.MaxBy(b => overlaps[b].Item2))
@@ -183,6 +201,7 @@ namespace TradeKit.AlgoBase
                         return new ElliottModelResult(
                             ElliottModelType.IMPULSE, impulseCandidate.ToArray(), null);
 
+                    // Add recursive call here
                     //// Check the inner structures
                     //Dictionary<string, ElliottModelType[]> rules =
                     //    m_ModelRules[ElliottModelType.IMPULSE].Models;
@@ -194,7 +213,6 @@ namespace TradeKit.AlgoBase
                 }
             }
 
-            Debugger.Launch();
             return null;
         }
 
