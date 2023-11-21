@@ -42,10 +42,58 @@ namespace TradeKit.AlgoBase
 
         #region EA model rules, may be I will use this one day
 
-        private ElliottModelResult CheckImpulseRules2(List<BarPoint> barPoints)
+        private bool CheckImpulseRulesPoints(List<BarPoint> barPoints)
         {
-            if (barPoints.Count <= 2)
-                return new ElliottModelResult(ElliottModelType.IMPULSE, barPoints.ToArray(), null);
+            // We should have all impulse points
+            if (barPoints.Count != 6)
+            {
+                return false;
+            }
+
+            BarPoint wave0 = barPoints[0];
+            BarPoint wave5 = barPoints[5];
+
+            bool isUp = wave0 < wave5;
+            int k = isUp ? 1 : -1;
+            BarPoint wave1 = barPoints[1];
+            BarPoint wave2 = barPoints[2];
+            BarPoint wave3 = barPoints[3];
+            BarPoint wave4 = barPoints[4];
+
+            TimeSpan wave1Dur = wave1.OpenTime - wave0.OpenTime;
+            TimeSpan wave2Dur = wave2.OpenTime - wave1.OpenTime;
+            TimeSpan wave3Dur = wave3.OpenTime - wave2.OpenTime;
+            TimeSpan wave4Dur = wave4.OpenTime - wave3.OpenTime;
+            TimeSpan wave5Dur = wave5.OpenTime - wave4.OpenTime;
+
+            if (wave1Dur<= TimeSpan.Zero ||
+                wave2Dur <= TimeSpan.Zero ||
+                wave3Dur <= TimeSpan.Zero ||
+                wave4Dur <= TimeSpan.Zero ||
+                wave5Dur <= TimeSpan.Zero)
+                return false;
+
+            double durationRatio = wave4Dur.TotalSeconds / wave2Dur.TotalSeconds;
+            if (durationRatio < 0.75 || durationRatio > 5)
+                return false;
+
+            double wave1Len = k * (wave1 - wave0);
+            double wave3Len = k * (wave3 - wave2);
+            double wave5Len = k * (wave5 - wave4);
+
+            if (wave1Len <= 0 || wave3Len <= 0 || wave5Len <= 0)
+                return false;
+
+            bool orderRule = k * (wave4 - wave1) > 0;
+            bool lengthRule = wave3Len > wave1Len || wave1Len > wave5Len;
+
+            return orderRule && lengthRule;
+        }
+
+        private ElliottModelResult CheckImpulseRulesLight(List<BarPoint> barPoints)
+        {
+
+            bool isUp = barPoints[0] < barPoints[^1];
 
             return null;
         }
@@ -53,11 +101,17 @@ namespace TradeKit.AlgoBase
 
         private ElliottModelResult CheckImpulseRules(List<BarPoint> barPoints)
         {
-            if (barPoints.Count <= 2)
-                return new ElliottModelResult(ElliottModelType.IMPULSE, barPoints.ToArray(), null);
-            
-            bool isUp = barPoints[0] < barPoints[^1];
-            //Logger.Write($"Is Up {isUp}");
+            if (barPoints.Count < 2)
+                return null;
+
+            if (barPoints.Count == 2 || CheckImpulseRulesPoints(barPoints))
+                return new ElliottModelResult(
+                    ElliottModelType.IMPULSE, barPoints.ToArray(), null);
+
+            BarPoint wave0 = barPoints[0];
+            BarPoint wave5 = barPoints[^1];
+
+            bool isUp = wave0 < wave5;
             int bpCount = barPoints.Count;
             var overlaps = new Dictionary<int, ValueTuple<int, double>>();
 
@@ -67,138 +121,80 @@ namespace TradeKit.AlgoBase
                 for (int j = i + 1; j < bpCount; j++)
                 {
                     double diff = barPoints[i].Value - barPoints[j].Value;
-                    localOverlap.Add(new ValueTuple<int, double>(j, isUp ? diff : -diff));
+                    diff = isUp ? diff : -diff;
+
+                    if (diff > 0)
+                        localOverlap.Add(
+                            new ValueTuple<int, double>(j, diff));
                 }
 
                 if (localOverlap.Count == 0)
                     overlaps[i] = new ValueTuple<int, double>(0, 0);
                 else
-                    overlaps[i] = isUp
-                        ? localOverlap.MaxBy(a => a.Item2)
-                        : localOverlap.MinBy(a => a.Item2);
+                    overlaps[i] = localOverlap.MaxBy(a => a.Item2);
             }
 
             var sortedOverlapse = new SortedDictionary<int, double>();
             foreach (KeyValuePair<int, (int, double)> pair in overlaps)
                 sortedOverlapse.Add(pair.Key, pair.Value.Item2);
 
-            IOrderedEnumerable<int> maxKeys = Helper.FindGroups(sortedOverlapse)
+            int[] maxKeys = Helper.FindGroups(sortedOverlapse)
                 .Select(a => a.MaxBy(b => overlaps[b].Item2))
-                .OrderByDescending(a => overlaps[a].Item2);
+                .OrderByDescending(a => overlaps[a].Item2)
+                .ToArray();
 
+            BarPoint[] barPointsArray = barPoints.ToArray();
             foreach (int maxKey in maxKeys)
             {
                (int, double) overlap = overlaps[maxKey];
 
+               int thirdWaveEndIndex = maxKey;
+               BarPoint thirdWaveEnd = barPointsArray[thirdWaveEndIndex];
+                // This is either the 3rd wave end index (main scenario) or
+                // end of wave B of a flat/trangle or wave X of a combination
+                // of the 4th wave.
 
+                int forthWaveEndIndex = overlap.Item1;
+                BarPoint forthWaveEnd = barPointsArray[forthWaveEndIndex];
+                // We should consider 4th wave as zigzag and this will be the end index,
+                // and a triangle or combination - in this case this will be the lowest (the highest) point index inside the 4th wave.
+
+                foreach (int leftKey in maxKeys.Where(a => a < thirdWaveEndIndex))
+                {
+                    // Either the 1st wave end index, or wave B of a flat or wave X of a combination of the 2nd wave
+                    int firstWaveEndIndex = leftKey;
+                    BarPoint firstWaveEnd = barPointsArray[firstWaveEndIndex];
+
+                    BarPoint[] wave2NdKeys = 
+                        barPointsArray[firstWaveEndIndex..thirdWaveEndIndex];
+
+                    // A running flat or a combination with a triangle in the wave Y won't be
+                    // covered by it
+                    BarPoint wave2End = isUp
+                        ? wave2NdKeys.MinBy(a => a.Value)
+                        : wave2NdKeys.MaxBy(a => a.Value);
+
+                    var impulseCandidate = new List<BarPoint>
+                    {
+                        wave0, firstWaveEnd, wave2End, thirdWaveEnd, forthWaveEnd, wave5
+                    };
+
+                    if (CheckImpulseRulesPoints(impulseCandidate))
+                        return new ElliottModelResult(
+                            ElliottModelType.IMPULSE, impulseCandidate.ToArray(), null);
+
+                    //// Check the inner structures
+                    //Dictionary<string, ElliottModelType[]> rules =
+                    //    m_ModelRules[ElliottModelType.IMPULSE].Models;
+                    //foreach (KeyValuePair<string, ElliottModelType[]> rule in rules)
+                    //{
+
+                    //}
+
+                }
             }
 
             Debugger.Launch();
-
-            var firstIndices = new List<int>();
-            var secondIndices = new List<int>();
-            var thirdIndices = new List<int>();
-            var fourIndices = new List<int>();
-
-            int FindExtrema(IEnumerable<KeyValuePair<int, (int, double)>> o)
-            {
-                KeyValuePair<int, (int, double)> m = o.MaxBy(a => a.Value.Item2);
-                int[] extremumIndices1 = { m.Value.Item1, m.Key };
-
-                int extremumImpulseIndex = isUp
-                    ? extremumIndices1.MaxBy(a => barPoints[a].Value)
-                    : extremumIndices1.MinBy(a => barPoints[a].Value);
-
-                int extremumRetraceIndex = isUp
-                    ? extremumIndices1.MinBy(a => barPoints[a].Value)
-                    : extremumIndices1.MaxBy(a => barPoints[a].Value);
-
-                fourIndices.Add(extremumRetraceIndex);
-                secondIndices.Add(extremumRetraceIndex);
-                firstIndices.Add(extremumImpulseIndex);
-                thirdIndices.Add(extremumImpulseIndex);
-
-                return extremumImpulseIndex;
-            }
-
-            int extremumImpulseIndex1 = FindExtrema(overlaps);
-            FindExtrema(overlaps.Take(extremumImpulseIndex1));
-
-            if (overlaps.Count > extremumImpulseIndex1 + 1)
-                FindExtrema(overlaps.Skip(extremumImpulseIndex1 + 1));
-
-            var impulseCandidates = new List<(int, int, int, int)>();
-
-            BarPoint bpStart = barPoints[0];
-            BarPoint bpEnd = barPoints[^1];
-            void CheckImpulse(ValueTuple<int, int, int, int> val)
-            {
-                int k = isUp ? 1 : -1;
-                double l1 = (barPoints[val.Item1] - bpStart) * k;
-                double l3 = (barPoints[val.Item3] - barPoints[val.Item2]) * k;
-                double l5 = (bpEnd.Value - barPoints[val.Item4]) * k;
-
-                if (l1 <= 0 || l3 <= 0 || l5 <= 0)
-                    return;
-
-                if (l3 < l1 && l3 < l5)
-                    return;
-
-                // We don't handle triangle/flat case or reduced impulses yet.
-                if (k * (barPoints[val.Item4] - barPoints[val.Item1]) <= 0)
-                    return;
-
-                // Check the inner structures
-                Dictionary<string, ElliottModelType[]> rules =
-                    m_ModelRules[ElliottModelType.IMPULSE].Models;
-                foreach (KeyValuePair<string, ElliottModelType[]> rule in rules)
-                {
-
-                }
-
-                impulseCandidates.Add(val);
-            }
-
-            foreach (int thirdIndex in thirdIndices)
-            {
-                foreach (int secondIndex in secondIndices)
-                {
-                    if(secondIndex>= thirdIndex)
-                        continue;
-
-                    foreach (int firstIndex in firstIndices)
-                    {
-                        if (firstIndex >= secondIndex)
-                            continue;
-
-                        foreach (int fourIndex in fourIndices)
-                        {
-                            if (fourIndex <= thirdIndex)
-                                continue;
-
-                            CheckImpulse(new ValueTuple<int, int, int, int>(
-                                firstIndex, secondIndex, thirdIndex, fourIndex));
-                        }
-                    }
-                }
-            }
-
-            //Debugger.Launch();
-            foreach ((int, int, int, int) impulseCandidate in impulseCandidates)
-            {
-                var res = new ElliottModelResult(ElliottModelType.IMPULSE, new[]
-                {
-                    bpStart,
-                    barPoints[impulseCandidate.Item1],
-                    barPoints[impulseCandidate.Item2],
-                    barPoints[impulseCandidate.Item3],
-                    barPoints[impulseCandidate.Item4],
-                    bpEnd
-                }, null);
-                // We somehow should select from more then one option.
-                return res;
-            }
-
             return null;
         }
 
