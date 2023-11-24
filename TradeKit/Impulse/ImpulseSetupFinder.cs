@@ -451,7 +451,7 @@ namespace TradeKit.Impulse
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
-                    new[] { startItem.Value, endItem.Value },
+                    outExtrema.Extrema,
                     viewDateTime,
                     paramsStringComment,
                     profile));

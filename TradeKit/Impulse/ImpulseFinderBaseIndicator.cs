@@ -76,8 +76,8 @@ namespace TradeKit.Impulse
                 {
                     BarPoint wave = rest[index];
                     int endIndex = wave.BarIndex;
-                    Chart.DrawTrendLine($"Impulse{levelIndex}+{index}", 
-                        startIndex, currentBar.Value, endIndex, wave.Value, Color.LightBlue);
+                    Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
+                        currentBar.BarIndex, currentBar.Value, endIndex, wave.Value, Color.LightBlue);
                     currentBar = wave;
                 }
 

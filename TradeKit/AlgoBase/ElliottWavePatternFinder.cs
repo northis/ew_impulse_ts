@@ -95,16 +95,15 @@ namespace TradeKit.AlgoBase
             Dictionary<int, ValueTuple<int, double>> points, double fullLength)
         {
             double[] pullbacks = points.Select(a => a.Value.Item2).ToArray();
-            double pullbackAvg = pullbacks.Average();
+            //double pullbackAvg = pullbacks.Average();
             double pullbackMax = pullbacks.Max();
-            double pullbackSum = pullbacks.Sum(a => Math.Pow(a - pullbackAvg, 2));
-            double standardDeviation = Math.Sqrt(pullbackSum / (pullbacks.Length - 1));
-            if (pullbackMax / fullLength <= 0.05 || standardDeviation <= 0.7)
+            //double pullbackSum = pullbacks.Sum(a => Math.Pow(a - pullbackAvg, 2));
+            //double standardDeviation = Math.Sqrt(pullbackSum / (pullbacks.Length - 1));
+            if (pullbackMax / fullLength <= 0.3/* && standardDeviation >= 0.9*/)
                 return true;
 
             return false;
         }
-
 
         private ElliottModelResult CheckImpulseRules(List<BarPoint> barPoints)
         {
@@ -121,7 +120,6 @@ namespace TradeKit.AlgoBase
             double lengthImpulse = Math.Abs(wave5 - wave0);
             if (lengthImpulse < double.Epsilon)
                 return null;
-            Debugger.Launch();
 
             bool isUp = wave0 < wave5;
             int bpCount = barPoints.Count;
@@ -150,12 +148,12 @@ namespace TradeKit.AlgoBase
             foreach (KeyValuePair<int, (int, double)> pair in overlaps)
                 sortedOverlapse.Add(pair.Key, pair.Value.Item2);
             
-            if (CheckSmoothImpulse(overlaps, lengthImpulse))
-            {
-                return new ElliottModelResult(
-                    ElliottModelType.IMPULSE, new[] {wave0, wave5}, null);
-            }
-
+            //if (CheckSmoothImpulse(overlaps, lengthImpulse))
+            //{
+            //    return new ElliottModelResult(
+            //        ElliottModelType.IMPULSE, new[] {wave0, wave5}, null);
+            //}
+            
             int[] maxKeys = Helper.FindGroups(sortedOverlapse)
                 .Select(a => a.MaxBy(b => overlaps[b].Item2))
                 .OrderByDescending(a => overlaps[a].Item2)
@@ -198,8 +196,10 @@ namespace TradeKit.AlgoBase
                     };
 
                     if (CheckImpulseRulesPoints(impulseCandidate))
+                    {
                         return new ElliottModelResult(
                             ElliottModelType.IMPULSE, impulseCandidate.ToArray(), null);
+                    }
 
                     // Add recursive call here
                     //// Check the inner structures
@@ -638,9 +638,8 @@ namespace TradeKit.AlgoBase
             }
             
             bool isImpulseUp = start.Value < end.Value;
-            int p = Helper.PIVOT_PERIOD_MIN;
             m_ExactExtremumFinder.Reset();
-            m_ExactExtremumFinder.Calculate(start.BarIndex - p, end.BarIndex + p);
+            m_ExactExtremumFinder.Calculate(start.BarIndex, end.BarIndex);
             SortedDictionary<DateTime, BarPoint> extremaDict = m_ExactExtremumFinder.Extrema;
 
             if (isImpulseUp && (!extremaDict.ContainsKey(start.OpenTime) ||
@@ -651,35 +650,35 @@ namespace TradeKit.AlgoBase
                 return false;
             }
 
-            bool direction = isImpulseUp;
-            // We want to remove the same direction pivot points in a row
-            List<BarPoint> extrema = new List<BarPoint>();
-            BarPoint currentExtremum = null;
+            //bool direction = isImpulseUp;
+            //// We want to remove the same direction pivot points in a row
+            //List<BarPoint> extrema = new List<BarPoint>();
+            //BarPoint currentExtremum = null;
 
-            foreach (KeyValuePair<DateTime, BarPoint> val in extremaDict)
-            {
-                // We don't want to add extra bars (int p) in the left and in the right.
-                if (start.BarIndex < start || start > end)
-                {
-                    continue;
-                }
+            //foreach (KeyValuePair<DateTime, BarPoint> val in extremaDict)
+            //{
+            //    if (currentExtremum == null)
+            //    {
+            //        currentExtremum = val.Value;
+            //        extrema.Add(val.Value);
+            //        continue;
+            //    }
 
-                if (currentExtremum == null)
-                {
-                    currentExtremum = val.Value;
-                    extrema.Add(val.Value);
-                    continue;
-                }
+            //    if (val.Key == end.OpenTime)
+            //    {
+            //        extrema.Add(val.Value);
+            //        break;
+            //    }
 
-                if (currentExtremum.Value > val.Value.Value == direction)
-                {
-                    direction = !direction;
-                    currentExtremum = val.Value;
-                    extrema.Add(val.Value);
-                }
-            }
+            //    if (currentExtremum.Value > val.Value.Value != direction)
+            //    {
+            //        direction = !direction;
+            //        currentExtremum = val.Value;
+            //        extrema.Add(val.Value);
+            //    }
+            //}
             
-            result = CheckImpulseRules(extrema);
+            result = CheckImpulseRules(m_ExactExtremumFinder.ToExtremaList());
             return result != null;
         }
     }
