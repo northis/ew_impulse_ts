@@ -17,8 +17,6 @@ namespace TradeKit.AlgoBase
     public class ElliottWavePatternFinder
     {
         private readonly IBarsProvider m_BarsProvider;
-        private readonly IBarsProvider m_BarsProviderMinor;
-        private readonly BarProvidersFactory m_BarsFactory;
 
         private Dictionary<ElliottModelType, ModelRules> m_ModelRules;
         private readonly ExactExtremumFinder m_ExactExtremumFinder;
@@ -32,8 +30,6 @@ namespace TradeKit.AlgoBase
             IBarsProvider barsProvider, BarProvidersFactory barsFactory)
         {
             m_BarsProvider = barsProvider;
-            m_BarsFactory = barsFactory;
-            m_BarsProviderMinor =
                 barsFactory.GetBarsProvider(
                     TimeFrameHelper.GetPreviousTimeFrameInfo(barsProvider.TimeFrame).TimeFrame);
 
@@ -189,6 +185,14 @@ namespace TradeKit.AlgoBase
                     BarPoint wave2End = isUp
                         ? wave2NdKeys.MinBy(a => a.Value)
                         : wave2NdKeys.MaxBy(a => a.Value);
+                    
+                    BarPoint[] wave1StKeys =
+                        barPointsArray[..(firstWaveEndIndex-1)];
+                    if (wave1StKeys.Length == 0)
+                        continue;
+                    
+                    if (isUp && wave1StKeys.MaxBy(a => a.Value)?.Value > firstWaveEnd.Value || !isUp && wave1StKeys.MinBy(a => a.Value)?.Value < firstWaveEnd.Value)
+                        continue; // TODO do the same for the wave 3
 
                     var impulseCandidate = new List<BarPoint>
                     {
@@ -650,35 +654,20 @@ namespace TradeKit.AlgoBase
                 return false;
             }
 
-            //bool direction = isImpulseUp;
-            //// We want to remove the same direction pivot points in a row
-            //List<BarPoint> extrema = new List<BarPoint>();
-            //BarPoint currentExtremum = null;
+            List<BarPoint> extremaList = m_ExactExtremumFinder.ToExtremaList();
+            if (extremaList.Count > 0)
+            {
+                BarPoint lastExtremum = extremaList[^1];
+                if (lastExtremum.BarIndex == end.BarIndex &&
+                    Math.Abs(lastExtremum.Value - end.Value) > double.Epsilon)
+                {
+                    extremaList.Remove(lastExtremum);
+                    extremaList.Add(new BarPoint(end.Value, end.BarIndex, m_BarsProvider));
+                }
+            }
 
-            //foreach (KeyValuePair<DateTime, BarPoint> val in extremaDict)
-            //{
-            //    if (currentExtremum == null)
-            //    {
-            //        currentExtremum = val.Value;
-            //        extrema.Add(val.Value);
-            //        continue;
-            //    }
 
-            //    if (val.Key == end.OpenTime)
-            //    {
-            //        extrema.Add(val.Value);
-            //        break;
-            //    }
-
-            //    if (currentExtremum.Value > val.Value.Value != direction)
-            //    {
-            //        direction = !direction;
-            //        currentExtremum = val.Value;
-            //        extrema.Add(val.Value);
-            //    }
-            //}
-            
-            result = CheckImpulseRules(m_ExactExtremumFinder.ToExtremaList());
+            result = CheckImpulseRules(extremaList);
             return result != null;
         }
     }
