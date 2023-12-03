@@ -161,20 +161,34 @@ namespace TradeKit.AlgoBase
                (int, double) overlap = overlaps[maxKey];
 
                int thirdWaveEndIndex = maxKey;
+               if (thirdWaveEndIndex <= 1)
+                   continue;
+
                BarPoint thirdWaveEnd = barPointsArray[thirdWaveEndIndex];
                 // This is either the 3rd wave end index (main scenario) or
                 // end of wave B of a flat/trangle or wave X of a combination
                 // of the 4th wave.
+
+                BarPoint[] wave3RdKeys =
+                    barPointsArray[..(thirdWaveEndIndex-1)];
+
+                if (isUp && wave3RdKeys.MaxBy(a => a.Value)?.Value > thirdWaveEnd.Value || 
+                    !isUp && wave3RdKeys.MinBy(a => a.Value)?.Value < thirdWaveEnd.Value)
+                    continue;
 
                 int forthWaveEndIndex = overlap.Item1;
                 BarPoint forthWaveEnd = barPointsArray[forthWaveEndIndex];
                 // We should consider 4th wave as zigzag and this will be the end index,
                 // and a triangle or combination - in this case this will be the lowest (the highest) point index inside the 4th wave.
 
+
                 foreach (int leftKey in maxKeys.Where(a => a < thirdWaveEndIndex))
                 {
                     // Either the 1st wave end index, or wave B of a flat or wave X of a combination of the 2nd wave
                     int firstWaveEndIndex = leftKey;
+                    if (firstWaveEndIndex == 0)
+                        continue;
+
                     BarPoint firstWaveEnd = barPointsArray[firstWaveEndIndex];
 
                     BarPoint[] wave2NdKeys = 
@@ -191,8 +205,11 @@ namespace TradeKit.AlgoBase
                     if (wave1StKeys.Length == 0)
                         continue;
                     
-                    if (isUp && wave1StKeys.MaxBy(a => a.Value)?.Value > firstWaveEnd.Value || !isUp && wave1StKeys.MinBy(a => a.Value)?.Value < firstWaveEnd.Value)
-                        continue; // TODO do the same for the wave 3
+                    if (isUp && 
+                        wave1StKeys.MaxBy(a => a.Value)?.Value > firstWaveEnd.Value
+                        || !isUp && 
+                        wave1StKeys.MinBy(a => a.Value)?.Value < firstWaveEnd.Value)
+                        continue;
 
                     var impulseCandidate = new List<BarPoint>
                     {
@@ -662,10 +679,17 @@ namespace TradeKit.AlgoBase
                     Math.Abs(lastExtremum.Value - end.Value) > double.Epsilon)
                 {
                     extremaList.Remove(lastExtremum);
-                    extremaList.Add(new BarPoint(end.Value, end.BarIndex, m_BarsProvider));
+                    extremaList.Add(end);
+                }
+
+                BarPoint firstExtremum = extremaList[0];
+                if (firstExtremum.BarIndex == start.BarIndex &&
+                    Math.Abs(firstExtremum.Value - start.Value) > double.Epsilon)
+                {
+                    extremaList.Remove(firstExtremum);
+                    extremaList.Add(start);
                 }
             }
-
 
             result = CheckImpulseRules(extremaList);
             return result != null;
