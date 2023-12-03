@@ -181,16 +181,14 @@ namespace TradeKit.AlgoBase
                 // We should consider 4th wave as zigzag and this will be the end index,
                 // and a triangle or combination - in this case this will be the lowest (the highest) point index inside the 4th wave.
 
-
                 foreach (int leftKey in maxKeys.Where(a => a < thirdWaveEndIndex))
                 {
                     // Either the 1st wave end index, or wave B of a flat or wave X of a combination of the 2nd wave
                     int firstWaveEndIndex = leftKey;
-                    if (firstWaveEndIndex == 0)
+                    if (firstWaveEndIndex < 1)
                         continue;
 
                     BarPoint firstWaveEnd = barPointsArray[firstWaveEndIndex];
-
                     BarPoint[] wave2NdKeys = 
                         barPointsArray[firstWaveEndIndex..thirdWaveEndIndex];
 
@@ -199,7 +197,9 @@ namespace TradeKit.AlgoBase
                     BarPoint wave2End = isUp
                         ? wave2NdKeys.MinBy(a => a.Value)
                         : wave2NdKeys.MaxBy(a => a.Value);
-                    
+                    if (wave2End == null || wave2End.BarIndex == 0)
+                        continue;
+
                     BarPoint[] wave1StKeys =
                         barPointsArray[..(firstWaveEndIndex-1)];
                     if (wave1StKeys.Length == 0)
@@ -209,6 +209,19 @@ namespace TradeKit.AlgoBase
                         wave1StKeys.MaxBy(a => a.Value)?.Value > firstWaveEnd.Value
                         || !isUp && 
                         wave1StKeys.MinBy(a => a.Value)?.Value < firstWaveEnd.Value)
+                        continue;
+                    
+                    // We don't want to use flats for now.
+                    BarPoint[] wave1St2NdKeys =
+                        barPointsArray
+                            .Skip(firstWaveEndIndex)
+                            .TakeWhile(a => a.BarIndex < wave2End.BarIndex)
+                            .ToArray();
+
+                    if (isUp &&
+                        wave1St2NdKeys.MaxBy(a => a.Value)?.Value > firstWaveEnd.Value
+                        || !isUp &&
+                        wave1St2NdKeys.MinBy(a => a.Value)?.Value < firstWaveEnd.Value)
                         continue;
 
                     var impulseCandidate = new List<BarPoint>
