@@ -71,7 +71,7 @@ namespace TradeKit.AlgoBase
                 return false;
 
             double durationRatio = wave4Dur.TotalSeconds / wave2Dur.TotalSeconds;
-            if (durationRatio < 0.75 || durationRatio > 5)
+            if (durationRatio < 0.75 || durationRatio > 3)
                 return false;
 
             double wave1Len = k * (wave1 - wave0);
@@ -101,7 +101,8 @@ namespace TradeKit.AlgoBase
             return false;
         }
 
-        private ElliottModelResult CheckImpulseRules(List<BarPoint> barPoints)
+        private ElliottModelResult CheckImpulseRules(
+            List<BarPoint> barPoints, bool useRecursion = true)
         {
             if (barPoints.Count < 2)
                 return null;
@@ -170,7 +171,7 @@ namespace TradeKit.AlgoBase
                 // of the 4th wave.
 
                 BarPoint[] wave3RdKeys =
-                    barPointsArray[..(thirdWaveEndIndex-1)];
+                    barPointsArray[..thirdWaveEndIndex];
 
                 if (isUp && wave3RdKeys.MaxBy(a => a.Value)?.Value > thirdWaveEnd.Value || 
                     !isUp && wave3RdKeys.MinBy(a => a.Value)?.Value < thirdWaveEnd.Value)
@@ -231,6 +232,30 @@ namespace TradeKit.AlgoBase
 
                     if (CheckImpulseRulesPoints(impulseCandidate))
                     {
+                        //if (useRecursion)
+                        //{
+
+                        //    List<BarPoint> wave3Keys =
+                        //        barPointsArray.SkipWhile(a => a.BarIndex < wave2End.BarIndex)
+                        //            .TakeWhile(a => a.BarIndex <= thirdWaveEnd.BarIndex)
+                        //            .ToList();
+
+                        //    ElliottModelResult innerResult = 
+                        //        CheckImpulseRules(wave3Keys, false);
+                        //    if (innerResult == null)
+                        //        return null;
+
+                        //    var innerPoints = innerResult.Extrema[1..^2];
+
+                        //    impulseCandidate.Clear();
+                        //    impulseCandidate.Add(wave0);
+                        //    impulseCandidate.Add(firstWaveEnd);
+                        //    impulseCandidate.AddRange(innerPoints);
+                        //    impulseCandidate.Add(forthWaveEnd);
+                        //    impulseCandidate.Add(wave5);
+
+                        //}
+
                         return new ElliottModelResult(
                             ElliottModelType.IMPULSE, impulseCandidate.ToArray(), null);
                     }
@@ -294,6 +319,7 @@ namespace TradeKit.AlgoBase
         {
             return null;
         }
+
         private void InitModelRules()
         {
             m_ModelRules = new Dictionary<ElliottModelType, ModelRules>
@@ -340,7 +366,7 @@ namespace TradeKit.AlgoBase
                                 }
                             },
                         },
-                        CheckImpulseRules)
+                        a => CheckImpulseRules(a))
                 },
                 {
                     ElliottModelType.DIAGONAL_INITIAL, new ModelRules(
