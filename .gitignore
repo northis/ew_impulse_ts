@@ -255,3 +255,4 @@ paket-files/
 *.pyc
 
 ImpulseFinder.Tests/main_history.json
+.env

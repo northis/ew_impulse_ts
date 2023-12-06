@@ -1,0 +1,46 @@
+version: '3.5'
+services:
+  train_web:
+    image: umputun/nginx-le:latest
+    hostname: train_web
+    restart: unless-stopped
+    container_name: train_web
+    volumes:
+      - ./config/websrv.conf:/etc/nginx/service.conf
+      - ./ssl:/etc/nginx/ssl
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+        - TZ=Europe
+        - LETSENCRYPT=true
+        - LE_EMAIL=CERT_EMAIL
+        - LE_FQDN=PUBLIC_URL
+        - SSL_CERT=le-crt.pem
+        - SSL_KEY=le-key.pem
+        - SSL_CHAIN_CERT=le-chain-crt.pem    
+    networks:
+      train_net:
+        ipv4_address: 10.1.2.1
+
+  train_bot:
+    image: mcr.microsoft.com/dotnet/sdk:7.0
+    working_dir: /app
+    hostname: train_bot
+    restart: unless-stopped
+    container_name: train_bot
+    command: bash -c "dotnet /app/TrainBot.dll"
+    volumes:
+      - ./TrainBot/bin/release/net7.0/publish:/app
+    ports:
+      - "8080:8080"
+    networks:
+      train_net:
+          ipv4_address: 10.1.2.2
+          
+networks:
+  train_net:
+    name: train
+    ipam:
+      config:
+        - subnet: 10.1.2.0/24
