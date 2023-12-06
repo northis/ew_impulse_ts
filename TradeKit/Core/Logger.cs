@@ -2,7 +2,7 @@
 
 namespace TradeKit.Core
 {
-    internal static class Logger
+    public static class Logger
     {
         private static Action<string> m_writeAction;
 

@@ -4,15 +4,15 @@ namespace TrainBot.Root
     {
         public BotSettingHolder(IConfiguration configuration)
         {
-            TelegramBotKey = configuration["TelegramBotKey"];
-            PollingTimeout = TimeSpan.Parse(configuration["PollingTimeout"]);
-            WebhookUrl = configuration["WebhookUrl"];
-            WebhookPublicUrl = configuration["WebhookPublicUrl"];
-            ApiPublicUrl = configuration["ApiPublicUrl"];
-            LocalPort = int.Parse(configuration["LocalPort"]);
-            UserId = long.Parse(configuration["UserId"]);
-            AdminUserId = long.Parse(configuration["AdminUserId"]);
-            ServerUserId = long.Parse(configuration["ServerUserId"]);
+            TelegramBotKey = configuration["TelegramBotKey"]!;
+            PollingTimeout = TimeSpan.Parse(configuration["PollingTimeout"]!);
+            WebhookUrl = configuration["WebhookUrl"]!;
+            WebhookPublicUrl = configuration["WebhookPublicUrl"]!;
+            ApiPublicUrl = configuration["ApiPublicUrl"]!;
+            LocalPort = int.Parse(configuration["LocalPort"]!);
+            UserId = long.Parse(configuration["UserId"]!);
+            AdminUserId = long.Parse(configuration["AdminUserId"]!);
+            ServerUserId = long.Parse(configuration["ServerUserId"]!);
             Singleton = this;
         }
 
