@@ -37,6 +37,7 @@ namespace TradeKit.Core
         protected const int CHART_HEIGHT = 1000;
         protected const int CHART_WIDTH = 1000;
         private const int SETUP_MIN_WIDTH = 3;
+        protected const string ZERO_CHART_FILE_POSTFIX = ".00";
         protected const string FIRST_CHART_FILE_POSTFIX = ".01";
         protected const string SECOND_CHART_FILE_POSTFIX = ".02";
         protected const string STATE_SAVE_KEY = "ReportStateMap";
@@ -780,7 +781,6 @@ namespace TradeKit.Core
             IBarsProvider barProvider, TK signalEventArgs, bool showTradeResult = false)
         {
             DateTime startView = signalEventArgs.StartViewBarTime;
-
             int firstIndex = barProvider.GetIndexByTime(signalEventArgs.StartViewBarTime);
             int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
 
@@ -884,14 +884,29 @@ namespace TradeKit.Core
                 .WithYAxisStyle(Side: StyleParam.Side.Right, title: null);
 
             string fileName = startView.ToString("s").Replace(":", "-");
-            string postfix = string.Empty;
-            if (SaveChartForManualAnalysis)
-                postfix = showTradeResult ? SECOND_CHART_FILE_POSTFIX : FIRST_CHART_FILE_POSTFIX;
+            string dirPath = Path.Combine(Helper.DirectoryToSaveImages,
+                $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}");
+            Directory.CreateDirectory(dirPath);
 
-            string outPath = Path.Combine(Helper.DirectoryToSaveImages,
-                $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}{postfix}");
-            resultChart.SavePNG(outPath, null, CHART_WIDTH, CHART_HEIGHT);
-            return $"{outPath}{CHART_FILE_TYPE_EXTENSION}";
+            string postfix;
+            if (SaveChartForManualAnalysis)
+            {
+                if (showTradeResult)
+                {
+                    postfix = SECOND_CHART_FILE_POSTFIX;
+                    //get bars to json + sl tp + bar index
+                }
+                else
+                {
+                    postfix = FIRST_CHART_FILE_POSTFIX;
+                }
+            }
+            else
+                postfix = ZERO_CHART_FILE_POSTFIX;
+
+            string filePath = $"{dirPath}{postfix}";
+            resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
+            return $"{filePath}{CHART_FILE_TYPE_EXTENSION}";
         }
 
         /// <summary>

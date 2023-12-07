@@ -139,7 +139,7 @@ namespace TradeKit.Signals
             TelegramHistorySignal[]? history = null;
             try
             {
-                history = JsonConvert.DeserializeObject<TelegramExportJson>(text)?.Messages;
+                history = JsonConvert.DeserializeObject<SymbolDataExportJson>(text)?.Messages;
             }
             catch (Exception)
             {

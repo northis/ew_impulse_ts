@@ -4,7 +4,11 @@ namespace TrainBot.Root
     {
         public BotSettingHolder(IConfiguration configuration)
         {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             TelegramBotKey = configuration["TelegramBotKey"]!;
+            InputFolder = Path.Join(baseDir, configuration["InputFolder"]);
+            PositiveFolder = Path.Join(baseDir, configuration["PositiveFolder"]);
+            NegativeFolder = Path.Join(baseDir, configuration["NegativeFolder"]);
             PollingTimeout = TimeSpan.Parse(configuration["PollingTimeout"]!);
             WebhookUrl = configuration["WebhookUrl"]!;
             WebhookPublicUrl = configuration["WebhookPublicUrl"]!;
@@ -17,6 +21,9 @@ namespace TrainBot.Root
         }
 
         #region Properties
+        public string InputFolder { get; }
+        public string PositiveFolder { get; }
+        public string NegativeFolder { get; }
         public string TelegramBotKey { get; }
         public TimeSpan PollingTimeout { get; }
         public string WebhookUrl{ get; }

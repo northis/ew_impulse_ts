@@ -1,0 +1,64 @@
+﻿using Newtonsoft.Json;
+
+namespace TradeKit.Core
+{
+    /// <summary>
+    /// "Export from chat" in Telegram entity
+    /// </summary>
+    public class JsonSymbolDataExport
+    {
+        /// <summary>
+        /// Gets or sets the symbol.
+        /// </summary>
+        [JsonProperty("s")]
+        public string Symbol { get; set; }
+
+        /// <summary>
+        /// Gets or sets the symbol.
+        /// </summary>
+        [JsonProperty("tf")]
+        public string TimeFrame { get; set; }
+
+        /// <summary>
+        /// Gets or sets the entry.
+        /// </summary>
+        [JsonProperty("e")]
+        public double Entry { get; set; }
+
+        /// <summary>
+        /// Gets or sets the entry bar index.
+        /// </summary>
+        [JsonProperty("ei")]
+        public int EntryIndex { get; set; }
+
+        /// <summary>
+        /// Gets or sets the stop.
+        /// </summary>
+        [JsonProperty("s")]
+        public double Stop { get; set; }
+
+        /// <summary>
+        /// Gets or sets the stop bar index.
+        /// </summary>
+        [JsonProperty("si")]
+        public int StopIndex { get; set; }
+
+        /// <summary>
+        /// Gets or sets the take.
+        /// </summary>
+        [JsonProperty("t")]
+        public double Take { get; set; }
+
+        /// <summary>
+        /// Gets or sets the take bar index.
+        /// </summary>
+        [JsonProperty("ti")]
+        public int TakeIndex { get; set; }
+
+        /// <summary>
+        /// Gets or sets the candles array.
+        /// </summary>
+        [JsonProperty("candles")]
+        public JsonCandleExport[] Candles { get; set; }
+    }
+}

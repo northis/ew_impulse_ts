@@ -5,7 +5,7 @@ namespace TradeKit.Telegram
     /// <summary>
     /// "Export from chat" in Telegram entity
     /// </summary>
-    public class TelegramExportJson
+    public class SymbolDataExportJson
     {
         /// <summary>
         /// Gets or sets the messages array.

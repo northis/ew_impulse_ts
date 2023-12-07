@@ -3,6 +3,7 @@ using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
+using TradeKit.Core;
 using TrainBot.Commands;
 
 namespace TrainBot.Root
@@ -25,7 +26,7 @@ namespace TrainBot.Root
 
         public async Task CallbackQuery(CallbackQuery callbackQuery)
         {
-                var userId = callbackQuery.From.Id;
+            var userId = callbackQuery.From.Id;
         }
 
         public static string GetNoEmojiString(string str)
@@ -59,10 +60,12 @@ namespace TrainBot.Root
 
         public void OnReceiveError(ApiRequestException e)
         {
+            Logger.Write($"{nameof(OnReceiveError)}: {e.Message}");
         }
 
         public void OnReceiveGeneralError(Exception e)
         {
+            Logger.Write($"{nameof(OnReceiveGeneralError)}: {e.Message}");
         }
 
         private async Task HandleArgumentCommand(Message msg, string argumentCommand, long userId)

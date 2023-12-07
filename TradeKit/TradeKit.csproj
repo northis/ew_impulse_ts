@@ -37,9 +37,11 @@
     <Compile Include="Core\BaseIndicator.cs" />
     <Compile Include="Core\BaseRobot.cs" />
     <Compile Include="Core\Candle.cs" />
+    <Compile Include="Core\JsonCandleExport.cs" />
     <Compile Include="Core\SuperTrendItem.cs" />
     <Compile Include="Core\ElderScreensItem.cs" />
     <Compile Include="Core\SpikeType.cs" />
+    <Compile Include="Core\JsonSymbolDataExport.cs" />
     <Compile Include="Impulse\ElliottModelResult.cs" />
     <Compile Include="Impulse\ElliottModelType.cs" />
     <Compile Include="Impulse\ModelRules.cs" />

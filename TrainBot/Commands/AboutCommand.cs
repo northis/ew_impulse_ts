@@ -16,7 +16,7 @@ namespace TrainBot.Commands
 
         public override string GetCommandIconUnicode()
         {
-            return "🈴";
+            return "A";
         }
 
         public override string GetCommandTextDescription()
