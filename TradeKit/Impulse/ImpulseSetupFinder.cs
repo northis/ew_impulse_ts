@@ -270,7 +270,7 @@ namespace TradeKit.Impulse
             {
                 return false;
             }
-
+            
             double low = currentPriceBid ?? BarsProvider.GetLowPrice(index);
             double high = currentPriceBid ?? BarsProvider.GetHighPrice(index);
 

@@ -1,9 +1,18 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using Microsoft.FSharp.Core;
+using Newtonsoft.Json;
 using Plotly.NET;
+using Plotly.NET.ImageExport;
+using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using static Plotly.NET.StyleParam;
 
 namespace TradeKit.Impulse
 {
@@ -11,8 +20,7 @@ namespace TradeKit.Impulse
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
         private const string IMPULSE_SETTINGS = "⚡ImpulseSettings";
-        private readonly Plotly.NET.Color m_ShortColor = Plotly.NET.Color.fromHex("#EF5350");
-        private readonly Plotly.NET.Color m_LongColor = Plotly.NET.Color.fromHex("#26A69A");
+        protected const string CHART_FILE_NAME = "img.03";
 
         /// <summary>
         /// Gets the name of the bot.
@@ -35,14 +43,14 @@ namespace TradeKit.Impulse
             DateTime startView = signalEventArgs.StartViewBarTime;
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
-                LineColor: m_LongColor.ToFSharp(),
+                LineColor: ShortColor.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
-                LineDash: StyleParam.DrawingStyle.Dash.ToFSharp());
+                LineDash: DrawingStyle.Dash.ToFSharp());
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
-                LineColor: m_ShortColor.ToFSharp(),
+                LineColor: LongColor.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
-                LineDash: StyleParam.DrawingStyle.Dash.ToFSharp());
+                LineDash: DrawingStyle.Dash.ToFSharp());
 
             return new[] {tpLine, slLine};
         }
@@ -106,6 +114,122 @@ namespace TradeKit.Impulse
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Finds the wave point.
+        /// We want to match index/DT/value from one TF to another.
+        /// </summary>
+        /// <param name="bp">The bp (bigger TF).</param>
+        /// <param name="index">The index (smaller TF).</param>
+        /// <param name="date">The dt.</param>
+        /// <param name="high">The high.</param>
+        /// <param name="low">The low.</param>
+        /// <returns>True, if the wave point has been found.</returns>
+        private bool FindWavePoint(
+            BarPoint bp, int index, DateTime date, double high, double low)
+        {
+            return date >= bp.OpenTime &&
+                   index < 0 &&
+                   (Math.Abs(high - bp.Value) < double.Epsilon ||
+                    Math.Abs(low - bp.Value) < double.Epsilon);
+        }
+
+        protected override void OnSaveRawChartDataForManualAnalysis(
+            ChartDataSource chartDataSource, 
+            ImpulseSignalEventArgs signalEventArgs,
+            IBarsProvider barProvider,
+            string dirPath)
+        {
+            int barsCount = chartDataSource.D.Length;
+            JsonCandleExport[] candlesForExport = new JsonCandleExport[barsCount];
+
+            int startIndex = -1;
+            int entryIndex = -1;
+            int endIndex = -1;
+
+            BarPoint startWave = signalEventArgs.Waves[0];
+            BarPoint endWave = signalEventArgs.Waves[^1];
+            BarPoint entry = signalEventArgs.Level;
+
+            for (int i = 0; i < barsCount; i++)
+            {
+                int barIndex = chartDataSource.FirstValueBarIndex + i;
+                DateTime date = chartDataSource.D[i];
+                double high = chartDataSource.H[i];
+                double low = chartDataSource.L[i];
+                candlesForExport[i] = new JsonCandleExport
+                {
+                    Open = chartDataSource.O[i],
+                    Close = chartDataSource.C[i],
+                    BarIndex = barIndex,
+                    H = high,
+                    L = low,
+                    OpenDate = date
+                };
+
+                if (FindWavePoint(startWave, startIndex, date, high, low)) startIndex = i;
+                if (FindWavePoint(endWave, endIndex, date, high, low)) endIndex = i;
+                if (FindWavePoint(entry, entryIndex, date, high, low)) entryIndex = i;
+            }
+
+            if (startIndex < 0 || endIndex < 0)
+            {
+                Logger.Write("Cannot extract impulse");
+                return;
+            }
+            
+            GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
+                <double, double, double, double, DateTime, string>(
+                    chartDataSource.O[startIndex..endIndex],
+                    chartDataSource.H[startIndex..endIndex],
+                    chartDataSource.L[startIndex..endIndex],
+                    chartDataSource.C[startIndex..endIndex],
+                    chartDataSource.D[startIndex..endIndex],
+                    IncreasingColor: LongColor.ToFSharp(),
+                    DecreasingColor: ShortColor.ToFSharp(),
+                    Name: barProvider.Symbol.Name,
+            ShowLegend: false);
+
+            GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
+                    Array.Empty<GenericChart.GenericChart>().Concat(new[] { candlestickChart }))
+                .WithXAxisRangeSlider(RangeSlider.init(Visible: false))
+                .WithConfig(Config.init(
+                    StaticPlot: true,
+                    Responsive: false))
+                .WithLayout(Layout.init<string>(
+                    PlotBGColor: BlackColor,
+                    PaperBGColor: BlackColor,
+                    Font: Font.init(Color: WhiteColor)))
+                .WithLayoutGrid(LayoutGrid.init(
+                    Rows: 0,
+                    Columns: 0,
+                    XGap: 0d,
+                    YGap: 0d))
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(GridColor: SemiWhiteColor, ShowGrid: true))
+                .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                    GridColor: SemiWhiteColor, ShowGrid: true))
+                .WithYAxisStyle(Side: Side.Right, title: null);
+
+            string jpgFilePath = Path.Join(dirPath, CHART_FILE_NAME);
+            resultChart.SavePNG(jpgFilePath, null, CHART_WIDTH, CHART_HEIGHT);
+
+            var export = new JsonSymbolDataExport
+            {
+                Symbol = barProvider.Symbol.Name,
+                Entry = signalEventArgs.Level.Value,
+                EntryIndex = entryIndex,
+                Stop = signalEventArgs.StopLoss.Value,
+                Take = signalEventArgs.TakeProfit.Value,
+                StartIndex = startIndex,
+                FinishIndex = endIndex,
+                TimeFrame = barProvider.TimeFrame.ShortName,
+                Candles = candlesForExport
+            };
+
+            string jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
+            string json = JsonConvert.SerializeObject(export, Formatting.None);
+            File.WriteAllText(jsonFilePath, json);
         }
     }
 }

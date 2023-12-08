@@ -34,26 +34,26 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets or sets the stop.
         /// </summary>
-        [JsonProperty("s")]
+        [JsonProperty("sl")]
         public double Stop { get; set; }
 
         /// <summary>
-        /// Gets or sets the stop bar index.
+        /// Gets or sets the start bar index.
         /// </summary>
         [JsonProperty("si")]
-        public int StopIndex { get; set; }
+        public int StartIndex { get; set; }
 
         /// <summary>
         /// Gets or sets the take.
         /// </summary>
-        [JsonProperty("t")]
+        [JsonProperty("tp")]
         public double Take { get; set; }
 
         /// <summary>
-        /// Gets or sets the take bar index.
+        /// Gets or sets the finish bar index.
         /// </summary>
-        [JsonProperty("ti")]
-        public int TakeIndex { get; set; }
+        [JsonProperty("fi")]
+        public int FinishIndex { get; set; }
 
         /// <summary>
         /// Gets or sets the candles array.

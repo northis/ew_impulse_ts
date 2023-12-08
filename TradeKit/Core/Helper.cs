@@ -74,6 +74,11 @@ namespace TradeKit.Core
         public static string DirectoryToSaveImages { get; }
 
         /// <summary>
+        /// The JSON data file name
+        /// </summary>
+        public const string JSON_DATA_FILE_NAME = "data.json";
+
+        /// <summary>
         /// Gets the position identifier (string).
         /// </summary>
         /// <param name="setupId">The setup identifier.</param>

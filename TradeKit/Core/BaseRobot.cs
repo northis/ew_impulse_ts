@@ -8,11 +8,13 @@ using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Internals;
 using Microsoft.FSharp.Core;
+using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.EventArgs;
 using TradeKit.Telegram;
+using static Microsoft.FSharp.Core.ByRefKinds;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
 using Shape = Plotly.NET.LayoutObjects.Shape;
@@ -52,8 +54,8 @@ namespace TradeKit.Core
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, List<int>> m_PositionFinderMap;
         private Dictionary<string, TK> m_ChartFileFinderMap;
-        private readonly Color m_ShortColor = Color.fromHex("#EF5350");
-        private readonly Color m_LongColor = Color.fromHex("#26A69A");
+        protected readonly Color ShortColor = Color.fromHex("#EF5350");
+        protected readonly Color LongColor = Color.fromHex("#26A69A");
         private const double CHART_FONT_MAIN = 24;
 
         protected readonly Color BlackColor =  Color.fromARGB(255, 22, 26, 37);
@@ -758,6 +760,21 @@ namespace TradeKit.Core
             List<DateTime> chartDateTimes)
         {
         }
+
+        /// <summary>
+        /// Can be used for additional logic for manual analysis.
+        /// </summary>
+        /// <param name="chartDataSource">The main chart data.</param>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        /// <param name="barProvider">Bars provider for the TF and symbol.</param>
+        /// <param name="dirPath">Path to save extra chart data</param>
+        protected virtual void OnSaveRawChartDataForManualAnalysis(
+            ChartDataSource chartDataSource, 
+            TK signalEventArgs, 
+            IBarsProvider barProvider,
+            string dirPath)
+        {
+        }
         
         /// <summary>
         /// Gets the additional chart layers.
@@ -776,9 +793,11 @@ namespace TradeKit.Core
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="signalEventArgs">Signal info args</param>
         /// <param name="showTradeResult">True if we want to see the result of the first trade.</param>
-        /// <returns>Path to file</returns>
+        /// <returns>Path to image file</returns>
         protected string GeneratePlotImageFile(
-            IBarsProvider barProvider, TK signalEventArgs, bool showTradeResult = false)
+            IBarsProvider barProvider, 
+            TK signalEventArgs, 
+            bool showTradeResult = false)
         {
             DateTime startView = signalEventArgs.StartViewBarTime;
             int firstIndex = barProvider.GetIndexByTime(signalEventArgs.StartViewBarTime);
@@ -797,23 +816,19 @@ namespace TradeKit.Core
             if (!useCommonTimeFrame)
                 throw new NotSupportedException($"We don't support {barProvider.TimeFrame.Name} time frame");
 
-            var o = new double[barsCount];
-            var h = new double[barsCount];
-            var c = new double[barsCount];
-            var l = new double[barsCount];
-            var d = new DateTime[barsCount];
-            
+            var s = new ChartDataSource(earlyBar, barsCount);
             var rangeBreaks = new List<DateTime>();
             var validDateTimes = new List<DateTime>();
+
             for (int i = earlyBar; i <= lastIndex; i++)
             {
                 int barIndex = i - earlyBar;
                 DateTime currentDateTime = barProvider.GetOpenTime(i);
-                o[barIndex] = barProvider.GetOpenPrice(i);
-                h[barIndex] = barProvider.GetHighPrice(i);
-                l[barIndex] = barProvider.GetLowPrice(i);
-                c[barIndex] = barProvider.GetClosePrice(i);
-                d[barIndex] = currentDateTime;
+                s.O[barIndex] = barProvider.GetOpenPrice(i);
+                s.H[barIndex] = barProvider.GetHighPrice(i);
+                s.L[barIndex] = barProvider.GetLowPrice(i);
+                s.C[barIndex] = barProvider.GetClosePrice(i);
+                s.D[barIndex] = currentDateTime;
 
                 if (i == earlyBar)
                 {
@@ -836,16 +851,17 @@ namespace TradeKit.Core
                 }
             }
 
-            DateTime lastOpenDateTime = d[^1];
+            DateTime lastOpenDateTime = s.D[^1];
             DateTime lastCloseDateTime = lastOpenDateTime;
             
             GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
-                    <double, double, double, double, DateTime, string>(o, h, l, c, d,
-                        IncreasingColor: m_LongColor.ToFSharp(),
-                        DecreasingColor: m_ShortColor.ToFSharp(),
+                    <double, double, double, double, DateTime, string>(
+                    s.O, s.H, s.L, s.C, s.D,
+                        IncreasingColor: LongColor.ToFSharp(),
+                        DecreasingColor: ShortColor.ToFSharp(),
                         Name: barProvider.Symbol.Name,
                         ShowLegend: false);
-
+            
             OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
             GenericChart.GenericChart[] layers = 
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
@@ -893,8 +909,9 @@ namespace TradeKit.Core
             {
                 if (showTradeResult)
                 {
+                    OnSaveRawChartDataForManualAnalysis(
+                        s, signalEventArgs, barProvider, dirPath);
                     postfix = SECOND_CHART_FILE_POSTFIX;
-                    //get bars to json + sl tp + bar index
                 }
                 else
                 {
@@ -902,9 +919,11 @@ namespace TradeKit.Core
                 }
             }
             else
+            {
                 postfix = ZERO_CHART_FILE_POSTFIX;
+            }
 
-            string filePath = $"{dirPath}{postfix}";
+            string filePath = Path.Combine(dirPath, $"img{postfix}");
             resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
             return $"{filePath}{CHART_FILE_TYPE_EXTENSION}";
         }

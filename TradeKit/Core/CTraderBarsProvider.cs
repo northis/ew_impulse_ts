@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
 
@@ -186,8 +187,10 @@ namespace TradeKit.Core
         {
             if (m_Bars.OpenTimes.Count == 0)
                 m_Bars.LoadMoreHistory();
-            
-            while (m_Bars.OpenTimes[0] > date)
+
+            DateTime lastDate;
+            while ((lastDate = m_Bars.OpenTimes[0]) > date && 
+                   m_Bars.OpenTimes[0] != lastDate)
             {
                 m_Bars.LoadMoreHistory();
             }
