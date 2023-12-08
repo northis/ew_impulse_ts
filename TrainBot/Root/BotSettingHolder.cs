@@ -6,6 +6,7 @@ namespace TrainBot.Root
         {
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             TelegramBotKey = configuration["TelegramBotKey"]!;
+            UseWebHook = bool.Parse(configuration["UseWebHook"]!);
             InputFolder = Path.Join(baseDir, configuration["InputFolder"]);
             PositiveFolder = Path.Join(baseDir, configuration["PositiveFolder"]);
             NegativeFolder = Path.Join(baseDir, configuration["NegativeFolder"]);
@@ -33,6 +34,7 @@ namespace TrainBot.Root
         public long UserId { get; }
         public long AdminUserId { get; }
         public long ServerUserId { get; }
+        public bool UseWebHook { get; }
 
         public static BotSettingHolder Singleton { get; private set; }
         #endregion

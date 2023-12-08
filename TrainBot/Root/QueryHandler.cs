@@ -12,16 +12,11 @@ namespace TrainBot.Root
     {
         private readonly TelegramBotClient m_Client;
         private readonly ICommandManager m_CommandManager;
-        private readonly uint _maxUploadFileSize;
-
-        public int MaxInlineQueryLength = 5;
-        public int MaxInlineSearchResult = 7;
-
-        public QueryHandler(TelegramBotClient client, ICommandManager commandManager, uint maxUploadFileSize)
+        
+        public QueryHandler(TelegramBotClient client, ICommandManager commandManager)
         {
             m_Client = client;
             m_CommandManager = commandManager;
-            _maxUploadFileSize = maxUploadFileSize;
         }
 
         public async Task CallbackQuery(CallbackQuery callbackQuery)

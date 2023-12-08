@@ -1,4 +1,5 @@
 using Telegram.Bot;
+using Telegram.Bot.Types;
 using TrainBot.Commands;
 using TrainBot.Commands.Common;
 
@@ -6,6 +7,10 @@ namespace TrainBot.Root
 {
     public class MainConfigurator
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MainConfigurator"/> class.
+        /// </summary>
+        /// <param name="configuration">The configuration.</param>
         public MainConfigurator(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -23,10 +28,7 @@ namespace TrainBot.Root
                 return m_BotSettings;
             }
         }
-
-        public string CurrentDir => AppDomain.CurrentDomain.BaseDirectory;
-        public uint MaxUploadFileSize => 8192;
-
+        
         public IConfiguration Configuration { get; }
         public IServiceProvider ServiceProvider { get; private set; }
 
@@ -43,14 +45,27 @@ namespace TrainBot.Root
         public void ConfigureServices(IServiceCollection services)
         {
             var botSettings = BotSettings;
-            var tClient = new TelegramBotClient(botSettings.TelegramBotKey)
+
+            var botKey = botSettings.TelegramBotKey;
+            if (string.IsNullOrEmpty(botKey))
+                botKey = Environment.GetEnvironmentVariable("TG_TOKEN");
+
+            if (botKey == null)
+                Environment.Exit(-1);
+
+            var tClient = new TelegramBotClient(botKey)
                 { Timeout = botSettings.PollingTimeout };
+
             services.AddSingleton(bS => botSettings);
             services.AddSingleton(cl => tClient);
 
             var commandManager = new CommandManager(GetCommands);
             services.AddSingleton<ICommandManager>(commandManager);
-            services.AddMvc(options => options.EnableEndpointRouting = false);
+
+            if (botSettings.UseWebHook)
+            {
+                services.AddMvc(options => options.EnableEndpointRouting = false);
+            }
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime applicationLifetime)
@@ -65,11 +80,40 @@ namespace TrainBot.Root
 
             app.UseDefaultFiles();
             app.UseStaticFiles();
-            app.UseMvcWithDefaultRoute();
 
             var botSettings = ServiceProvider.GetRequiredService<BotSettingHolder>();
             var botBotClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
-            botBotClient.SetWebhookAsync($"{botSettings.WebhookPublicUrl}/{botSettings.TelegramBotKey}/Webhook").Wait();
+
+            if (botSettings.UseWebHook)
+            {
+                app.UseMvcWithDefaultRoute();
+                botBotClient.SetWebhookAsync($"{botSettings.WebhookPublicUrl}/{botSettings.TelegramBotKey}/Webhook").Wait();
+            }
+            else
+            {
+                botBotClient.StartReceiving(UpdateHandler, PollingErrorHandler);
+            }
+        }
+
+        private async Task PollingErrorHandler(
+            ITelegramBotClient client, Exception ex, CancellationToken token)
+        {
+            QueryHandler queryHandler = ServiceProvider.GetRequiredService<QueryHandler>();
+            await Task.Run(()=> queryHandler.OnReceiveGeneralError(ex), token);
+        }
+
+        private async Task UpdateHandler(
+            ITelegramBotClient client, Update update, CancellationToken token)
+        {
+            QueryHandler queryHandler = ServiceProvider.GetRequiredService<QueryHandler>();
+            if (update.Message != null)
+                await queryHandler.OnMessage(update.Message);
+
+            if (update.InlineQuery != null)
+                await queryHandler.InlineQuery(update.InlineQuery);
+
+            if (update.CallbackQuery != null)
+                await queryHandler.CallbackQuery(update.CallbackQuery);
         }
 
         private void OnShutdown()
