@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace TradeKit.Core
 {
-    internal static class Helper
+    public static class Helper
     {
         static Helper()
         {
@@ -77,6 +77,11 @@ namespace TradeKit.Core
         /// The JSON data file name
         /// </summary>
         public const string JSON_DATA_FILE_NAME = "data.json";
+
+        /// <summary>
+        /// The JSON stat file name
+        /// </summary>
+        public const string JSON_STAT_FILE_NAME = "stat.json";
 
         /// <summary>
         /// Gets the position identifier (string).

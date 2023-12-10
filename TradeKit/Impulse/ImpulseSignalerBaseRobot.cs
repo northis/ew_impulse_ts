@@ -139,7 +139,8 @@ namespace TradeKit.Impulse
             ChartDataSource chartDataSource, 
             ImpulseSignalEventArgs signalEventArgs,
             IBarsProvider barProvider,
-            string dirPath)
+            string dirPath,
+            bool tradeResult)
         {
             int barsCount = chartDataSource.D.Length;
             JsonCandleExport[] candlesForExport = new JsonCandleExport[barsCount];
@@ -214,7 +215,7 @@ namespace TradeKit.Impulse
             string jpgFilePath = Path.Join(dirPath, CHART_FILE_NAME);
             resultChart.SavePNG(jpgFilePath, null, CHART_WIDTH, CHART_HEIGHT);
 
-            var export = new JsonSymbolDataExport
+            var exportStat = new JsonSymbolStatExport
             {
                 Symbol = barProvider.Symbol.Name,
                 Entry = signalEventArgs.Level.Value,
@@ -224,12 +225,23 @@ namespace TradeKit.Impulse
                 StartIndex = startIndex,
                 FinishIndex = endIndex,
                 TimeFrame = barProvider.TimeFrame.ShortName,
+                Result = tradeResult,
+                Accuracy = barProvider.Symbol.Digits
+            };
+
+            string jsonFilePath = Path.Join(dirPath, Helper.JSON_STAT_FILE_NAME);
+            string json = JsonConvert.SerializeObject(exportStat, Formatting.None);
+            File.WriteAllText(jsonFilePath, json);
+
+            var exportData = new JsonSymbolDataExport
+            {
                 Candles = candlesForExport
             };
 
-            string jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
-            string json = JsonConvert.SerializeObject(export, Formatting.None);
+            jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
+            json = JsonConvert.SerializeObject(exportData, Formatting.None);
             File.WriteAllText(jsonFilePath, json);
+
         }
     }
 }

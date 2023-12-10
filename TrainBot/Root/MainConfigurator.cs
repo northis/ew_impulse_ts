@@ -2,6 +2,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using TrainBot.Commands;
 using TrainBot.Commands.Common;
+using TrainBot.FoldersLogic;
 
 namespace TrainBot.Root
 {
@@ -36,15 +37,15 @@ namespace TrainBot.Root
         {
             return new CommandBase[]
             {
-                ServiceProvider.GetService<AboutCommand>()!,
                 ServiceProvider.GetService<HelpCommand>()!,
+                ServiceProvider.GetService<LearnCommand>()!,
                 ServiceProvider.GetService<StartCommand>()!
             };
         }
 
         public void ConfigureServices(IServiceCollection services)
         {
-            var botSettings = BotSettings;
+            BotSettingHolder botSettings = BotSettings;
 
             var botKey = botSettings.TelegramBotKey;
             if (string.IsNullOrEmpty(botKey))
@@ -56,15 +57,25 @@ namespace TrainBot.Root
             var tClient = new TelegramBotClient(botKey)
                 { Timeout = botSettings.PollingTimeout };
 
-            services.AddSingleton(bS => botSettings);
-            services.AddSingleton(cl => tClient);
+            var fm = new FolderManager(botSettings);
+
+            services.AddSingleton(_ => botSettings);
+            services.AddSingleton(_ => tClient);
+            services.AddSingleton(_ => fm);
 
             var commandManager = new CommandManager(GetCommands);
             services.AddSingleton<ICommandManager>(commandManager);
+            services.AddTransient(_ => new HelpCommand(GetCommands));
+            services.AddTransient(_ => new StartCommand(GetCommands));
+            services.AddTransient(_ => new LearnCommand(fm));
 
             if (botSettings.UseWebHook)
             {
                 services.AddMvc(options => options.EnableEndpointRouting = false);
+            }
+            else
+            {
+                services.AddSingleton(_ => new QueryHandler(tClient, commandManager));
             }
         }
 

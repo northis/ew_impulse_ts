@@ -480,7 +480,7 @@ namespace TradeKit.Core
             m_StopCount++;
             Logger.Write($"SL hit! {price}");
             ModifySymbolPositions(setupId, positionId);
-            ShowResultChart(sender);
+            ShowResultChart(sender, false);
 
             if (!TelegramReporter.IsReady)
                 return;
@@ -492,7 +492,8 @@ namespace TradeKit.Core
         /// Generates the second result chart for the setup finder
         /// </summary>
         /// <param name="setupFinder">The setup finder we want to check. See <see cref="T"/></param>
-        private void ShowResultChart(object setupFinder)
+        /// <param name="successTrade">True - TP hit, False - SL hit</param>
+        private void ShowResultChart(object setupFinder, bool successTrade)
         {
             if (!SaveChartForManualAnalysis || 
                 setupFinder is not T sf ||
@@ -502,7 +503,7 @@ namespace TradeKit.Core
             }
 
             IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
-            GeneratePlotImageFile(bp, signalEventArgs, true);
+            GeneratePlotImageFile(bp, signalEventArgs, true, successTrade);
             m_ChartFileFinderMap.Remove(sf.Id);
         }
 
@@ -517,7 +518,7 @@ namespace TradeKit.Core
             m_TakeCount++;
             Logger.Write($"TP hit! {price}");
             ModifySymbolPositions(setupId, positionId);
-            ShowResultChart(sender);
+            ShowResultChart(sender, true);
 
             if (!TelegramReporter.IsReady)
             {
@@ -768,11 +769,13 @@ namespace TradeKit.Core
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="dirPath">Path to save extra chart data</param>
+        /// <param name="tradeResult">True - TP hit, false - SL hit.</param>
         protected virtual void OnSaveRawChartDataForManualAnalysis(
             ChartDataSource chartDataSource, 
             TK signalEventArgs, 
             IBarsProvider barProvider,
-            string dirPath)
+            string dirPath,
+            bool tradeResult)
         {
         }
         
@@ -793,11 +796,13 @@ namespace TradeKit.Core
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="signalEventArgs">Signal info args</param>
         /// <param name="showTradeResult">True if we want to see the result of the first trade.</param>
+        /// <param name="successTrade">Null - no result yet, true - TP hit, false - SL hit.</param>
         /// <returns>Path to image file</returns>
         protected string GeneratePlotImageFile(
             IBarsProvider barProvider, 
             TK signalEventArgs, 
-            bool showTradeResult = false)
+            bool showTradeResult = false,
+            bool? successTrade = null)
         {
             DateTime startView = signalEventArgs.StartViewBarTime;
             int firstIndex = barProvider.GetIndexByTime(signalEventArgs.StartViewBarTime);
@@ -910,7 +915,7 @@ namespace TradeKit.Core
                 if (showTradeResult)
                 {
                     OnSaveRawChartDataForManualAnalysis(
-                        s, signalEventArgs, barProvider, dirPath);
+                        s, signalEventArgs, barProvider, dirPath, successTrade.GetValueOrDefault());
                     postfix = SECOND_CHART_FILE_POSTFIX;
                 }
                 else

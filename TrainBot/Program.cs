@@ -25,8 +25,8 @@ namespace TrainBot
             });
 
             var webHost = webHostBuilder.Build();
-            webHost.Run();
             WebHostSingleton = webHost;
+            webHost.Run();
         }
 
         public static IWebHost WebHostSingleton { get; private set; } = null!;

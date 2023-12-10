@@ -30,7 +30,7 @@ namespace TrainBot.Commands
 
         public virtual string GetHelpMessage()
         {
-            return string.Join(Environment.NewLine, GetAllCommands().Select(a => a.GetFormattedDescription()));
+            return string.Join(Environment.NewLine, GetAllCommands().Select(a => a.GetFormattedDescription().ToLowerInvariant()));
         }
 
         public override AnswerItem Reply(MessageItem mItem)
