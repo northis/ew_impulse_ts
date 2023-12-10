@@ -32,6 +32,7 @@ services:
     command: bash -c "dotnet /app/TrainBot.dll"
     volumes:
       - ./TrainBot/bin/release/net7.0/publish:/app
+      - ./data:/app/data
     ports:
       - "8080:8080"
     networks:
