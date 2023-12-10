@@ -134,40 +134,56 @@ namespace TrainBot.Root
         {
             // TODO add user to a store
 
-            var firstEntity = msg.Entities?.FirstOrDefault();
-            if (firstEntity?.Type == MessageEntityType.BotCommand)
+            string? commandOnly = null;
+            string? textOnly = null;
+            if (!string.IsNullOrEmpty(argumentCommand))
             {
-                string? commandOnly = msg.Text?.Substring(firstEntity.Offset, firstEntity.Length);
-
-                var normalString = NormalizeString(msg.Text!);
-                string textOnly = normalString.Replace(commandOnly!, string.Empty);
-                if (string.IsNullOrEmpty(commandOnly))
+                if (argumentCommand.StartsWith(CommandBase.COMMAND_START_CHAR))
                 {
-                    Logger.Write($"Null command from text: {msg.Text}" );
+                    var sp = argumentCommand.Split(CommandBase.COMMAND_SEPARATOR_CHAR,
+                        StringSplitOptions.RemoveEmptyEntries);
+                    if (sp.Length > 0)
+                    {
+                        commandOnly = sp[0];
+                    }
+
+                    if (sp.Length > 1)
+                    {
+                        textOnly = NormalizeString(sp[1]);
+                    }
+                }
+            }
+
+            if (commandOnly == null)
+            {
+                MessageEntity? firstEntity = msg.Entities?.FirstOrDefault();
+                if (firstEntity == null)
+                {
+                    Logger.Write($"No command found: {msg.Text}");
                     return;
                 }
 
-                await HandleCommand(new MessageItem
+                commandOnly = msg.Text?.Substring(firstEntity.Offset, firstEntity.Length);
+
+                var normalString = NormalizeString(msg.Text!);
+                textOnly = normalString.Replace(commandOnly!, string.Empty);
+                if (string.IsNullOrEmpty(commandOnly))
                 {
-                    Command = commandOnly,
-                    ChatId = msg.Chat.Id,
-                    UserId = user.Id,
-                    Text = msg.Text!,
-                    TextOnly = textOnly
-                });
-
-                // save last user command
+                    Logger.Write($"Null command from text: {msg.Text}");
+                    return;
+                }
             }
-            else
+
+            await HandleCommand(new MessageItem
             {
-                await HandleArgumentCommand(msg, argumentCommand, user.Id);
-            }
+                Command = commandOnly,
+                ChatId = msg.Chat.Id,
+                UserId = user.Id,
+                Text = msg.Text!,
+                TextOnly = textOnly!
+            });
         }
-
-        private async Task HandleArgumentCommand(Message msg, string argumentCommand, long userId)
-        {
-        }
-
+        
         public static string NormalizeString(string str)
         {
             if (string.IsNullOrWhiteSpace(str))

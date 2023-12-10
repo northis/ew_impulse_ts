@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using Plotly.NET.TraceObjects;
+using System.Globalization;
 using System.Text;
 using Telegram.Bot.Types.ReplyMarkups;
 using TradeKit.Core;
@@ -19,6 +20,9 @@ namespace TrainBot.Commands
         private const string NEGATIVE = "n";
         private const string BROKEN = "b";
 
+        private readonly string m_Command;
+        private readonly IReplyMarkup m_ReplyMarkup;
+
         public LearnCommand(FolderManager folderManager)
         {
             m_FolderManager = folderManager;
@@ -37,6 +41,16 @@ namespace TrainBot.Commands
                     BROKEN, m_FolderManager.MoveBrokenFolder
                 }
             };
+
+            m_Command = $"{COMMAND_START_CHAR}{ECommands.LEARN.ToString().ToLowerInvariant()}";
+
+            m_ReplyMarkup = new InlineKeyboardMarkup(new[]
+            {
+                new InlineKeyboardButton("✅") {CallbackData = $"{m_Command} {POSITIVE}"},
+                new InlineKeyboardButton("✅ (flat)") {CallbackData = $"{m_Command} {POSITIVE_FLAT}"},
+                new InlineKeyboardButton("❌") {CallbackData = $"{m_Command} {NEGATIVE}"},
+                new InlineKeyboardButton("💔") {CallbackData = $"{m_Command} {BROKEN}"}
+            });
         }
 
         public override string GetCommandIconUnicode()
@@ -53,56 +67,52 @@ namespace TrainBot.Commands
         {
             return ECommands.LEARN;
         }
-        
-        public IReplyMarkup GetLearnMarkup()
-        {
-            var mkp = new InlineKeyboardMarkup(new[]
-            {
-                new InlineKeyboardButton("✅") {CallbackData = POSITIVE},
-                new InlineKeyboardButton("✅ (flat)") {CallbackData = POSITIVE_FLAT},
-                new InlineKeyboardButton("❌") {CallbackData = NEGATIVE},
-                new InlineKeyboardButton("💔") {CallbackData = BROKEN}
-            });
 
-            return mkp;
+        public AnswerItem ReplyInner(AnswerItem answerItem, MessageItem mItem)
+        {
+            FolderItem? folder = m_FolderManager.GetFolder(mItem.UserId);
+            if (folder == null || folder.PathImages.Length == 0)
+            {
+                answerItem.Message =
+                    $"No data to train. Try again: {m_Command}";
+                answerItem.Markup = null;
+                return answerItem;
+
+            }
+
+            answerItem.PathImages = folder.PathImages;
+            answerItem.PathMainImage = folder.PathImages[0];
+
+            JsonSymbolStatExport sData = folder.SymbolStatData;
+            var sb = new StringBuilder();
+
+            bool isBuy = sData.Take > sData.Stop;
+            string tradeType = isBuy ? "buy" : "sell";
+
+            sb.AppendLine(
+                $"#{sData.Symbol} {tradeType} {sData.Entry.ToString($"F{sData.Accuracy}", CultureInfo.InvariantCulture)}");
+
+            sb.AppendLine(sData.Result ? "TP hit" : "SL hit");
+            sb.AppendLine($"Setups to train: {folder.FoldersCount}");
+            answerItem.Message = sb.ToString();
+            answerItem.Markup = m_ReplyMarkup;
+            return answerItem;
         }
+
 
         public override AnswerItem Reply(MessageItem mItem)
         {
             var answerItem = new AnswerItem
             {
-                Message = GetCommandIconUnicode(),
-                Markup = GetLearnMarkup(),
+                Message = $"Something went wrong. Try again: {m_Command}",
+                Markup = null,
             };
 
             try
             {
                 if (string.IsNullOrWhiteSpace(mItem.TextOnly))
                 {
-                    FolderItem? folder = m_FolderManager.GetFolder(mItem.UserId);
-                    if (folder == null || folder.PathImages.Length == 0)
-                    {
-                        answerItem.Message =
-                            $"No data to train. Try again: {COMMAND_START_CHAR}{GetCommandType().ToString().ToLowerInvariant()}";
-                        answerItem.Markup = null;
-                        return answerItem;
-
-                    }
-
-                    answerItem.PathImages = folder.PathImages;
-                    answerItem.PathMainImage = folder.PathImages[0];
-
-                    JsonSymbolStatExport sData = folder.SymbolStatData;
-                    var sb = new StringBuilder();
-
-                    bool isBuy = sData.Take > sData.Stop;
-                    string tradeType = isBuy ? "buy" : "sell";
-                    
-                    sb.AppendLine(
-                        $"#{sData.Symbol} {tradeType} {sData.Entry.ToString($"F{sData.Accuracy}", CultureInfo.InvariantCulture)}");
-
-                    sb.AppendLine(sData.Result ? "TP hit" : "SL hit");
-                    answerItem.Message = sb.ToString();
+                    return ReplyInner(answerItem, mItem);
                 }
                 else
                 {
@@ -110,12 +120,13 @@ namespace TrainBot.Commands
                             mItem.TextOnly, out Action<long>? action))
                     {
                         answerItem.Message = "Unknown command";
-                        answerItem.Markup = null;
                         return answerItem;
                     }
 
                     action(mItem.UserId);
+                    return ReplyInner(answerItem, mItem);
                 }
+
             }
             catch (Exception ex)
             {

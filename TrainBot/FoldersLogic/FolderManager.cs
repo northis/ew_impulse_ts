@@ -89,7 +89,10 @@ public class FolderManager
                 return;
             }
 
-            Directory.Move(m_UserCache[userId].FolderPath, toPath);
+            string folderPath = m_UserCache[userId].FolderPath;
+            string destinationDirectoryPath = Path.Combine(toPath, Path.GetFileName(folderPath));
+
+            Directory.Move(m_UserCache[userId].FolderPath, destinationDirectoryPath);
             m_UserCache.Remove(userId);
         }
     }

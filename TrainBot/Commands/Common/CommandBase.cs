@@ -6,6 +6,7 @@ namespace TrainBot.Commands.Common
     public abstract class CommandBase
     {
         public const string COMMAND_START_CHAR = "/";
+        public const string COMMAND_SEPARATOR_CHAR = " ";
 
         public string GetCommandDescription()
         {
