@@ -27,6 +27,7 @@ namespace TrainBot
             var webHost = webHostBuilder.Build();
             WebHostSingleton = webHost;
             webHost.Run();
+            Logger.Write($"{nameof(Main)} started");
         }
 
         public static IWebHost WebHostSingleton { get; private set; } = null!;
