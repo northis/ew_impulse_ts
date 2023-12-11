@@ -21,7 +21,7 @@ services:
         - SSL_CHAIN_CERT=le-chain-crt.pem    
     networks:
       train_net:
-        ipv4_address: 10.1.2.1
+        ipv4_address: 10.2.2.1
 
   train_bot:
     image: mcr.microsoft.com/dotnet/sdk:7.0
@@ -37,11 +37,11 @@ services:
       - "8080:8080"
     networks:
       train_net:
-          ipv4_address: 10.1.2.2
+          ipv4_address: 10.2.2.2
           
 networks:
   train_net:
     name: train
     ipam:
       config:
-        - subnet: 10.1.2.0/24
+        - subnet: 10.2.2.0/24
