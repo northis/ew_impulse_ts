@@ -5,8 +5,8 @@ echo "Pulling from the repository..."
 git pull
 echo "Building bot..."
 cd TrainBot
-dotnet publish -c release
+dotnet publish -c release /p:NoBuild=false
 cd ..
 echo "Running containers..."
-docker compose up
+docker compose restart train_bot
 exit
