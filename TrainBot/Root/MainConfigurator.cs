@@ -68,15 +68,9 @@ namespace TrainBot.Root
             services.AddTransient(_ => new HelpCommand(GetCommands));
             services.AddTransient(_ => new StartCommand(GetCommands));
             services.AddTransient(_ => new LearnCommand(fm));
+            services.AddSingleton(_ => new QueryHandler(tClient, commandManager));
 
-            if (botSettings.UseWebHook)
-            {
-                services.AddMvc(options => options.EnableEndpointRouting = false);
-            }
-            else
-            {
-                services.AddSingleton(_ => new QueryHandler(tClient, commandManager));
-            }
+            if (botSettings.UseWebHook) services.AddMvc(options => options.EnableEndpointRouting = false);
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime applicationLifetime)
