@@ -255,4 +255,7 @@ paket-files/
 *.pyc
 
 ImpulseFinder.Tests/main_history.json
+appsettings.json
+docker-compose.prod.yml
+websrv.conf
 .env
