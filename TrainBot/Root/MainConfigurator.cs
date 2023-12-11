@@ -70,7 +70,10 @@ namespace TrainBot.Root
             services.AddTransient(_ => new LearnCommand(fm));
             services.AddSingleton(_ => new QueryHandler(tClient, commandManager));
 
-            if (botSettings.UseWebHook) services.AddMvc(options => options.EnableEndpointRouting = false);
+            if (botSettings.UseWebHook)
+            {
+                services.AddControllers().AddNewtonsoftJson();
+            }
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime applicationLifetime)
@@ -85,6 +88,7 @@ namespace TrainBot.Root
 
             app.UseDefaultFiles();
             app.UseStaticFiles();
+            
 
             var botSettings = ServiceProvider.GetRequiredService<BotSettingHolder>();
             var botBotClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
