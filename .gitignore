@@ -256,6 +256,7 @@ paket-files/
 
 ImpulseFinder.Tests/main_history.json
 appsettings.json
-docker-compose.prod.yml
 websrv.conf
 .env
+ssl/
+docker-compose.yml

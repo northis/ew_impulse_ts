@@ -15,6 +15,8 @@ set -o allexport
 [[ -f .env ]] && source .env
 set +o allexport
 
+mkdir ssl
+
 cd config
 echo "Applying the settings..."
 
@@ -29,17 +31,16 @@ websrv.template.conf > websrv.conf
 
 cd ..
 #replace docker-compose.prod.yml
-sed -e "s/CERT_EMAIL/$CERT_EMAIL/; s/MONGO_INITDB_ROOT_PASSWORD=pwd/\
- MONGO_INITDB_ROOT_PASSWORD=$MONGO_ADMIN_PASSWORD/; \
- s/PUBLIC_URL/$PUBLIC_URL/" docker-compose.yml > docker-compose.prod.yml
+sed -e "s/CERT_EMAIL/$CERT_EMAIL/; s/PUBLIC_URL/$PUBLIC_URL/" docker-compose.yml.template > docker-compose.yml
 
 echo "Building bot..."
 cd TrainBot
 dotnet publish -c release /p:NoBuild=false
 cd ..
+cp ./config/appsettings.json ./TrainBot/bin/release/net7.0/publish/appsettings.json
 
 echo "Running containers..."
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d --force-recreate
+docker compose up
 
 echo "Reloading proxy nginx server..."
 sleep .10
