@@ -124,7 +124,12 @@ namespace TrainBot.Root
         private void OnShutdown()
         {
             var botClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
-            botClient.DeleteWebhookAsync().Wait();
+            var botSettings = ServiceProvider.GetRequiredService<BotSettingHolder>();
+
+            if (botSettings.UseWebHook)
+            {
+                botClient.DeleteWebhookAsync().Wait();
+            }
         }
 
         public static DateTime GetDateTime()

@@ -15,6 +15,7 @@ namespace TrainBot
         public static void Main(string[] args)
         {
             Logger.SetWrite(Write);
+
             var webHostBuilder = WebHost.CreateDefaultBuilder(args)
                 .UseStartup<MainConfigurator>();
 
@@ -26,8 +27,8 @@ namespace TrainBot
 
             var webHost = webHostBuilder.Build();
             WebHostSingleton = webHost;
-            webHost.Run();
             Logger.Write($"{nameof(Main)} started");
+            webHost.Run();
         }
 
         public static IWebHost WebHostSingleton { get; private set; } = null!;
