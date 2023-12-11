@@ -88,14 +88,12 @@ namespace TrainBot.Root
 
             app.UseDefaultFiles();
             app.UseStaticFiles();
-            
 
             var botSettings = ServiceProvider.GetRequiredService<BotSettingHolder>();
             var botBotClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
 
             if (botSettings.UseWebHook)
             {
-                app.UseMvcWithDefaultRoute();
                 botBotClient.SetWebhookAsync($"{botSettings.WebhookPublicUrl}/{botSettings.TelegramBotKey}/Webhook").Wait();
             }
             else
