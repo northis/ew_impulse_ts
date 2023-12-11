@@ -1,4 +1,10 @@
-version: '3.8'
+version: '3.8'          
+networks:
+  ai_net:
+    name: ai
+    ipam:
+      config:
+        - subnet: 192.168.30.0/16
 services:
   train_web:
     image: umputun/nginx-le:latest
@@ -18,7 +24,10 @@ services:
         - LE_FQDN=PUBLIC_URL
         - SSL_CERT=le-crt.pem
         - SSL_KEY=le-key.pem
-        - SSL_CHAIN_CERT=le-chain-crt.pem
+        - SSL_CHAIN_CERT=le-chain-crt.pem   
+    networks:
+      ai_net:
+        ipv4_address: 192.168.30.1
   train_bot:
       image: mcr.microsoft.com/dotnet/sdk:7.0
       working_dir: /app
@@ -30,4 +39,7 @@ services:
         - ./TrainBot/bin/release/net7.0/publish:/app
         - ./data:/app/data
       ports:
-        - "8080:8080"
+        - "8080:8080" 
+      networks:
+        ai_net:
+          ipv4_address: 192.168.30.2
