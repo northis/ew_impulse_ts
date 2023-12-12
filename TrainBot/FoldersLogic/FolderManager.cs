@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using System.IO;
 using TradeKit.Core;
 using TrainBot.Root;
 
@@ -43,7 +44,6 @@ public class FolderManager
             if (res.FolderPath == null)
             {
                 Logger.Write("Unusual condition, take a look!");
-                MoveBrokenFolder(userId);
                 return res;
             }
 
@@ -61,7 +61,7 @@ public class FolderManager
                 if (!File.Exists(Path.Combine(
                         res.FolderPath, Helper.JSON_DATA_FILE_NAME)))
                 {
-                    MoveBrokenFolder(userId);
+                    MoveFolder(res.FolderPath, m_Settings.BrokenFolder);
                     defFolder.FoldersCount--;
                     return defFolder;
                 }
@@ -71,7 +71,7 @@ public class FolderManager
 
                 if (json == null)
                 {
-                    MoveBrokenFolder(userId);
+                    MoveFolder(res.FolderPath, m_Settings.BrokenFolder);
                     defFolder.FoldersCount--;
                     return defFolder;
                 }
@@ -80,7 +80,7 @@ public class FolderManager
             }
             else
             {
-                MoveBrokenFolder(userId);
+                MoveFolder(res.FolderPath, m_Settings.BrokenFolder);
                 defFolder.FoldersCount--;
                 return defFolder;
             }
@@ -89,21 +89,26 @@ public class FolderManager
             return res;
         }
     }
+    
+    private void MoveFolder(string fromPath, string toPath)
+    {
+        string destinationDirectoryPath = Path.Combine(toPath, Path.GetFileName(fromPath));
+
+        Directory.Move(fromPath, destinationDirectoryPath);
+    }
 
     private void MoveFolder(long userId, string toPath)
     {
         lock (m_Sync)
         {
-            if(!m_UserCache.ContainsKey(userId))
+            string? folderPath = m_UserCache[userId].FolderPath;
+            if (!m_UserCache.ContainsKey(userId) || folderPath ==null)
             {
                 Logger.Write($"{nameof(MoveFolder)}: Not supported action");
                 return;
             }
 
-            string folderPath = m_UserCache[userId].FolderPath;
-            string destinationDirectoryPath = Path.Combine(toPath, Path.GetFileName(folderPath));
-
-            Directory.Move(m_UserCache[userId].FolderPath, destinationDirectoryPath);
+            MoveFolder(folderPath, toPath);
             m_UserCache.Remove(userId);
         }
     }

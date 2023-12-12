@@ -88,20 +88,19 @@ namespace TrainBot.Root
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UseDefaultFiles();
-            app.UseRouting();
-            app.UseCors();
-
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
 
             var botSettings = ServiceProvider.GetRequiredService<BotSettingHolder>();
             var botBotClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
 
             if (botSettings.UseWebHook)
             {
+                app.UseDefaultFiles();
+                app.UseRouting();
+                app.UseCors();
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapControllers();
+                });
                 botBotClient.SetWebhookAsync($"{botSettings.WebhookPublicUrl}/{botSettings.TelegramBotKey}/Webhook").Wait();
             }
             else
