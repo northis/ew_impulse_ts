@@ -43,12 +43,12 @@ namespace TradeKit.Impulse
             DateTime startView = signalEventArgs.StartViewBarTime;
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
-                LineColor: ShortColor.ToFSharp(),
+                LineColor: LongColor.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
-                LineColor: LongColor.ToFSharp(),
+                LineColor: ShortColor.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
 
