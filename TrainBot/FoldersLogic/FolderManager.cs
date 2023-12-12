@@ -16,19 +16,20 @@ public class FolderManager
 
     private readonly Dictionary<long, FolderItem> m_UserCache = new();
     
-    public FolderItem? GetFolder(long userId)
+    public FolderItem GetFolder(long userId)
     {
         lock (m_Sync)
         {
             string[] dirs = Directory.GetDirectories(m_Settings.InputFolder);
+            var defFolder = new FolderItem(dirs.Length);
 
             bool inUse = m_UserCache.ContainsKey(userId);
-            if (dirs.Length == 0)
+            if (defFolder.FoldersCount == 0)
             {
                 if (inUse)
                     m_UserCache.Remove(userId);
 
-                return null;
+                return defFolder;
             }
 
             if (inUse)
@@ -37,8 +38,15 @@ public class FolderManager
                 current.FoldersCount = dirs.Length;
                 return current;
             }
+            
+            FolderItem res = new FolderItem(dirs.Length, dirs[0]);
+            if (res.FolderPath == null)
+            {
+                Logger.Write("Unusual condition, take a look!");
+                MoveBrokenFolder(userId);
+                return res;
+            }
 
-            FolderItem res = new FolderItem(dirs[0], dirs.Length);
             string[] images = Directory
                 .EnumerateFiles(res.FolderPath)
                 .Where(a => a.EndsWith(".jpg") || a.EndsWith(".png"))
@@ -53,8 +61,9 @@ public class FolderManager
                 if (!File.Exists(Path.Combine(
                         res.FolderPath, Helper.JSON_DATA_FILE_NAME)))
                 {
-                    m_UserCache.Remove(userId);
-                    return null;
+                    MoveBrokenFolder(userId);
+                    defFolder.FoldersCount--;
+                    return defFolder;
                 }
 
                 JsonSymbolStatExport? json =
@@ -62,16 +71,18 @@ public class FolderManager
 
                 if (json == null)
                 {
-                    m_UserCache.Remove(userId);
-                    return null;
+                    MoveBrokenFolder(userId);
+                    defFolder.FoldersCount--;
+                    return defFolder;
                 }
 
                 res.SymbolStatData = json;
             }
             else
             {
-                m_UserCache.Remove(userId);
-                return null;
+                MoveBrokenFolder(userId);
+                defFolder.FoldersCount--;
+                return defFolder;
             }
 
             m_UserCache[userId] = res;

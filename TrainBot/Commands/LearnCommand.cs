@@ -70,14 +70,23 @@ namespace TrainBot.Commands
 
         public AnswerItem ReplyInner(AnswerItem answerItem, MessageItem mItem)
         {
-            FolderItem? folder = m_FolderManager.GetFolder(mItem.UserId);
-            if (folder == null || folder.PathImages.Length == 0)
+            FolderItem? folder;
+            do
+            {
+                folder = m_FolderManager.GetFolder(mItem.UserId);
+                if (folder.FoldersCount == 0)
+                {
+                    break;
+                }
+
+            } while (folder.FolderPath ==null);
+
+            if (folder.FolderPath == null)
             {
                 answerItem.Message =
                     $"No data to train. Try again: {m_Command}";
                 answerItem.Markup = null;
                 return answerItem;
-
             }
 
             answerItem.PathImages = folder.PathImages;
