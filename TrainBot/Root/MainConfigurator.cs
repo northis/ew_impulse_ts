@@ -72,7 +72,9 @@ namespace TrainBot.Root
 
             if (botSettings.UseWebHook)
             {
-                services.AddControllers().AddNewtonsoftJson();
+                services.AddControllers(
+                    o => o.EnableEndpointRouting = false)
+                    .AddNewtonsoftJson();
             }
         }
 
@@ -87,7 +89,13 @@ namespace TrainBot.Root
             }
 
             app.UseDefaultFiles();
-            app.UseStaticFiles();
+            app.UseRouting();
+            app.UseCors();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
 
             var botSettings = ServiceProvider.GetRequiredService<BotSettingHolder>();
             var botBotClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
@@ -132,11 +140,6 @@ namespace TrainBot.Root
             {
                 botClient.DeleteWebhookAsync().Wait();
             }
-        }
-
-        public static DateTime GetDateTime()
-        {
-            return DateTime.Now;
         }
     }
 }
