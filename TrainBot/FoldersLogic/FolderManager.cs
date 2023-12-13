@@ -1,5 +1,4 @@
 using Newtonsoft.Json;
-using System.IO;
 using TradeKit.Core;
 using TrainBot.Root;
 
@@ -15,7 +14,17 @@ public class FolderManager
     private readonly object m_Sync = new();
     private readonly BotSettingHolder m_Settings;
 
-    private readonly Dictionary<long, FolderStat> m_UserCache = new();
+    private readonly Dictionary<string, FolderStat> m_UserCache = new();
+
+    private static string CreateMd5(long input)
+    {
+        using System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
+        byte[] inputBytes = BitConverter
+            .GetBytes(input);
+        byte[] hashBytes = md5.ComputeHash(inputBytes);
+
+        return Convert.ToHexString(hashBytes);
+    }
 
     public bool CleanDirs()
     {
@@ -43,7 +52,6 @@ public class FolderManager
         var dirInfo = new DirectoryInfo(path);
         int res = dirInfo.EnumerateDirectories()
             .AsParallel()
-            .SelectMany(di => di.EnumerateFiles("*.*", SearchOption.AllDirectories))
             .Count();
         return res;
     }
@@ -94,19 +102,20 @@ public class FolderManager
         lock (m_Sync)
         {
             var defFolder = new FolderStat(CountDirs(m_Settings.InputFolder));
+            string userHash = CreateMd5(userId);
 
-            bool inUse = m_UserCache.ContainsKey(userId);
+            bool inUse = m_UserCache.ContainsKey(userHash);
             if (defFolder.InputFoldersCount == 0)
             {
                 if (inUse)
-                    m_UserCache.Remove(userId);
+                    m_UserCache.Remove(userHash);
 
                 return defFolder;
             }
 
             if (inUse)
             {
-                FolderStat current = m_UserCache[userId];
+                FolderStat current = m_UserCache[userHash];
                 current.InputFoldersCount = defFolder.InputFoldersCount;
                 return current;
             }
@@ -132,7 +141,7 @@ public class FolderManager
                 return res;
             }
 
-            if (!ValidateFolder(res.CurrentFolderPath, 
+            if (ValidateFolder(res.CurrentFolderPath, 
                     out string statFilePath, out string[]? imagesPath))
             {
                 JsonSymbolStatExport? json =
@@ -141,7 +150,8 @@ public class FolderManager
                 if (json != null && imagesPath != null)
                 {
                     res.PathImages = imagesPath;
-                    m_UserCache[userId] = res;
+                    res.SymbolStatData = json;
+                    m_UserCache[userHash] = res;
                     return res;
                 }
 
@@ -157,6 +167,9 @@ public class FolderManager
     {
         string destinationDirectoryPath = Path.Combine(toPath, Path.GetFileName(fromPath));
 
+        if (Directory.Exists(destinationDirectoryPath))
+            Directory.Delete(destinationDirectoryPath, true);
+
         Directory.Move(fromPath, destinationDirectoryPath);
     }
 
@@ -164,15 +177,22 @@ public class FolderManager
     {
         lock (m_Sync)
         {
-            string? folderPath = m_UserCache[userId].CurrentFolderPath;
-            if (!m_UserCache.ContainsKey(userId) || folderPath ==null)
+            string userHash = CreateMd5(userId);
+            if (!m_UserCache.ContainsKey(userHash))
             {
-                Logger.Write($"{nameof(MoveFolder)}: Not supported action");
+                Logger.Write($"{nameof(MoveFolder)}: Not supported action 1");
+                return;
+            }
+
+            string? folderPath = m_UserCache[userHash].CurrentFolderPath;
+            if (folderPath == null)
+            {
+                Logger.Write($"{nameof(MoveFolder)}: Not supported action 2");
                 return;
             }
 
             MoveFolder(folderPath, toPath);
-            m_UserCache.Remove(userId);
+            m_UserCache.Remove(userHash);
         }
     }
 

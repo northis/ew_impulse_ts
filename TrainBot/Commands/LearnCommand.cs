@@ -14,11 +14,11 @@ namespace TrainBot.Commands
     {
         private readonly FolderManager m_FolderManager;
         private readonly Dictionary<string, Action<long>> m_ActionMapper;
-
-        private const string POSITIVE = "p";
-        private const string POSITIVE_DIAGONAL = "pd";
-        private const string NEGATIVE = "n";
-        private const string BROKEN = "b";
+        
+        private const string IMPULSE = "✅";
+        private const string DIAGONAL = "✅↘";
+        private const string NOT_AN_IMPULSE = "❌";
+        private const string BROKEN_SETUP = "💔";
 
         private readonly string m_Command;
 
@@ -28,16 +28,16 @@ namespace TrainBot.Commands
             m_ActionMapper = new Dictionary<string, Action<long>>
             {
                 {
-                    POSITIVE, m_FolderManager.MovePositiveFolder
+                    IMPULSE, m_FolderManager.MovePositiveFolder
                 },
                 {
-                    POSITIVE_DIAGONAL, m_FolderManager.MovePositiveFlatFolder
+                    DIAGONAL, m_FolderManager.MovePositiveFlatFolder
                 },
                 {
-                    NEGATIVE, m_FolderManager.MoveNegativeFolder
+                    NOT_AN_IMPULSE, m_FolderManager.MoveNegativeFolder
                 },
                 {
-                    BROKEN, m_FolderManager.MoveBrokenFolder
+                    BROKEN_SETUP, m_FolderManager.MoveBrokenFolder
                 }
             };
 
@@ -51,7 +51,13 @@ namespace TrainBot.Commands
 
         public override string GetCommandTextDescription()
         {
-            return "Train AI model.";
+            var sb = new StringBuilder();
+            sb.AppendLine("Train AI model.");
+            sb.AppendLine($"{IMPULSE} - Impulse");
+            sb.AppendLine($"{DIAGONAL} - Diagonal");
+            sb.AppendLine($"{NOT_AN_IMPULSE} - Not an impulse");
+            sb.AppendLine($"{BROKEN_SETUP} - Broken setup");
+            return sb.ToString();
         }
 
         public override ECommands GetCommandType()
@@ -97,10 +103,10 @@ namespace TrainBot.Commands
             answerItem.Message = sb.ToString();
             answerItem.Markup = new InlineKeyboardMarkup(new[]
             {
-                new InlineKeyboardButton("⭝") {CallbackData = $"{m_Command} {POSITIVE}", SwitchInlineQuery = "Impulse"},
-                new InlineKeyboardButton("⇲") {CallbackData = $"{m_Command} {POSITIVE_DIAGONAL}", SwitchInlineQuery = "Diagonal"},
-                new InlineKeyboardButton("❌") {CallbackData = $"{m_Command} {NEGATIVE}", SwitchInlineQuery = "Not an impulse"},
-                new InlineKeyboardButton("💔") {CallbackData = $"{m_Command} {BROKEN}", SwitchInlineQuery = "Broken setup"}
+                new InlineKeyboardButton($"{IMPULSE} {folder.PositiveFoldersCount}") {CallbackData = $"{m_Command} {IMPULSE}"},
+                new InlineKeyboardButton($"{DIAGONAL}  {folder.PositiveDiagonalFoldersCount}") {CallbackData = $"{m_Command} {DIAGONAL}" },
+                new InlineKeyboardButton($"{NOT_AN_IMPULSE} {folder.NegativeFoldersCount}") {CallbackData = $"{m_Command} {NOT_AN_IMPULSE}"},
+                new InlineKeyboardButton($"{BROKEN_SETUP} {folder.BrokenFoldersCount}") {CallbackData = $"{m_Command} {BROKEN_SETUP}"}
             });
 
             return answerItem;

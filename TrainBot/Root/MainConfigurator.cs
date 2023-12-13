@@ -48,7 +48,8 @@ namespace TrainBot.Root
         private CommandBase[] GetPublicCommands()
         {
             return GetCommands()
-                .Where(a => a.GetCommandType() != ECommands.REFRESH)
+                .Where(a => a.GetCommandType() != ECommands.REFRESH && 
+                            a.GetCommandType() != ECommands.START)
                 .ToArray();
         }
 
@@ -97,8 +98,7 @@ namespace TrainBot.Root
             {
                 app.UseDeveloperExceptionPage();
             }
-
-
+            
             var botSettings = ServiceProvider.GetRequiredService<BotSettingHolder>();
             var botBotClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
 
