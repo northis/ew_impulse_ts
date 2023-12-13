@@ -20,14 +20,13 @@ namespace TrainBot.Controllers
         [HttpGet]
         public ActionResult<IEnumerable<string>> Get()
         {
-            return new [] { "value1", "value2" };
+            return new [] { "kurwa" };
         }
 
         // POST api/values
         [HttpPost]
         public async Task<IActionResult> Post(Update update)
         {
-            Logger.Write("Post");
             if (update.Message != null)
                 await m_QueryHandler.OnMessage(update.Message);
 

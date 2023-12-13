@@ -147,7 +147,7 @@ namespace TrainBot.Root
 
                     if (sp.Length > 1)
                     {
-                        textOnly = NormalizeString(sp[1]);
+                        textOnly = sp[1];
                     }
                 }
             }
