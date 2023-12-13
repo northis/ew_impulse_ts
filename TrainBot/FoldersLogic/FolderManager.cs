@@ -26,16 +26,16 @@ public class FolderManager
             foreach (string dir in allDirs)
             {
                 if (!ValidateFolder(dir, out _, out _))
-                    Directory.Delete(dir);
+                    Directory.Delete(dir, true);
             }
         }
         catch (Exception ex)
         {
             Logger.Write($"{nameof(CleanDirs)}: {ex}");
-            return true;
+            return false;
         }
 
-        return false;
+        return true;
     }
 
     private static int CountDirs(string path)
