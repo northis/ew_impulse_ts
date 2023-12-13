@@ -16,7 +16,7 @@ namespace TrainBot.Commands
         private readonly Dictionary<string, Action<long>> m_ActionMapper;
         
         private const string IMPULSE = "✅";
-        private const string DIAGONAL = "✅↘";
+        private const string DIAGONAL = "↘";
         private const string NOT_AN_IMPULSE = "❌";
         private const string BROKEN_SETUP = "💔";
 
