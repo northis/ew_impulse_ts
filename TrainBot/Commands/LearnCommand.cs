@@ -16,12 +16,11 @@ namespace TrainBot.Commands
         private readonly Dictionary<string, Action<long>> m_ActionMapper;
 
         private const string POSITIVE = "p";
-        private const string POSITIVE_FLAT = "pf";
+        private const string POSITIVE_DIAGONAL = "pd";
         private const string NEGATIVE = "n";
         private const string BROKEN = "b";
 
         private readonly string m_Command;
-        private readonly IReplyMarkup m_ReplyMarkup;
 
         public LearnCommand(FolderManager folderManager)
         {
@@ -32,7 +31,7 @@ namespace TrainBot.Commands
                     POSITIVE, m_FolderManager.MovePositiveFolder
                 },
                 {
-                    POSITIVE_FLAT, m_FolderManager.MovePositiveFlatFolder
+                    POSITIVE_DIAGONAL, m_FolderManager.MovePositiveFlatFolder
                 },
                 {
                     NEGATIVE, m_FolderManager.MoveNegativeFolder
@@ -43,14 +42,6 @@ namespace TrainBot.Commands
             };
 
             m_Command = $"{COMMAND_START_CHAR}{ECommands.LEARN.ToString().ToLowerInvariant()}";
-
-            m_ReplyMarkup = new InlineKeyboardMarkup(new[]
-            {
-                new InlineKeyboardButton("✅") {CallbackData = $"{m_Command} {POSITIVE}"},
-                new InlineKeyboardButton("✅ (flat)") {CallbackData = $"{m_Command} {POSITIVE_FLAT}"},
-                new InlineKeyboardButton("❌") {CallbackData = $"{m_Command} {NEGATIVE}"},
-                new InlineKeyboardButton("💔") {CallbackData = $"{m_Command} {BROKEN}"}
-            });
         }
 
         public override string GetCommandIconUnicode()
@@ -70,18 +61,18 @@ namespace TrainBot.Commands
 
         public AnswerItem ReplyInner(AnswerItem answerItem, MessageItem mItem)
         {
-            FolderItem? folder;
+            FolderStat? folder;
             do
             {
                 folder = m_FolderManager.GetFolder(mItem.UserId);
-                if (folder.FoldersCount == 0)
+                if (folder.InputFoldersCount == 0)
                 {
                     break;
                 }
 
-            } while (folder.FolderPath ==null);
+            } while (folder.CurrentFolderPath ==null);
 
-            if (folder.FolderPath == null)
+            if (folder.CurrentFolderPath == null)
             {
                 answerItem.Message =
                     $"No data to train. Try again: {m_Command}";
@@ -102,12 +93,18 @@ namespace TrainBot.Commands
                 $"#{sData.Symbol} {tradeType} {sData.Entry.ToString($"F{sData.Accuracy}", CultureInfo.InvariantCulture)}");
 
             sb.AppendLine(sData.Result ? "TP hit" : "SL hit");
-            sb.AppendLine($"Setups to train: {folder.FoldersCount}");
+            sb.AppendLine($"Setups to train: {folder.InputFoldersCount}");
             answerItem.Message = sb.ToString();
-            answerItem.Markup = m_ReplyMarkup;
+            answerItem.Markup = new InlineKeyboardMarkup(new[]
+            {
+                new InlineKeyboardButton("⭝") {CallbackData = $"{m_Command} {POSITIVE}", SwitchInlineQuery = "Impulse"},
+                new InlineKeyboardButton("⇲") {CallbackData = $"{m_Command} {POSITIVE_DIAGONAL}", SwitchInlineQuery = "Diagonal"},
+                new InlineKeyboardButton("❌") {CallbackData = $"{m_Command} {NEGATIVE}", SwitchInlineQuery = "Not an impulse"},
+                new InlineKeyboardButton("💔") {CallbackData = $"{m_Command} {BROKEN}", SwitchInlineQuery = "Broken setup"}
+            });
+
             return answerItem;
         }
-
 
         public override AnswerItem Reply(MessageItem mItem)
         {

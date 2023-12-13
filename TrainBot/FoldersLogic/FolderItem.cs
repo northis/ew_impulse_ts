@@ -1,18 +1,21 @@
 using TradeKit.Core;
-using TrainBot.Root;
 
 namespace TrainBot.FoldersLogic;
 
-public class FolderItem
+public class FolderStat
 {
-    public FolderItem(int foldersCount, string? folderPath = null)
+    public FolderStat(int inputFoldersCount, string? currentFolderPath = null)
     {
-        FolderPath = folderPath;
-        FoldersCount = foldersCount;
+        CurrentFolderPath = currentFolderPath;
+        InputFoldersCount = inputFoldersCount;
     }
 
-    public string? FolderPath { get; set; }
-    public int FoldersCount { get; set; }
+    public string? CurrentFolderPath { get; set; }
+    public int InputFoldersCount { get; set; }
+    public int PositiveFoldersCount { get; set; }
+    public int PositiveDiagonalFoldersCount { get; set; }
+    public int NegativeFoldersCount { get; set; }
+    public int BrokenFoldersCount { get; set; }
     public string[] PathImages { get; set; }
     public JsonSymbolStatExport SymbolStatData { get; set; }
 }

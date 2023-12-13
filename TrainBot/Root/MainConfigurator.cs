@@ -2,6 +2,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using TrainBot.Commands;
 using TrainBot.Commands.Common;
+using TrainBot.Commands.Enums;
 using TrainBot.FoldersLogic;
 
 namespace TrainBot.Root
@@ -39,8 +40,16 @@ namespace TrainBot.Root
             {
                 ServiceProvider.GetService<HelpCommand>()!,
                 ServiceProvider.GetService<LearnCommand>()!,
+                ServiceProvider.GetService<RefreshCommand>()!,
                 ServiceProvider.GetService<StartCommand>()!
             };
+        }
+
+        private CommandBase[] GetPublicCommands()
+        {
+            return GetCommands()
+                .Where(a => a.GetCommandType() != ECommands.REFRESH)
+                .ToArray();
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -62,11 +71,12 @@ namespace TrainBot.Root
             services.AddSingleton(_ => botSettings);
             services.AddSingleton(_ => tClient);
             services.AddSingleton(_ => fm);
-
+            
             var commandManager = new CommandManager(GetCommands);
             services.AddSingleton<ICommandManager>(commandManager);
-            services.AddTransient(_ => new HelpCommand(GetCommands));
-            services.AddTransient(_ => new StartCommand(GetCommands));
+            services.AddTransient(_ => new HelpCommand(GetPublicCommands));
+            services.AddTransient(_ => new StartCommand(GetPublicCommands));
+            services.AddTransient(_ => new RefreshCommand(fm, botSettings));
             services.AddTransient(_ => new LearnCommand(fm));
             services.AddSingleton(_ => new QueryHandler(tClient, commandManager));
 

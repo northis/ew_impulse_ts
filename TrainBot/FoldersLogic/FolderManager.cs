@@ -15,17 +15,88 @@ public class FolderManager
     private readonly object m_Sync = new();
     private readonly BotSettingHolder m_Settings;
 
-    private readonly Dictionary<long, FolderItem> m_UserCache = new();
-    
-    public FolderItem GetFolder(long userId)
+    private readonly Dictionary<long, FolderStat> m_UserCache = new();
+
+    public bool CleanDirs()
+    {
+        try
+        {
+            string[] allDirs = Directory.GetDirectories(m_Settings.InputFolder);
+
+            foreach (string dir in allDirs)
+            {
+                if (!ValidateFolder(dir, out _, out _))
+                    Directory.Delete(dir);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Write($"{nameof(CleanDirs)}: {ex}");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static int CountDirs(string path)
+    {
+        var dirInfo = new DirectoryInfo(path);
+        int res = dirInfo.EnumerateDirectories()
+            .AsParallel()
+            .SelectMany(di => di.EnumerateFiles("*.*", SearchOption.AllDirectories))
+            .Count();
+        return res;
+    }
+
+    private static string? GetFirstDir(string path)
+    {
+        var dirInfo = new DirectoryInfo(path);
+        foreach (DirectoryInfo dir in dirInfo.EnumerateDirectories())
+        {
+            return dir.FullName;
+        }
+
+        return null;
+    }
+
+    private bool ValidateFolder(string folderPath,
+        out string statFilePath,
+        out string[]? imagesPath)
+    {
+        imagesPath = null;
+        statFilePath = Path.Combine(folderPath, Helper.JSON_STAT_FILE_NAME);
+        if (!File.Exists(statFilePath))
+        {
+            Logger.Write($"No stat file in {folderPath}");
+            return false;
+        }
+
+        if (!File.Exists(Path.Combine(folderPath, Helper.JSON_DATA_FILE_NAME)))
+        {
+            Logger.Write($"No data file in {folderPath}");
+            return false;
+        }
+
+        imagesPath = Directory
+            .EnumerateFiles(folderPath)
+            .Where(a => a.EndsWith(".jpg") || a.EndsWith(".png"))
+            .ToArray();
+
+        if (imagesPath.Length >= 2) 
+            return true;
+
+        Logger.Write($"No images in {folderPath}");
+        return false;
+    }
+
+    public FolderStat GetFolder(long userId)
     {
         lock (m_Sync)
         {
-            string[] dirs = Directory.GetDirectories(m_Settings.InputFolder);
-            var defFolder = new FolderItem(dirs.Length);
+            var defFolder = new FolderStat(CountDirs(m_Settings.InputFolder));
 
             bool inUse = m_UserCache.ContainsKey(userId);
-            if (defFolder.FoldersCount == 0)
+            if (defFolder.InputFoldersCount == 0)
             {
                 if (inUse)
                     m_UserCache.Remove(userId);
@@ -35,58 +106,50 @@ public class FolderManager
 
             if (inUse)
             {
-                FolderItem current = m_UserCache[userId];
-                current.FoldersCount = dirs.Length;
+                FolderStat current = m_UserCache[userId];
+                current.InputFoldersCount = defFolder.InputFoldersCount;
                 return current;
             }
             
-            FolderItem res = new FolderItem(dirs.Length, dirs[0]);
-            if (res.FolderPath == null)
+            string? firstDir = GetFirstDir(m_Settings.InputFolder);
+            if (firstDir == null)
             {
-                Logger.Write("Unusual condition, take a look!");
-                return res;
-            }
-
-            string[] images = Directory
-                .EnumerateFiles(res.FolderPath)
-                .Where(a => a.EndsWith(".jpg") || a.EndsWith(".png"))
-                .ToArray();
-            res.PathImages = images;
-
-            string jsonPath = Path.Combine(
-                res.FolderPath, Helper.JSON_STAT_FILE_NAME);
-
-            if (File.Exists(jsonPath))
-            {
-                if (!File.Exists(Path.Combine(
-                        res.FolderPath, Helper.JSON_DATA_FILE_NAME)))
-                {
-                    MoveFolder(res.FolderPath, m_Settings.BrokenFolder);
-                    defFolder.FoldersCount--;
-                    return defFolder;
-                }
-
-                JsonSymbolStatExport? json =
-                    JsonConvert.DeserializeObject<JsonSymbolStatExport>(File.ReadAllText(jsonPath));
-
-                if (json == null)
-                {
-                    MoveFolder(res.FolderPath, m_Settings.BrokenFolder);
-                    defFolder.FoldersCount--;
-                    return defFolder;
-                }
-
-                res.SymbolStatData = json;
-            }
-            else
-            {
-                MoveFolder(res.FolderPath, m_Settings.BrokenFolder);
-                defFolder.FoldersCount--;
+                Logger.Write("Unusual condition 1, take a look!");
                 return defFolder;
             }
 
-            m_UserCache[userId] = res;
-            return res;
+            var res = new FolderStat(defFolder.InputFoldersCount, firstDir)
+            {
+                PositiveFoldersCount = CountDirs(m_Settings.PositiveFolder),
+                PositiveDiagonalFoldersCount = CountDirs(m_Settings.PositiveDiagonalFolder),
+                NegativeFoldersCount = CountDirs(m_Settings.NegativeFolder),
+                BrokenFoldersCount = CountDirs(m_Settings.BrokenFolder)
+            };
+
+            if (res.CurrentFolderPath == null)
+            {
+                Logger.Write("Unusual condition 2, take a look!");
+                return res;
+            }
+
+            if (!ValidateFolder(res.CurrentFolderPath, 
+                    out string statFilePath, out string[]? imagesPath))
+            {
+                JsonSymbolStatExport? json =
+                    JsonConvert.DeserializeObject<JsonSymbolStatExport>(File.ReadAllText(statFilePath));
+
+                if (json != null && imagesPath != null)
+                {
+                    res.PathImages = imagesPath;
+                    m_UserCache[userId] = res;
+                    return res;
+                }
+
+            }
+
+            MoveFolder(res.CurrentFolderPath, m_Settings.BrokenFolder);
+            defFolder.InputFoldersCount--;
+            return defFolder;
         }
     }
     
@@ -101,7 +164,7 @@ public class FolderManager
     {
         lock (m_Sync)
         {
-            string? folderPath = m_UserCache[userId].FolderPath;
+            string? folderPath = m_UserCache[userId].CurrentFolderPath;
             if (!m_UserCache.ContainsKey(userId) || folderPath ==null)
             {
                 Logger.Write($"{nameof(MoveFolder)}: Not supported action");
@@ -120,7 +183,7 @@ public class FolderManager
 
     public void MovePositiveFlatFolder(long userId)
     {
-        MoveFolder(userId, m_Settings.PositiveFlatFolder);
+        MoveFolder(userId, m_Settings.PositiveDiagonalFolder);
     }
 
     public void MoveNegativeFolder(long userId)

@@ -4,7 +4,7 @@ namespace TrainBot.Commands.Enums
     {
         START,
         HELP,
-        ABOUT,
+        REFRESH,
         LEARN
     }
 }

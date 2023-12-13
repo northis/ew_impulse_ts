@@ -143,7 +143,7 @@ namespace TradeKit.Impulse
             bool tradeResult)
         {
             int barsCount = chartDataSource.D.Length;
-            JsonCandleExport[] candlesForExport = new JsonCandleExport[barsCount];
+            var candlesForExport = new List<JsonCandleExport>();
 
             int startIndex = -1;
             int entryIndex = -1;
@@ -159,15 +159,18 @@ namespace TradeKit.Impulse
                 DateTime date = chartDataSource.D[i];
                 double high = chartDataSource.H[i];
                 double low = chartDataSource.L[i];
-                candlesForExport[i] = new JsonCandleExport
-                {
-                    Open = chartDataSource.O[i],
-                    Close = chartDataSource.C[i],
-                    BarIndex = barIndex,
-                    H = high,
-                    L = low,
-                    OpenDate = date
-                };
+
+                if (barIndex >= startWave.BarIndex &&
+                    barIndex <= endWave.BarIndex)
+                    candlesForExport.Add(new JsonCandleExport
+                    {
+                        Open = chartDataSource.O[i],
+                        Close = chartDataSource.C[i],
+                        BarIndex = barIndex,
+                        H = high,
+                        L = low,
+                        OpenDate = date
+                    });
 
                 if (FindWavePoint(startWave, startIndex, date, high, low)) startIndex = i;
                 if (FindWavePoint(endWave, endIndex, date, high, low)) endIndex = i;
@@ -235,7 +238,7 @@ namespace TradeKit.Impulse
 
             var exportData = new JsonSymbolDataExport
             {
-                Candles = candlesForExport
+                Candles = candlesForExport.ToArray()
             };
 
             jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
