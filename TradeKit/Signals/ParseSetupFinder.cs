@@ -9,7 +9,7 @@ using cAlgo.API.Internals;
 using Newtonsoft.Json;
 using TradeKit.Core;
 using TradeKit.EventArgs;
-using TradeKit.Telegram;
+using TradeKit.Json;
 
 namespace TradeKit.Signals
 {

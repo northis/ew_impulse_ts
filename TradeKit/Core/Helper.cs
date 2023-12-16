@@ -68,6 +68,9 @@ namespace TradeKit.Core
         public const double MIN_ALLOWED_VOLUME_LOTS = 0.01;
         public const double MAX_ALLOWED_VOLUME_LOTS = 10;
 
+        public const ushort ML_IMPULSE_VECTOR_RANK = 10;
+        public const double ML_TEST_SET_PART = 0.2;
+
         /// <summary>
         /// Gets the directory to save images.
         /// </summary>

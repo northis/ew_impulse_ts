@@ -6,9 +6,10 @@ namespace TradeKit.Core
     /// OHLC Candle
     /// </summary>
     /// <seealso cref="IEquatable&lt;Candle&gt;" />
-    public record Candle(double O, double H, double L, double C, bool? IsHighFirst = null, int? Index = null)
+    public record Candle(double O, double H, double L, double C, bool? IsHighFirst = null, int? Index = null) : ICandle
     {
         private double? m_BodyLow;
+
         public double BodyLow
         {
             get
@@ -19,6 +20,7 @@ namespace TradeKit.Core
         }
 
         private double? m_BodyHigh;
+
         public double BodyHigh
         {
             get
@@ -29,11 +31,12 @@ namespace TradeKit.Core
         }
 
         private double? m_Length;
+
         public double Length
         {
             get
             {
-                if (m_Length != null) 
+                if (m_Length != null)
                     return m_Length.GetValueOrDefault();
 
                 m_Length = H - L;
@@ -59,7 +62,7 @@ namespace TradeKit.Core
             if (range < 0)
                 return null;
 
-            var res =  new Candle(barsProvider.GetOpenPrice(index),
+            var res = new Candle(barsProvider.GetOpenPrice(index),
                 h,
                 l,
                 barsProvider.GetClosePrice(index), null, index);

@@ -12,6 +12,7 @@ using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.Json;
 using static Plotly.NET.StyleParam;
 
 namespace TradeKit.Impulse
@@ -160,17 +161,15 @@ namespace TradeKit.Impulse
                 double high = chartDataSource.H[i];
                 double low = chartDataSource.L[i];
 
-                if (barIndex >= startWave.BarIndex &&
-                    barIndex <= endWave.BarIndex)
-                    candlesForExport.Add(new JsonCandleExport
-                    {
-                        Open = chartDataSource.O[i],
-                        Close = chartDataSource.C[i],
-                        BarIndex = barIndex,
-                        H = high,
-                        L = low,
-                        OpenDate = date
-                    });
+                candlesForExport.Add(new JsonCandleExport
+                {
+                    O = chartDataSource.O[i],
+                    C = chartDataSource.C[i],
+                    BarIndex = barIndex,
+                    H = high,
+                    L = low,
+                    OpenDate = date
+                });
 
                 if (FindWavePoint(startWave, startIndex, date, high, low)) startIndex = i;
                 if (FindWavePoint(endWave, endIndex, date, high, low)) endIndex = i;

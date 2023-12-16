@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace TradeKit.Core
+namespace TradeKit.Json
 {
     /// <summary>
     /// "Export from chat" in Telegram entity - statistic part

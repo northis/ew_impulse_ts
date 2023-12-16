@@ -120,8 +120,6 @@ namespace TradeKit.Impulse
         {
             channelRatio = (startItem.Value.BarIndex - edgeExtremum.BarIndex)/ (double)barsCount;
 
-            var candles = new List<Candle>();
-            var points = new List<double>();
             double stochH = max;
             double stochL = min;
 
@@ -133,48 +131,15 @@ namespace TradeKit.Impulse
                 if (localL < stochL) stochL = localL;
             }
 
+            var candles = new List<ICandle>();
             for (int i = startItem.Value.BarIndex; i < startItem.Value.BarIndex + barsCount; i++)
             {
                 Candle cdl = Candle.FromIndex(BarsProvider, i);
                 candles.Add(cdl);
-                points.Add(cdl.H);
-                points.Add(cdl.L);
             }
-
-            double currentPoint = min;
-            double overlapsedIndex = 0;
-
-            var profileInner = new SortedDictionary<double, int>();
-
-            void NextPoint(double nextPoint)
-            {
-                int cdlCount = candles.Count(a => a.L < currentPoint && a.H > currentPoint ||
-                                                  a.L >= currentPoint && a.H <= nextPoint ||
-                                                  a.L < nextPoint && a.H > nextPoint ||
-                                                  a.L <= currentPoint && a.H >= nextPoint);
-
-                cdlCount = cdlCount == 0 ? 1 : cdlCount;
-                double diff = nextPoint - currentPoint;
-                profileInner.Add(nextPoint, cdlCount);
-
-                if (cdlCount == 1) // gap (<1) or single candle (=1)
-                {
-                    return;
-                }
-
-                overlapsedIndex += diff * cdlCount;
-            }
-
-            foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
-            {
-                if (Math.Abs(nextPoint - currentPoint) <= double.Epsilon)
-                    continue;
-
-                NextPoint(nextPoint);
-                currentPoint = nextPoint;
-            }
-
-            profile = profileInner;
+            
+            profile = CandleTransformer.GetProfile(
+                candles, min, out double overlapsedIndex);
 
             SortedDictionary<double, int>.ValueCollection countParts = profile.Values;
             double avgParts = countParts.Average();

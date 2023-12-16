@@ -1,7 +1,7 @@
 ﻿using System;
 using Newtonsoft.Json;
 
-namespace TradeKit.Telegram
+namespace TradeKit.Json
 {
     /// <summary>
     /// Entity for signal from telegram
@@ -11,13 +11,13 @@ namespace TradeKit.Telegram
         /// <summary>
         /// Gets or sets the date.
         /// </summary>
-        [JsonProperty("date")] 
+        [JsonProperty("date")]
         public DateTime Date { get; set; }
 
         /// <summary>
         /// Gets or sets the identifier.
         /// </summary>
-        [JsonProperty("id")] 
+        [JsonProperty("id")]
         public long Id { get; set; }
 
         /// <summary>

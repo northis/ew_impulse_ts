@@ -5,6 +5,7 @@ namespace TrainBot.Commands.Enums
         START,
         HELP,
         REFRESH,
-        LEARN
+        LEARN,
+        MACHINE_LEARN
     }
 }

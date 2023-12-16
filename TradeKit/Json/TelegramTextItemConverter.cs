@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace TradeKit.Telegram
+namespace TradeKit.Json
 {
     /// <summary>
     /// Handler both - plain text and array in the "message" field.
@@ -20,7 +20,7 @@ namespace TradeKit.Telegram
         /// </returns>
         public override bool CanConvert(Type objectType)
         {
-            return objectType == typeof(List<TelegramTextItemConverter>) 
+            return objectType == typeof(List<TelegramTextItemConverter>)
                    || objectType == typeof(string);
         }
 
@@ -68,7 +68,7 @@ namespace TradeKit.Telegram
         /// <param name="writer">The <see cref="T:Newtonsoft.Json.JsonWriter" /> to write to.</param>
         /// <param name="value">The value.</param>
         /// <param name="serializer">The calling serializer.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
+        /// <exception cref="NotImplementedException"></exception>
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             throw new NotImplementedException();
