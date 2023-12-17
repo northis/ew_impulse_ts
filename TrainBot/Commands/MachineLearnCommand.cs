@@ -1,3 +1,5 @@
+using TradeKit.Core;
+using TradeKit.ML;
 using TrainBot.Commands.Common;
 using TrainBot.Commands.Enums;
 using TrainBot.FoldersLogic;
@@ -41,6 +43,19 @@ namespace TrainBot.Commands
                     Message = "You cannot use this command."
                 };
             }
+            
+            IEnumerable<LearnFilesItem> filesToLearnPositive = Directory
+                .EnumerateDirectories(m_Settings.PositiveFolder)
+                .Select(a => LearnFilesItem.FromDirPath(true, a));
+            IEnumerable<LearnFilesItem> filesToLearnNegative = Directory
+                .EnumerateDirectories(m_Settings.NegativeFolder)
+                .Select(a => LearnFilesItem.FromDirPath(false, a));
+
+            IEnumerable<LearnFilesItem> dataToLearn = 
+                filesToLearnPositive.Concat(filesToLearnNegative);
+
+            TradeKit.ML.MachineLearning.RunLearn(
+                dataToLearn, m_Settings.MlModelPath);
 
             bool res = m_FolderManager.CleanDirs();
             return new AnswerItem

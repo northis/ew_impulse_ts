@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 
 namespace TradeKit.ML
 {
-    public class MachineLearning
+    public static class MachineLearning
     {
         /// <summary>
         /// Gets the vector for ML usage based on the passed candle set profile.
@@ -89,15 +89,12 @@ namespace TradeKit.ML
         /// <param name="candleData">The data.</param>
         /// <param name="rank">The rank of the desired vector.</param>
         /// <returns>The vector.</returns>
-        public float[] GetVectors(
+        public static float[] GetVectors(
             JsonSymbolStatExport stat, 
             JsonSymbolDataExport candleData,
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK)
         {
-            List<ICandle> candles = candleData.Candles
-                .OrderBy(a => a.BarIndex)
-                .SkipWhile(a => a.BarIndex < stat.StartIndex)
-                .TakeWhile(a => a.BarIndex <= stat.FinishIndex)
+            List<ICandle> candles = candleData.Candles[stat.StartIndex..stat.FinishIndex]
                 .Cast<ICandle>()
                 .ToList();
 
@@ -105,7 +102,7 @@ namespace TradeKit.ML
             return res;
         }
 
-        private IEnumerable<LearnItem> IterateLearn(IEnumerable<LearnFilesItem> filesItems)
+        private static IEnumerable<LearnItem> IterateLearn(IEnumerable<LearnFilesItem> filesItems)
         {
             foreach (LearnFilesItem filesItem in filesItems)
             {
@@ -139,13 +136,13 @@ namespace TradeKit.ML
         /// </summary>
         /// <param name="learnFiles">The learn files.</param>
         /// <param name="fileToSave">The file to save.</param>
-        public void RunLearn(
+        public static void RunLearn(
             IEnumerable<LearnFilesItem> learnFiles, string fileToSave)
         {
             RunLearn(IterateLearn(learnFiles), fileToSave);
         }
 
-        private void RunLearn(IEnumerable<LearnItem> learnSet, string fileToSave)
+        private static void RunLearn(IEnumerable<LearnItem> learnSet, string fileToSave)
         {
             Logger.Write($"{nameof(RunLearn)} start");
             var mlContext = new MLContext();

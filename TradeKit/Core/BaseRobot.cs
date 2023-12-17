@@ -402,7 +402,7 @@ namespace TradeKit.Core
 
                 if (m_BarsInitMap[finderId])
                 {
-                    Logger.Write($"{nameof(BarOpened)}: {obj.Bars.SymbolName} {obj.Bars.TimeFrame.ShortName}");
+                    //Logger.Write($"{nameof(BarOpened)}: {obj.Bars.SymbolName} {obj.Bars.TimeFrame.ShortName}");
                     sf.CheckBar(index);
                     return;
                 }

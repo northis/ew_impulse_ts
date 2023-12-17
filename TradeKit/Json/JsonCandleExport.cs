@@ -16,12 +16,6 @@ namespace TradeKit.Json
         public DateTime? OpenDate { get; set; }
 
         /// <summary>
-        /// Gets or sets the bar index.
-        /// </summary>
-        [JsonProperty("i")]
-        public int? BarIndex { get; set; }
-
-        /// <summary>
         /// Gets or sets the open value.
         /// </summary>
         [JsonProperty("o")]

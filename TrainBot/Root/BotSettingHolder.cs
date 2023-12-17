@@ -8,6 +8,7 @@ namespace TrainBot.Root
             TelegramBotKey = configuration["TelegramBotKey"]!;
             UseWebHook = bool.Parse(configuration["UseWebHook"]!);
             InputFolder = Path.Join(baseDir, configuration["InputFolder"]);
+            MlFolder = Path.Join(baseDir, configuration["MLFolder"]);
             PositiveFolder = Path.Join(baseDir, configuration["PositiveFolder"]);
             PositiveDiagonalFolder = Path.Join(baseDir, configuration["PositiveDiagonalFolder"]);
             NegativeFolder = Path.Join(baseDir, configuration["NegativeFolder"]);
@@ -27,10 +28,15 @@ namespace TrainBot.Root
             Directory.CreateDirectory(NegativeFolder);
             Directory.CreateDirectory(PositiveDiagonalFolder);
             Directory.CreateDirectory(BrokenFolder);
+            Directory.CreateDirectory(MlFolder);
+
+            MlModelPath = Path.Join(MlFolder, "model.zip");
         }
 
         #region Properties
         public string InputFolder { get; }
+        public string MlFolder { get; }
+        public string MlModelPath { get; }
         public string PositiveFolder { get; }
         public string PositiveDiagonalFolder { get; }
         public string NegativeFolder { get; }

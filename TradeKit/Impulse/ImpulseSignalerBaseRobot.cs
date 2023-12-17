@@ -130,7 +130,9 @@ namespace TradeKit.Impulse
         private bool FindWavePoint(
             BarPoint bp, int index, DateTime date, double high, double low)
         {
-            return date >= bp.OpenTime &&
+            // We use +1 sec to place high and low to a sorted dictionary,
+            // so this is a side-effect.
+            return date >= bp.OpenTime.AddSeconds(-1) &&
                    index < 0 &&
                    (Math.Abs(high - bp.Value) < double.Epsilon ||
                     Math.Abs(low - bp.Value) < double.Epsilon);
@@ -156,7 +158,6 @@ namespace TradeKit.Impulse
 
             for (int i = 0; i < barsCount; i++)
             {
-                int barIndex = chartDataSource.FirstValueBarIndex + i;
                 DateTime date = chartDataSource.D[i];
                 double high = chartDataSource.H[i];
                 double low = chartDataSource.L[i];
@@ -165,23 +166,27 @@ namespace TradeKit.Impulse
                 {
                     O = chartDataSource.O[i],
                     C = chartDataSource.C[i],
-                    BarIndex = barIndex,
                     H = high,
                     L = low,
                     OpenDate = date
                 });
 
-                if (FindWavePoint(startWave, startIndex, date, high, low)) startIndex = i;
-                if (FindWavePoint(endWave, endIndex, date, high, low)) endIndex = i;
-                if (FindWavePoint(entry, entryIndex, date, high, low)) entryIndex = i;
-            }
+                if (FindWavePoint(startWave, startIndex, date, high, low))
+                    startIndex = i;
 
+                if (FindWavePoint(endWave, endIndex, date, high, low))
+                    endIndex = i + 1;
+
+                if (FindWavePoint(entry, entryIndex, date, high, low)) 
+                    entryIndex = i;
+            }
+            
             if (startIndex < 0 || endIndex < 0)
             {
                 Logger.Write("Cannot extract impulse");
                 return;
             }
-            
+
             GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
                 <double, double, double, double, DateTime, string>(
                     chartDataSource.O[startIndex..endIndex],
@@ -192,7 +197,7 @@ namespace TradeKit.Impulse
                     IncreasingColor: LongColor.ToFSharp(),
                     DecreasingColor: ShortColor.ToFSharp(),
                     Name: barProvider.Symbol.Name,
-            ShowLegend: false);
+                    ShowLegend: false);
 
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
                     Array.Empty<GenericChart.GenericChart>().Concat(new[] { candlestickChart }))
