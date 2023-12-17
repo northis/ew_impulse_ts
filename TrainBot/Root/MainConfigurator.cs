@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using TrainBot.Commands;
@@ -83,6 +84,7 @@ namespace TrainBot.Root
             services.AddSingleton(_ => new QueryHandler(tClient, commandManager));
 
             var lm = new LearnManager(botSettings);
+            services.AddTransient(_ => new MachineLearnCommand(lm, botSettings));
             lm.Completed += OnLearnManagerCompleted;
             services.AddSingleton(_ => lm);
 
