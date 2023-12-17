@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using Microsoft.ML;
@@ -39,7 +38,8 @@ namespace TradeKit.ML
         /// <param name="rank">The rank of the desired vector.</param>
         /// <returns>The vector.</returns>
         private static float[] GetModelVector(
-            SortedDictionary<double, int> profile, ushort rank)
+            SortedDictionary<double, int> profile, 
+            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK)
         {
             if (profile == null || profile.Count < 2 || rank < 2)
             {
@@ -168,6 +168,74 @@ namespace TradeKit.ML
             
             mlContext.Model.Save(model, dataView.Schema, fileToSave);
             Logger.Write($"{nameof(RunLearn)} end");
+        }
+
+        /// <summary>
+        /// Predicts by the specified model path and the specified candle set.
+        /// </summary>
+        /// <param name="candles">The candles.</param>
+        /// <param name="minPrice">The minimum price.</param>
+        /// <param name="modelPath">The model path.</param>
+        /// <returns>The prediction.</returns>
+        public static Prediction Predict(
+            List<ICandle> candles, double minPrice, string modelPath)
+        {
+            float[] vector = GetModelVector(candles, minPrice);
+            Prediction res = Predict(modelPath, vector);
+            return res;
+        }
+
+        /// <summary>
+        /// Predicts by the specified model path and the specified candle set.
+        /// </summary>
+        /// <param name="candles">The candles.</param>
+        /// <param name="modelPath">The model path.</param>
+        /// <returns>The prediction.</returns>
+        public static Prediction Predict(
+            List<ICandle> candles, string modelPath)
+        {
+            double minPrice = candles.Min(a => a.L);
+            float[] vector = GetModelVector(candles, minPrice);
+            Prediction res = Predict(modelPath, vector);
+            return res;
+        }
+
+        /// <summary>
+        /// Predicts by the specified model path and the specified impulse profile..
+        /// </summary>
+        /// <param name="profile">The impulse profile.</param>
+        /// <param name="modelPath">The model path.</param>
+        /// <returns>The prediction.</returns>
+        public static Prediction Predict(
+            SortedDictionary<double, int> profile, string modelPath)
+        {
+            float[] vector = GetModelVector(profile);
+            Prediction res = Predict(modelPath, vector);
+            return res;
+        }
+
+        /// <summary>
+        /// Predicts by the specified model path and the vector.
+        /// </summary>
+        /// <param name="modelPath">The model path.</param>
+        /// <param name="vector">The vector.</param>
+        /// <returns>The prediction.</returns>
+        private static Prediction Predict(string modelPath, float[] vector)
+        { 
+            MLContext mlContext = new MLContext();
+            var trainedModel = mlContext.Model.Load(modelPath, out _);
+            Prediction prediction = Predict(trainedModel, mlContext, vector);
+            return prediction;
+        }
+        
+        private static Prediction Predict(
+            ITransformer model, MLContext mlContext, float[] vector)
+        {
+            PredictionEngine<LearnItem, Prediction>? predictionEngine = mlContext.Model.CreatePredictionEngine<LearnItem, Prediction>(model);
+            
+            LearnItem learnItem = new LearnItem(false, vector);
+            Prediction? predictionResult = predictionEngine.Predict(learnItem);
+            return predictionResult;
         }
     }
 }

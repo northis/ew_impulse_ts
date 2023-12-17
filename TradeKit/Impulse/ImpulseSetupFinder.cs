@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.ML;
 
 namespace TradeKit.Impulse
 {
@@ -13,6 +15,7 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
+        private readonly string m_PathToMlModel;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
         private readonly ElliottWavePatternFinder m_PatternFinder;
@@ -40,22 +43,29 @@ namespace TradeKit.Impulse
         
         public int TriggerBarIndex { get; set; }
 
+        public bool UseML =>
+            !string.IsNullOrEmpty(m_PathToMlModel) && 
+            File.Exists(m_PathToMlModel);
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="barsFactory">The factory for the bar providers.</param>
+        /// <param name="pathToMlModel">Null if we don't want to use the AI-based impulse finder, or full path to the model.</param>
         public ImpulseSetupFinder(
-            IBarsProvider mainBarsProvider, BarProvidersFactory barsFactory)
-            :base(mainBarsProvider, mainBarsProvider.Symbol)
+            IBarsProvider mainBarsProvider, BarProvidersFactory barsFactory,
+            string pathToMlModel = null)
+            : base(mainBarsProvider, mainBarsProvider.Symbol)
         {
+            m_PathToMlModel = pathToMlModel;
             for (int i = Helper.MIN_IMPULSE_SCALE;
                  i <= Helper.MAX_IMPULSE_SCALE;
                  i += Helper.STEP_IMPULSE_SCALE)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
-            
+
             m_PatternFinder = new ElliottWavePatternFinder(mainBarsProvider, barsFactory);
         }
 
@@ -313,15 +323,24 @@ namespace TradeKit.Impulse
                 }
 
                 m_PreFinder = null;
-                bool isImpulse = m_PatternFinder.IsImpulse(
-                    startItem.Value, endItem.Value, out ElliottModelResult outExtrema);
-                if (!isImpulse)
-                {
-                    // The move is not an impulse.
-                    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
-                    return;
-                }
 
+                ElliottModelResult outExtrema;
+                if (UseML)
+                {
+                    outExtrema = new ElliottModelResult(ElliottModelType.IMPULSE,
+                        new[] {startItem.Value, endItem.Value}, new ElliottModelResult[] { });
+                }
+                else
+                {
+                    if (!m_PatternFinder.IsImpulse(
+                            startItem.Value, endItem.Value, out outExtrema))
+                    {
+                        // The move is not an impulse.
+                        // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
+                        return;
+                    }
+                }
+                
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)
                 {
@@ -398,6 +417,8 @@ namespace TradeKit.Impulse
                     out double channelRatio,
                     out double standardDeviation,
                     out SortedDictionary<double, int> profile);
+
+                MachineLearning.Predict(profile, m_PathToMlModel);
 
                 //bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
                 //if (!isImpulseProfile)

@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using Microsoft.FSharp.Core;
 using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
@@ -20,8 +18,20 @@ namespace TradeKit.Impulse
     public class ImpulseSignalerBaseRobot : BaseRobot<ImpulseSetupFinder, ImpulseSignalEventArgs>
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
-        private const string IMPULSE_SETTINGS = "⚡ImpulseSettings";
+        private const string IMPULSE_SETTINGS = "⚡Impulse Settings";
         protected const string CHART_FILE_NAME = "img.03";
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this bot should use AI-based algorithm.
+        /// </summary>
+        [Parameter("Use AI model", DefaultValue = false, Group = IMPULSE_SETTINGS)]
+        public bool UseAiModel { get; set; }
+
+        /// <summary>
+        /// Gets or sets the path to AI-model.
+        /// </summary>
+        [Parameter("Path to AI model", DefaultValue = null, Group = IMPULSE_SETTINGS)]
+        public string PathToModel { get; set; }
 
         /// <summary>
         /// Gets the name of the bot.
@@ -76,7 +86,9 @@ namespace TradeKit.Impulse
         {
             var barsProvider = GetBarsProvider(bars, symbolEntity);
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
-            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
+            var sf = new ImpulseSetupFinder(
+                barsProvider, barProvidersFactory,
+                UseAiModel ? PathToModel : null);
             return sf;
         }
 

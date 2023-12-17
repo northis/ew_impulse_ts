@@ -61,6 +61,7 @@
     <Compile Include="ML\LearnFilesItem.cs" />
     <Compile Include="ML\LearnItem.cs" />
     <Compile Include="ML\MachineLearning.cs" />
+    <Compile Include="ML\Prediction.cs" />
     <Compile Include="PriceAction\CandlePatternSettings.cs" />
     <Compile Include="PriceAction\CandlePatternType.cs" />
     <Compile Include="PriceAction\CandlesResult.cs" />
