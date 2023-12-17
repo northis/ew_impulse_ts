@@ -4,6 +4,7 @@ using TrainBot.Commands;
 using TrainBot.Commands.Common;
 using TrainBot.Commands.Enums;
 using TrainBot.FoldersLogic;
+using TrainBot.MachineLearning;
 
 namespace TrainBot.Root
 {
@@ -81,6 +82,10 @@ namespace TrainBot.Root
             services.AddTransient(_ => new LearnCommand(fm));
             services.AddSingleton(_ => new QueryHandler(tClient, commandManager));
 
+            var lm = new LearnManager(botSettings);
+            lm.Completed += OnLearnManagerCompleted;
+            services.AddSingleton(_ => lm);
+
             if (botSettings.UseWebHook)
             {
                 services.AddControllers(
@@ -89,10 +94,16 @@ namespace TrainBot.Root
             }
         }
 
+        private void OnLearnManagerCompleted(object? sender, EventArgs e)
+        {
+            TelegramBotClient botBotClient = ServiceProvider.GetRequiredService<TelegramBotClient>();
+            botBotClient.SendTextMessageAsync(
+                BotSettings.AdminUserId, "The learning is complete");
+        }
+
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime applicationLifetime)
         {
             ServiceProvider = app.ApplicationServices;
-
             applicationLifetime.ApplicationStopping.Register(OnShutdown);
             if (env.IsDevelopment())
             {

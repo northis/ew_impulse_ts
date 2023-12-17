@@ -248,7 +248,6 @@ namespace TradeKit.Impulse
             jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
             json = JsonConvert.SerializeObject(exportData, Formatting.None);
             File.WriteAllText(jsonFilePath, json);
-
         }
     }
 }

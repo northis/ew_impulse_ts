@@ -1,21 +1,19 @@
-using TradeKit.Core;
-using TradeKit.ML;
 using TrainBot.Commands.Common;
 using TrainBot.Commands.Enums;
-using TrainBot.FoldersLogic;
+using TrainBot.MachineLearning;
 using TrainBot.Root;
 
 namespace TrainBot.Commands
 {
     public class MachineLearnCommand : CommandBase
     {
-        private readonly FolderManager m_FolderManager;
+        private readonly LearnManager m_LearnManager;
         private readonly BotSettingHolder m_Settings;
 
         public MachineLearnCommand(
-            FolderManager folderManager, BotSettingHolder settings)
+            LearnManager learnManager, BotSettingHolder settings)
         {
-            m_FolderManager = folderManager;
+            m_LearnManager = learnManager;
             m_Settings = settings;
         }
 
@@ -43,26 +41,13 @@ namespace TrainBot.Commands
                     Message = "You cannot use this command."
                 };
             }
-            
-            IEnumerable<LearnFilesItem> filesToLearnPositive = Directory
-                .EnumerateDirectories(m_Settings.PositiveFolder)
-                .Select(a => LearnFilesItem.FromDirPath(true, a));
-            IEnumerable<LearnFilesItem> filesToLearnNegative = Directory
-                .EnumerateDirectories(m_Settings.NegativeFolder)
-                .Select(a => LearnFilesItem.FromDirPath(false, a));
 
-            IEnumerable<LearnFilesItem> dataToLearn = 
-                filesToLearnPositive.Concat(filesToLearnNegative);
-
-            TradeKit.ML.MachineLearning.RunLearn(
-                dataToLearn, m_Settings.MlModelPath);
-
-            bool res = m_FolderManager.CleanDirs();
+            bool res = m_LearnManager.CheckOrRun();
             return new AnswerItem
             {
                 Message = res 
-                    ? "Folders cleaned" 
-                    : "Something went wrong, check log"
+                    ? "Learning started" 
+                    : "Learning is already in progress..."
             };
         }
     }

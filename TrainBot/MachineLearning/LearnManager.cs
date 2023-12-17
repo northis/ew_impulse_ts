@@ -1,7 +1,5 @@
-using Microsoft.ML;
-using Newtonsoft.Json;
 using TradeKit.Core;
-using TradeKit.Json;
+using TradeKit.ML;
 using TrainBot.Root;
 
 namespace TrainBot.MachineLearning;
@@ -15,61 +13,49 @@ public class LearnManager
 
     private readonly object m_Sync = new();
     private readonly BotSettingHolder m_Settings;
-
-    public async Task RunLearningAsync()
-    {
-        await Task.Run(RunLearning);
-    }
-
-    private void RunLearning()
+    
+    public bool CheckOrRun()
     {
         lock (m_Sync)
         {
-            var mlContext = new MLContext();
-            foreach (JsonCandleExport[] candles in GetCandles(m_Settings.PositiveFolder))
-            {
-                mlContext.Data.LoadFromEnumerable(candles);
-            }
+            if (IsBusy)
+                return false;
 
-            
+            IsBusy = true;
+            Task.Run(RunLearning).GetAwaiter()
+                .OnCompleted(() => Completed(this, EventArgs.Empty));
+            return true;
         }
     }
 
-    private IEnumerable<JsonCandleExport[]> GetCandles(string folderIn)
+    public event EventHandler Completed;
+
+    public bool IsBusy { get; private set; }
+
+    private void RunLearning()
     {
-        foreach (string folder in
-                 Directory.EnumerateDirectories(folderIn))
+        try
         {
-            yield return GetCandlesFromFolder(folder);
+            IEnumerable<LearnFilesItem> filesToLearnPositive = Directory
+                .EnumerateDirectories(m_Settings.PositiveFolder)
+                .Select(a => LearnFilesItem.FromDirPath(true, a));
+            IEnumerable<LearnFilesItem> filesToLearnNegative = Directory
+                .EnumerateDirectories(m_Settings.NegativeFolder)
+                .Select(a => LearnFilesItem.FromDirPath(false, a));
+
+            IEnumerable<LearnFilesItem> dataToLearn =
+                filesToLearnPositive.Concat(filesToLearnNegative);
+
+            TradeKit.ML.MachineLearning.RunLearn(
+                dataToLearn, m_Settings.MlModelPath);
         }
-    }
-
-    private JsonCandleExport[] GetCandlesFromFolder(string path)
-    {
-        string statFile = Path.Combine(path, Helper.JSON_STAT_FILE_NAME);
-        if (!File.Exists(statFile))
-            throw new Exception($"No stat file by the path {path}");
-
-        string dataFile = Path.Combine(path, Helper.JSON_DATA_FILE_NAME);
-        if (!File.Exists(dataFile))
-            throw new Exception($"No data file by the path {path}");
-
-        JsonSymbolStatExport? stat = JsonConvert.DeserializeObject<JsonSymbolStatExport>(
-            File.ReadAllText(statFile));
-        if (stat == null)
-            throw new Exception($"Invalid stat file by the path {path}");
-        
-        JsonSymbolDataExport? data = JsonConvert.DeserializeObject<JsonSymbolDataExport>(
-            File.ReadAllText(dataFile));
-        if (data == null)
-            throw new Exception($"Invalid data file by the path {path}");
-
-        JsonCandleExport[] candles = data.Candles
-            .OrderBy(a => a.BarIndex)
-            .SkipWhile(a => a.BarIndex < stat.StartIndex)
-            .TakeWhile(a => a.BarIndex <= stat.FinishIndex)
-            .ToArray();
-
-        return candles;
+        catch (Exception ex)
+        {
+            Logger.Write($"{nameof(RunLearning)}: {ex}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 }
