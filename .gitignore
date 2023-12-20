@@ -260,3 +260,5 @@ websrv.conf
 .env
 ssl/
 docker-compose.yml
+data/
+logs/
