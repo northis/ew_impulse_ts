@@ -874,6 +874,13 @@ namespace TradeKit.Core
 
             FSharpOption<int> dValue = (int)timeFrameInfo.TimeSpan.TotalMilliseconds;
 
+            Rangebreak[] rbs = new[]
+            {
+                Rangebreak.init<string, string>(rangeBreaks.Any(),
+                    DValue: dValue,
+                    Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
+            };
+
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
                     layers.Concat(new[] {candlestickChart}))
                 .WithTitle(
@@ -893,13 +900,7 @@ namespace TradeKit.Core
                     XGap: 0d,
                     YGap: 0d))
                 .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(new[]
-                        {
-                            Rangebreak.init<string, string>(rangeBreaks.Any(),
-                                DValue: dValue,
-                                Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
-                        }
-                    ), GridColor: SemiWhiteColor, ShowGrid: true))
+                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rbs), GridColor: SemiWhiteColor, ShowGrid: true))
                 .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
                     GridColor: SemiWhiteColor, ShowGrid: true))
                 .WithYAxisStyle(Side: StyleParam.Side.Right, title: null);
@@ -915,7 +916,7 @@ namespace TradeKit.Core
                 if (showTradeResult)
                 {
                     OnSaveRawChartDataForManualAnalysis(
-                        s, signalEventArgs, barProvider, dirPath, successTrade.GetValueOrDefault());
+                        s, signalEventArgs, barProvider, dirPath, successTrade.GetValueOrDefault(), rbs);
                     imageName = Helper.MAIN_IMG_FILE_NAME;
                 }
                 else

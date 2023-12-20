@@ -88,7 +88,8 @@ public class FolderManager
 
         imagesPath = Directory
             .EnumerateFiles(folderPath)
-            .Where(a => a.EndsWith(".jpg") || a.EndsWith(".png"))
+            .Where(a => a.EndsWith(Helper.SAMPLE_IMG_FILE_NAME_PNG) ||
+                        a.EndsWith(Helper.MAIN_IMG_FILE_NAME_PNG))
             .ToArray();
 
         if (imagesPath.Length >= 2) 
