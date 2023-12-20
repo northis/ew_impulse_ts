@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using Microsoft.FSharp.Core;
 using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
@@ -155,7 +156,8 @@ namespace TradeKit.Impulse
             ImpulseSignalEventArgs signalEventArgs,
             IBarsProvider barProvider,
             string dirPath,
-            bool tradeResult)
+            bool tradeResult,
+            Rangebreak[] rangeBreaks = null)
         {
             int barsCount = chartDataSource.D.Length;
             var candlesForExport = new List<JsonCandleExport>();
@@ -226,7 +228,8 @@ namespace TradeKit.Impulse
                     Columns: 0,
                     XGap: 0d,
                     YGap: 0d))
-                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(GridColor: SemiWhiteColor, ShowGrid: true))
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks), GridColor: SemiWhiteColor, ShowGrid: true))
                 .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
                     GridColor: SemiWhiteColor, ShowGrid: true))
                 .WithYAxisStyle(Side: Side.Right, title: null);

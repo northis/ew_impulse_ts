@@ -147,9 +147,10 @@ namespace TradeKit.Impulse
                 Candle cdl = Candle.FromIndex(BarsProvider, i);
                 candles.Add(cdl);
             }
-            
+
+            bool isUp = endValue > startItem.Value;
             profile = CandleTransformer.GetProfile(
-                candles, min, out double overlapsedIndex);
+                candles, isUp, out double overlapsedIndex);
 
             SortedDictionary<double, int>.ValueCollection countParts = profile.Values;
             double avgParts = countParts.Average();
@@ -418,7 +419,17 @@ namespace TradeKit.Impulse
                     out double standardDeviation,
                     out SortedDictionary<double, int> profile);
 
-                MachineLearning.Predict(profile, m_PathToMlModel);
+                if (!string.IsNullOrEmpty(m_PathToMlModel))
+                {
+                    Prediction prediction = 
+                        MachineLearning.Predict(profile, m_PathToMlModel);
+
+                    if (!prediction.PredictedLabel)
+                    {
+                        IsInSetup = false;
+                        return;
+                    }
+                }
 
                 //bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
                 //if (!isImpulseProfile)

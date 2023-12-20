@@ -42,6 +42,7 @@ namespace TrainBot.Root
             {
                 ServiceProvider.GetService<HelpCommand>()!,
                 ServiceProvider.GetService<LearnCommand>()!,
+                ServiceProvider.GetService<MachineLearnCommand>()!,
                 ServiceProvider.GetService<RefreshCommand>()!,
                 ServiceProvider.GetService<StartCommand>()!
             };
@@ -51,6 +52,7 @@ namespace TrainBot.Root
         {
             return GetCommands()
                 .Where(a => a.GetCommandType() != ECommands.REFRESH && 
+                            a.GetCommandType() != ECommands.MACHINE_LEARN &&
                             a.GetCommandType() != ECommands.START)
                 .ToArray();
         }

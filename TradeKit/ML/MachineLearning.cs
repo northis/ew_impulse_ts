@@ -7,6 +7,7 @@ using TradeKit.AlgoBase;
 using TradeKit.Core;
 using Microsoft.ML;
 using Microsoft.ML.Data;
+using Microsoft.ML.Trainers;
 using TradeKit.Json;
 using Newtonsoft.Json;
 
@@ -18,15 +19,14 @@ namespace TradeKit.ML
         /// Gets the vector for ML usage based on the passed candle set profile.
         /// </summary>
         /// <param name="candles">The candles.</param>
-        /// <param name="minPrice">The minimum price.</param>
+        /// <param name="isUp">True if we consider the set of candles as ascending movement, otherwise false.</param>
         /// <param name="rank">The rank of the desired vector.</param>
         /// <returns>The vector.</returns>
         private static float[] GetModelVector(
-            List<ICandle> candles, double minPrice,
-            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK)
+            List<ICandle> candles, bool isUp, ushort rank = Helper.ML_IMPULSE_VECTOR_RANK)
         {
             SortedDictionary<double, int> profile =
-                CandleTransformer.GetProfile(candles, minPrice, out _);
+                CandleTransformer.GetProfile(candles, isUp, out _);
             float[] vector = GetModelVector(profile, rank);
             return vector;
         }
@@ -94,11 +94,28 @@ namespace TradeKit.ML
             JsonSymbolDataExport candleData,
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK)
         {
-            List<ICandle> candles = candleData.Candles[stat.StartIndex..stat.FinishIndex]
+            int finnishIndex = stat.FinishIndex;
+            bool isUp = stat.Stop < stat.Take;
+
+            // We may not handle the last candle, a workaround.
+            int nextFinnishIndex = stat.FinishIndex + 1;
+            if (nextFinnishIndex < candleData.Candles.Length)
+            {
+                JsonCandleExport finnishCandle = candleData.Candles[stat.FinishIndex];
+                JsonCandleExport finnishCandleNext = candleData.Candles[nextFinnishIndex];
+
+                if (isUp && finnishCandleNext.H > finnishCandle.H ||
+                    !isUp && finnishCandleNext.L < finnishCandle.L)
+                {
+                    finnishIndex = nextFinnishIndex;
+                }
+            }
+
+            List<ICandle> candles = candleData.Candles[stat.StartIndex..finnishIndex]
                 .Cast<ICandle>()
                 .ToList();
 
-            float[] res = GetModelVector(candles, rank);
+            float[] res = GetModelVector(candles, isUp, rank);
             return res;
         }
 
@@ -148,17 +165,31 @@ namespace TradeKit.ML
             var mlContext = new MLContext();
             IDataView dataView = mlContext.Data.LoadFromEnumerable(learnSet);
 
-            EstimatorChain<ColumnConcatenatingTransformer> dataProcessPipeline =
-                mlContext.Transforms.CopyColumns(outputColumnName: "Label", inputColumnName: nameof(LearnItem.IsFit))
-                    .Append(mlContext.Transforms.Concatenate("Features", nameof(LearnItem.Vector)))
-                    .AppendCacheCheckpoint(mlContext);
+            string labelColumn = "Label";
+            string featuresColumn = "Features";
+
+            var dataProcessPipeline =
+                mlContext.Transforms.CopyColumns(outputColumnName: labelColumn, inputColumnName: nameof(LearnItem.IsFit))
+                    .Append(mlContext.Transforms.Concatenate(featuresColumn, 
+                        nameof(LearnItem.V0),
+                        nameof(LearnItem.V1),
+                        nameof(LearnItem.V2),
+                        nameof(LearnItem.V3),
+                        nameof(LearnItem.V4),
+                        nameof(LearnItem.V5),
+                        nameof(LearnItem.V6),
+                        nameof(LearnItem.V7),
+                        nameof(LearnItem.V8),
+                        nameof(LearnItem.V9)))
+                    .AppendCacheCheckpoint(mlContext); 
+            
+            SdcaLogisticRegressionBinaryTrainer trainer = mlContext.BinaryClassification.Trainers.SdcaLogisticRegression(labelColumnName: labelColumn, featureColumnName: featuresColumn);
+            var trainingPipeline = dataProcessPipeline.Append(trainer);
 
             DataOperationsCatalog.TrainTestData split = 
                 mlContext.Data.TrainTestSplit(
                 dataView, testFraction: Helper.ML_TEST_SET_PART);
-            
-            TransformerChain<ColumnConcatenatingTransformer> model = dataProcessPipeline.Fit(split.TrainSet);
-            
+            var model = trainingPipeline.Fit(split.TrainSet);
             IDataView predictions = model.Transform(split.TestSet);
             CalibratedBinaryClassificationMetrics metrics = mlContext.BinaryClassification.Evaluate(predictions);
 
@@ -174,28 +205,13 @@ namespace TradeKit.ML
         /// Predicts by the specified model path and the specified candle set.
         /// </summary>
         /// <param name="candles">The candles.</param>
-        /// <param name="minPrice">The minimum price.</param>
+        /// <param name="isUp">True if we consider the set of candles as ascending movement, otherwise false.</param>
         /// <param name="modelPath">The model path.</param>
         /// <returns>The prediction.</returns>
         public static Prediction Predict(
-            List<ICandle> candles, double minPrice, string modelPath)
+            List<ICandle> candles, bool isUp, string modelPath)
         {
-            float[] vector = GetModelVector(candles, minPrice);
-            Prediction res = Predict(modelPath, vector);
-            return res;
-        }
-
-        /// <summary>
-        /// Predicts by the specified model path and the specified candle set.
-        /// </summary>
-        /// <param name="candles">The candles.</param>
-        /// <param name="modelPath">The model path.</param>
-        /// <returns>The prediction.</returns>
-        public static Prediction Predict(
-            List<ICandle> candles, string modelPath)
-        {
-            double minPrice = candles.Min(a => a.L);
-            float[] vector = GetModelVector(candles, minPrice);
+            float[] vector = GetModelVector(candles, isUp);
             Prediction res = Predict(modelPath, vector);
             return res;
         }

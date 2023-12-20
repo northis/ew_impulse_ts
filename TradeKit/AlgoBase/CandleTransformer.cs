@@ -11,20 +11,25 @@ namespace TradeKit.AlgoBase
         /// Gets the profile for the set of candles.
         /// </summary>
         /// <param name="candles">The candles.</param>
-        /// <param name="minPrice">The minimum price.</param>
+        /// <param name="isUp">True if we consider the set of candles as ascending movement, otherwise false.</param>
         /// <param name="overlapsedIndex">Index of the overlapsed.</param>
         /// <returns>price-candles count dict.</returns>
         public static SortedDictionary<double, int> GetProfile(
-            List<ICandle> candles, double minPrice, out double overlapsedIndex)
+            List<ICandle> candles, bool isUp, out double overlapsedIndex)
         {
             var points = new List<double>();
+            double min = double.MaxValue;
+            double max = double.MinValue;
+
             foreach (ICandle candle in candles)
             {
                 points.Add(candle.H);
                 points.Add(candle.L);
+                min = Math.Min(min, candle.L);
+                max = Math.Max(max, candle.H);
             }
 
-            double currentPoint = minPrice;
+            double currentPoint = isUp ? min : max;
             double overlapsedIndexLocal = 0;
             overlapsedIndex = overlapsedIndexLocal;
 
@@ -38,7 +43,7 @@ namespace TradeKit.AlgoBase
                     a.L <= currentPoint && a.H >= nextPoint);
 
                 cdlCount = cdlCount == 0 ? 1 : cdlCount;
-                double diff = nextPoint - currentPoint;
+                double diff = (nextPoint - currentPoint) * (isUp ? 1 : -1);
                 profileInner.Add(nextPoint, cdlCount);
 
                 if (cdlCount == 1) // gap (<1) or single candle (=1)
@@ -50,8 +55,11 @@ namespace TradeKit.AlgoBase
             }
 
             overlapsedIndex = overlapsedIndexLocal;
+            IOrderedEnumerable<double> orderedPoints = isUp 
+                ? points.OrderBy(a => a) 
+                : points.OrderByDescending(a => a);
 
-            foreach (double nextPoint in points.OrderBy(a => a).Skip(1))
+            foreach (double nextPoint in orderedPoints.Skip(1))
             {
                 if (Math.Abs(nextPoint - currentPoint) <= double.Epsilon)
                     continue;

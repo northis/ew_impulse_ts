@@ -71,7 +71,7 @@ namespace TradeKit.AlgoBase
                 return false;
 
             double durationRatio = wave4Dur.TotalSeconds / wave2Dur.TotalSeconds;
-            if (durationRatio < 0.75 || durationRatio > 3)
+            if (durationRatio < 0.95 || durationRatio > 3)
                 return false;
 
             double wave1Len = k * (wave1 - wave0);

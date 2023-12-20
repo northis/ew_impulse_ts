@@ -770,12 +770,14 @@ namespace TradeKit.Core
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="dirPath">Path to save extra chart data</param>
         /// <param name="tradeResult">True - TP hit, false - SL hit.</param>
+        /// <param name="rangebreaks">Ranges of dates where we shouldn't draw the data</param>
         protected virtual void OnSaveRawChartDataForManualAnalysis(
-            ChartDataSource chartDataSource, 
-            TK signalEventArgs, 
+            ChartDataSource chartDataSource,
+            TK signalEventArgs,
             IBarsProvider barProvider,
             string dirPath,
-            bool tradeResult)
+            bool tradeResult,
+            Rangebreak[] rangebreaks = null)
         {
         }
         

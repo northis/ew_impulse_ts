@@ -23,7 +23,7 @@ public class LearnManager
 
             IsBusy = true;
             Task.Run(RunLearning).GetAwaiter()
-                .OnCompleted(() => Completed(this, EventArgs.Empty));
+                .OnCompleted(() => Completed?.Invoke(this, EventArgs.Empty));
             return true;
         }
     }

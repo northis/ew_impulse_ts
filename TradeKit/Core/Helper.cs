@@ -17,7 +17,7 @@ namespace TradeKit.Core
         public static string PrivateChartUrl = Environment.GetEnvironmentVariable(ENV_PRIVATE_URL_KEY) ?? "https://www.tradingview.com/chart/";
 
         
-        public const double MINIMUM_BARS_IN_IMPULSE = 3;
+        public const double MINIMUM_BARS_IN_IMPULSE = 6;
         public const double BARS_DEPTH = 200;
         public const int EXTREMA_MAX = 200;
         public const double PERCENT_ALLOWANCE_SL = 2;
@@ -69,7 +69,7 @@ namespace TradeKit.Core
         public const double MAX_ALLOWED_VOLUME_LOTS = 10;
 
         public const ushort ML_IMPULSE_VECTOR_RANK = 10;
-        public const double ML_TEST_SET_PART = 0.2;
+        public const double ML_TEST_SET_PART = 0.1;
 
         /// <summary>
         /// Gets the directory to save images.
