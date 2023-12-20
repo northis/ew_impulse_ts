@@ -88,10 +88,10 @@ namespace TrainBot.Commands
             }
 
             answerItem.PathImages = folder.PathImages
-                .Where(a => a.EndsWith(Helper.SAMPLE_IMG_FILE_NAME_PNG))
+                .Where(a => a.EndsWith(Helper.MAIN_IMG_FILE_NAME_PNG))
                 .ToArray();
             answerItem.PathMainImage = folder.PathImages.First(
-                a => a.EndsWith(Helper.MAIN_IMG_FILE_NAME_PNG));
+                a => a.EndsWith(Helper.SAMPLE_IMG_FILE_NAME_PNG));
 
             JsonSymbolStatExport sData = folder.SymbolStatData;
             var sb = new StringBuilder();
