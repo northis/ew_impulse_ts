@@ -86,6 +86,27 @@ namespace TradeKit.Core
         /// </summary>
         public const string JSON_STAT_FILE_NAME = "stat.json";
 
+        public const string CHART_FILE_TYPE_EXTENSION = ".png";
+
+        /// <summary>
+        /// Main png file name to show
+        /// </summary>
+        public const string MAIN_IMG_FILE_NAME = "img.02";
+        /// <summary>
+        /// Main png file name to show + .png
+        /// </summary>
+        public const string MAIN_IMG_FILE_NAME_PNG = MAIN_IMG_FILE_NAME + CHART_FILE_TYPE_EXTENSION;
+
+        /// <summary>
+        /// Sample png file name to show
+        /// </summary>
+        public const string SAMPLE_IMG_FILE_NAME = "img.03";
+
+        /// <summary>
+        /// Sample png file name to show + .png
+        /// </summary>
+        public const string SAMPLE_IMG_FILE_NAME_PNG = SAMPLE_IMG_FILE_NAME + CHART_FILE_TYPE_EXTENSION;
+
         /// <summary>
         /// Gets the position identifier (string).
         /// </summary>

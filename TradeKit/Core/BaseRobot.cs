@@ -33,15 +33,13 @@ namespace TradeKit.Core
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
         protected const double SPREAD_MARGIN_RATIO = 1.1;
-        protected const string CHART_FILE_TYPE_EXTENSION = ".png";
         protected const int CHART_BARS_MARGIN_COUNT = 5;
         protected const double CHART_FONT_HEADER = 36;
         protected const int CHART_HEIGHT = 1000;
         protected const int CHART_WIDTH = 1000;
         private const int SETUP_MIN_WIDTH = 3;
-        protected const string ZERO_CHART_FILE_POSTFIX = ".00";
-        protected const string FIRST_CHART_FILE_POSTFIX = ".01";
-        protected const string SECOND_CHART_FILE_POSTFIX = ".02";
+        protected const string ZERO_CHART_FILE_POSTFIX = "img.00";
+        protected const string FIRST_CHART_FILE_POSTFIX = "img.01";
         protected const string STATE_SAVE_KEY = "ReportStateMap";
         private double m_CurrentRisk = RISK_DEPOSIT_PERCENT;
         protected TelegramReporter TelegramReporter;
@@ -911,28 +909,28 @@ namespace TradeKit.Core
                 $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}");
             Directory.CreateDirectory(dirPath);
 
-            string postfix;
+            string imageName;
             if (SaveChartForManualAnalysis)
             {
                 if (showTradeResult)
                 {
                     OnSaveRawChartDataForManualAnalysis(
                         s, signalEventArgs, barProvider, dirPath, successTrade.GetValueOrDefault());
-                    postfix = SECOND_CHART_FILE_POSTFIX;
+                    imageName = Helper.MAIN_IMG_FILE_NAME;
                 }
                 else
                 {
-                    postfix = FIRST_CHART_FILE_POSTFIX;
+                    imageName = FIRST_CHART_FILE_POSTFIX;
                 }
             }
             else
             {
-                postfix = ZERO_CHART_FILE_POSTFIX;
+                imageName = ZERO_CHART_FILE_POSTFIX;
             }
 
-            string filePath = Path.Combine(dirPath, $"img{postfix}");
+            string filePath = Path.Combine(dirPath, imageName);
             resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
-            return $"{filePath}{CHART_FILE_TYPE_EXTENSION}";
+            return $"{filePath}{Helper.CHART_FILE_TYPE_EXTENSION}";
         }
 
         /// <summary>

@@ -20,7 +20,6 @@ namespace TradeKit.Impulse
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
         private const string IMPULSE_SETTINGS = "⚡Impulse Settings";
-        protected const string CHART_FILE_NAME = "img.03";
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot should use AI-based algorithm.
@@ -234,7 +233,7 @@ namespace TradeKit.Impulse
                     GridColor: SemiWhiteColor, ShowGrid: true))
                 .WithYAxisStyle(Side: Side.Right, title: null);
 
-            string jpgFilePath = Path.Join(dirPath, CHART_FILE_NAME);
+            string jpgFilePath = Path.Join(dirPath, Helper.SAMPLE_IMG_FILE_NAME);
             resultChart.SavePNG(jpgFilePath, null, CHART_WIDTH, CHART_HEIGHT);
 
             var exportStat = new JsonSymbolStatExport

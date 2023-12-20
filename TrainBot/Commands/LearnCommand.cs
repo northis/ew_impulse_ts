@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Text;
 using Telegram.Bot.Types.ReplyMarkups;
+using TradeKit.Core;
 using TradeKit.Json;
 using TrainBot.Commands.Common;
 using TrainBot.Commands.Enums;
@@ -86,8 +87,11 @@ namespace TrainBot.Commands
                 return answerItem;
             }
 
-            answerItem.PathImages = folder.PathImages;
-            answerItem.PathMainImage = folder.PathImages[0];
+            answerItem.PathImages = folder.PathImages
+                .Where(a => a.EndsWith(Helper.SAMPLE_IMG_FILE_NAME_PNG))
+                .ToArray();
+            answerItem.PathMainImage = folder.PathImages.First(
+                a => a.EndsWith(Helper.MAIN_IMG_FILE_NAME_PNG));
 
             JsonSymbolStatExport sData = folder.SymbolStatData;
             var sb = new StringBuilder();
