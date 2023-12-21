@@ -66,18 +66,6 @@ namespace TrainBot.Commands
             return ECommands.LEARN;
         }
 
-        private static string Base64Encode(string plainText)
-        {
-            var plainTextBytes = Encoding.UTF8.GetBytes(plainText);
-            return Convert.ToBase64String(plainTextBytes);
-        }
-
-        private static string Base64Decode(string base64EncodedData)
-        {
-            var base64EncodedBytes = Convert.FromBase64String(base64EncodedData);
-            return Encoding.UTF8.GetString(base64EncodedBytes);
-        }
-
         public AnswerItem ReplyInner(AnswerItem answerItem, MessageItem mItem)
         {
             FolderStat? folder;
@@ -117,14 +105,13 @@ namespace TrainBot.Commands
             sb.AppendLine(sData.Result ? "TP hit" : "SL hit");
             sb.AppendLine($"Setups to train: {folder.InputFoldersCount}");
             answerItem.Message = sb.ToString();
-
-            string folderBase64 = Base64Encode(folder.CurrentFolderPath);
+            
             answerItem.Markup = new InlineKeyboardMarkup(new[]
             {
-                new InlineKeyboardButton($"{IMPULSE} {folder.PositiveFoldersCount}") {CallbackData = $"{m_Command} {IMPULSE} {folderBase64}"},
-                new InlineKeyboardButton($"{DIAGONAL}  {folder.PositiveDiagonalFoldersCount}") {CallbackData = $"{m_Command} {DIAGONAL} {folderBase64}" },
-                new InlineKeyboardButton($"{NOT_AN_IMPULSE} {folder.NegativeFoldersCount}") {CallbackData = $"{m_Command} {NOT_AN_IMPULSE} {folderBase64}"},
-                new InlineKeyboardButton($"{BROKEN_SETUP} {folder.BrokenFoldersCount}") {CallbackData = $"{m_Command} {BROKEN_SETUP} {folderBase64}"}
+                new InlineKeyboardButton($"{IMPULSE} {folder.PositiveFoldersCount}") {CallbackData = $"{m_Command} {IMPULSE}"},
+                new InlineKeyboardButton($"{DIAGONAL}  {folder.PositiveDiagonalFoldersCount}") {CallbackData = $"{m_Command} {DIAGONAL}" },
+                new InlineKeyboardButton($"{NOT_AN_IMPULSE} {folder.NegativeFoldersCount}") {CallbackData = $"{m_Command} {NOT_AN_IMPULSE}"},
+                new InlineKeyboardButton($"{BROKEN_SETUP} {folder.BrokenFoldersCount}") {CallbackData = $"{m_Command} {BROKEN_SETUP}"}
             });
 
             return answerItem;
@@ -146,27 +133,8 @@ namespace TrainBot.Commands
                 }
                 else
                 {
-                    string[] commandSplit = mItem.TextOnly.Split(" ");
-
-                    string command;
-                    if (commandSplit.Length == 2)
-                    {
-                        command = commandSplit[0];
-                        string folder = Base64Decode(commandSplit[1]);
-                        if (!Directory.Exists(folder))
-                        {
-                            answerItem.Message = 
-                                $"Telegram re-try gotcha. Try again: {m_Command}";
-                            return answerItem;
-                        }
-                    }
-                    else
-                    {
-                        command = mItem.TextOnly;
-                    }
-
                     if (!m_ActionMapper.TryGetValue(
-                            command, out Action<long>? action))
+                            mItem.TextOnly, out Action<long>? action))
                     {
                         answerItem.Message = "Unknown command";
                         return answerItem;

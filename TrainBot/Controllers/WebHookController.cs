@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Telegram.Bot.Types;
-using TradeKit.Core;
 using TrainBot.Root;
 
 namespace TrainBot.Controllers
@@ -25,17 +24,20 @@ namespace TrainBot.Controllers
 
         // POST api/values
         [HttpPost]
-        public async Task<IActionResult> Post(Update update)
+        public IActionResult Post(Update update)
         {
-            if (update.Message != null)
-                await m_QueryHandler.OnMessage(update.Message);
+            Task.Run(async () =>
+            {
+                if (update.Message != null)
+                    await m_QueryHandler.OnMessage(update.Message);
 
-            if (update.CallbackQuery != null)
-                await m_QueryHandler.CallbackQuery(update.CallbackQuery);
+                if (update.CallbackQuery != null)
+                    await m_QueryHandler.CallbackQuery(update.CallbackQuery);
 
-            if (update.InlineQuery != null)
-                await m_QueryHandler.InlineQuery(update.InlineQuery);
-
+                if (update.InlineQuery != null)
+                    await m_QueryHandler.InlineQuery(update.InlineQuery);
+            });
+            
 
             return Ok();
         }

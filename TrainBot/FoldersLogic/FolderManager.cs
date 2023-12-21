@@ -86,13 +86,23 @@ public class FolderManager
             return false;
         }
 
+        //TODO 
+        JsonSymbolStatExport? json =
+            JsonConvert.DeserializeObject<JsonSymbolStatExport>(File.ReadAllText(statFilePath));
+
+        if (json is not {Result: true})
+        {
+            Logger.Write($"SL hit {folderPath}");
+            return false;
+        }
+
         imagesPath = Directory
             .EnumerateFiles(folderPath)
             .Where(a => a.EndsWith(Helper.SAMPLE_IMG_FILE_NAME_PNG) ||
                         a.EndsWith(Helper.MAIN_IMG_FILE_NAME_PNG))
             .ToArray();
 
-        if (imagesPath.Length >= 2) 
+        if (imagesPath.Length >= 2)
             return true;
 
         Logger.Write($"No images in {folderPath}");
