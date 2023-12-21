@@ -40,12 +40,14 @@ namespace TradeKit.AlgoBase
         }
 
         /// <summary>
-        /// Resets this instance.
+        /// Resets the extrema.
         /// </summary>
-        public void Reset()
+        /// <param name="upDirection">if set to <c>true</c> [up direction].</param>
+        public void Reset(bool upDirection = false)
         {
             Extrema.Clear();
             Extremum = null;
+            IsUpDirection = upDirection;
             m_ExtremumOpenDate = DateTime.MinValue;
         }
 

@@ -138,7 +138,9 @@ namespace TradeKit.AlgoBase
                 if (localOverlap.Count == 0)
                     overlaps[i] = new ValueTuple<int, double>(0, 0);
                 else
-                    overlaps[i] = localOverlap.MaxBy(a => a.Item2);
+                    overlaps[i] = isUp
+                        ? localOverlap.MinBy(a => a.Item2)
+                        : localOverlap.MaxBy(a => a.Item2);
             }
 
             var sortedOverlapse = new SortedDictionary<int, double>();
@@ -698,18 +700,21 @@ namespace TradeKit.AlgoBase
             }
             
             bool isImpulseUp = start.Value < end.Value;
-            m_ExactExtremumFinder.Reset();
+            m_ExactExtremumFinder.Reset(!isImpulseUp);
             m_ExactExtremumFinder.Calculate(start.BarIndex, end.BarIndex);
             SortedDictionary<DateTime, BarPoint> extremaDict = m_ExactExtremumFinder.Extrema;
 
-            if (isImpulseUp && (!extremaDict.ContainsKey(start.OpenTime) ||
-                                !extremaDict.ContainsKey(end.OpenTime)) ||
-                !isImpulseUp && (!extremaDict.ContainsKey(start.OpenTime) ||
-                                 !extremaDict.ContainsKey(end.OpenTime)))
+            DateTime start1 = start.OpenTime.AddSeconds(1);
+            DateTime end1 = end.OpenTime.AddSeconds(1);
+            
+            if (!extremaDict.ContainsKey(start.OpenTime) &&
+                !extremaDict.ContainsKey(start1) ||
+                !extremaDict.ContainsKey(end.OpenTime) &&
+                !extremaDict.ContainsKey(end1))
             {
                 return false;
             }
-
+            
             List<BarPoint> extremaList = m_ExactExtremumFinder.ToExtremaList();
             if (extremaList.Count > 0)
             {
@@ -726,7 +731,7 @@ namespace TradeKit.AlgoBase
                     Math.Abs(firstExtremum.Value - start.Value) > double.Epsilon)
                 {
                     extremaList.Remove(firstExtremum);
-                    extremaList.Add(start);
+                    extremaList.Insert(0, start);
                 }
             }
 
