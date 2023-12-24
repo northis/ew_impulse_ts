@@ -12,15 +12,24 @@ namespace TradeKit.PatternGeneration
         public double Min { get; }
         public double Range { get; }
         public int BarsCount { get; }
+        public int Accuracy { get; }
+        public double? PrevCandleExtremum { get; }
         public bool IsUp { get; }
         public int IsUpK { get; }
         public List<ICandle> Candles { get; }
 
-        public PatternArgsItem(double startValue, double endValue, int barsCount)
+        public PatternArgsItem(
+            double startValue, 
+            double endValue, 
+            int barsCount,
+            double? prevCandleExtremum = null,
+            int accuracy = 4)
         {
             StartValue = startValue;
             EndValue = endValue;
             BarsCount = barsCount;
+            Accuracy = accuracy;
+            PrevCandleExtremum = prevCandleExtremum;
             IsUp = startValue < endValue;
             Range = Math.Abs(endValue - startValue);
             Candles = new List<ICandle>();

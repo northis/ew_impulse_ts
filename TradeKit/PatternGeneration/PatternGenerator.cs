@@ -437,14 +437,14 @@ namespace TradeKit.PatternGeneration
                     1 - barsA - barsB
                 });
 
-            ICandle[] candlesWaveA = GetRandomSet(
-                args.StartValue, waveA, bars4Gen[0]);
-            
-            ICandle[] candlesWaveB = GetRandomSet(
-                candlesWaveA[^1].C, waveB, bars4Gen[1]);
+            List<ICandle> candlesWaveA = GetRandomSet(
+                new PatternArgsItem(args.StartValue, waveA, bars4Gen[0]));
 
-            ICandle[] candlesWaveC = GetRandomSet(
-                candlesWaveB[^1].C, args.EndValue, bars4Gen[2]);
+            List<ICandle> candlesWaveB = GetRandomSet(
+                new PatternArgsItem(candlesWaveA[^1].C, waveB, bars4Gen[1], waveA));
+
+            List<ICandle> candlesWaveC = GetRandomSet(
+                new PatternArgsItem(candlesWaveB[^1].C, args.EndValue, bars4Gen[2], waveB));
 
             candles.AddRange(candlesWaveA);
             candles.AddRange(candlesWaveB);
@@ -453,35 +453,48 @@ namespace TradeKit.PatternGeneration
             return candles;
         }
 
-        private ICandle[] GetRandomSet(
-            double startValue, double endValue, int barsCount)
+        public List<ICandle> GetRandomSet(PatternArgsItem args)
         {
-            ICandle[] candles = new ICandle[barsCount];
-            if (barsCount <= 0)
+            List<ICandle> candles = args.Candles;
+            if (args.BarsCount <= 0)
                 return candles;
+            
+            double previousClose = args.StartValue;
+            double stepLinear = args.Range / args.BarsCount;
 
-            double range = endValue - startValue;
-            double previousClose = startValue;
-            bool isUp = startValue > endValue;
-            double max = isUp ? endValue : startValue;
-            double min = isUp ? startValue : endValue;
-            double revRatio = 1d / barsCount;
-
-            for (int i = 0; i < barsCount; i++)
+            for (int i = 0; i < args.BarsCount; i++)
             {
                 double open = previousClose;
-                double close = RandomWithinRange(startValue, endValue);
+                double stepVal = args.StartValue + args.IsUpK * stepLinear * (i + 1);
 
-                double high = Math.Max(open, close);
-                high = RandomWithinRange(high,
-                    Math.Min(max, high + range * revRatio));
+                double peakRnd = m_Random.NextDouble();
+                int peakDiv; 
+                switch (peakRnd)
+                {
+                    case >= 0.995:// throwout
+                        peakDiv = m_Random.Next(1, args.BarsCount);
+                        break;
+                    default:
+                        peakDiv = 2 * i + 1;
+                        break;
+                }
 
-                double low = Math.Min(open, close);
-                low = RandomWithinRange(
-                    Math.Max(min, low - range * revRatio), low);
+                double maxAllowanceLength = Math.Abs(stepVal - args.Max) * m_Random.NextDouble() / peakDiv;
+                double minAllowanceLength = Math.Abs(stepVal - args.Min) * m_Random.NextDouble() / peakDiv;
 
-                candles[i] = new JsonCandleExport
-                { C = close, H = high, O = open, L = low };
+                double high = Math.Max(open, stepVal) + maxAllowanceLength;
+                double low = Math.Min(open, stepVal) - minAllowanceLength;
+                double close = RandomWithinRange(high, low);
+
+                if (low> high) Logger.Write("low bigger then the high check");
+
+                candles.Add(new JsonCandleExport
+                {
+                    C = Math.Round(close, args.Accuracy),
+                    H = Math.Round(high, args.Accuracy),
+                    O = Math.Round(open, args.Accuracy),
+                    L = Math.Round(low, args.Accuracy)
+                });
 
                 previousClose = close;
             }
@@ -489,15 +502,29 @@ namespace TradeKit.PatternGeneration
             var startItem = (JsonCandleExport)candles[0];
             var endItem = (JsonCandleExport)candles[^1];
 
-            if (isUp)
+            if (args.IsUp)
             {
-                startItem.L = startValue;
-                endItem.H = endValue;
+                startItem.L = args.PrevCandleExtremum.HasValue 
+                    ? RandomWithinRange(
+                        args.PrevCandleExtremum.Value, args.StartValue)
+                    : args.StartValue;
+                startItem.O = args.PrevCandleExtremum.HasValue
+                    ? args.StartValue
+                    : RandomWithinRange(startItem.L, startItem.H);
+                endItem.H = args.EndValue;
+                endItem.C = RandomWithinRange(endItem.L, endItem.H);
             }
             else
             {
-                startItem.H = startValue;
-                endItem.L = endValue;
+                startItem.H = args.PrevCandleExtremum.HasValue
+                    ? RandomWithinRange(
+                        args.PrevCandleExtremum.Value, args.StartValue)
+                    : args.StartValue;
+                startItem.O = args.PrevCandleExtremum.HasValue
+                    ? args.StartValue 
+                    : RandomWithinRange(startItem.L, startItem.H);
+                endItem.L = args.EndValue;
+                endItem.C = RandomWithinRange(endItem.L, endItem.H);
             }
 
             return candles;

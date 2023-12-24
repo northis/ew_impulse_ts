@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-using NUnit.Framework;
-using Plotly.NET;
+﻿using Plotly.NET;
 using Plotly.NET.ImageExport;
 using TradeKit.Core;
 using TradeKit.PatternGeneration;
@@ -18,21 +16,36 @@ public class PatternGenTests
     }
 
     [Test]
-    public void PatternChartTest()
+    public void RandomSetTest()
     {
-        var bars = 103;
-        var candles = m_PatternGenerator.GetExtendedFlat(
-            new PatternArgsItem(100, 105, bars), 98);
+        List<ICandle> candles = m_PatternGenerator.GetRandomSet(
+            new PatternArgsItem(1.08, 1.05, 10));
 
+        SaveChart(candles, "Random set", "img_rnd_set");
+    }
+
+    private void SaveChart(List<ICandle> candles, string name, string fileName)
+    {
         var dt = DateTime.UtcNow;
         var step = TimeSpan.FromMinutes(15);
-        DateTime dtStart = dt.Add(-bars* step);
+        DateTime dtStart = dt.Add(-candles.Count * step);
 
-        GenericChart.GenericChart chart = ChartGenerator.GetCandlestickChart(candles, "Extended flat", dtStart, step);
+        GenericChart.GenericChart chart = ChartGenerator.GetCandlestickChart(
+            candles, name, dtStart, step);
 
         string pngPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "img_ex_flat");
+            AppDomain.CurrentDomain.BaseDirectory, fileName);
         chart.SavePNG(pngPath, null, 1000, 1000);
+    }
+
+    [Test]
+    public void ExtendedFlatTest()
+    {
+        int bars = 13;
+        List<ICandle> candles = m_PatternGenerator.GetExtendedFlat(
+            new PatternArgsItem(100, 105, bars), 98);
+
+        SaveChart(candles, "Extended flat", "img_ex_flat");
     }
 
 }
