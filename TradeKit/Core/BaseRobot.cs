@@ -850,16 +850,9 @@ namespace TradeKit.Core
             DateTime lastOpenDateTime = s.D[^1];
             DateTime lastCloseDateTime = lastOpenDateTime;
 
-            FSharpOption<int> dValue = (int)timeFrameInfo.TimeSpan.TotalMilliseconds;
-            Rangebreak[] rbs =
-            {
-                Rangebreak.init<string, string>(rangeBreaks.Any(),
-                    DValue: dValue,
-                    Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
-            };
-
             GenericChart.GenericChart candlestickChart = ChartGenerator.GetCandlestickChart(
-                s.O, s.H, s.L, s.C, s.D, barProvider.Symbol.Name, rbs);
+                s.O, s.H, s.L, s.C, s.D, barProvider.Symbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
+                out Rangebreak[] rbs);
             
             OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
             GenericChart.GenericChart[] layers = 

@@ -4,7 +4,7 @@ using TradeKit.Core;
 
 namespace TradeKit.PatternGeneration
 {
-    internal class PatternArgsItem
+    public class PatternArgsItem
     {
         public double StartValue { get; }
         public double EndValue { get; }
@@ -21,7 +21,7 @@ namespace TradeKit.PatternGeneration
             StartValue = startValue;
             EndValue = endValue;
             BarsCount = barsCount;
-            IsUp = startValue > endValue;
+            IsUp = startValue < endValue;
             Range = Math.Abs(endValue - startValue);
             Candles = new List<ICandle>();
             IsUpK = IsUp ? 1 : -1;

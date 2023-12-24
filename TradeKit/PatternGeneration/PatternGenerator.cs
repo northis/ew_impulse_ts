@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.ML;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
 
 namespace TradeKit.PatternGeneration
 {
-    internal class PatternGenerator
+    public class PatternGenerator
     {
         private readonly Random m_Random;
 
@@ -366,8 +365,8 @@ namespace TradeKit.PatternGeneration
 
         public List<ICandle> GetExtendedFlat(PatternArgsItem args, double bLimit)
         {
-            if (args.IsUp && bLimit <= args.StartValue ||
-                !args.IsUp && bLimit >= args.StartValue)
+            if (args.IsUp && bLimit >= args.StartValue ||
+                !args.IsUp && bLimit <= args.StartValue)
                 throw new ArgumentException(nameof(bLimit));
 
             if (args.BarsCount <= 0)
@@ -382,11 +381,11 @@ namespace TradeKit.PatternGeneration
             double waveA = args.StartValue + args.IsUpK * waveALength;
             double waveCLengthMax = Math.Abs(bLimit - args.EndValue);
             double waveCLengthMin = Math.Abs(args.StartValue - args.EndValue);
-            double cMaxToA = Math.Abs(waveA - waveCLengthMax) / waveALength;
-            double cMinToA = Math.Abs(waveA - waveCLengthMin) / waveALength;
+            double cMaxToA = waveCLengthMax / waveALength;
+            double cMinToA = waveCLengthMin / waveALength;
 
             double waveCLength = SelectRandomly(
-                MAP_EX_FLAT_WAVE_A_TO_C, cMinToA, cMaxToA);
+                MAP_EX_FLAT_WAVE_A_TO_C, cMinToA, cMaxToA) * waveALength;
 
             double waveB = args.EndValue - args.IsUpK * waveCLength;
             
@@ -427,13 +426,15 @@ namespace TradeKit.PatternGeneration
             }
 
             double rndSplitPart = m_Random.NextDouble() * 0.2 - 0.1;
-            double rndSplitPartHalf = rndSplitPart / 2;
+
+            double barsA = 0.25 - rndSplitPart;
+            double barsB = 0.5 + rndSplitPart;
             int[] bars4Gen = PatternGenKit.SplitNumber(
                 args.BarsCount, new[]
                 {
-                    0.25 - rndSplitPartHalf,
-                    0.5 + rndSplitPart,
-                    0.25 - rndSplitPartHalf
+                    barsA,
+                    barsB,
+                    1 - barsA - barsB
                 });
 
             ICandle[] candlesWaveA = GetRandomSet(

@@ -17,6 +17,57 @@ namespace TradeKit.Core
         public static readonly Color SEMI_WHITE_COLOR = Color.fromARGB(80, 209, 212, 220);
 
         public static GenericChart.GenericChart GetCandlestickChart(
+            List<ICandle> candles,
+            string name,
+            DateTime start,
+            TimeSpan timeFrameTimeSpan)
+        {
+            double[] o = new double[candles.Count];
+            double[] h = new double[candles.Count];
+            double[] l = new double[candles.Count];
+            double[] c = new double[candles.Count];
+            DateTime[] d = new DateTime[candles.Count];
+
+            DateTime current = start;
+            for (int i = 0; i < candles.Count; i++)
+            {
+                o[i] = candles[i].O;
+                h[i] = candles[i].H;
+                c[i] = candles[i].C;
+                l[i] = candles[i].L;
+                d[i] = current;
+                current = current.Add(timeFrameTimeSpan);
+            }
+
+            GenericChart.GenericChart res = GetCandlestickChart(o, h, l, c, d, name);
+            return res;
+        }
+
+        public static GenericChart.GenericChart GetCandlestickChart(
+            double[] o,
+            double[] h,
+            double[] l,
+            double[] c,
+            DateTime[] d,
+            string name,
+            List<DateTime> rangeBreaks, 
+            TimeSpan timeFrameTimeSpan,
+            out Rangebreak[] rbs)
+        {
+            FSharpOption<int> dValue = (int)timeFrameTimeSpan.TotalMilliseconds;
+            rbs = new []
+            {
+                Rangebreak.init<string, string>(rangeBreaks.Any(),
+                    DValue: dValue,
+                    Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
+            };
+
+            GenericChart.GenericChart res = 
+                GetCandlestickChart(o, h, l, c, d, name, rbs);
+            return res;
+        }
+
+        public static GenericChart.GenericChart GetCandlestickChart(
             double[] o,
             double[] h,
             double[] l,
