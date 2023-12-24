@@ -239,7 +239,7 @@ namespace TradeKit.PriceAction
             DateTime slIndex = barProvider.GetOpenTime(pattern.StopLossBarIndex);
 
             Annotation label = GetAnnotation(slIndex, pattern.StopLoss,
-                colorText, CHART_FONT_HEADER, BlackColor, pattern.Type.Format().Replace(" ",""),
+                colorText, CHART_FONT_HEADER, ChartGenerator.BLACK_COLOR, pattern.Type.Format().Replace(" ",""),
                 pattern.IsBull ? StyleParam.YAnchorPosition.Top : StyleParam.YAnchorPosition.Bottom);
             
             candlestickChart.WithAnnotation(label, true);

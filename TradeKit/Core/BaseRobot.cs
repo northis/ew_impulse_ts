@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -8,13 +7,11 @@ using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Internals;
 using Microsoft.FSharp.Core;
-using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.EventArgs;
 using TradeKit.Telegram;
-using static Microsoft.FSharp.Core.ByRefKinds;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
 using Shape = Plotly.NET.LayoutObjects.Shape;
@@ -52,13 +49,7 @@ namespace TradeKit.Core
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, List<int>> m_PositionFinderMap;
         private Dictionary<string, TK> m_ChartFileFinderMap;
-        protected readonly Color ShortColor = Color.fromHex("#EF5350");
-        protected readonly Color LongColor = Color.fromHex("#26A69A");
         private const double CHART_FONT_MAIN = 24;
-
-        protected readonly Color BlackColor =  Color.fromARGB(255, 22, 26, 37);
-        protected readonly Color WhiteColor = Color.fromARGB(240, 209, 212, 220);
-        protected readonly Color SemiWhiteColor = Color.fromARGB(80, 209, 212, 220);
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -858,52 +849,28 @@ namespace TradeKit.Core
 
             DateTime lastOpenDateTime = s.D[^1];
             DateTime lastCloseDateTime = lastOpenDateTime;
-            
-            GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
-                    <double, double, double, double, DateTime, string>(
-                    s.O, s.H, s.L, s.C, s.D,
-                        IncreasingColor: LongColor.ToFSharp(),
-                        DecreasingColor: ShortColor.ToFSharp(),
-                        Name: barProvider.Symbol.Name,
-                        ShowLegend: false);
-            
-            OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
-            GenericChart.GenericChart[] layers = 
-                GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
-                ?? Array.Empty<GenericChart.GenericChart>();
 
             FSharpOption<int> dValue = (int)timeFrameInfo.TimeSpan.TotalMilliseconds;
-
-            Rangebreak[] rbs = new[]
+            Rangebreak[] rbs =
             {
                 Rangebreak.init<string, string>(rangeBreaks.Any(),
                     DValue: dValue,
                     Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
             };
 
+            GenericChart.GenericChart candlestickChart = ChartGenerator.GetCandlestickChart(
+                s.O, s.H, s.L, s.C, s.D, barProvider.Symbol.Name, rbs);
+            
+            OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
+            GenericChart.GenericChart[] layers = 
+                GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
+                ?? Array.Empty<GenericChart.GenericChart>();
+            
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
                     layers.Concat(new[] {candlestickChart}))
                 .WithTitle(
                     $@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
-                    Font.init(Size: CHART_FONT_HEADER))
-                .WithXAxisRangeSlider(RangeSlider.init(Visible: false))
-                .WithConfig(Config.init(
-                    StaticPlot: true,
-                    Responsive: false))
-                .WithLayout(Layout.init<string>(
-                    PlotBGColor: BlackColor,
-                    PaperBGColor: BlackColor,
-                    Font: Font.init(Color: WhiteColor)))
-                .WithLayoutGrid(LayoutGrid.init(
-                    Rows: 0,
-                    Columns: 0,
-                    XGap: 0d,
-                    YGap: 0d))
-                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rbs), GridColor: SemiWhiteColor, ShowGrid: true))
-                .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    GridColor: SemiWhiteColor, ShowGrid: true))
-                .WithYAxisStyle(Side: StyleParam.Side.Right, title: null);
+                    Font.init(Size: CHART_FONT_HEADER));
 
             string fileName = startView.ToString("s").Replace(":", "-");
             string dirPath = Path.Combine(Helper.DirectoryToSaveImages,
@@ -1035,7 +1002,7 @@ namespace TradeKit.Core
         {
             DateTime x = GetMedianDate(bp1.OpenTime, bp2.OpenTime, chartDateTimes);
             double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
-            Annotation annotation = GetAnnotation(x, y, BlackColor, CHART_FONT_MAIN, color, text);
+            Annotation annotation = GetAnnotation(x, y, ChartGenerator.BLACK_COLOR, CHART_FONT_MAIN, color, text);
             return annotation;
         }
 

@@ -206,10 +206,10 @@ namespace TradeKit.Gartley
             
             if (signalEventArgs.DivergenceStart is not null)
             {
-                Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, LINE_WIDTH);
+                Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, LINE_WIDTH);
                 candlestickChart.WithShape(div, true);
                 candlestickChart.WithAnnotation(GetAnnotation(
-                        signalEventArgs.DivergenceStart, gartley.ItemD, WhiteColor, DIVERGENCE_NAME, chartDateTimes),
+                        signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, DIVERGENCE_NAME, chartDateTimes),
                     true);
             }
 
@@ -233,7 +233,7 @@ namespace TradeKit.Gartley
                     Math.Min(gartley.ItemA.Value, gartley.ItemC.Value);
 
             candlestickChart.WithAnnotation(GetAnnotation(
-                    gartley.ItemD.OpenTime, patternBottom, BlackColor, CHART_FONT_HEADER, colorBorder,
+                    gartley.ItemD.OpenTime, patternBottom, ChartGenerator.BLACK_COLOR, CHART_FONT_HEADER, colorBorder,
                     gartley.PatternType.Format()),
                 true);
         }

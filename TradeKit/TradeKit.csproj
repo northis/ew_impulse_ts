@@ -33,6 +33,9 @@
     <Compile Include="AlgoBase\ExtremumFinderBase.cs" />
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
     <Compile Include="AlgoBase\CandlePatternFinder.cs" />
+    <Compile Include="Core\ChartGenerator.cs" />
+    <Compile Include="PatternGeneration\PatternArgsItem.cs" />
+    <Compile Include="PatternGeneration\PatternGenerator.cs" />
     <Compile Include="AlgoBase\PivotPointsFinder.cs" />
     <Compile Include="AlgoBase\SignalFilters.cs" />
     <Compile Include="Core\BarProvidersFactory.cs" />
@@ -62,6 +65,7 @@
     <Compile Include="ML\LearnItem.cs" />
     <Compile Include="ML\MachineLearning.cs" />
     <Compile Include="ML\Prediction.cs" />
+    <Compile Include="PatternGeneration\PatternGenKit.cs" />
     <Compile Include="PriceAction\CandlePatternSettings.cs" />
     <Compile Include="PriceAction\CandlePatternType.cs" />
     <Compile Include="PriceAction\CandlesResult.cs" />

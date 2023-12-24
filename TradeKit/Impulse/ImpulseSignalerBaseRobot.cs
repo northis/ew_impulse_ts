@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using Microsoft.FSharp.Core;
 using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
@@ -54,12 +52,12 @@ namespace TradeKit.Impulse
             DateTime startView = signalEventArgs.StartViewBarTime;
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
-                LineColor: LongColor.ToFSharp(),
+                LineColor: ChartGenerator.LONG_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
-                LineColor: ShortColor.ToFSharp(),
+                LineColor: ChartGenerator.SHORT_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
 
@@ -199,39 +197,15 @@ namespace TradeKit.Impulse
                 Logger.Write("Cannot extract impulse");
                 return;
             }
-
-            GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
-                <double, double, double, double, DateTime, string>(
+            
+            GenericChart.GenericChart resultChart =                ChartGenerator.GetCandlestickChart(
                     chartDataSource.O[startIndex..endIndex],
                     chartDataSource.H[startIndex..endIndex],
                     chartDataSource.L[startIndex..endIndex],
                     chartDataSource.C[startIndex..endIndex],
-                    chartDataSource.D[startIndex..endIndex],
-                    IncreasingColor: LongColor.ToFSharp(),
-                    DecreasingColor: ShortColor.ToFSharp(),
-                    Name: barProvider.Symbol.Name,
-                    ShowLegend: false);
-
-            GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-                    Array.Empty<GenericChart.GenericChart>().Concat(new[] { candlestickChart }))
-                .WithXAxisRangeSlider(RangeSlider.init(Visible: false))
-                .WithConfig(Config.init(
-                    StaticPlot: true,
-                    Responsive: false))
-                .WithLayout(Layout.init<string>(
-                    PlotBGColor: BlackColor,
-                    PaperBGColor: BlackColor,
-                    Font: Font.init(Color: WhiteColor)))
-                .WithLayoutGrid(LayoutGrid.init(
-                    Rows: 0,
-                    Columns: 0,
-                    XGap: 0d,
-                    YGap: 0d))
-                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks), GridColor: SemiWhiteColor, ShowGrid: true))
-                .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    GridColor: SemiWhiteColor, ShowGrid: true))
-                .WithYAxisStyle(Side: Side.Right, title: null);
+                    chartDataSource.D[startIndex..endIndex], 
+                    barProvider.Symbol.Name, 
+                    rangeBreaks);
 
             string jpgFilePath = Path.Join(dirPath, Helper.SAMPLE_IMG_FILE_NAME);
             resultChart.SavePNG(jpgFilePath, null, CHART_WIDTH, CHART_HEIGHT);
