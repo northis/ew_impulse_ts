@@ -16,12 +16,30 @@ public class PatternGenTests
     }
 
     [Test]
-    public void RandomSetTest()
+    public void ImpulseRandomSetTest()
     {
-        List<ICandle> candles = m_PatternGenerator.GetRandomSet(
-            new PatternArgsItem(1.08, 1.05, 10));
+        List<ICandle> candles = m_PatternGenerator.GetImpulseRandomSet(
+            new PatternArgsItem(10, 20, 10));
 
-        SaveChart(candles, "Random set", "img_rnd_set");
+        SaveChart(candles, "Random set (impulse)", "_imp_img_rnd_set");
+    }
+
+    [Test]
+    public void CorrectiveRandomSetTest()
+    {
+        List<ICandle> candles = m_PatternGenerator.GetCorrectiveRandomSet(
+            new PatternArgsItem(500, 450, 20));
+
+        SaveChart(candles, "Random set (corrective)", "cor_img_rnd_set");
+    }
+
+    [Test]
+    public void SideRandomSetTest()
+    {
+        List<ICandle> candles = m_PatternGenerator.GetSideRandomSet(
+            new PatternArgsItem(50, 70, 15), 40, 80);
+
+        SaveChart(candles, "Random set (side)", "side_img_rnd_set");
     }
 
     private void SaveChart(List<ICandle> candles, string name, string fileName)

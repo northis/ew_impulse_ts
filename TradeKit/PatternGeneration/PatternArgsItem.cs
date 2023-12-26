@@ -8,8 +8,8 @@ namespace TradeKit.PatternGeneration
     {
         public double StartValue { get; }
         public double EndValue { get; }
-        public double Max { get; }
-        public double Min { get; }
+        public double Max { get; set; }
+        public double Min { get; set; }
         public double Range { get; }
         public int BarsCount { get; }
         public int Accuracy { get; }

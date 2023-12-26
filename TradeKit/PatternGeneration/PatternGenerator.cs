@@ -338,25 +338,18 @@ namespace TradeKit.PatternGeneration
             };
         }
 
-        private List<ICandle> GetImpulseSet(
-            double startValue, double endValue, int barsCount)
+        private List<ICandle> GetImpulseSet(PatternArgsItem args)
         {
-            ModelRules rules = ModelRules[ElliottModelType.IMPULSE];
-            List<ICandle> candles = new List<ICandle>();
-
-            double range = Math.Abs(endValue - startValue);
-            bool isUp = startValue > endValue;
-            int isUpK = isUp ? 1 : -1;
             double extendedWave = m_Random.NextDouble();
             bool is1StExtended = extendedWave < 0.1;
-            bool is3rdExtended = extendedWave is >= 0.1 and <= 0.7;
-            bool is5thExtended = extendedWave > 0.7;
+            //bool is3rdExtended = extendedWave is >= 0.1 and <= 0.7;
+            //bool is5thExtended = extendedWave > 0.7;
 
-            double firstEndLevelLimit = startValue + isUpK * range *
-                (is1StExtended ? 0.6 : 0.25);
-            double firstEndLevel = RandomWithinRange(startValue, firstEndLevelLimit);
+            //double firstEndLevelLimit = startValue + isUpK * range *
+            //    (is1StExtended ? 0.6 : 0.25);
+            //double firstEndLevel = RandomWithinRange(startValue, firstEndLevelLimit);
 
-            return candles;
+            return args.Candles;
         }
         
         private static readonly
@@ -453,40 +446,61 @@ namespace TradeKit.PatternGeneration
             return candles;
         }
 
-        public List<ICandle> GetRandomSet(PatternArgsItem args)
+        public List<ICandle> GetSideRandomSet(
+            PatternArgsItem args, double runningPrice, double correctivePrice)
+        {
+            args.Max = Math.Max(runningPrice, correctivePrice);
+            args.Min = Math.Min(runningPrice, correctivePrice);
+
+            return GetCorrectiveRandomSet(args);
+        }
+
+        public List<ICandle> GetImpulseRandomSet(PatternArgsItem args)
+        {
+            return GetRandomSet(args);
+        }
+
+        public List<ICandle> GetCorrectiveRandomSet(PatternArgsItem args)
+        {
+            return GetRandomSet(args, m_Random.Next(2, 5), true);
+        }
+
+        public List<ICandle> GetRandomSet(
+            PatternArgsItem args, double variance = 1, bool useFullRange = false)
         {
             List<ICandle> candles = args.Candles;
-            if (args.BarsCount <= 0)
+            if (args.BarsCount <= 0 && variance <= 0)
                 return candles;
-            
+
             double previousClose = args.StartValue;
             double stepLinear = args.Range / args.BarsCount;
 
             for (int i = 0; i < args.BarsCount; i++)
             {
                 double open = previousClose;
-                double stepVal = args.StartValue + args.IsUpK * stepLinear * (i + 1);
+                double meanPrice = args.StartValue +
+                                   args.IsUpK * stepLinear * (i + 1);
 
-                double peakRnd = m_Random.NextDouble();
-                int peakDiv; 
-                switch (peakRnd)
+                double varianceK = variance * stepLinear;
+                double stepValMax;
+                double stepValMin;
+
+                if (useFullRange || variance > 1 && m_Random.NextDouble() >= 0.95) // throwout
                 {
-                    case >= 0.995:// throwout
-                        peakDiv = m_Random.Next(1, args.BarsCount);
-                        break;
-                    default:
-                        peakDiv = 2 * i + 1;
-                        break;
+                    stepValMax = args.Max;
+                    stepValMin = args.Min;
+                }
+                else
+                {
+                    stepValMax = Math.Min(Math.Max(meanPrice, open) + varianceK, args.Max);
+                    stepValMin = Math.Max(Math.Min(meanPrice, open) - varianceK, args.Min);
                 }
 
-                double maxAllowanceLength = Math.Abs(stepVal - args.Max) * m_Random.NextDouble() / peakDiv;
-                double minAllowanceLength = Math.Abs(stepVal - args.Min) * m_Random.NextDouble() / peakDiv;
-
-                double high = Math.Max(open, stepVal) + maxAllowanceLength;
-                double low = Math.Min(open, stepVal) - minAllowanceLength;
+                double high = RandomWithinRange(open, stepValMax);
+                double low = RandomWithinRange(open, stepValMin);
                 double close = RandomWithinRange(high, low);
 
-                if (low> high) Logger.Write("low bigger then the high check");
+                if (low > high) Logger.Write("low bigger then the high check");
 
                 candles.Add(new JsonCandleExport
                 {
@@ -499,12 +513,12 @@ namespace TradeKit.PatternGeneration
                 previousClose = close;
             }
 
-            var startItem = (JsonCandleExport)candles[0];
-            var endItem = (JsonCandleExport)candles[^1];
+            var startItem = (JsonCandleExport) candles[0];
+            var endItem = (JsonCandleExport) candles[^1];
 
             if (args.IsUp)
             {
-                startItem.L = args.PrevCandleExtremum.HasValue 
+                startItem.L = args.PrevCandleExtremum.HasValue
                     ? RandomWithinRange(
                         args.PrevCandleExtremum.Value, args.StartValue)
                     : args.StartValue;
@@ -521,7 +535,7 @@ namespace TradeKit.PatternGeneration
                         args.PrevCandleExtremum.Value, args.StartValue)
                     : args.StartValue;
                 startItem.O = args.PrevCandleExtremum.HasValue
-                    ? args.StartValue 
+                    ? args.StartValue
                     : RandomWithinRange(startItem.L, startItem.H);
                 endItem.L = args.EndValue;
                 endItem.C = RandomWithinRange(endItem.L, endItem.H);
