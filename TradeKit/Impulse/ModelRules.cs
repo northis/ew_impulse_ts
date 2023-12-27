@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using TradeKit.Core;
+﻿using System.Collections.Generic;
 
 namespace TradeKit.Impulse
 {
-    public record ModelRules(Dictionary<string, ElliottModelType[]> Models,
-        Func<List<BarPoint>, ElliottModelResult> GetElliottModelResult);
+    public record ModelRules(Dictionary<string, ElliottModelType[]> Models);
 }
