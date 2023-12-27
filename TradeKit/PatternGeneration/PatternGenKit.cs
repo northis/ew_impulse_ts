@@ -42,18 +42,31 @@ namespace TradeKit.PatternGeneration
 
             int[] parts = new int[fractions.Length];
             double correction = number;
-
+            
             for (int i = 0; i < fractions.Length; i++)
             {
                 parts[i] = (int)Math.Floor(number * fractions[i]);
                 correction -= parts[i];
             }
-
+            
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] < 1)
+                {
+                    correction -= (1 - parts[i]);
+                    parts[i] = 1;
+                }
+            }
+            
             int index = 0;
             while (correction > 0)
             {
-                parts[index]++;
-                correction--;
+                if (parts[index] > 1)
+                {
+                    parts[index]--;
+                    correction--;
+                }
+
                 index = (index + 1) % parts.Length;
             }
 

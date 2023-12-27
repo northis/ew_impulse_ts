@@ -232,7 +232,7 @@ namespace TradeKit.Gartley
             double patternBottom = isBull ? Math.Min(gartley.ItemX.Value, gartley.ItemD.Value):
                     Math.Min(gartley.ItemA.Value, gartley.ItemC.Value);
 
-            candlestickChart.WithAnnotation(GetAnnotation(
+            candlestickChart.WithAnnotation(ChartGenerator.GetAnnotation(
                     gartley.ItemD.OpenTime, patternBottom, ChartGenerator.BLACK_COLOR, CHART_FONT_HEADER, colorBorder,
                     gartley.PatternType.Format()),
                 true);

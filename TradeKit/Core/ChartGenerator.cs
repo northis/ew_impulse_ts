@@ -15,6 +15,7 @@ namespace TradeKit.Core
         public static readonly Color BLACK_COLOR = Color.fromARGB(255, 22, 26, 37);
         public static readonly Color WHITE_COLOR = Color.fromARGB(240, 209, 212, 220);
         public static readonly Color SEMI_WHITE_COLOR = Color.fromARGB(80, 209, 212, 220);
+        public const double CHART_FONT_MAIN = 24;
 
         public static GenericChart.GenericChart GetCandlestickChart(
             List<ICandle> candles,
@@ -67,6 +68,56 @@ namespace TradeKit.Core
             return res;
         }
 
+        public static Annotation GetAnnotation(
+            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text, YAnchorPosition yAnchor = null)
+        {
+            FSharpOption<double> doubleDef = 1d.ToFSharp();
+            Annotation annotation = Annotation.init(
+                X: x.ToFSharp(),
+                Y: y.ToFSharp(),
+                Align: StyleParam.AnnotationAlignment.Center,
+                ArrowColor: null,
+                ArrowHead: StyleParam.ArrowHead.Square,
+                ArrowSide: StyleParam.ArrowSide.None,
+                ArrowSize: null,
+                AX: doubleDef,
+                AXRef: doubleDef,
+                AY: doubleDef,
+                AYRef: doubleDef,
+                BGColor: backgroundColor,
+                BorderColor: null,
+                BorderPad: null,
+                BorderWidth: null,
+                CaptureEvents: null,
+                ClickToShow: null,
+                Font: Font.init(Size: textSize, Color: textColor),
+                Height: null,
+                HoverLabel: null,
+                HoverText: null,
+                Name: text,
+                Opacity: null,
+                ShowArrow: null,
+                StandOff: null,
+                StartArrowHead: null,
+                StartArrowSize: null,
+                StartStandOff: null,
+                TemplateItemName: null,
+                Text: text,
+                TextAngle: null,
+                VAlign: StyleParam.VerticalAlign.Middle,
+                Visible: null,
+                Width: null,
+                XAnchor: StyleParam.XAnchorPosition.Center,
+                XClick: doubleDef,
+                XRef: doubleDef,
+                XShift: null,
+                YAnchor: yAnchor ?? StyleParam.YAnchorPosition.Middle,
+                YClick: doubleDef,
+                YRef: doubleDef,
+                YShift: null);
+            return annotation;
+        }
+
         public static GenericChart.GenericChart GetCandlestickChart(
             double[] o,
             double[] h,
@@ -88,7 +139,7 @@ namespace TradeKit.Core
                     Name: name,
                     ShowLegend: false);
 
-            GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
+            GenericChart.GenericChart resultChart = Chart.Combine(
                     Array.Empty<GenericChart.GenericChart>().Concat(new[] { candlestickChart }))
                 .WithXAxisRangeSlider(RangeSlider.init(Visible: false))
                 .WithConfig(Config.init(
@@ -109,7 +160,7 @@ namespace TradeKit.Core
                     GridColor: SEMI_WHITE_COLOR, ShowGrid: true))
                 .WithYAxisStyle(Side: Side.Right, title: null);
 
-            return candlestickChart;
+            return resultChart;
         }
     }
 }

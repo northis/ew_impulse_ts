@@ -49,7 +49,6 @@ namespace TradeKit.Core
         private Dictionary<string, bool> m_BarsInitMap;
         private Dictionary<string, List<int>> m_PositionFinderMap;
         private Dictionary<string, TK> m_ChartFileFinderMap;
-        private const double CHART_FONT_MAIN = 24;
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
@@ -924,56 +923,6 @@ namespace TradeKit.Core
             return line;
         }
 
-        protected Annotation GetAnnotation(
-            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text, StyleParam.YAnchorPosition yAnchor = null)
-        {
-            FSharpOption<double> doubleDef = 1d.ToFSharp();
-            Annotation annotation = Annotation.init(
-                X: x.ToFSharp(),
-                Y: y.ToFSharp(),
-                Align: StyleParam.AnnotationAlignment.Center,
-                ArrowColor: null,
-                ArrowHead: StyleParam.ArrowHead.Square,
-                ArrowSide: StyleParam.ArrowSide.None,
-                ArrowSize: null,
-                AX: doubleDef,
-                AXRef: doubleDef,
-                AY: doubleDef,
-                AYRef: doubleDef,
-                BGColor: backgroundColor,
-                BorderColor: null,
-                BorderPad: null,
-                BorderWidth: null,
-                CaptureEvents: null,
-                ClickToShow: null,
-                Font: Font.init(Size: textSize, Color: textColor),
-                Height: null,
-                HoverLabel: null,
-                HoverText: null,
-                Name: text,
-                Opacity: null,
-                ShowArrow: null,
-                StandOff: null,
-                StartArrowHead: null,
-                StartArrowSize: null,
-                StartStandOff: null,
-                TemplateItemName: null,
-                Text: text,
-                TextAngle: null,
-                VAlign: StyleParam.VerticalAlign.Middle,
-                Visible: null,
-                Width: null,
-                XAnchor: StyleParam.XAnchorPosition.Center,
-                XClick: doubleDef,
-                XRef: doubleDef,
-                XShift: null,
-                YAnchor: yAnchor ?? StyleParam.YAnchorPosition.Middle,
-                YClick: doubleDef,
-                YRef: doubleDef,
-                YShift: null);
-            return annotation;
-        }
-
         protected DateTime GetMedianDate(DateTime start, DateTime end, List<DateTime> chartDateTimes)
         {
             if (start == end)
@@ -995,7 +944,7 @@ namespace TradeKit.Core
         {
             DateTime x = GetMedianDate(bp1.OpenTime, bp2.OpenTime, chartDateTimes);
             double y = bp1.Value + (bp2.Value - bp1.Value) / 2;
-            Annotation annotation = GetAnnotation(x, y, ChartGenerator.BLACK_COLOR, CHART_FONT_MAIN, color, text);
+            Annotation annotation = ChartGenerator.GetAnnotation(x, y, ChartGenerator.BLACK_COLOR, ChartGenerator.CHART_FONT_MAIN, color, text);
             return annotation;
         }
 

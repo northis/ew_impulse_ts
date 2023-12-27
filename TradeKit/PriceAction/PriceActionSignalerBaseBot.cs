@@ -238,7 +238,7 @@ namespace TradeKit.PriceAction
             Color colorText = pattern.IsBull ? m_BullColor : m_BearColor;
             DateTime slIndex = barProvider.GetOpenTime(pattern.StopLossBarIndex);
 
-            Annotation label = GetAnnotation(slIndex, pattern.StopLoss,
+            Annotation label = ChartGenerator.GetAnnotation(slIndex, pattern.StopLoss,
                 colorText, CHART_FONT_HEADER, ChartGenerator.BLACK_COLOR, pattern.Type.Format().Replace(" ",""),
                 pattern.IsBull ? StyleParam.YAnchorPosition.Top : StyleParam.YAnchorPosition.Bottom);
             
