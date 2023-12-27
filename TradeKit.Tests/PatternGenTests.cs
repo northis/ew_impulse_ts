@@ -19,9 +19,9 @@ public class PatternGenTests
     public void ImpulseRandomSetTest()
     {
         List<ICandle> candles = m_PatternGenerator.GetImpulseRandomSet(
-            new PatternArgsItem(10, 20, 10));
+            new PatternArgsItem(10, 20, 8));
 
-        SaveChart(candles, "Random set (impulse)", "_imp_img_rnd_set");
+        SaveChart(candles, "Random set (impulse)", "imp_img_rnd_set");
     }
 
     [Test]
@@ -45,6 +45,8 @@ public class PatternGenTests
     private void SaveChart(List<ICandle> candles, string name, string fileName)
     {
         var dt = DateTime.UtcNow;
+        dt = new DateTime(dt.Year, dt.Month, dt.Day);
+
         var step = TimeSpan.FromMinutes(15);
         DateTime dtStart = dt.Add(-candles.Count * step);
 
@@ -59,11 +61,10 @@ public class PatternGenTests
     [Test]
     public void ExtendedFlatTest()
     {
-        int bars = 13;
+        int bars = 30;
         List<ICandle> candles = m_PatternGenerator.GetExtendedFlat(
-            new PatternArgsItem(100, 105, bars), 98);
+            new PatternArgsItem(40, 60, bars), 30).Candles;
 
         SaveChart(candles, "Extended flat", "img_ex_flat");
     }
-
 }

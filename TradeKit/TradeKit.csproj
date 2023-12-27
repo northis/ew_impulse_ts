@@ -34,6 +34,7 @@
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
     <Compile Include="AlgoBase\CandlePatternFinder.cs" />
     <Compile Include="Core\ChartGenerator.cs" />
+    <Compile Include="PatternGeneration\ModelPattern.cs" />
     <Compile Include="PatternGeneration\PatternArgsItem.cs" />
     <Compile Include="PatternGeneration\PatternGenerator.cs" />
     <Compile Include="AlgoBase\PivotPointsFinder.cs" />

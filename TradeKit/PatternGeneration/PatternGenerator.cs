@@ -356,7 +356,7 @@ namespace TradeKit.PatternGeneration
             SortedDictionary<byte, double> MAP_EX_FLAT_WAVE_A_TO_C =
                 new() { { 0, 0 }, { 20, 1.618 }, { 80, 2.618 }, { 95, 3.618 } };
 
-        public List<ICandle> GetExtendedFlat(PatternArgsItem args, double bLimit)
+        public ModelPattern GetExtendedFlat(PatternArgsItem args, double bLimit)
         {
             if (args.IsUp && bLimit >= args.StartValue ||
                 !args.IsUp && bLimit <= args.StartValue)
@@ -366,6 +366,8 @@ namespace TradeKit.PatternGeneration
                 throw new ArgumentException(nameof(args.BarsCount));
 
             List<ICandle> candles = args.Candles;
+            var modelPattern = new ModelPattern(
+                ElliottModelType.FLAT_EXTENDED, candles);
 
             double waveALength = RandomWithinRange(
                 args.Range * 0.3, args.Range * 0.95);
@@ -391,7 +393,15 @@ namespace TradeKit.PatternGeneration
                     H = args.IsUp ? args.EndValue : waveB,
                     C = args.EndValue,
                 });
-                return candles;
+
+                modelPattern.PatternKeyPoints = new List<KeyValuePair<int, double>>
+                {
+                    new(0, waveA),
+                    new(0, waveB),
+                    new(0, args.EndValue),
+                };
+
+                return modelPattern;
             }
             
             if(args.BarsCount == 2)
@@ -408,6 +418,7 @@ namespace TradeKit.PatternGeneration
                 c1.C = RandomWithinRange(c1.L, c1.H);
                 double midItem2 = RandomWithinRange(midItem, args.EndValue);
 
+                candles.Add(c1);
                 candles.Add(new JsonCandleExport
                 {
                     O = c1.C,
@@ -415,7 +426,15 @@ namespace TradeKit.PatternGeneration
                     H = args.IsUp ? args.EndValue : midItem2,
                     C = args.EndValue
                 });
-                return candles;
+
+                modelPattern.PatternKeyPoints = new List<KeyValuePair<int, double>>
+                {
+                    new(0, waveA),
+                    new(0, waveB),
+                    new(1, args.EndValue),
+                };
+
+                return modelPattern;
             }
 
             double rndSplitPart = m_Random.NextDouble() * 0.2 - 0.1;
@@ -430,20 +449,27 @@ namespace TradeKit.PatternGeneration
                     1 - barsA - barsB
                 });
 
-            List<ICandle> candlesWaveA = GetRandomSet(
+            List<ICandle> candlesWaveA = GetCorrectiveRandomSet(
                 new PatternArgsItem(args.StartValue, waveA, bars4Gen[0]));
 
-            List<ICandle> candlesWaveB = GetRandomSet(
+            List<ICandle> candlesWaveB = GetCorrectiveRandomSet(
                 new PatternArgsItem(candlesWaveA[^1].C, waveB, bars4Gen[1], waveA));
 
-            List<ICandle> candlesWaveC = GetRandomSet(
+            List<ICandle> candlesWaveC = GetImpulseRandomSet(
                 new PatternArgsItem(candlesWaveB[^1].C, args.EndValue, bars4Gen[2], waveB));
 
             candles.AddRange(candlesWaveA);
             candles.AddRange(candlesWaveB);
             candles.AddRange(candlesWaveC);
 
-            return candles;
+            modelPattern.PatternKeyPoints = new List<KeyValuePair<int, double>>
+            {
+                new(candlesWaveA.Count - 1, waveA),
+                new(candlesWaveA.Count - 1 + candlesWaveB.Count - 1, waveB),
+                new(args.BarsCount - 1, args.EndValue)
+            };
+
+            return modelPattern;
         }
 
         public List<ICandle> GetSideRandomSet(
@@ -457,7 +483,7 @@ namespace TradeKit.PatternGeneration
 
         public List<ICandle> GetImpulseRandomSet(PatternArgsItem args)
         {
-            return GetRandomSet(args);
+            return GetRandomSet(args, 0.5);
         }
 
         public List<ICandle> GetCorrectiveRandomSet(PatternArgsItem args)
@@ -565,14 +591,14 @@ namespace TradeKit.PatternGeneration
             KeyValuePair<byte, double>[] selectedItems = valuesMap
                 .Where(a => a.Key == 0)
                 .Concat(valuesMap.Where(a => a.Key > 0)
-                    .SkipWhile(a => a.Value > min)
-                    .TakeWhile(a => a.Value >= max))
+                    .SkipWhile(a => a.Value < min)
+                    .TakeWhile(a => a.Value <= max))
                 .ToArray();
 
             if (selectedItems.Length == 0)
                 return AddExtra(min, max);
             
-            if (selectedItems[0].Key == 0)
+            if (selectedItems[^1].Key == 0)
                 return AddExtra(min, max);
 
             byte randomNext = (byte)m_Random.Next(0, 100);
@@ -582,7 +608,7 @@ namespace TradeKit.PatternGeneration
             if (rndFoundItems.Length == 0)
                 return AddExtra(min, max);
 
-            double foundLevel = rndFoundItems[0].Value;
+            double foundLevel = rndFoundItems[^1].Value;
             return AddExtra(foundLevel, max);
         }
 
