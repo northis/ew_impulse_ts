@@ -34,11 +34,14 @@ namespace TradeKit.PatternGeneration
         public Dictionary<ElliottModelType, ModelRules> ModelRules
         { get; private set; }
 
-        private ElliottModelType[] m_ShallowCorrections;
-        private ElliottModelType[] m_DeepCorrections;
+        private HashSet<ElliottModelType> m_ShallowCorrections;
+        private HashSet<ElliottModelType> m_DeepCorrections;
+        private HashSet<ElliottModelType> m_DiagonalImpulses;
 
-        private ElliottModelType[] m_Wave2Impulse;
-        private ElliottModelType[] m_Wave4Impulse;
+        private HashSet<ElliottModelType> m_Wave1Impulse;
+        private HashSet<ElliottModelType> m_Wave2Impulse;
+        private HashSet<ElliottModelType> m_Wave4Impulse;
+        private HashSet<ElliottModelType> m_Wave5Impulse;
 
         public PatternGenerator()
         {
@@ -345,7 +348,7 @@ namespace TradeKit.PatternGeneration
                 }
             };
 
-            m_ShallowCorrections = new[]
+            m_ShallowCorrections = new HashSet<ElliottModelType>
             {
                 ElliottModelType.COMBINATION, 
                 ElliottModelType.FLAT_EXTENDED, 
@@ -354,16 +357,23 @@ namespace TradeKit.PatternGeneration
                 ElliottModelType.TRIANGLE_RUNNING
             };
 
-            m_DeepCorrections = new[]
+            m_DeepCorrections = new HashSet<ElliottModelType>
             {
                 ElliottModelType.ZIGZAG,
                 ElliottModelType.DOUBLE_ZIGZAG
             };
 
-            m_Wave2Impulse = ModelRules[ElliottModelType.IMPULSE]
-                .Models[IMPULSE_TWO];
-            m_Wave4Impulse = ModelRules[ElliottModelType.IMPULSE]
-                .Models[IMPULSE_FOUR];
+            m_DiagonalImpulses = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.DIAGONAL_INITIAL,
+                ElliottModelType.DIAGONAL_ENDING
+            };
+
+            ModelRules impulse = ModelRules[ElliottModelType.IMPULSE];
+            m_Wave1Impulse = impulse.Models[IMPULSE_ONE].ToHashSet();
+            m_Wave2Impulse = impulse.Models[IMPULSE_TWO].ToHashSet();
+            m_Wave4Impulse = impulse.Models[IMPULSE_FOUR].ToHashSet();
+            m_Wave5Impulse = impulse.Models[IMPULSE_FIVE].ToHashSet();
         }
 
         private void GetCorrectiveRatios(
@@ -410,6 +420,21 @@ namespace TradeKit.PatternGeneration
             double range, double extendedRatio, double ratioPart) =>
             range / (2 + extendedRatio + ratioPart);
 
+        private double Get4To2DurationRatio(
+            ElliottModelType the2NdModel,
+            ElliottModelType the4ThModel)
+        {
+            bool is4ThShallow = m_ShallowCorrections.Contains(the4ThModel);
+            bool is2NdShallow = m_ShallowCorrections.Contains(the2NdModel);
+
+            int highLimit = 300;
+
+            if (is4ThShallow == is2NdShallow) highLimit = 200;
+            if (is4ThShallow) highLimit = 500;
+
+            return m_Random.Next(70, highLimit) / 100d;
+        }
+
         private ModelPattern GetImpulse(PatternArgsItem args)
         {
             var modelPattern = new ModelPattern(
@@ -427,20 +452,36 @@ namespace TradeKit.PatternGeneration
 
             double extendedRatio = SelectRandomly(IMPULSE_EXTENDED);
             double ratioPart;
-
-
+            
             double wave1Len;
             double wave3Len;
+
+            ElliottModelType the1stModel;
+            ElliottModelType the5thModel;
+
+            byte extendedWaveNumber = 0;
 
             switch (m_Random.NextDouble())
             {
                 //is 3rd extended
                 case >= 0.1 and <= 0.7:
                 {
-                    //var length3rd = m_Random.NextDouble();
                     ratioPart = -the2NdRatio - the4ThRatio * extendedRatio;
                     wave1Len = NotExtendedWaveFormula(args.Range, extendedRatio, ratioPart);
                     wave3Len = wave1Len * extendedRatio;
+
+                    double modelRandom = m_Random.NextDouble();
+                    the1stModel = modelRandom <= 0.5
+                        ? ElliottModelType.DIAGONAL_INITIAL
+                        : ElliottModelType.IMPULSE;
+                    the5thModel = modelRandom is <= 0.1 or >= 0.9
+                        ? the1stModel == ElliottModelType.IMPULSE
+                            ? ElliottModelType.IMPULSE
+                            : ElliottModelType.DIAGONAL_ENDING
+                        : the1stModel == ElliottModelType.IMPULSE
+                            ? ElliottModelType.DIAGONAL_ENDING
+                            : ElliottModelType.IMPULSE;
+                    extendedWaveNumber = 3;
                     break;
                 }
                 //is 5th extended
@@ -448,6 +489,11 @@ namespace TradeKit.PatternGeneration
                     ratioPart = -the2NdRatio - the4ThRatio;
                     wave1Len = NotExtendedWaveFormula(args.Range, extendedRatio, ratioPart);
                     wave3Len = wave1Len * (1 + MAIN_ALLOWANCE_MAX_RATIO * m_Random.NextDouble());// the 3rd can't be the shortest
+                    the1stModel = m_Random.NextDouble() < 0.6
+                        ? ElliottModelType.DIAGONAL_INITIAL
+                        : ElliottModelType.IMPULSE;
+                    the5thModel = ElliottModelType.IMPULSE;
+                    extendedWaveNumber = 5;
                     break;
                 //is 1st extended
                 default:
@@ -455,14 +501,74 @@ namespace TradeKit.PatternGeneration
                     wave3Len = NotExtendedWaveFormula(args.Range, extendedRatio, ratioPart);
                     wave1Len = wave3Len * extendedRatio;
                     wave3Len += wave3Len * (1 + MAIN_ALLOWANCE_MAX_RATIO * m_Random.NextDouble());// the 3rd can't be the shortest
+                    
+                    the1stModel = ElliottModelType.IMPULSE;
+                    the5thModel = m_Random.NextDouble() < 0.6
+                        ? ElliottModelType.DIAGONAL_ENDING
+                        : ElliottModelType.IMPULSE;
+                    extendedWaveNumber = 1;
                     break;
             }
-
+            
             var wave1 = args.StartValue + args.IsUpK * wave1Len;
             var wave2 = wave1 - args.IsUpK * the2NdRatio * wave1Len;
             var wave3 = wave2 + args.IsUpK * wave3Len;
             var wave4 = wave3 - args.IsUpK * wave3Len * the4ThRatio;
             var wave5 = args.EndValue;
+
+
+            double wave1Dur = m_DiagonalImpulses.Contains(the1stModel) 
+                              || extendedWaveNumber == 1 
+                ? 0.2 : 0.1;
+
+            double wave2Dur = m_ShallowCorrections.Contains(the2NdModel) ? 0.2 : 0.1;
+            double wave3Dur = extendedWaveNumber == 3 ? 0.2 : 0.1;
+            double wave4Dur = m_ShallowCorrections.Contains(the4ThModel) ? 0.2 : 0.1;
+            double wave5Dur = m_DiagonalImpulses.Contains(the5thModel) || extendedWaveNumber == 5 ? 0.2 : 0.1;
+
+            // we want to fit the 4 to 2 ratio to the whole correction duration in the
+            // impulse.
+            double correctionsDur = wave2Dur * (1 + wave2Dur * Get4To2DurationRatio(the2NdModel, the4ThModel));
+            double correctionsRatiosFix = correctionsDur / (wave2Dur + wave4Dur);
+
+            wave1Dur *= RandomRatio();
+            wave2Dur *= RandomRatio()* correctionsRatiosFix;
+            wave3Dur *= RandomRatio();
+            wave4Dur *= RandomRatio() * correctionsRatiosFix;
+            wave5Dur *= RandomRatio();
+
+            double totalSumFix = 1 / 
+                                 (wave1Dur + wave2Dur + wave3Dur + wave4Dur + wave5Dur);
+            int[] bars4Gen = PatternGenKit.SplitNumber(
+                args.BarsCount, new[]
+                {
+                    wave1Dur*totalSumFix,
+                    wave2Dur*totalSumFix,
+                    wave3Dur*totalSumFix,
+                    wave4Dur*totalSumFix,
+                    wave5Dur*totalSumFix
+                });
+
+            List<ICandle> candlesWave1 = GetImpulseRandomSet(
+                new PatternArgsItem(args.StartValue, wave1, bars4Gen[0]));
+
+            // side or deep correction, specify running part (ratio of the length of 3)
+            List<ICandle> candlesWave2 = GetCorrectiveRandomSet(
+                new PatternArgsItem(candlesWave1[^1].C, wave2, bars4Gen[1], wave1));
+
+            //List<ICandle> candlesWaveC = GetImpulseRandomSet(
+            //    new PatternArgsItem(candlesWaveB[^1].C, args.EndValue, bars4Gen[2], waveB));
+
+            //candles.AddRange(candlesWaveA);
+            //candles.AddRange(candlesWaveB);
+            //candles.AddRange(candlesWaveC);
+
+            //modelPattern.PatternKeyPoints = new List<KeyValuePair<int, double>>
+            //{
+            //    new(candlesWaveA.Count - 1, waveA),
+            //    new(candlesWaveA.Count - 1 + candlesWaveB.Count - 1, waveB),
+            //    new(args.BarsCount - 1, args.EndValue)
+            //};
 
 
             return modelPattern;
@@ -767,6 +873,13 @@ namespace TradeKit.PatternGeneration
                 return AddExtra(min, max);
 
             return AddExtra(foundLevel, max);
+        }
+
+        private double RandomRatio()
+        {
+            return RandomWithinRange(
+                1 - MAIN_ALLOWANCE_MAX_RATIO,
+                1 + MAIN_ALLOWANCE_MAX_RATIO);
         }
 
         private double RandomWithinRange(double one, double two)
