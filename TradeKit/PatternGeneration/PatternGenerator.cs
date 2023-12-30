@@ -449,7 +449,8 @@ namespace TradeKit.PatternGeneration
                 case >= 0.1 and <= 0.7:
                 {
                     ratioPart = -the2NdRatio - the4ThRatio * extendedRatio;
-                    wave1Len = NotExtendedWaveFormula(arg.Range, extendedRatio, ratioPart);
+                    wave1Len = NotExtendedWaveFormula(
+                        arg.Range, extendedRatio, ratioPart);
                     wave3Len = wave1Len * extendedRatio;
 
                     double modelRandom = m_Random.NextDouble();
@@ -529,7 +530,17 @@ namespace TradeKit.PatternGeneration
             var wave3 = wave2 + arg.IsUpK * wave3Len;
             var wave4 = wave3 - arg.IsUpK * wave3Len * the4ThRatio;
             var wave5 = arg.EndValue;
-            
+
+            if (arg.IsUp && wave4 >= wave1 || !arg.IsUp && wave4 <= wave1)
+            {
+                throw new ApplicationException("Wave 4/1 overlapse");
+            }
+
+            double wave5Len = Math.Abs(wave4 - wave5);
+            if (wave3Len <= wave5Len && wave3Len <= wave1Len)
+                throw new ApplicationException("Wave 3 is the shortest");
+
+
             ModelPattern modelWave1 = GetPattern(
                 new PatternArgsItem(arg.StartValue, wave1, bars4Gen[0]), the1StModel);
             modelPattern.ChildModelPatterns.Add(modelWave1);
@@ -540,7 +551,7 @@ namespace TradeKit.PatternGeneration
             {
                 // running part usually don't reach the 4th wave,
                 // so we won't make it to happen.
-                if (arg.IsUp)
+                if (wave2Arg.IsUp)
                     wave2Arg.Min = wave4;
                 else
                     wave2Arg.Max = wave4;
@@ -559,7 +570,7 @@ namespace TradeKit.PatternGeneration
             {
                 // running part usually don't reach the end of the impulse,
                 // so we won't make it to happen.
-                if (arg.IsUp)
+                if (wave4Arg.IsUp)
                     wave4Arg.Min = wave5;
                 else
                     wave4Arg.Max = wave5;
@@ -586,6 +597,22 @@ namespace TradeKit.PatternGeneration
                 new(bars4Gen.Take(4).Sum() - 1, wave4),
                 new(bars4Gen.Sum() - 1, wave5),
             };
+
+
+
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(IMPULSE_THREE, IMPULSE_ONE, wave3Len / wave1Len),
+                    new LengthRatio(IMPULSE_FIVE, IMPULSE_ONE, wave5Len / wave1Len),
+                    new LengthRatio(IMPULSE_TWO, IMPULSE_ONE,
+                        wave2Arg.Range / wave1Len),
+                    new LengthRatio(IMPULSE_FOUR, IMPULSE_THREE,
+                        wave4Arg.Range / wave3Len),
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(IMPULSE_FOUR, IMPULSE_TWO, wave4Dur / wave2Dur));
 
             return modelPattern;
         }
@@ -656,6 +683,20 @@ namespace TradeKit.PatternGeneration
                 new(candlesWaveA.Count - 1 + candlesWaveB.Count - 1, waveB),
                 new(arg.BarsCount - 1, arg.EndValue)
             };
+
+            double waveBLength = Math.Abs(waveA - waveB);
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(CORRECTION_C, CORRECTION_A, 
+                        waveCLength / waveALength),
+                    new LengthRatio(CORRECTION_B, CORRECTION_A, 
+                        waveBLength / waveALength)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(CORRECTION_B, CORRECTION_B,
+                    modelPattern.PatternKeyPoints[1].Value / modelPattern.PatternKeyPoints[0].Value));
 
             return modelPattern;
         }

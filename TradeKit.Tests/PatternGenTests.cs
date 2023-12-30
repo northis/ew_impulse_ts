@@ -98,4 +98,22 @@ public class PatternGenTests
             SaveChart(model.Candles, "Extended flat", $"img_ex_flat_{i}", model);
         }
     }
+
+    [Test]
+    public void ImpulseTest()
+    {
+        for (int i = 25; i <= 25; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(40, 60, i), ElliottModelType.IMPULSE);
+
+            Console.WriteLine($" bar count is {i}");
+            foreach (LengthRatio lRatio in model.LengthRatios) 
+                Console.WriteLine(lRatio);
+            foreach (DurationRatio dRatio in model.DurationRatios) 
+                Console.WriteLine(dRatio);
+
+            SaveChart(model.Candles, "Impulse", $"img_imp_{i}", model);
+        }
+    }
 }

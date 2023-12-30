@@ -14,12 +14,24 @@ namespace TradeKit.PatternGeneration
             PatternKeyPoints = patternKeyPoints;
             Candles = candles;
             ChildModelPatterns = new List<ModelPattern>();
+            LengthRatios = new List<LengthRatio>();
+            DurationRatios = new List<DurationRatio>();
         }
 
         /// <summary>
         /// Gets or sets the possible child model patterns.
         /// </summary>
         public List<ModelPattern> ChildModelPatterns { get; set; }
+
+        /// <summary>
+        /// Gets or sets the length relations (for ex. wave C to wave A in pips).
+        /// </summary>
+        public List<LengthRatio> LengthRatios { get; set; }
+
+        /// <summary>
+        /// Gets or sets the duration relations (for ex. wave C to wave A in bars).
+        /// </summary>
+        public List<DurationRatio> DurationRatios { get; set; }
 
         /// <summary>
         /// Gets the model type of the pattern.
