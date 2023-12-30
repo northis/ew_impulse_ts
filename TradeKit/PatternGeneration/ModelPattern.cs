@@ -13,7 +13,13 @@ namespace TradeKit.PatternGeneration
             Model = model;
             PatternKeyPoints = patternKeyPoints;
             Candles = candles;
+            ChildModelPatterns = new List<ModelPattern>();
         }
+
+        /// <summary>
+        /// Gets or sets the possible child model patterns.
+        /// </summary>
+        public List<ModelPattern> ChildModelPatterns { get; set; }
 
         /// <summary>
         /// Gets the model type of the pattern.

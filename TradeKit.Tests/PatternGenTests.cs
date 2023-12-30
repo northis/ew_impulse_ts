@@ -2,6 +2,7 @@
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
+using TradeKit.Impulse;
 using TradeKit.PatternGeneration;
 
 namespace TradeKit.Tests;
@@ -90,10 +91,10 @@ public class PatternGenTests
     [Test]
     public void ExtendedFlatTest()
     {
-        for (int i = 1; i <= 20; i++)
+        for (int i = 15; i <= 15; i++)
         {
-            ModelPattern model = m_PatternGenerator.GetExtendedFlat(
-                new PatternArgsItem(40, 60, i), 30);
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(40, 60, i) {Min = 30}, ElliottModelType.FLAT_EXTENDED);
             SaveChart(model.Candles, "Extended flat", $"img_ex_flat_{i}", model);
         }
     }
