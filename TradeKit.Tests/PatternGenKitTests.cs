@@ -1,3 +1,4 @@
+using System.Linq;
 using TradeKit.PatternGeneration;
 
 namespace TradeKit.Tests
@@ -13,6 +14,29 @@ namespace TradeKit.Tests
         {
             int[] res = PatternGenKit.SplitNumber(num, fractions);
             Assert.That(res.Length, Is.EqualTo(fractions.Length));
+        }
+
+        [Test]
+        public void NormalDistributionNumberTest()
+        {
+            var rnd = new Random();
+            var list = new List<double>();
+            var mean = 13;
+            var min = 10;
+            var max = 100;
+            var range = max - min;
+            var tenPrc = min + range / 10;
+            for (int i = 0; i < 100; i++)
+            {
+                list.Add(PatternGenKit.GetNormalDistributionNumber(
+                    rnd, min, max, mean));
+            }
+
+            Console.WriteLine($"Avg = {list.Average()}");
+            Console.WriteLine(
+                $"Median = {list.OrderBy(a => a).Take(list.Count / 2).First()}");
+            Console.WriteLine(
+                $"10% count = {list.Count(a => a < tenPrc)}");
         }
 
         [Test]

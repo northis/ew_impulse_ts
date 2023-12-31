@@ -428,71 +428,98 @@ namespace TradeKit.PatternGeneration
                 return modelPattern;
             }
 
-            GetCorrectiveRatios(out double the2NdRatio,
-                out double the4ThRatio,
-                out ElliottModelType the2NdModel,
-                out ElliottModelType the4ThModel);
+            const double wave1MinProp = 0.05;
+            const double wave1MaxProp = 0.75;
+            const double wave1MeanProp = 0.25;
+            double wave1LenProp = PatternGenKit.GetNormalDistributionNumber(
+                m_Random, wave1MinProp, wave1MaxProp, wave1MeanProp);
+            double wave1Len = wave1LenProp * arg.Range;
 
-            double extendedRatio = SelectRandomly(IMPULSE_EXTENDED);
-            double ratioPart;
+            bool is2NdDeep = false;
+            bool is4ThDeep = false;
 
-            double wave1Len;
-            double wave3Len;
+            switch (m_Random.NextDouble())
+            {
+                case <= 0.45:
+                    is2NdDeep = true;
+                    break;
+
+                case > 0.45 and <= 0.9:
+                    is4ThDeep = true;
+                    break;
+
+                case > 0.5 and <= 0.95:
+                    is2NdDeep = true;
+                    is4ThDeep = true;
+                    break;
+            }
+
+            var the2NdRatio = SelectRandomly(is2NdDeep
+                ? MAP_DEEP_CORRECTION
+                : MAP_SHALLOW_CORRECTION);
+            var the4ThRatio = SelectRandomly(is4ThDeep
+                ? MAP_DEEP_CORRECTION
+                : MAP_SHALLOW_CORRECTION);
+
+            // we want such min and max that don't broke the overlap rule between the
+            // 4th wave and the 1st one.
+            double minWave3Len = wave1Len * the2NdRatio / (1 - the4ThRatio);
+            if (minWave3Len <= 1)
+            {
+                // we shouldn't allow the shortest 3rd wave as well.
+                minWave3Len = Math.Max(minWave3Len, 
+                    the4ThRatio + arg.Range / wave1Len - 1 + the2NdRatio);
+            }
+
+            double wave3Len = SelectRandomly(IMPULSE_3_TO_1, 
+                min: minWave3Len,
+                max: (arg.Range - wave1Len * the2NdRatio) / wave1Len);
+
+            double wave5Len = arg.Range - wave1Len - wave3Len + wave3Len * the4ThRatio * wave1Len * the2NdRatio;
+
+            var the2NdModel = m_Wave2Impulse
+                .Intersect(is2NdDeep ? m_DeepCorrections : m_ShallowCorrections)
+                .First();
+            var the4ThModel = m_Wave4Impulse
+                .Intersect(is4ThDeep ? m_DeepCorrections : m_ShallowCorrections)
+                .First();
 
             ElliottModelType the1StModel;
             ElliottModelType the5ThModel;
 
             byte extendedWaveNumber;
-            switch (m_Random.NextDouble())
+            if (wave5Len > wave3Len && wave5Len > wave1Len)
             {
-                //is 3rd extended
-                case >= 0.1 and <= 0.7:
-                {
-                    ratioPart = -the2NdRatio - the4ThRatio * extendedRatio;
-                    wave1Len = NotExtendedWaveFormula(
-                        arg.Range, extendedRatio, ratioPart);
-                    wave3Len = wave1Len * extendedRatio;
-
-                    double modelRandom = m_Random.NextDouble();
-                    the1StModel = modelRandom <= 0.5
-                        ? ElliottModelType.DIAGONAL_INITIAL
-                        : ElliottModelType.IMPULSE;
-                    the5ThModel = modelRandom is <= 0.1 or >= 0.9
-                        ? the1StModel == ElliottModelType.IMPULSE
-                            ? ElliottModelType.IMPULSE
-                            : ElliottModelType.DIAGONAL_ENDING
-                        : the1StModel == ElliottModelType.IMPULSE
-                            ? ElliottModelType.DIAGONAL_ENDING
-                            : ElliottModelType.IMPULSE;
-                    extendedWaveNumber = 3;
-                    break;
-                }
-                //is 5th extended
-                case > 0.7:
-                    ratioPart = -the2NdRatio - the4ThRatio;
-                    wave1Len = NotExtendedWaveFormula(arg.Range, extendedRatio, ratioPart);
-                    wave3Len = wave1Len * (1 + MAIN_ALLOWANCE_MAX_RATIO * m_Random.NextDouble());// the 3rd can't be the shortest
-                    the1StModel = m_Random.NextDouble() < 0.6
-                        ? ElliottModelType.DIAGONAL_INITIAL
-                        : ElliottModelType.IMPULSE;
-                    the5ThModel = ElliottModelType.IMPULSE;
-                    extendedWaveNumber = 5;
-                    break;
-                //is 1st extended
-                default:
-                    ratioPart = -the2NdRatio * extendedRatio - the4ThRatio;
-                    wave3Len = NotExtendedWaveFormula(arg.Range, extendedRatio, ratioPart);
-                    wave1Len = wave3Len * extendedRatio;
-                    wave3Len += wave3Len * (1 + MAIN_ALLOWANCE_MAX_RATIO * m_Random.NextDouble());// the 3rd can't be the shortest
-
-                    the1StModel = ElliottModelType.IMPULSE;
-                    the5ThModel = m_Random.NextDouble() < 0.6
+                the1StModel = m_Random.NextDouble() < 0.6
+                    ? ElliottModelType.DIAGONAL_INITIAL
+                    : ElliottModelType.IMPULSE;
+                the5ThModel = ElliottModelType.IMPULSE;
+                extendedWaveNumber = 5;
+            }
+            else if (wave1Len > wave3Len)
+            {
+                the1StModel = ElliottModelType.IMPULSE;
+                the5ThModel = m_Random.NextDouble() < 0.6
+                    ? ElliottModelType.DIAGONAL_ENDING
+                    : ElliottModelType.IMPULSE;
+                extendedWaveNumber = 1;
+            }
+            else
+            {
+                double modelRandom = m_Random.NextDouble();
+                the1StModel = modelRandom <= 0.5
+                    ? ElliottModelType.DIAGONAL_INITIAL
+                    : ElliottModelType.IMPULSE;
+                the5ThModel = modelRandom is <= 0.1 or >= 0.9
+                    ? the1StModel == ElliottModelType.IMPULSE
+                        ? ElliottModelType.IMPULSE
+                        : ElliottModelType.DIAGONAL_ENDING
+                    : the1StModel == ElliottModelType.IMPULSE
                         ? ElliottModelType.DIAGONAL_ENDING
                         : ElliottModelType.IMPULSE;
-                    extendedWaveNumber = 1;
-                    break;
+                extendedWaveNumber = 3;
             }
-
+            
             double wave1Dur = m_DiagonalImpulses.Contains(the1StModel)
                               || extendedWaveNumber == 1
                 ? 0.2 : 0.1;
@@ -533,10 +560,10 @@ namespace TradeKit.PatternGeneration
 
             if (arg.IsUp && wave4 >= wave1 || !arg.IsUp && wave4 <= wave1)
             {
-                throw new ApplicationException("Wave 4/1 overlapse");
+                //throw new ApplicationException("Wave 4/1 overlapse");
             }
 
-            double wave5Len = Math.Abs(wave4 - wave5);
+            //double wave5Len = Math.Abs(wave4 - wave5);
             if (wave3Len <= wave5Len && wave3Len <= wave1Len)
                 throw new ApplicationException("Wave 3 is the shortest");
 
@@ -978,6 +1005,10 @@ namespace TradeKit.PatternGeneration
         #region Fibonacci ratios
 
         private static readonly
+            SortedDictionary<byte, double> IMPULSE_3_TO_1 =
+                new() {{0, 0}, {5, 0.618}, {10, 0.786}, {15, 1}, {25, 1.618}, {60, 2.618}, {75, 3.618}, {90, 4.236}};
+
+        private static readonly
             SortedDictionary<byte, double> IMPULSE_EXTENDED =
                 new() {{0, 0}, {5, 1}, {20, 1.618}, {70, 2.618}, {85, 3.618}, {95, 4.236}};
 
@@ -997,46 +1028,6 @@ namespace TradeKit.PatternGeneration
 
         #region Helpers
         
-        private void GetCorrectiveRatios(
-            out double the2NdRatio,
-            out double the4ThRatio,
-            out ElliottModelType the2NdModel,
-            out ElliottModelType the4ThModel)
-        {
-            bool is2NdDeep = false;
-            bool is4ThDeep = false;
-
-            switch (m_Random.NextDouble())
-            {
-                case <= 0.45:
-                    is2NdDeep = true;
-                    break;
-
-                case > 0.45 and <= 0.9:
-                    is4ThDeep = true;
-                    break;
-
-                case > 0.5 and <= 0.95:
-                    is2NdDeep = true;
-                    is4ThDeep = true;
-                    break;
-            }
-
-            the2NdRatio = SelectRandomly(is2NdDeep
-                ? MAP_DEEP_CORRECTION
-                : MAP_SHALLOW_CORRECTION);
-            the4ThRatio = SelectRandomly(is4ThDeep
-                ? MAP_DEEP_CORRECTION
-                : MAP_SHALLOW_CORRECTION);
-
-            the2NdModel = m_Wave2Impulse
-                .Intersect(is2NdDeep ? m_DeepCorrections : m_ShallowCorrections)
-                .First();
-            the4ThModel = m_Wave4Impulse
-                .Intersect(is4ThDeep ? m_DeepCorrections : m_ShallowCorrections)
-                .First();
-        }
-
         private double NotExtendedWaveFormula(
             double range, double extendedRatio, double ratioPart) =>
             range / (2 + extendedRatio + ratioPart);
