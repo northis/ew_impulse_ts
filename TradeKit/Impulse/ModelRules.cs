@@ -2,5 +2,5 @@
 
 namespace TradeKit.Impulse
 {
-    public record ModelRules(Dictionary<string, ElliottModelType[]> Models);
+    public record ModelRules(Dictionary<string, ElliottModelType[]> Models, double ProbabilityCoefficient = 1);
 }
