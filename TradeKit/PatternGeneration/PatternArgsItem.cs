@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Plotly.NET;
+using System;
 using System.Collections.Generic;
+using System.Runtime.Intrinsics.X86;
 using TradeKit.Core;
 
 namespace TradeKit.PatternGeneration
@@ -17,6 +19,25 @@ namespace TradeKit.PatternGeneration
         public bool IsUp { get; }
         public int IsUpK { get; }
         public List<ICandle> Candles { get; }
+
+        public static PatternArgsItem GetNext(
+            PatternArgsItem parentItem, 
+            int barsCount, 
+            ICandle lastCandle,
+            double currentWave,
+            double nextWave)
+        {
+            PatternArgsItem waveNext;
+            double lastClose = lastCandle.C;
+            if (parentItem.IsUp && lastClose < nextWave ||
+                !parentItem.IsUp && lastClose > nextWave)
+                waveNext = new PatternArgsItem(currentWave, nextWave, barsCount);
+            else
+                waveNext = new PatternArgsItem(
+                    lastClose, nextWave, barsCount, currentWave);
+
+            return waveNext;
+        }
 
         public PatternArgsItem(
             double startValue, 

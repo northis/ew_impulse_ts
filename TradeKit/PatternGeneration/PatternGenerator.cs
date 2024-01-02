@@ -463,21 +463,27 @@ namespace TradeKit.PatternGeneration
             m_Wave5Impulse = impulse.Models[IMPULSE_FIVE].ToHashSet();
         }
 
-        private ElliottModelType WeightedRandomlySelectModel(ElliottModelType[] models)
+        private T WeightedRandomlySelect<T>(List<(T, double)> toSelect)
         {
-            double sum = models.Sum(a => ModelRules[a].ProbabilityCoefficient);
-
-            var items = new List<(ElliottModelType, double)>();
             double cumulativeProbability = 0.0;
-
-            foreach (ElliottModelType model in models)
+            double sum = toSelect.Sum(a => a.Item2);
+            var items = new List<(T, double)>();
+            foreach ((T, double) toSelectItem in toSelect)
             {
-                cumulativeProbability += ModelRules[model].ProbabilityCoefficient / sum;
-                items.Add((model, cumulativeProbability));
+                cumulativeProbability += toSelectItem.Item2 / sum;
+                items.Add((toSelectItem.Item1, cumulativeProbability));
             }
 
             double rnd = m_Random.NextDouble();
             return items.First(a => a.Item2 >= rnd).Item1;
+        }
+
+        private ElliottModelType WeightedRandomlySelectModel(ElliottModelType[] models)
+        {
+            List<(ElliottModelType a, double ProbabilityCoefficient)> res = models
+                    .Select(a => (a, ModelRules[a].ProbabilityCoefficient))
+                    .ToList();
+            return WeightedRandomlySelect(res);
         }
 
         public ModelPattern GetPattern(PatternArgsItem args, ElliottModelType model)
@@ -532,30 +538,29 @@ namespace TradeKit.PatternGeneration
             double the2NdRatio = SelectRandomly(is2NdDeep
                 ? MAP_DEEP_CORRECTION
                 : MAP_SHALLOW_CORRECTION);
-            double the4ThRatio = SelectRandomly(is4ThDeep
-                ? MAP_DEEP_CORRECTION
-                : MAP_SHALLOW_CORRECTION);
 
             // we want such min and max that don't broke the overlap rule between the
             // 4th wave and the 1st one.
-            double minWave3Len = wave1Len * the2NdRatio / (1 - the4ThRatio);
-            if (minWave3Len <= 1)
+            double wave5Len = wave1Len * SelectRandomly(IMPULSE_5_TO_1,
+                min: double.NaN,
+                max: (arg.Range - wave1Len) / wave1Len);
+
+            // Add reduced 5th (via running part arg.Max/Min)
+            // we shouldn't allow the shortest 3rd wave as well.
+            double wave3Len = wave1Len * SelectRandomly(IMPULSE_3_TO_1,
+                min: Math.Max(arg.Range - wave5Len - wave1Len * (1 - the2NdRatio),
+                    Math.Min(wave1Len, wave5Len)) / wave1Len,
+                max: (arg.Range + wave1Len * (1 - the2NdRatio)) / wave1Len);
+
+            if (wave3Len <= wave5Len && wave3Len <= wave1Len)
             {
-                // we shouldn't allow the shortest 3rd wave as well.
-                minWave3Len = Math.Max(minWave3Len, 
-                    the4ThRatio + arg.Range / wave1Len - 1 + the2NdRatio);
+                throw new ApplicationException("Wave 3 is the shortest");
             }
 
-            double wave3Len = SelectRandomly(IMPULSE_3_TO_1, 
-                min: minWave3Len,
-                max: (arg.Range - wave1Len * the2NdRatio) / wave1Len);
-
-            double wave5Len = arg.Range - wave1Len - wave3Len + wave3Len * the4ThRatio * wave1Len * the2NdRatio;
-
-            var the2NdModel = m_Wave2Impulse
+            ElliottModelType the2NdModel = m_Wave2Impulse
                 .Intersect(is2NdDeep ? m_DeepCorrections : m_ShallowCorrections)
                 .First();
-            var the4ThModel = m_Wave4Impulse
+            ElliottModelType the4ThModel = m_Wave4Impulse
                 .Intersect(is4ThDeep ? m_DeepCorrections : m_ShallowCorrections)
                 .First();
 
@@ -636,42 +641,40 @@ namespace TradeKit.PatternGeneration
             var wave1 = arg.StartValue + arg.IsUpK * wave1Len;
             var wave2 = wave1 - arg.IsUpK * the2NdRatio * wave1Len;
             var wave3 = wave2 + arg.IsUpK * wave3Len;
-            var wave4 = wave3 - arg.IsUpK * wave3Len * the4ThRatio;
+            var wave4 = arg.EndValue - arg.IsUpK * wave5Len;
             var wave5 = arg.EndValue;
 
-            if (arg.IsUp && wave4 >= wave1 || !arg.IsUp && wave4 <= wave1)
+            if (arg.IsUp && wave4 <= wave1 || !arg.IsUp && wave4 >= wave1)
             {
                 throw new ApplicationException("Wave 4/1 overlapse");
             }
-            
-            if (wave3Len <= wave5Len && wave3Len <= wave1Len)
-                throw new ApplicationException("Wave 3 is the shortest");
 
             ModelPattern modelWave1 = GetPattern(
                 new PatternArgsItem(arg.StartValue, wave1, bars4Gen[0]), the1StModel);
             modelPattern.ChildModelPatterns.Add(modelWave1);
-            
-            var wave2Arg = new PatternArgsItem(
-                modelWave1.Candles[^1].C, wave2, bars4Gen[1], wave1);
+
+            PatternArgsItem wave2Arg = PatternArgsItem.GetNext(
+                arg, bars4Gen[1], modelWave1.Candles[^1], wave1, wave2);
             if (m_RunningCorrections.Contains(the2NdModel))
             {
-                // running part usually don't reach the 4th wave,
+                // running part usually don't reach the end wave 3,
                 // so we won't make it to happen.
                 if (wave2Arg.IsUp)
-                    wave2Arg.Min = wave4;
+                    wave2Arg.Min = wave3;
                 else
-                    wave2Arg.Max = wave4;
+                    wave2Arg.Max = wave3;
             }
 
             ModelPattern modelWave2 = GetPattern(wave2Arg, the2NdModel);
             modelPattern.ChildModelPatterns.Add(modelWave2);
-
-            ModelPattern modelWave3 = GetPattern(
-                new PatternArgsItem(modelWave2.Candles[^1].C, wave3, bars4Gen[2]), ElliottModelType.IMPULSE);
+            
+            PatternArgsItem wave3Arg = PatternArgsItem.GetNext(
+                arg, bars4Gen[2], modelWave2.Candles[^1], wave2, wave3);
+            ModelPattern modelWave3 = GetPattern(wave3Arg, ElliottModelType.IMPULSE);
             modelPattern.ChildModelPatterns.Add(modelWave3);
 
-            var wave4Arg = new PatternArgsItem(
-                modelWave3.Candles[^1].C, wave4, bars4Gen[3], wave3);
+            PatternArgsItem wave4Arg = PatternArgsItem.GetNext(
+                arg, bars4Gen[3], modelWave3.Candles[^1], wave3, wave4);;
             if (m_RunningCorrections.Contains(the4ThModel))
             {
                 // running part usually don't reach the end of the impulse,
@@ -1099,12 +1102,16 @@ namespace TradeKit.PatternGeneration
                 new() {{0, 0}, {5, 0.618}, {10, 0.786}, {15, 1}, {25, 1.618}, {60, 2.618}, {75, 3.618}, {90, 4.236}};
 
         private static readonly
+            SortedDictionary<byte, double> IMPULSE_5_TO_1 =
+                new() { { 0, 0 }, { 5, 0.382 }, { 10, 0.618 }, { 20, 0.786 }, { 25, 1 }, { 75, 1.618 }, { 85, 2.618 }, { 95, 3.618 }, { 99, 4.236 }};
+
+        private static readonly
             SortedDictionary<byte, double> IMPULSE_EXTENDED =
                 new() {{0, 0}, {5, 1}, {20, 1.618}, {70, 2.618}, {85, 3.618}, {95, 4.236}};
 
         private static readonly
             SortedDictionary<byte, double> MAP_DEEP_CORRECTION =
-                new() { { 0, 0 }, { 5, 0.5 }, { 25, 0.618 }, { 70, 0.786 }, { 98, 0.95 } };
+                new() { { 0, 0 }, { 5, 0.5 }, { 25, 0.618 }, { 70, 0.786 }, { 99, 0.95 } };
 
         private static readonly
             SortedDictionary<byte, double> MAP_SHALLOW_CORRECTION =
@@ -1228,14 +1235,14 @@ namespace TradeKit.PatternGeneration
             if (selectedItems[^1].Key == 0)
                 return AddExtra(min, max);
 
-            byte randomNext = (byte) m_Random.Next(0, 100);
-            KeyValuePair<byte, double>[] rndFoundItems = selectedItems
-                .TakeWhile(a => a.Key <= randomNext)
-                .ToArray();
-            if (rndFoundItems.Length == 0)
+            List<(double, double)> rndFoundItems = selectedItems
+                .Where(a => a.Key > 0)
+                .Select(a => (a.Value, a.Key / 100d))
+                .ToList();
+            if (rndFoundItems.Count == 0)
                 return AddExtra(min, max);
 
-            double foundLevel = rndFoundItems[^1].Value;
+            double foundLevel = WeightedRandomlySelect(rndFoundItems);
             if (foundLevel == 0)
                 return AddExtra(min, max);
 

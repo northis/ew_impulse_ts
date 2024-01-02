@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using TradeKit.Core;
 using TradeKit.Impulse;
 
@@ -21,17 +23,17 @@ namespace TradeKit.PatternGeneration
         /// <summary>
         /// Gets or sets the possible child model patterns.
         /// </summary>
-        public List<ModelPattern> ChildModelPatterns { get; set; }
+        public List<ModelPattern> ChildModelPatterns { get; }
 
         /// <summary>
         /// Gets or sets the length relations (for ex. wave C to wave A in pips).
         /// </summary>
-        public List<LengthRatio> LengthRatios { get; set; }
+        public List<LengthRatio> LengthRatios { get; }
 
         /// <summary>
         /// Gets or sets the duration relations (for ex. wave C to wave A in bars).
         /// </summary>
-        public List<DurationRatio> DurationRatios { get; set; }
+        public List<DurationRatio> DurationRatios { get; }
 
         /// <summary>
         /// Gets the model type of the pattern.
@@ -47,5 +49,39 @@ namespace TradeKit.PatternGeneration
         /// Gets the candles of the pattern.
         /// </summary>
         public List<ICandle> Candles { get; }
+
+        public override string ToString()
+        {
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendFormat("Model: {0}", Model);
+            stringBuilder.AppendLine();
+
+            if (LengthRatios.Count > 0)
+            {
+                stringBuilder.AppendLine("Length ratios:");
+                foreach (LengthRatio lRatio in LengthRatios)
+                    stringBuilder.AppendLine(lRatio.ToString());
+            }
+
+            if (DurationRatios.Count > 0)
+            {
+                stringBuilder.AppendLine("Duration ratios:");
+                foreach (DurationRatio dRatio in DurationRatios)
+                    stringBuilder.AppendLine(dRatio.ToString());
+            }
+
+            if (ChildModelPatterns.Count > 0)
+            {
+                stringBuilder.AppendLine("Child models: {");
+                foreach (ModelPattern childModel in ChildModelPatterns)
+                {
+                    stringBuilder.AppendLine(childModel.ToString());
+                }
+
+                stringBuilder.AppendLine("}");
+            }
+
+            return stringBuilder.ToString();
+        }
     }
 }
