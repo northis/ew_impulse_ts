@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Intrinsics.X86;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
@@ -550,7 +551,7 @@ namespace TradeKit.PatternGeneration
             double wave3Len = wave1Len * SelectRandomly(IMPULSE_3_TO_1,
                 min: Math.Max(arg.Range - wave5Len - wave1Len * (1 - the2NdRatio),
                     Math.Min(wave1Len, wave5Len)) / wave1Len,
-                max: (arg.Range + wave1Len * (1 - the2NdRatio)) / wave1Len);
+                max: (arg.Range - wave1Len * (1 - the2NdRatio)) / wave1Len);
 
             if (wave3Len <= wave5Len && wave3Len <= wave1Len)
             {
@@ -653,8 +654,9 @@ namespace TradeKit.PatternGeneration
                 new PatternArgsItem(arg.StartValue, wave1, bars4Gen[0]), the1StModel);
             modelPattern.ChildModelPatterns.Add(modelWave1);
 
-            PatternArgsItem wave2Arg = PatternArgsItem.GetNext(
-                arg, bars4Gen[1], modelWave1.Candles[^1], wave1, wave2);
+            PatternArgsItem wave2Arg = GetNext(
+                !arg.IsUp, bars4Gen[1], modelWave1.Candles[^1], wave1, wave2);
+
             if (m_RunningCorrections.Contains(the2NdModel))
             {
                 // running part usually don't reach the end wave 3,
@@ -668,13 +670,13 @@ namespace TradeKit.PatternGeneration
             ModelPattern modelWave2 = GetPattern(wave2Arg, the2NdModel);
             modelPattern.ChildModelPatterns.Add(modelWave2);
             
-            PatternArgsItem wave3Arg = PatternArgsItem.GetNext(
-                arg, bars4Gen[2], modelWave2.Candles[^1], wave2, wave3);
+            PatternArgsItem wave3Arg = GetNext(
+                arg.IsUp, bars4Gen[2], modelWave2.Candles[^1], wave2, wave3);
             ModelPattern modelWave3 = GetPattern(wave3Arg, ElliottModelType.IMPULSE);
             modelPattern.ChildModelPatterns.Add(modelWave3);
 
-            PatternArgsItem wave4Arg = PatternArgsItem.GetNext(
-                arg, bars4Gen[3], modelWave3.Candles[^1], wave3, wave4);;
+            PatternArgsItem wave4Arg = GetNext(
+                !arg.IsUp, bars4Gen[3], modelWave3.Candles[^1], wave3, wave4);
             if (m_RunningCorrections.Contains(the4ThModel))
             {
                 // running part usually don't reach the end of the impulse,
@@ -1059,7 +1061,8 @@ namespace TradeKit.PatternGeneration
                 double stepValMin;
 
                 if (useFullRange ||
-                    variance > 1 && m_Random.NextDouble() >= 0.95) // throwout
+                    variance > 1 && m_Random.NextDouble() >= 
+                    (1-MAIN_ALLOWANCE_MAX_RATIO)) // throwout
                 {
                     stepValMax = args.Max;
                     stepValMin = args.Min;
@@ -1083,6 +1086,13 @@ namespace TradeKit.PatternGeneration
                     O = Math.Round(open, args.Accuracy),
                     L = Math.Round(low.Value, args.Accuracy)
                 };
+
+                // handle PrevCandleExtremum value, it can beyond the range
+                if (cdl.H < cdl.C) (cdl.H, cdl.C) = (cdl.C, cdl.H);
+                if (cdl.H < cdl.O) (cdl.H, cdl.O) = (cdl.O, cdl.H);
+                if (cdl.L > cdl.C) (cdl.L, cdl.C) = (cdl.C, cdl.L);
+                if (cdl.L > cdl.O) (cdl.L, cdl.O) = (cdl.O, cdl.L);
+
                 candles.Add(cdl);
                 previousClose = cdl.C;
             }
@@ -1262,6 +1272,29 @@ namespace TradeKit.PatternGeneration
             double max = Math.Max(one, two);
 
             return min + m_Random.NextDouble() * (max - min);
+        }
+        private PatternArgsItem GetNext(
+            bool isNextUp,
+            int barsCount,
+            ICandle lastCandle,
+            double currentWave,
+            double nextWave)
+        {
+            PatternArgsItem waveNext;
+            double lastClose = lastCandle.C;
+            if (isNextUp && lastClose > nextWave ||
+                !isNextUp && lastClose < nextWave)
+            {
+                ((JsonCandleExport) lastCandle).C = RandomWithinRange(isNextUp ? lastCandle.L : lastCandle.H, nextWave);
+                waveNext = new PatternArgsItem(((JsonCandleExport)lastCandle).C, nextWave, barsCount);
+            }
+            else
+            {
+                waveNext = new PatternArgsItem(
+                    lastClose, nextWave, barsCount, currentWave);
+            }
+
+            return waveNext;
         }
 
         #endregion

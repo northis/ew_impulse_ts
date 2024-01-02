@@ -78,7 +78,7 @@ public class PatternGenTests
                     annotation.Value,
                     ChartGenerator.WHITE_COLOR,
                     ChartGenerator.CHART_FONT_MAIN,
-                    ChartGenerator.BLACK_COLOR, names[i]));
+                    ChartGenerator.SEMI_WHITE_COLOR, names[i]));
             }
 
             chart.WithAnnotations(annotations);

@@ -5,21 +5,6 @@ namespace TradeKit.PatternGeneration
 {
     public static class PatternGenKit
     {
-        public static double GetRandomGaussian(Random random)
-        {
-            double x1 = 1 - random.NextDouble();
-            double x2 = 1 - random.NextDouble();
-            const double baseVal = 1d;
-
-            double y1 = Math.Sqrt(-baseVal * Math.Log(x1)) *
-                        Math.Cos(baseVal * Math.PI * x2);
-            return y1;
-        }
-        public static double GetRandomGaussianAbs(Random random)
-        {
-            return Math.Abs(GetRandomGaussian(random));
-        }
-
         private static double GetRandomNumber(Random random, double mean, double stdDev)
         {
             double u1 = 1.0 - random.NextDouble(); // uniform(0,1] random doubles
