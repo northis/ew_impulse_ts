@@ -54,6 +54,11 @@ public class PatternGenTests
         List<ICandle> candles, string name, string fileName,
         ModelPattern? model = null)
     {
+        Console.WriteLine($" bar count is {candles.Count}");
+        Console.WriteLine("Model result:");
+
+        if (model != null) Console.WriteLine(model.ToString());
+
         DateTime dt = DateTime.UtcNow;
         dt = new DateTime(dt.Year, dt.Month, dt.Day);
 
@@ -95,10 +100,24 @@ public class PatternGenTests
         {
             ModelPattern model = m_PatternGenerator.GetPattern(
                 new PatternArgsItem(40, 60, i) {Min = 30}, ElliottModelType.FLAT_EXTENDED);
-            Console.WriteLine($" bar count is {i}");
-            Console.WriteLine("Model result:");
-            Console.WriteLine(model.ToString());
             SaveChart(model.Candles, "Extended flat", $"img_ex_flat_{i}", model);
+        }
+    }
+
+    [Test]
+    public void DiagonalTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_CONTRACTING_INITIAL);
+            SaveChart(model.Candles, "Initial diagonal", 
+                $"diagonal_initial_ex_flat_{i}", model);
+
+            model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_CONTRACTING_ENDING);
+            SaveChart(model.Candles, "Ending diagonal",
+                $"diagonal_ending_ex_flat_{i}", model);
         }
     }
 
@@ -109,10 +128,6 @@ public class PatternGenTests
         {
             ModelPattern model = m_PatternGenerator.GetPattern(
                 new PatternArgsItem(40, 60, i), ElliottModelType.IMPULSE);
-
-            Console.WriteLine($" bar count is {i}");
-            Console.WriteLine("Model result:");
-            Console.WriteLine(model.ToString());
             SaveChart(model.Candles, "Impulse", $"img_imp_{i}", model);
         }
     }

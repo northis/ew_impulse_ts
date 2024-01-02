@@ -633,18 +633,15 @@ namespace TradeKit.PatternGeneration
 
             double wave2Dur = m_ShallowCorrections.Contains(the2NdModel) ? 0.2 : 0.1;
             double wave3Dur = extendedWaveNumber == 3 ? 0.2 : 0.1;
-            double wave4Dur = m_ShallowCorrections.Contains(the4ThModel) ? 0.2 : 0.1;
             double wave5Dur = m_DiagonalImpulses.Contains(the5ThModel) || extendedWaveNumber == 5 ? 0.2 : 0.1;
+            
+            wave1Dur *= RandomRatio();
+            wave2Dur *= RandomRatio();
+            wave3Dur *= RandomRatio();
 
             // we want to fit the 4 to 2 ratio to the whole correction duration in the
             // impulse.
-            double correctionsDur = wave2Dur * (1 + wave2Dur * Get4To2DurationRatio(the2NdModel, the4ThModel));
-            double correctionsRatiosFix = correctionsDur / (wave2Dur + wave4Dur);
-
-            wave1Dur *= RandomRatio();
-            wave2Dur *= RandomRatio() * correctionsRatiosFix;
-            wave3Dur *= RandomRatio();
-            wave4Dur *= RandomRatio() * correctionsRatiosFix;
+            double wave4Dur = wave2Dur * Get4To2DurationRatio(the2NdModel, the4ThModel);
             wave5Dur *= RandomRatio();
             
             int[] bars4Gen = PatternGenKit.SplitNumber(
@@ -877,25 +874,17 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.DIAGONAL_CONTRACTING_ENDING, arg.Candles);
 
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
-            return modelPattern;
-            //}
-        }
-
-        private ModelPattern GetInitialDiagonal(PatternArgsItem arg)
-        {
-            var modelPattern = new ModelPattern(
-                ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, arg.Candles);
-
             if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
             {
-                GetImpulseRandomSet(arg);
+                GetCorrectiveRandomSet(arg);
                 return modelPattern;
             }
 
+            return GetDiagonal(arg, modelPattern);
+        }
+
+        private ModelPattern GetDiagonal(PatternArgsItem arg, ModelPattern modelPattern)
+        {
             double wave1Len = arg.Range * PatternGenKit
                 .GetNormalDistributionNumber(m_Random, 0.7, 0.9, 0.786);
             double wave2Len = wave1Len * PatternGenKit
@@ -916,7 +905,7 @@ namespace TradeKit.PatternGeneration
                                  * MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS;
 
             double wave4Len = RandomWithinRange(diffOneTree, wave3Len - restTree);
-            double wave4 = wave3- arg.IsUpK * arg.IsUpK * wave4Len;
+            double wave4 = wave3 - arg.IsUpK * arg.IsUpK * wave4Len;
 
             Dictionary<string, ElliottModelType[]> models =
                 ModelRules[modelPattern.Model].Models;
@@ -940,9 +929,35 @@ namespace TradeKit.PatternGeneration
                 });
 
             FillPattern(arg, modelPattern, bars4Gen,
-                new[] {wave1, wave2, wave3, wave4, arg.EndValue});
+                new[] { wave1, wave2, wave3, wave4, arg.EndValue });
+
+
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(IMPULSE_THREE, IMPULSE_ONE,
+                        wave3Len / wave1Len)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(IMPULSE_THREE, IMPULSE_ONE,
+                    (double) bars4Gen[2] / bars4Gen[1]));
 
             return modelPattern;
+        }
+
+        private ModelPattern GetInitialDiagonal(PatternArgsItem arg)
+        {
+            var modelPattern = new ModelPattern(
+                ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, arg.Candles);
+
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetImpulseRandomSet(arg);
+                return modelPattern;
+            }
+
+            return GetDiagonal(arg, modelPattern);
         }
 
         private void FillPattern(
@@ -1310,8 +1325,8 @@ namespace TradeKit.PatternGeneration
         private double RandomRatio()
         {
             return RandomWithinRange(
-                1 - MAIN_ALLOWANCE_MAX_RATIO,
-                1 + MAIN_ALLOWANCE_MAX_RATIO);
+                MAIN_ALLOWANCE_MAX_RATIO_INVERT,
+                MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS);
         }
 
         private double RandomWithinRange(double one, double two)
