@@ -61,9 +61,13 @@ namespace TradeKit.PatternGeneration
 
             const double doubleMin = 0.000000000000001;
             if (Math.Abs(fractions.Sum() - 1d) > doubleMin)
-                throw new ArgumentException($"the sum of {nameof(fractions)} values should be equals 1",
-                    nameof(fractions));
-
+            {
+                double totalSumFix = 1 / fractions.Sum();
+                for (int i = 0; i < fractions.Length; i++)
+                {
+                    fractions[i] *= totalSumFix;
+                }
+            }
 
             int[] parts = new int[fractions.Length];
             double correction = number;
@@ -88,7 +92,7 @@ namespace TradeKit.PatternGeneration
             {
                 if (parts[index] > 1)
                 {
-                    parts[index]--;
+                    parts[index]++;
                     correction--;
                 }
 

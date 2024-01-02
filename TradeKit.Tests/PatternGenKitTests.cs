@@ -48,10 +48,7 @@ namespace TradeKit.Tests
             TestVal(55, new[] { 1, 0, 0d });
             TestVal(3, new[] { 1 / 3d, 1 / 3d, 1 / 3d });
 
-            Assert.Catch(() =>
-            {
-                TestVal(66, new[] {0.2, 0.2, 0.2});
-            });
+            TestVal(66, new[] { 0.2, 0.2, 0.2 });
 
             Assert.Catch(() =>
             {

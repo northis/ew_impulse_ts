@@ -42,6 +42,7 @@ namespace TradeKit.PatternGeneration
 
         private HashSet<ElliottModelType> m_Wave1Impulse;
         private HashSet<ElliottModelType> m_Wave2Impulse;
+        private HashSet<ElliottModelType> m_Wave3Impulse;
         private HashSet<ElliottModelType> m_Wave4Impulse;
         private HashSet<ElliottModelType> m_Wave5Impulse;
 
@@ -63,7 +64,8 @@ namespace TradeKit.PatternGeneration
                                 IMPULSE_ONE, new[]
                                 {
                                     ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+                                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
+                                    ElliottModelType.DIAGONAL_EXPANDING_INITIAL
                                 }
                             },
                             {
@@ -93,7 +95,8 @@ namespace TradeKit.PatternGeneration
                                 IMPULSE_FIVE, new[]
                                 {
                                     ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
+                                    ElliottModelType.DIAGONAL_EXPANDING_ENDING
                                 }
                             },
                         })
@@ -194,6 +197,7 @@ namespace TradeKit.PatternGeneration
                                 {
                                     ElliottModelType.IMPULSE,
                                     ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
+                                    ElliottModelType.DIAGONAL_EXPANDING_INITIAL
                                 }
                             },
                             {
@@ -212,6 +216,7 @@ namespace TradeKit.PatternGeneration
                                 {
                                     ElliottModelType.IMPULSE,
                                     ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
+                                    ElliottModelType.DIAGONAL_EXPANDING_ENDING
                                 }
                             },
                         })
@@ -381,7 +386,8 @@ namespace TradeKit.PatternGeneration
                                 CORRECTION_C, new[]
                                 {
                                     ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
+                                    ElliottModelType.DIAGONAL_EXPANDING_ENDING
                                 }
                             }
                         })
@@ -460,6 +466,7 @@ namespace TradeKit.PatternGeneration
             ModelRules impulse = ModelRules[ElliottModelType.IMPULSE];
             m_Wave1Impulse = impulse.Models[IMPULSE_ONE].ToHashSet();
             m_Wave2Impulse = impulse.Models[IMPULSE_TWO].ToHashSet();
+            m_Wave3Impulse = impulse.Models[IMPULSE_THREE].ToHashSet();
             m_Wave4Impulse = impulse.Models[IMPULSE_FOUR].ToHashSet();
             m_Wave5Impulse = impulse.Models[IMPULSE_FIVE].ToHashSet();
         }
@@ -566,6 +573,7 @@ namespace TradeKit.PatternGeneration
                 .First();
 
             ElliottModelType the1StModel;
+            ElliottModelType the3RdModel = m_Wave3Impulse.First();
             ElliottModelType the5ThModel;
 
             ElliottModelType DiagonalInitial() => WeightedRandomlySelectModel(new[]
@@ -595,16 +603,22 @@ namespace TradeKit.PatternGeneration
             {
                 double modelRandom = m_Random.NextDouble();
                 the1StModel = modelRandom <= 0.5
-                    ? ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+                    ? DiagonalInitial()
                     : ElliottModelType.IMPULSE;
                 the5ThModel = modelRandom is <= 0.1 or >= 0.9
                     ? the1StModel == ElliottModelType.IMPULSE
                         ? ElliottModelType.IMPULSE
-                        : DiagonalInitial()
+                        : DiagonalEnding()
                     : the1StModel == ElliottModelType.IMPULSE
                         ? DiagonalEnding()
                         : ElliottModelType.IMPULSE;
                 extendedWaveNumber = 3;
+            }
+
+            if (!m_Wave1Impulse.Contains(the1StModel) ||
+                !m_Wave5Impulse.Contains(the5ThModel))
+            {
+                throw new ApplicationException("Wrong impulse configuration");
             }
             
             double wave1Dur = m_DiagonalImpulses.Contains(the1StModel)
@@ -626,17 +640,15 @@ namespace TradeKit.PatternGeneration
             wave3Dur *= RandomRatio();
             wave4Dur *= RandomRatio() * correctionsRatiosFix;
             wave5Dur *= RandomRatio();
-
-            double totalSumFix = 1 /
-                                 (wave1Dur + wave2Dur + wave3Dur + wave4Dur + wave5Dur);
+            
             int[] bars4Gen = PatternGenKit.SplitNumber(
                 arg.BarsCount, new[]
                 {
-                    wave1Dur*totalSumFix,
-                    wave2Dur*totalSumFix,
-                    wave3Dur*totalSumFix,
-                    wave4Dur*totalSumFix,
-                    wave5Dur*totalSumFix
+                    wave1Dur,
+                    wave2Dur,
+                    wave3Dur,
+                    wave4Dur,
+                    wave5Dur
                 });
 
             var wave1 = arg.StartValue + arg.IsUpK * wave1Len;
@@ -672,7 +684,7 @@ namespace TradeKit.PatternGeneration
             
             PatternArgsItem wave3Arg = GetNext(
                 arg.IsUp, bars4Gen[2], modelWave2.Candles[^1], wave2, wave3);
-            ModelPattern modelWave3 = GetPattern(wave3Arg, ElliottModelType.IMPULSE);
+            ModelPattern modelWave3 = GetPattern(wave3Arg, the3RdModel);
             modelPattern.ChildModelPatterns.Add(modelWave3);
 
             PatternArgsItem wave4Arg = GetNext(
@@ -773,23 +785,34 @@ namespace TradeKit.PatternGeneration
                     1 - barsA - barsB
                 });
 
-            List<ICandle> candlesWaveA = GetCorrectiveRandomSet(
-                new PatternArgsItem(arg.StartValue, waveA, bars4Gen[0]));
+            Dictionary<string, ElliottModelType[]> models = 
+                ModelRules[modelPattern.Model].Models;
 
-            List<ICandle> candlesWaveB = GetCorrectiveRandomSet(
-                new PatternArgsItem(candlesWaveA[^1].C, waveB, bars4Gen[1], waveA));
+            ModelPattern modelWaveA = GetPattern(
+                new PatternArgsItem(arg.StartValue, waveA, bars4Gen[0]),
+                WeightedRandomlySelectModel(models[CORRECTION_A]));
+            modelPattern.ChildModelPatterns.Add(modelWaveA);
 
-            List<ICandle> candlesWaveC = GetImpulseRandomSet(
-                new PatternArgsItem(candlesWaveB[^1].C, arg.EndValue, bars4Gen[2], waveB));
+            PatternArgsItem waveBArg = GetNext(
+                !arg.IsUp, bars4Gen[1], modelWaveA.Candles[^1], waveA, waveB);
+            ModelPattern modelWaveB = GetPattern(waveBArg, 
+                WeightedRandomlySelectModel(models[CORRECTION_B]));
+            modelPattern.ChildModelPatterns.Add(modelWaveB);
+            
+            PatternArgsItem waveCArg = GetNext(
+                arg.IsUp, bars4Gen[2], modelWaveB.Candles[^1], waveB, arg.EndValue);
+            ModelPattern modelWaveC = GetPattern(waveCArg,
+                WeightedRandomlySelectModel(models[CORRECTION_C]));
+            modelPattern.ChildModelPatterns.Add(modelWaveC);
 
-            candles.AddRange(candlesWaveA);
-            candles.AddRange(candlesWaveB);
-            candles.AddRange(candlesWaveC);
+            candles.AddRange(modelWaveA.Candles);
+            candles.AddRange(modelWaveB.Candles);
+            candles.AddRange(modelWaveC.Candles);
 
             modelPattern.PatternKeyPoints = new List<KeyValuePair<int, double>>
             {
-                new(candlesWaveA.Count - 1, waveA),
-                new(candlesWaveA.Count - 1 + candlesWaveB.Count - 1, waveB),
+                new(bars4Gen[0] - 1, waveA),
+                new(bars4Gen[0] + bars4Gen[1] - 1, waveB),
                 new(arg.BarsCount - 1, arg.EndValue)
             };
 
@@ -994,7 +1017,7 @@ namespace TradeKit.PatternGeneration
 
         public List<ICandle> GetImpulseRandomSet(PatternArgsItem args)
         {
-            return GetRandomSet(args, 0.5);
+            return GetRandomSet(args, 0.2);
         }
 
         public List<ICandle> GetCorrectiveRandomSet(PatternArgsItem args)
@@ -1114,10 +1137,6 @@ namespace TradeKit.PatternGeneration
         private static readonly
             SortedDictionary<byte, double> IMPULSE_5_TO_1 =
                 new() { { 0, 0 }, { 5, 0.382 }, { 10, 0.618 }, { 20, 0.786 }, { 25, 1 }, { 75, 1.618 }, { 85, 2.618 }, { 95, 3.618 }, { 99, 4.236 }};
-
-        private static readonly
-            SortedDictionary<byte, double> IMPULSE_EXTENDED =
-                new() {{0, 0}, {5, 1}, {20, 1.618}, {70, 2.618}, {85, 3.618}, {95, 4.236}};
 
         private static readonly
             SortedDictionary<byte, double> MAP_DEEP_CORRECTION =
@@ -1285,8 +1304,13 @@ namespace TradeKit.PatternGeneration
             if (isNextUp && lastClose > nextWave ||
                 !isNextUp && lastClose < nextWave)
             {
-                ((JsonCandleExport) lastCandle).C = RandomWithinRange(isNextUp ? lastCandle.L : lastCandle.H, nextWave);
-                waveNext = new PatternArgsItem(((JsonCandleExport)lastCandle).C, nextWave, barsCount);
+                double newValC = RandomWithinRange(isNextUp 
+                    ? lastCandle.L 
+                    : lastCandle.H, nextWave);
+
+                if (lastCandle is JsonCandleExport jsonCandle)
+                    jsonCandle.C = newValC;
+                waveNext = new PatternArgsItem(newValC, nextWave, barsCount);
             }
             else
             {
