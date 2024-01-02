@@ -13,6 +13,8 @@ namespace TradeKit.PatternGeneration
         private readonly Random m_Random;
         private const int SIMPLE_BARS_THRESHOLD = 10;
         private const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
+        private const double MAIN_ALLOWANCE_MAX_RATIO_INVERT = 1- MAIN_ALLOWANCE_MAX_RATIO;
+        private const double MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS = 1 + MAIN_ALLOWANCE_MAX_RATIO;
 
         public const string IMPULSE_ONE = "1";
         public const string IMPULSE_TWO = "2";
@@ -412,6 +414,10 @@ namespace TradeKit.PatternGeneration
             ModelRules[ElliottModelType.DIAGONAL_EXPANDING_ENDING] =
                 ModelRules[ElliottModelType.DIAGONAL_CONTRACTING_ENDING] with
                     { ProbabilityCoefficient = 0.0001 };
+            
+            ModelRules[ElliottModelType.TRIANGLE_RUNNING] =
+                ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
+                    { ProbabilityCoefficient = 0.5 };
 
             m_ModelGeneratorsMap = new Dictionary<ElliottModelType, 
                 Func<PatternArgsItem, ModelPattern>>
@@ -651,85 +657,29 @@ namespace TradeKit.PatternGeneration
                     wave5Dur
                 });
 
-            var wave1 = arg.StartValue + arg.IsUpK * wave1Len;
-            var wave2 = wave1 - arg.IsUpK * the2NdRatio * wave1Len;
-            var wave3 = wave2 + arg.IsUpK * wave3Len;
-            var wave4 = arg.EndValue - arg.IsUpK * wave5Len;
-            var wave5 = arg.EndValue;
+            double wave1 = arg.StartValue + arg.IsUpK * wave1Len;
+            double wave2 = wave1 - arg.IsUpK * the2NdRatio * wave1Len;
+            double wave3 = wave2 + arg.IsUpK * wave3Len;
+            double wave4 = arg.EndValue - arg.IsUpK * wave5Len;
+            double wave5 = arg.EndValue;
 
             if (arg.IsUp && wave4 <= wave1 || !arg.IsUp && wave4 >= wave1)
-            {
                 throw new ApplicationException("Wave 4/1 overlapse");
-            }
 
-            ModelPattern modelWave1 = GetPattern(
-                new PatternArgsItem(arg.StartValue, wave1, bars4Gen[0]), the1StModel);
-            modelPattern.ChildModelPatterns.Add(modelWave1);
+            FillPattern(arg, modelPattern, 
+                bars4Gen, new[] {wave1, wave2, wave3, wave4, wave5});
 
-            PatternArgsItem wave2Arg = GetNext(
-                !arg.IsUp, bars4Gen[1], modelWave1.Candles[^1], wave1, wave2);
-
-            if (m_RunningCorrections.Contains(the2NdModel))
-            {
-                // running part usually don't reach the end wave 3,
-                // so we won't make it to happen.
-                if (wave2Arg.IsUp)
-                    wave2Arg.Min = wave3;
-                else
-                    wave2Arg.Max = wave3;
-            }
-
-            ModelPattern modelWave2 = GetPattern(wave2Arg, the2NdModel);
-            modelPattern.ChildModelPatterns.Add(modelWave2);
-            
-            PatternArgsItem wave3Arg = GetNext(
-                arg.IsUp, bars4Gen[2], modelWave2.Candles[^1], wave2, wave3);
-            ModelPattern modelWave3 = GetPattern(wave3Arg, the3RdModel);
-            modelPattern.ChildModelPatterns.Add(modelWave3);
-
-            PatternArgsItem wave4Arg = GetNext(
-                !arg.IsUp, bars4Gen[3], modelWave3.Candles[^1], wave3, wave4);
-            if (m_RunningCorrections.Contains(the4ThModel))
-            {
-                // running part usually don't reach the end of the impulse,
-                // so we won't make it to happen.
-                if (wave4Arg.IsUp)
-                    wave4Arg.Min = wave5;
-                else
-                    wave4Arg.Max = wave5;
-            }
-
-            ModelPattern modelWave4 = GetPattern(wave4Arg, the4ThModel);
-            modelPattern.ChildModelPatterns.Add(modelWave4);
-
-            ModelPattern modelWave5 = GetPattern(
-                new PatternArgsItem(modelWave4.Candles[^1].C, wave5, bars4Gen[4]), the5ThModel);
-            modelPattern.ChildModelPatterns.Add(modelWave5);
-
-            modelPattern.Candles.AddRange(modelWave1.Candles);
-            modelPattern.Candles.AddRange(modelWave2.Candles);
-            modelPattern.Candles.AddRange(modelWave3.Candles);
-            modelPattern.Candles.AddRange(modelWave4.Candles);
-            modelPattern.Candles.AddRange(modelWave5.Candles);
-
-            modelPattern.PatternKeyPoints = new List<KeyValuePair<int, double>>
-            {
-                new(bars4Gen[0] - 1, wave1),
-                new(bars4Gen.Take(2).Sum() - 1, wave2),
-                new(bars4Gen.Take(3).Sum() - 1, wave3),
-                new(bars4Gen.Take(4).Sum() - 1, wave4),
-                new(bars4Gen.Sum() - 1, wave5),
-            };
-            
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(IMPULSE_THREE, IMPULSE_ONE, wave3Len / wave1Len),
-                    new LengthRatio(IMPULSE_FIVE, IMPULSE_ONE, wave5Len / wave1Len),
+                    new LengthRatio(IMPULSE_THREE, IMPULSE_ONE, 
+                        wave3Len / wave1Len),
+                    new LengthRatio(IMPULSE_FIVE, IMPULSE_ONE, 
+                        wave5Len / wave1Len),
                     new LengthRatio(IMPULSE_TWO, IMPULSE_ONE,
-                        wave2Arg.Range / wave1Len),
+                        Math.Abs(wave1 - wave2) / wave1Len),
                     new LengthRatio(IMPULSE_FOUR, IMPULSE_THREE,
-                        wave4Arg.Range / wave3Len),
+                        Math.Abs(wave3 - wave4) / wave3Len),
                 });
 
             modelPattern.DurationRatios.Add(
@@ -753,7 +703,7 @@ namespace TradeKit.PatternGeneration
                 ElliottModelType.FLAT_EXTENDED, candles);
 
             double waveALength = RandomWithinRange(
-                arg.Range * 0.3, arg.Range * 0.95);
+                arg.Range * 0.3, arg.Range * MAIN_ALLOWANCE_MAX_RATIO_INVERT);
             // extended flat, wave A should make less progress that the wave C
 
             double waveA = arg.StartValue + arg.IsUpK * waveALength;
@@ -785,36 +735,8 @@ namespace TradeKit.PatternGeneration
                     1 - barsA - barsB
                 });
 
-            Dictionary<string, ElliottModelType[]> models = 
-                ModelRules[modelPattern.Model].Models;
-
-            ModelPattern modelWaveA = GetPattern(
-                new PatternArgsItem(arg.StartValue, waveA, bars4Gen[0]),
-                WeightedRandomlySelectModel(models[CORRECTION_A]));
-            modelPattern.ChildModelPatterns.Add(modelWaveA);
-
-            PatternArgsItem waveBArg = GetNext(
-                !arg.IsUp, bars4Gen[1], modelWaveA.Candles[^1], waveA, waveB);
-            ModelPattern modelWaveB = GetPattern(waveBArg, 
-                WeightedRandomlySelectModel(models[CORRECTION_B]));
-            modelPattern.ChildModelPatterns.Add(modelWaveB);
-            
-            PatternArgsItem waveCArg = GetNext(
-                arg.IsUp, bars4Gen[2], modelWaveB.Candles[^1], waveB, arg.EndValue);
-            ModelPattern modelWaveC = GetPattern(waveCArg,
-                WeightedRandomlySelectModel(models[CORRECTION_C]));
-            modelPattern.ChildModelPatterns.Add(modelWaveC);
-
-            candles.AddRange(modelWaveA.Candles);
-            candles.AddRange(modelWaveB.Candles);
-            candles.AddRange(modelWaveC.Candles);
-
-            modelPattern.PatternKeyPoints = new List<KeyValuePair<int, double>>
-            {
-                new(bars4Gen[0] - 1, waveA),
-                new(bars4Gen[0] + bars4Gen[1] - 1, waveB),
-                new(arg.BarsCount - 1, arg.EndValue)
-            };
+            FillPattern(arg, modelPattern, bars4Gen, 
+                new[] {waveA, waveB, arg.EndValue});
 
             double waveBLength = Math.Abs(waveA - waveB);
             modelPattern.LengthRatios.AddRange(
@@ -828,7 +750,7 @@ namespace TradeKit.PatternGeneration
 
             modelPattern.DurationRatios.Add(
                 new DurationRatio(CORRECTION_B, CORRECTION_B,
-                    modelPattern.PatternKeyPoints[1].Value / modelPattern.PatternKeyPoints[0].Value));
+                    modelPattern.PatternKeyPoints[1].Item2 / modelPattern.PatternKeyPoints[0].Item1));
 
             return modelPattern;
         }
@@ -968,13 +890,116 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, arg.Candles);
 
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetImpulseRandomSet(arg);
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetImpulseRandomSet(arg);
+                return modelPattern;
+            }
+
+            double wave1Len = arg.Range * PatternGenKit
+                .GetNormalDistributionNumber(m_Random, 0.7, 0.9, 0.786);
+            double wave2Len = wave1Len * PatternGenKit
+                .GetNormalDistributionNumber(m_Random, 0.5, 0.75, 0.66);
+
+            double wave1 = arg.StartValue + arg.IsUpK * wave1Len;
+            double wave2 = wave1 - arg.IsUpK * wave2Len;
+
+            double restOne = arg.Range - wave1Len;
+            double wave3Len = wave1Len * SelectRandomly(
+                CONTRACTING_DIAGONAL_3_TO_1,
+                wave2Len * MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS / wave1Len,
+                (restOne * MAIN_ALLOWANCE_MAX_RATIO_INVERT + wave2Len) / wave1Len);
+
+            double wave3 = wave2 + arg.IsUpK * wave3Len;
+            double restTree = Math.Abs(arg.EndValue - wave3);
+            double diffOneTree = Math.Abs(wave1 - wave3)
+                                 * MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS;
+
+            double wave4Len = RandomWithinRange(diffOneTree, wave3Len - restTree);
+            double wave4 = wave3- arg.IsUpK * arg.IsUpK * wave4Len;
+
+            Dictionary<string, ElliottModelType[]> models =
+                ModelRules[modelPattern.Model].Models;
+
+            double bars1Prop = PatternGenKit
+                .GetNormalDistributionNumber(m_Random, 0.5, 0.8, 0.618);
+            double bars2Prop = (1 - bars1Prop) * RandomWithinRange(0.2, 0.5);
+            double bars3Prop = (1 - bars1Prop - bars2Prop) *
+                               RandomWithinRange(0.2, 0.7);
+            double bars4Prop = (1 - bars1Prop - bars2Prop - bars3Prop) *
+                               RandomWithinRange(0.2, 0.7);
+
+            int[] bars4Gen = PatternGenKit.SplitNumber(
+                arg.BarsCount, new[]
+                {
+                    bars1Prop,
+                    bars2Prop,
+                    bars3Prop,
+                    bars4Prop,
+                    1 - bars1Prop - bars2Prop - bars3Prop - bars4Prop
+                });
+
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {wave1, wave2, wave3, wave4, arg.EndValue});
+
             return modelPattern;
-            //}
         }
+
+        private void FillPattern(
+            PatternArgsItem arg, 
+            ModelPattern pattern, 
+            int[] bars4Gen, 
+            double[] values,
+            ElliottModelType[] definedModels = null)
+        {
+            Dictionary<string, ElliottModelType[]> models =
+                ModelRules[pattern.Model].Models;
+            string[] keys = models.Keys.ToArray();
+
+            if (bars4Gen.Length == 0 ||
+                bars4Gen.Length != models.Count ||
+                bars4Gen.Length != keys.Length)
+                throw new ArgumentException(nameof(pattern));
+            
+            ModelPattern modelCurrent = null;
+
+            bool isUp = arg.IsUp;
+            for (int i = 0; i < values.Length; i++)
+            {
+                PatternArgsItem waveArg = modelCurrent == null
+                    ? new PatternArgsItem(arg.StartValue, values[i], bars4Gen[i])
+                    : GetNext(isUp, bars4Gen[i],
+                        modelCurrent.Candles[^1], values[i - 1], values[i]);
+
+                isUp = !isUp;
+                ElliottModelType model = definedModels == null
+                    ? WeightedRandomlySelectModel(models[keys[i]])
+                    : definedModels[i];
+                if (i < values.Length - 1 && m_RunningCorrections.Contains(model))
+                {
+                    // running part usually don't reach the next wave,
+                    // so we won't make it to happen.
+                    if (waveArg.IsUp)
+                        waveArg.Min = values[i + 1];
+                    else
+                        waveArg.Max = values[i + 1];
+                }
+
+                ModelPattern modelWave = GetPattern(waveArg, model);
+                pattern.ChildModelPatterns.Add(modelWave);
+                pattern.Candles.AddRange(modelWave.Candles);
+                modelCurrent = modelWave;
+            }
+
+            for (int i = 0; i < values.Length - 1; i++)
+            {
+                pattern.PatternKeyPoints.Add(
+                    (bars4Gen.Take(i + 1).Sum() - 1, values[i]));
+            }
+
+            pattern.PatternKeyPoints.Add((arg.BarsCount - 1, arg.EndValue));
+        }
+
 
         private ModelPattern GetInitialExpandingDiagonal(PatternArgsItem arg)
         {
@@ -1129,6 +1154,10 @@ namespace TradeKit.PatternGeneration
         #endregion
 
         #region Fibonacci ratios
+
+        private static readonly
+            SortedDictionary<byte, double> CONTRACTING_DIAGONAL_3_TO_1 =
+                new() { { 0, 0 }, { 5, 0.5 }, { 15, 0.618 }, { 20, 0.786 } };
 
         private static readonly
             SortedDictionary<byte, double> IMPULSE_3_TO_1 =

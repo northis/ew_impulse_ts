@@ -10,10 +10,10 @@ namespace TradeKit.PatternGeneration
     {
         public ModelPattern(ElliottModelType model,
             List<ICandle> candles,
-            List<KeyValuePair<int, double>> patternKeyPoints = null)
+            List<(int, double)> patternKeyPoints = null)
         {
             Model = model;
-            PatternKeyPoints = patternKeyPoints;
+            PatternKeyPoints = patternKeyPoints ?? new List<(int, double)>();
             Candles = candles;
             ChildModelPatterns = new List<ModelPattern>();
             LengthRatios = new List<LengthRatio>();
@@ -43,7 +43,7 @@ namespace TradeKit.PatternGeneration
         /// <summary>
         /// Gets the map index (from <see cref="Candles"/>)-price of the key points of the pattern.
         /// </summary>
-        public List<KeyValuePair<int, double>> PatternKeyPoints { get; set; }
+        public List<(int, double)> PatternKeyPoints { get; }
 
         /// <summary>
         /// Gets the candles of the pattern.

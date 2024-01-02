@@ -72,10 +72,10 @@ public class PatternGenTests
             for (int i = 0; i < model.PatternKeyPoints.Count; i++)
             {
                 var annotation = model.PatternKeyPoints[i];
-                DateTime date = dtStart.Add(step * annotation.Key);
+                DateTime date = dtStart.Add(step * annotation.Item1);
                 annotations.Add(ChartGenerator.GetAnnotation(
                     date,
-                    annotation.Value,
+                    annotation.Item2,
                     ChartGenerator.WHITE_COLOR,
                     ChartGenerator.CHART_FONT_MAIN,
                     ChartGenerator.SEMI_WHITE_COLOR, names[i]));
