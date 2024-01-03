@@ -3,7 +3,7 @@
 namespace TradeKit.Json
 {
     /// <summary>
-    /// "Export from chat" in Telegram entity - statistic part
+    /// Trade setup entity - statistic part
     /// </summary>
     public class JsonSymbolStatExport
     {

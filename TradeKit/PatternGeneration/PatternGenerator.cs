@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Intrinsics.X86;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
@@ -40,6 +39,7 @@ namespace TradeKit.PatternGeneration
         private HashSet<ElliottModelType> m_ShallowCorrections;
         private HashSet<ElliottModelType> m_DeepCorrections;
         private HashSet<ElliottModelType> m_DiagonalImpulses;
+        private HashSet<ElliottModelType> m_TruncatedImpulses;
         private HashSet<ElliottModelType> m_RunningCorrections;
 
         private HashSet<ElliottModelType> m_Wave1Impulse;
@@ -460,6 +460,12 @@ namespace TradeKit.PatternGeneration
                 ElliottModelType.DIAGONAL_CONTRACTING_ENDING
             };
 
+            m_TruncatedImpulses = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.IMPULSE,
+                ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+            };
+
             m_RunningCorrections = new HashSet<ElliottModelType>
             {
                 ElliottModelType.FLAT_EXTENDED,
@@ -559,12 +565,17 @@ namespace TradeKit.PatternGeneration
                 min: double.NaN,
                 max: (arg.Range - wave1Len) / wave1Len);
 
-            // Add reduced 5th (via running part arg.Max/Min)
+            // Add reduced 5th
+            bool isTruncatedAllowed = IsTruncatedAllowed(modelPattern.Model);
+            double wave3LenMax =
+                (isTruncatedAllowed ? Math.Abs((arg.IsUp ? arg.Max : arg.Min) - arg.StartValue) : arg.Range) -
+                wave1Len * (1 - the2NdRatio);
+
             // we shouldn't allow the shortest 3rd wave as well.
             double wave3Len = wave1Len * SelectRandomly(IMPULSE_3_TO_1,
                 min: Math.Max(arg.Range - wave5Len - wave1Len * (1 - the2NdRatio),
                     Math.Min(wave1Len, wave5Len)) / wave1Len,
-                max: (arg.Range - wave1Len * (1 - the2NdRatio)) / wave1Len);
+                max: wave3LenMax / wave1Len);
 
             if (wave3Len <= wave5Len && wave3Len <= wave1Len)
             {
@@ -579,7 +590,6 @@ namespace TradeKit.PatternGeneration
                 .First();
 
             ElliottModelType the1StModel;
-            ElliottModelType the3RdModel = m_Wave3Impulse.First();
             ElliottModelType the5ThModel;
 
             ElliottModelType DiagonalInitial() => WeightedRandomlySelectModel(new[]
@@ -663,8 +673,18 @@ namespace TradeKit.PatternGeneration
             if (arg.IsUp && wave4 <= wave1 || !arg.IsUp && wave4 >= wave1)
                 throw new ApplicationException("Wave 4/1 overlapse");
 
-            FillPattern(arg, modelPattern, 
-                bars4Gen, new[] {wave1, wave2, wave3, wave4, wave5});
+            double runningLimit3And5 = arg.IsUp ? arg.Max : arg.Min;
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {wave1, wave2, wave3, wave4, wave5}, null,
+                new[]
+                {
+                    double.NaN, 
+                    wave4, // don't want the running part of the 2nd to exceed the 4th.
+                    runningLimit3And5, // pass the truncation limit
+                    wave3,// can we allow the running part of the 4th wave exceed
+                    // the 3er wave?
+                    runningLimit3And5
+                });
 
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -880,6 +900,7 @@ namespace TradeKit.PatternGeneration
                 return modelPattern;
             }
 
+            // truncated 5th - running 3rd
             return GetDiagonal(arg, modelPattern);
         }
 
@@ -893,11 +914,18 @@ namespace TradeKit.PatternGeneration
             double wave1 = arg.StartValue + arg.IsUpK * wave1Len;
             double wave2 = wave1 - arg.IsUpK * wave2Len;
 
+            bool isTruncatedAllowed = IsTruncatedAllowed(modelPattern.Model);
             double restOne = arg.Range - wave1Len;
+            double wave3LenMax = isTruncatedAllowed
+                ? Math.Min(wave1Len * MAIN_ALLOWANCE_MAX_RATIO_INVERT,
+                    Math.Min(2 * wave2Len * MAIN_ALLOWANCE_MAX_RATIO_INVERT,
+                        Math.Abs(wave2 - (arg.IsUp ? arg.Max : arg.Min))))
+                : restOne * MAIN_ALLOWANCE_MAX_RATIO_INVERT + wave2Len;
+
             double wave3Len = wave1Len * SelectRandomly(
                 CONTRACTING_DIAGONAL_3_TO_1,
                 wave2Len * MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS / wave1Len,
-                (restOne * MAIN_ALLOWANCE_MAX_RATIO_INVERT + wave2Len) / wave1Len);
+                wave3LenMax / wave1Len);
 
             double wave3 = wave2 + arg.IsUpK * wave3Len;
             double restTree = Math.Abs(arg.EndValue - wave3);
@@ -906,10 +934,7 @@ namespace TradeKit.PatternGeneration
 
             double wave4Len = RandomWithinRange(diffOneTree, wave3Len - restTree);
             double wave4 = wave3 - arg.IsUpK * arg.IsUpK * wave4Len;
-
-            Dictionary<string, ElliottModelType[]> models =
-                ModelRules[modelPattern.Model].Models;
-
+            
             double bars1Prop = PatternGenKit
                 .GetNormalDistributionNumber(m_Random, 0.5, 0.8, 0.618);
             double bars2Prop = (1 - bars1Prop) * RandomWithinRange(0.2, 0.5);
@@ -965,7 +990,8 @@ namespace TradeKit.PatternGeneration
             ModelPattern pattern, 
             int[] bars4Gen, 
             double[] values,
-            ElliottModelType[] definedModels = null)
+            ElliottModelType[] definedModels = null,
+            double[] runningLimits = null)
         {
             Dictionary<string, ElliottModelType[]> models =
                 ModelRules[pattern.Model].Models;
@@ -986,24 +1012,40 @@ namespace TradeKit.PatternGeneration
                     : GetNext(isUp, bars4Gen[i],
                         modelCurrent.Candles[^1], values[i - 1], values[i]);
 
-                isUp = !isUp;
                 ElliottModelType model = definedModels == null
                     ? WeightedRandomlySelectModel(models[keys[i]])
                     : definedModels[i];
+
+                bool useRunningLimits = runningLimits != null &&
+                                        !double.IsNaN(runningLimits[i]);
                 if (i < values.Length - 1 && m_RunningCorrections.Contains(model))
                 {
                     // running part usually don't reach the next wave,
                     // so we won't make it to happen.
                     if (waveArg.IsUp)
-                        waveArg.Min = values[i + 1];
+                        waveArg.Min = useRunningLimits
+                            ? runningLimits[i]
+                            : values[i + 1];
                     else
-                        waveArg.Max = values[i + 1];
+                        waveArg.Max = useRunningLimits
+                            ? runningLimits[i]
+                            : values[i + 1];
+                }
+
+                // We want to handle truncated limits
+                if (useRunningLimits && m_TruncatedImpulses.Contains(model))
+                {
+                    if (waveArg.IsUp)
+                        waveArg.Max = runningLimits[i];
+                    else
+                        waveArg.Min = runningLimits[i];
                 }
 
                 ModelPattern modelWave = GetPattern(waveArg, model);
                 pattern.ChildModelPatterns.Add(modelWave);
                 pattern.Candles.AddRange(modelWave.Candles);
                 modelCurrent = modelWave;
+                isUp = !isUp;
             }
 
             for (int i = 0; i < values.Length - 1; i++)
@@ -1336,6 +1378,13 @@ namespace TradeKit.PatternGeneration
 
             return min + m_Random.NextDouble() * (max - min);
         }
+
+        private bool IsTruncatedAllowed(ElliottModelType modelType)
+        {
+            return m_TruncatedImpulses.Contains(modelType)/* && 
+                   m_Random.NextDouble() <= 0.05*/;
+        }
+
         private PatternArgsItem GetNext(
             bool isNextUp,
             int barsCount,

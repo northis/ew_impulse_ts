@@ -1,8 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using TradeKit.Core;
 using TradeKit.Impulse;
+using TradeKit.Json;
 
 namespace TradeKit.PatternGeneration
 {
@@ -49,6 +50,35 @@ namespace TradeKit.PatternGeneration
         /// Gets the candles of the pattern.
         /// </summary>
         public List<ICandle> Candles { get; }
+
+        /// <summary>
+        /// Converts to JSON.
+        /// </summary>
+        public JsonGeneratedModel ToJson(PatternGenerator pg)
+        {
+            var res = new JsonGeneratedModel
+            {
+                Model = Model,
+                Candles = Candles.Cast<JsonCandleExport>().ToArray(),
+                Waves = new JsonWave[PatternKeyPoints.Count]
+            };
+
+            string[] waveNames = pg.ModelRules[Model].Models.Keys.ToArray();
+            for (int i = 0; i < PatternKeyPoints.Count; i++)
+            {
+                string waveName = waveNames[i];
+                var kp = PatternKeyPoints[i];
+                res.Waves[i] = new JsonWave
+                {
+                    Index = kp.Item1, 
+                    Value = kp.Item2, 
+                    WaveName = waveName
+                };
+            }
+
+            res.ChildModels = ChildModelPatterns.Select(a => a.ToJson(pg)).ToArray();
+            return res;
+        }
 
         public override string ToString()
         {

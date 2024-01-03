@@ -5,7 +5,7 @@ using TradeKit.Core;
 namespace TradeKit.Json
 {
     /// <summary>
-    /// market candle in JSON
+    /// Market candle in JSON
     /// </summary>
     public class JsonCandleExport : ICandle
     {
