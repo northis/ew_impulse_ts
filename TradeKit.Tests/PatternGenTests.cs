@@ -125,6 +125,18 @@ public class PatternGenTests
     }
 
     [Test]
+    public void ZigzagTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(60, 40, i), ElliottModelType.ZIGZAG);
+            SaveChart(model.Candles, "Zigzag",
+                $"zigzag_{i}_{GetTempString}", model);
+        }
+    }
+
+    [Test]
     public void ImpulseTest()
     {
         for (int i = 30; i <= 30; i++)
