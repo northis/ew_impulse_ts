@@ -136,6 +136,28 @@ public class PatternGenTests
     }
 
     [Test]
+    public void DoubleZigzagTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(60, 40, i), ElliottModelType.DOUBLE_ZIGZAG);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
+    public void TripleZigzagTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(60, 40, i), ElliottModelType.TRIPLE_ZIGZAG);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
     public void RunningFlatTest()
     {
         for (int i = 15; i <= 15; i++)
