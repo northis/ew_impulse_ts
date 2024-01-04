@@ -2,9 +2,11 @@
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
+using Telegram.Bot.Types;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.PatternGeneration;
+using File = System.IO.File;
 
 namespace TradeKit.Tests;
 
@@ -27,31 +29,18 @@ public class PatternGenTests
             Directory.CreateDirectory(FOLDER_TO_SAVE);
     }
 
-    [Test]
-    public void ImpulseRandomSetTest()
+    private void SaveResultFiles(ModelPattern model)
     {
-        List<ICandle> candles = m_PatternGenerator.GetImpulseRandomSet(
-            new PatternArgsItem(10, 20, 8));
+        string name = model.Model.ToString().ToLowerInvariant();
 
-        SaveChart(candles, "Random set (impulse)", "imp_img_rnd_set");
-    }
+        string fileName = $"{name}_{model.Candles.Count}_{GetTempString}";
+        SaveChart(model.Candles, name.Replace("_"," ").ToUpperInvariant(), 
+            fileName, model);
 
-    [Test]
-    public void CorrectiveRandomSetTest()
-    {
-        List<ICandle> candles = m_PatternGenerator.GetCorrectiveRandomSet(
-            new PatternArgsItem(500, 450, 20));
-
-        SaveChart(candles, "Random set (corrective)", "cor_img_rnd_set");
-    }
-
-    [Test]
-    public void SideRandomSetTest()
-    {
-        List<ICandle> candles = m_PatternGenerator.GetSideRandomSet(
-            new PatternArgsItem(50, 70, 15), 40, 80);
-
-        SaveChart(candles, "Random set (side)", "side_img_rnd_set");
+        string jsonFilePath = Path.Join(FOLDER_TO_SAVE, $"{fileName}.json");
+        string json = JsonConvert.SerializeObject(
+            model.ToJson(m_PatternGenerator), Formatting.Indented);
+        File.WriteAllText(jsonFilePath, json);
     }
 
     private void SaveChart(
@@ -91,6 +80,7 @@ public class PatternGenTests
             }
 
             chart.WithAnnotations(annotations);
+            chart.WithTitle(name);
         }
 
         string pngPath = Path.Combine(FOLDER_TO_SAVE, fileName);
@@ -104,7 +94,7 @@ public class PatternGenTests
         {
             ModelPattern model = m_PatternGenerator.GetPattern(
                 new PatternArgsItem(40, 60, i) {Min = 30}, ElliottModelType.FLAT_EXTENDED);
-            SaveChart(model.Candles, "Extended flat", $"img_ex_flat_{i}", model);
+            SaveResultFiles(model);
         }
     }
 
@@ -115,12 +105,11 @@ public class PatternGenTests
         {
             //ModelPattern model = m_PatternGenerator.GetPattern(
             //    new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_CONTRACTING_INITIAL);
-            //SaveChart(model.Candles, "Initial diagonal", 
-            //    $"diagonal_initial_{i}", model);
+            //SaveResultFiles(model);
+
             ModelPattern model = m_PatternGenerator.GetPattern(
                 new PatternArgsItem(40, 60, i) { Max = 70 }, ElliottModelType.DIAGONAL_CONTRACTING_ENDING);
-            SaveChart(model.Candles, "Ending diagonal",
-                $"diagonal_ending_{i}_{GetTempString}", model);
+            SaveResultFiles(model);
         }
     }
 
@@ -131,8 +120,29 @@ public class PatternGenTests
         {
             ModelPattern model = m_PatternGenerator.GetPattern(
                 new PatternArgsItem(60, 40, i), ElliottModelType.ZIGZAG);
-            SaveChart(model.Candles, "Zigzag",
-                $"zigzag_{i}_{GetTempString}", model);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
+    public void FlatTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(60, 40, i), ElliottModelType.FLAT_REGULAR);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
+    public void RunningFlatTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(60, 40, i) {Max = 66, Min = 34}, ElliottModelType.FLAT_RUNNING);
+            SaveResultFiles(model);
         }
     }
 
@@ -146,13 +156,7 @@ public class PatternGenTests
                 ModelPattern model = m_PatternGenerator.GetPattern(
                     new PatternArgsItem(40, 60, i){Max = 61}, ElliottModelType.IMPULSE);
 
-                string fileName = $"img_imp_{i}_{GetTempString}";
-                SaveChart(model.Candles, "Impulse", fileName, model);
-                
-                string jsonFilePath = Path.Join(FOLDER_TO_SAVE, $"{fileName}.json");
-                string json = JsonConvert.SerializeObject(
-                    model.ToJson(m_PatternGenerator), Formatting.Indented);
-                File.WriteAllText(jsonFilePath, json);
+                SaveResultFiles(model);
             }
         }
     }

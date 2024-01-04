@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Plotly.NET;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TradeKit.Core;
@@ -498,31 +499,11 @@ namespace TradeKit.PatternGeneration
             m_ImpulseOnly = new[] { ElliottModelType.IMPULSE };
         }
 
-        private T WeightedRandomlySelect<T>(List<(T, double)> toSelect)
-        {
-            double cumulativeProbability = 0.0;
-            double sum = toSelect.Sum(a => a.Item2);
-            var items = new List<(T, double)>();
-            foreach ((T, double) toSelectItem in toSelect)
-            {
-                cumulativeProbability += toSelectItem.Item2 / sum;
-                items.Add((toSelectItem.Item1, cumulativeProbability));
-            }
-
-            double rnd = m_Random.NextDouble();
-            return items.First(a => a.Item2 >= rnd).Item1;
-        }
-
-        private ElliottModelType WeightedRandomlySelectModel(ElliottModelType[] models)
-        {
-            List<(ElliottModelType a, double ProbabilityCoefficient)> res = models
-                    .Select(a => (a, ModelRules[a].ProbabilityCoefficient))
-                    .ToList();
-            return WeightedRandomlySelect(res);
-        }
-
         public ModelPattern GetPattern(PatternArgsItem args, ElliottModelType model)
         {
+            if (args.BarsCount <= 0)
+                throw new ArgumentException(nameof(args.BarsCount));
+
             if (m_ModelGeneratorsMap.TryGetValue(model,
                     out Func<PatternArgsItem, ModelPattern> actionGen))
             {
@@ -727,9 +708,6 @@ namespace TradeKit.PatternGeneration
                 !arg.IsUp && bLimit <= arg.StartValue)
                 throw new ArgumentException(nameof(bLimit));
 
-            if (arg.BarsCount <= 0)
-                throw new ArgumentException(nameof(arg.BarsCount));
-
             List<ICandle> candles = arg.Candles;
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_EXTENDED, candles);
@@ -745,7 +723,7 @@ namespace TradeKit.PatternGeneration
             double cMinToA = waveCLengthMin / waveALength;
 
             double waveCLength = SelectRandomly(
-                MAP_EX_FLAT_WAVE_A_TO_C, cMinToA, cMaxToA) * waveALength;
+                MAP_EX_FLAT_WAVE_C_TO_A, cMinToA, cMaxToA) * waveALength;
 
             double waveB = arg.EndValue - arg.IsUpK * waveCLength;
 
@@ -755,17 +733,7 @@ namespace TradeKit.PatternGeneration
                 return modelPattern;
             }
 
-            double rndSplitPart = m_Random.NextDouble() * 0.2 - 0.1;
-
-            double barsA = 0.25 - rndSplitPart;
-            double barsB = 0.5 + rndSplitPart;
-            int[] bars4Gen = PatternGenKit.SplitNumber(
-                arg.BarsCount, new[]
-                {
-                    barsA,
-                    barsB,
-                    1 - barsA - barsB
-                });
+            int[] bars4Gen = SplitByTree(arg.BarsCount);
 
             FillPattern(arg, modelPattern, bars4Gen, 
                 new[] {waveA, waveB, arg.EndValue});
@@ -791,13 +759,39 @@ namespace TradeKit.PatternGeneration
         {
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_REGULAR, arg.Candles);
-
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
+            
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
-            //}
+            }
+
+            double bToA = RandomWithinRange(0.9, 1);
+            double cToA = SelectRandomly(MAP_REG_FLAT_WAVE_C_TO_A);
+            double waveALen = arg.Range / (1 - bToA + cToA);
+            double waveBLen = bToA * waveALen;
+
+            double waveA = arg.StartValue + arg.IsUpK * waveALen;
+            double waveB = waveA - arg.IsUpK * waveBLen;
+            double waveC = arg.EndValue;
+
+            int[] bars4Gen = SplitByTree(arg.BarsCount);
+
+            FillPattern(arg, modelPattern, bars4Gen, new []{ waveA, waveB, waveC });
+
+            double waveCLen = cToA * waveALen;
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(CORRECTION_C, CORRECTION_A,
+                        waveCLen / waveALen)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(CORRECTION_B, CORRECTION_A,
+                    modelPattern.PatternKeyPoints[1].Item2 / modelPattern.PatternKeyPoints[0].Item1));
+
+            return modelPattern;
         }
 
         private ModelPattern GetTripleZigzag(PatternArgsItem arg)
@@ -880,19 +874,8 @@ namespace TradeKit.PatternGeneration
             double waveBLen = waveALen * bToA;
             double waveB = waveA - arg.IsUpK * waveBLen;
             double waveC = arg.EndValue;
-
-            double rndSplitPart = m_Random.NextDouble() * 0.2 - 0.1;
-
-            double barsA = 0.25 - rndSplitPart;
-            double barsB = 0.5 + rndSplitPart;
-            int[] bars4Gen = PatternGenKit.SplitNumber(
-                arg.BarsCount, new[]
-                {
-                    barsA,
-                    barsB,
-                    1 - barsA - barsB
-                });
-
+            
+            int[] bars4Gen = SplitByTree(arg.BarsCount);
 
             ElliottModelType theAModel =
                 WeightedRandomlySelectModel(models[CORRECTION_A]);
@@ -958,15 +941,52 @@ namespace TradeKit.PatternGeneration
 
         private ModelPattern GetRunningFlat(PatternArgsItem arg)
         {
+            double bLimit = arg.IsUp ? arg.Min : arg.Max;
+            if (arg.IsUp && bLimit >= arg.StartValue ||
+                !arg.IsUp && bLimit <= arg.StartValue)
+                throw new ArgumentException(nameof(bLimit));
+
+            double aLimit = arg.IsUp ? arg.Max : arg.Min;
+            if (arg.IsUp && aLimit <= arg.EndValue ||
+                !arg.IsUp && aLimit >= arg.EndValue)
+                throw new ArgumentException(nameof(aLimit));
+
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_RUNNING, arg.Candles);
+            
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetCorrectiveRandomSet(arg);
+                return modelPattern;
+            }
 
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
+            double bToA = SelectRandomly(MAP_FLAT_WAVE_B_TO_A, double.MinValue,
+                Math.Abs((arg.Max - arg.Min) / (arg.StartValue - aLimit)));
+            double cToA = SelectRandomly(MAP_RUNNING_FLAT_WAVE_C_TO_A, double.MinValue,
+                Math.Abs((arg.EndValue - bLimit) / (arg.StartValue - aLimit)));
+
+            double waveALen = arg.Range / (1 - bToA + cToA);
+            double waveBLen = waveALen * bToA;
+            double waveA = arg.StartValue + arg.IsUpK * waveALen;
+            double waveB = waveA - arg.IsUpK * waveBLen;
+            double waveC = arg.EndValue;
+
+            int[] bars4Gen = SplitByTree(arg.BarsCount);
+            FillPattern(arg, modelPattern, bars4Gen, new[] {waveA, waveB, waveC});
+
+            double waveCLen = cToA * waveALen;
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(CORRECTION_C, CORRECTION_A,
+                        waveCLen / waveALen)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(CORRECTION_B, CORRECTION_A,
+                    modelPattern.PatternKeyPoints[1].Item2 / modelPattern.PatternKeyPoints[0].Item1));
+
             return modelPattern;
-            //}
         }
 
         private ModelPattern GetEndingDiagonal(PatternArgsItem arg)
@@ -1168,7 +1188,7 @@ namespace TradeKit.PatternGeneration
 
         #region Simple sets
 
-        public List<ICandle> GetSideRandomSet(
+        private List<ICandle> GetSideRandomSet(
             PatternArgsItem args, double runningPrice, double correctivePrice)
         {
             args.Max = Math.Max(runningPrice, correctivePrice);
@@ -1177,17 +1197,17 @@ namespace TradeKit.PatternGeneration
             return GetCorrectiveRandomSet(args);
         }
 
-        public List<ICandle> GetImpulseRandomSet(PatternArgsItem args)
+        private List<ICandle> GetImpulseRandomSet(PatternArgsItem args)
         {
             return GetRandomSet(args, 0.2);
         }
 
-        public List<ICandle> GetCorrectiveRandomSet(PatternArgsItem args)
+        private List<ICandle> GetCorrectiveRandomSet(PatternArgsItem args)
         {
             return GetRandomSet(args, m_Random.Next(2, 5), true);
         }
 
-        public List<ICandle> GetRandomSet(
+        private List<ICandle> GetRandomSet(
             PatternArgsItem args, double variance = 1, bool useFullRange = false)
         {
             List<ICandle> candles = args.Candles;
@@ -1323,13 +1343,47 @@ namespace TradeKit.PatternGeneration
                 new() { { 0, 0 }, { 5, 0.236 }, { 35, 0.382 }, { 85, 0.5 } };
 
         private static readonly
-            SortedDictionary<byte, double> MAP_EX_FLAT_WAVE_A_TO_C =
+            SortedDictionary<byte, double> MAP_EX_FLAT_WAVE_C_TO_A =
                 new() { { 0, 0 }, { 20, 1.618 }, { 80, 2.618 }, { 95, 3.618 } };
+
+        private static readonly
+            SortedDictionary<byte, double> MAP_REG_FLAT_WAVE_C_TO_A =
+                new() { { 0, 0 }, { 5, 1 }, { 80, 1.272 }, { 95, 1.618 } };
+
+        private static readonly
+            SortedDictionary<byte, double> MAP_FLAT_WAVE_B_TO_A =
+                new() { { 0, 0 }, { 5, 1 }, { 80, 1.272 }, { 95, 1.618 } };
+        private static readonly
+            SortedDictionary<byte, double> MAP_RUNNING_FLAT_WAVE_C_TO_A =
+                new() { { 0, 0 }, { 5, 0.5 }, { 20, 0.618 }, { 80, 1 }, { 90, 1.272 }, { 95, 1.618 } };
 
         #endregion
 
         #region Helpers
-        
+
+        private T WeightedRandomlySelect<T>(List<(T, double)> toSelect)
+        {
+            double cumulativeProbability = 0.0;
+            double sum = toSelect.Sum(a => a.Item2);
+            var items = new List<(T, double)>();
+            foreach ((T, double) toSelectItem in toSelect)
+            {
+                cumulativeProbability += toSelectItem.Item2 / sum;
+                items.Add((toSelectItem.Item1, cumulativeProbability));
+            }
+
+            double rnd = m_Random.NextDouble();
+            return items.First(a => a.Item2 >= rnd).Item1;
+        }
+
+        private ElliottModelType WeightedRandomlySelectModel(ElliottModelType[] models)
+        {
+            List<(ElliottModelType a, double ProbabilityCoefficient)> res = models
+                .Select(a => (a, ModelRules[a].ProbabilityCoefficient))
+                .ToList();
+            return WeightedRandomlySelect(res);
+        }
+
         private double Get4To2DurationRatio(
             ElliottModelType the2NdModel,
             ElliottModelType the4ThModel)
@@ -1498,6 +1552,28 @@ namespace TradeKit.PatternGeneration
             }
 
             return waveNext;
+        }
+
+        /// <summary>
+        /// Splits the bars for the 3-wave pattern.
+        /// </summary>
+        /// <param name="barsCount">The bars count.</param>
+        /// <returns>Split values</returns>
+        private int[] SplitByTree(int barsCount)
+        {
+            double rndSplitPart = m_Random.NextDouble() * 0.2 - 0.1;
+
+            double bars1 = 0.25 - rndSplitPart;
+            double bars2 = 0.5 + rndSplitPart;
+            int[] bars4Gen = PatternGenKit.SplitNumber(
+                barsCount, new[]
+                {
+                    bars1,
+                    bars2,
+                    1 - bars1 - bars2
+                });
+
+            return bars4Gen;
         }
 
         #endregion
