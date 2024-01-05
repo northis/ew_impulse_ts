@@ -493,7 +493,8 @@ namespace TradeKit.PatternGeneration
                 ElliottModelType.FLAT_RUNNING,
                 ElliottModelType.COMBINATION,
                 ElliottModelType.TRIANGLE_RUNNING,
-                ElliottModelType.TRIANGLE_EXPANDING
+                ElliottModelType.TRIANGLE_EXPANDING,
+                ElliottModelType.TRIANGLE_CONTRACTING
             };
 
             ModelRules impulse = ModelRules[ElliottModelType.IMPULSE];
@@ -677,14 +678,15 @@ namespace TradeKit.PatternGeneration
 
             double runningLimit3And5 = arg.IsUp ? arg.Max : arg.Min;
             FillPattern(arg, modelPattern, bars4Gen,
-                new[] {wave1, wave2, wave3, wave4, wave5}, null,
+                new[] {wave1, wave2, wave3, wave4, wave5},
+                new[] {arg.StartValue, wave1, wave2, wave3, wave4},
                 new[]
                 {
-                    double.NaN, 
+                    wave1,
                     wave4, // don't want the running part of the 2nd to exceed the 4th.
                     runningLimit3And5, // pass the truncation limit
-                    wave3,// can we allow the running part of the 4th wave exceed
-                    // the 3er wave?
+                    wave1, // can we allow the running part of the 4th wave exceed
+                    // the 3rd wave?
                     runningLimit3And5
                 });
 
@@ -741,9 +743,12 @@ namespace TradeKit.PatternGeneration
             }
 
             int[] bars4Gen = SplitByTree(arg.BarsCount);
+            double waveC = arg.EndValue;
 
-            FillPattern(arg, modelPattern, bars4Gen, 
-                new[] {waveA, waveB, arg.EndValue});
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveA, waveB, waveC},
+                new[] {waveC, waveB, arg.IsUp ? arg.Max : arg.Min },
+                new[] {waveB, waveC, waveB });
 
             double waveBLength = Math.Abs(waveA - waveB);
             modelPattern.LengthRatios.AddRange(
@@ -784,7 +789,10 @@ namespace TradeKit.PatternGeneration
 
             int[] bars4Gen = SplitByTree(arg.BarsCount);
 
-            FillPattern(arg, modelPattern, bars4Gen, new []{ waveA, waveB, waveC });
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveA, waveB, waveC},
+                new[] {arg.StartValue, waveC, arg.IsUp ? arg.Max : arg.Min},
+                new[] {waveC, arg.StartValue, waveB});
 
             double waveCLen = cToA * waveALen;
             modelPattern.LengthRatios.AddRange(
@@ -832,7 +840,7 @@ namespace TradeKit.PatternGeneration
 
             double waveWLen = arg.Range / (1 - xToW + yToW - yToW * xxToY + zToW);
             double waveYLen = waveWLen * yToW;
-            double waveZLen = waveWLen * zToW;
+            //double waveZLen = waveWLen * zToW;
             double waveW = arg.StartValue + arg.IsUpK * waveWLen;
             double waveX = waveW - arg.IsUpK * waveWLen * xToW;
             double waveY = waveX + arg.IsUpK * waveYLen;
@@ -841,8 +849,10 @@ namespace TradeKit.PatternGeneration
 
             int[] bars4Gen = SplitByN(arg.BarsCount, 5);
 
-            FillPattern(arg, modelPattern, bars4Gen, 
-                new[] { waveW, waveX, waveY, waveXx, waveZ });
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveW, waveX, waveY, waveXx, waveZ},
+                new[] {waveW, arg.StartValue, waveY, waveX, waveXx},
+                new[] {arg.StartValue, waveY, waveX, waveZ, waveZ});
 
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -920,7 +930,10 @@ namespace TradeKit.PatternGeneration
             double waveY = arg.EndValue;
 
             int[] bars4Gen = SplitByTree(arg.BarsCount);
-            FillPattern(arg, modelPattern, bars4Gen, new[] { waveW, waveX, waveY });
+            FillPattern(arg, modelPattern, bars4Gen, 
+                new[] { waveW, waveX, waveY },
+                new[] { waveW, arg.StartValue, waveX },
+                new[] { arg.StartValue, waveY, waveY });
 
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -986,8 +999,11 @@ namespace TradeKit.PatternGeneration
             ElliottModelType theCModel = WeightedRandomlySelectModel(modelsForC);
 
             ElliottModelType[] definedModels = {theAModel, theModelB, theCModel};
-            FillPattern(arg, modelPattern, bars4Gen, 
-                new[] {waveA, waveB, waveC}, definedModels);
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveA, waveB, waveC},
+                new[] {waveA, arg.StartValue, arg.IsUp ? arg.Max : arg.Min},
+                new[] {arg.StartValue, waveC, waveB}, 
+                definedModels);
 
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -1020,13 +1036,16 @@ namespace TradeKit.PatternGeneration
         {
             var modelPattern = new ModelPattern(
                 ElliottModelType.TRIANGLE_CONTRACTING, arg.Candles);
+            
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetCorrectiveRandomSet(arg);
+                return modelPattern;
+            }
 
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
+
+
             return modelPattern;
-            //}
         }
 
         private ModelPattern GetRunningFlat(PatternArgsItem arg)
@@ -1062,7 +1081,10 @@ namespace TradeKit.PatternGeneration
             double waveC = arg.EndValue;
 
             int[] bars4Gen = SplitByTree(arg.BarsCount);
-            FillPattern(arg, modelPattern, bars4Gen, new[] {waveA, waveB, waveC});
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveA, waveB, waveC},
+                new[] {arg.IsUp ? arg.Max : arg.Min, arg.Min, waveB},
+                new[] {waveB, arg.Max, arg.IsUp ? arg.Max : arg.Min});
 
             double waveCLen = cToA * waveALen;
             modelPattern.LengthRatios.AddRange(
@@ -1143,9 +1165,11 @@ namespace TradeKit.PatternGeneration
                     1 - bars1Prop - bars2Prop - bars3Prop - bars4Prop
                 });
 
+            double wave5 = arg.EndValue;
             FillPattern(arg, modelPattern, bars4Gen,
-                new[] { wave1, wave2, wave3, wave4, arg.EndValue });
-
+                new[] {wave1, wave2, wave3, wave4, wave5},
+                new[] {wave1, wave2, wave5, wave4, arg.IsUp ? arg.Max : arg.Min},
+                new[] {arg.StartValue, wave1, wave2, wave3, wave3});
 
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -1378,8 +1402,9 @@ namespace TradeKit.PatternGeneration
             ModelPattern pattern,
             int[] bars4Gen,
             double[] values,
-            ElliottModelType[] definedModels = null,
-            double[] runningLimits = null)
+            double[] directLimits,// middle points in the wave direction cannot be beyond this values
+            double[] backLimits,// middle points in the opposite of the wave direction  cannot be beyond this values
+            ElliottModelType[] definedModels = null)
         {
             Dictionary<string, ElliottModelType[]> models =
                 ModelRules[pattern.Model].Models;
@@ -1404,30 +1429,8 @@ namespace TradeKit.PatternGeneration
                     ? WeightedRandomlySelectModel(models[keys[i]])
                     : definedModels[i];
 
-                bool useRunningLimits = runningLimits != null &&
-                                        !double.IsNaN(runningLimits[i]);
-                if (i < values.Length - 1 && m_RunningCorrections.Contains(model))
-                {
-                    // running part usually don't reach the next wave,
-                    // so we won't make it to happen.
-                    if (waveArg.IsUp)
-                        waveArg.Min = useRunningLimits
-                            ? runningLimits[i]
-                            : values[i + 1];
-                    else
-                        waveArg.Max = useRunningLimits
-                            ? runningLimits[i]
-                            : values[i + 1];
-                }
-
-                // We want to handle truncated limits
-                if (useRunningLimits && m_TruncatedImpulses.Contains(model))
-                {
-                    if (waveArg.IsUp)
-                        waveArg.Max = runningLimits[i];
-                    else
-                        waveArg.Min = runningLimits[i];
-                }
+                waveArg.Max = Math.Max(directLimits[i], backLimits[i]);
+                waveArg.Min = Math.Min(directLimits[i], backLimits[i]);
 
                 ModelPattern modelWave = GetPattern(waveArg, model);
                 pattern.ChildModelPatterns.Add(modelWave);
