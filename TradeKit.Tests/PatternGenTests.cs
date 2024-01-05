@@ -158,6 +158,17 @@ public class PatternGenTests
     }
 
     [Test]
+    public void TriangleTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(70, 90, i) {Max = 120}, ElliottModelType.TRIANGLE_CONTRACTING);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
     public void RunningFlatTest()
     {
         for (int i = 15; i <= 15; i++)

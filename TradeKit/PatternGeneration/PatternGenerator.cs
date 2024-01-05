@@ -1034,6 +1034,12 @@ namespace TradeKit.PatternGeneration
 
         private ModelPattern GetContractingTriangle(PatternArgsItem arg)
         {
+            double aLimit = arg.IsUp ? arg.Max : arg.Min;
+
+            if (arg.IsUp && aLimit <= arg.EndValue ||
+                !arg.IsUp && aLimit >= arg.EndValue)
+                throw new ArgumentException(nameof(arg));
+
             var modelPattern = new ModelPattern(
                 ElliottModelType.TRIANGLE_CONTRACTING, arg.Candles);
             
@@ -1043,7 +1049,70 @@ namespace TradeKit.PatternGeneration
                 return modelPattern;
             }
 
+            double waveE = arg.EndValue;
 
+            double addRange = Math.Abs(arg.StartValue - aLimit);
+            double restRange = Math.Abs(waveE - aLimit);
+            double startAddRange =
+                MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS * restRange / addRange;
+            double endAddRange = addRange - restRange * MAIN_ALLOWANCE_MAX_RATIO;
+
+            double doubleRange = arg.Range * 2;
+            double aWaveLen = doubleRange < endAddRange
+                ? PatternGenKit.GetNormalDistributionNumber(m_Random, startAddRange, endAddRange, doubleRange)
+                : RandomWithinRange(startAddRange, endAddRange);
+
+            double waveA = arg.StartValue + arg.IsUpK * aWaveLen;
+            double waveADiffE = Math.Abs(waveA - waveE);
+            
+            double bToA = SelectRandomly(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, 
+                (waveADiffE + arg.Range * MAIN_ALLOWANCE_MAX_RATIO) / aWaveLen,
+                (waveADiffE + arg.Range * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / aWaveLen);
+
+            double bWaveLen = bToA * aWaveLen;
+            double waveB = waveA - arg.IsUpK * bWaveLen;
+            double waveBDiffE = Math.Abs(waveB - waveE);
+            
+            double cToB = SelectRandomly(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV,
+                (waveBDiffE + waveADiffE * MAIN_ALLOWANCE_MAX_RATIO) / bWaveLen,
+                (waveBDiffE + waveADiffE * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / bWaveLen);
+
+            double cWaveLen = cToB * bWaveLen;
+            double waveC = waveB + arg.IsUpK * cWaveLen;
+            double waveCDiffE = Math.Abs(waveC - waveE);
+
+            double dToC = SelectRandomly(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV,
+                (waveCDiffE + waveBDiffE * MAIN_ALLOWANCE_MAX_RATIO) / bWaveLen,
+                (waveCDiffE + waveBDiffE * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / bWaveLen);
+            double dWaveLen = dToC * cWaveLen;
+            double waveD = waveC - arg.IsUpK * dWaveLen;
+            
+            int[] bars4Gen = PatternGenKit.SplitNumber(
+                arg.BarsCount, new[]
+                {
+                    0.35 * RandomBigRatio(),
+                    0.25 * RandomBigRatio(),
+                    0.15 * RandomBigRatio(),
+                    0.15 * RandomBigRatio(),
+                    0.10 * RandomBigRatio()
+                });
+
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveA, waveB, waveC, waveD, waveE},
+                new[] {waveA, waveB, waveC, waveD, waveE},
+                new[] {arg.StartValue, waveA, waveB, waveC, waveD});
+
+            double eWaveLen = Math.Abs(waveD - waveE);
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(CORRECTION_E, CORRECTION_A,
+                        eWaveLen / aWaveLen)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(CORRECTION_E, CORRECTION_A,
+                    (double) bars4Gen[4] / bars4Gen[0]));
 
             return modelPattern;
         }
@@ -1389,9 +1458,14 @@ namespace TradeKit.PatternGeneration
         private static readonly
             SortedDictionary<byte, double> MAP_FLAT_WAVE_B_TO_A =
                 new() { { 0, 0 }, { 5, 1 }, { 80, 1.272 }, { 95, 1.618 } };
+
         private static readonly
             SortedDictionary<byte, double> MAP_RUNNING_FLAT_WAVE_C_TO_A =
                 new() { { 0, 0 }, { 5, 0.5 }, { 20, 0.618 }, { 80, 1 }, { 90, 1.272 }, { 95, 1.618 } };
+
+        private static readonly
+            SortedDictionary<byte, double> MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV =
+                new() { { 0, 0 }, { 5, 0.5 }, { 20, 0.618 }, { 80, 0.786 }, { 90, 0.9 }, { 95, 0.95 } };
 
         #endregion
 
@@ -1598,6 +1672,11 @@ namespace TradeKit.PatternGeneration
                 MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS);
         }
 
+        private double RandomBigRatio()
+        {
+            return RandomWithinRange(0.7, 1.4);
+        }
+
         private double RandomWithinRange(double one, double two)
         {
             double min = Math.Min(one, two);
@@ -1649,7 +1728,6 @@ namespace TradeKit.PatternGeneration
         /// <returns>Split values</returns>
         private int[] SplitByN(int barsCount, int parts)
         {
-
             double Fraction() => RandomRatio() / parts;
             double[] dbl = new double[parts];
 
