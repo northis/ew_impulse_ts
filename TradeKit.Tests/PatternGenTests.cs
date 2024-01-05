@@ -169,6 +169,28 @@ public class PatternGenTests
     }
 
     [Test]
+    public void TriangleRunningTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(70, 90, i) { Max = 120, Min = 50}, ElliottModelType.TRIANGLE_RUNNING);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
+    public void TriangleExpandingTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(70, 90, i) { Min = 50 }, ElliottModelType.TRIANGLE_EXPANDING);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
     public void RunningFlatTest()
     {
         for (int i = 15; i <= 15; i++)

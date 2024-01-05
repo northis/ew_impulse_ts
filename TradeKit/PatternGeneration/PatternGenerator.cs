@@ -875,15 +875,74 @@ namespace TradeKit.PatternGeneration
 
         private ModelPattern GetExpandingTriangle(PatternArgsItem arg)
         {
+            double dLimit = arg.IsUp ? arg.Min : arg.Max;
+            if (arg.IsUp && dLimit >= arg.StartValue ||
+                !arg.IsUp && dLimit <= arg.StartValue)
+                throw new ArgumentException(nameof(arg));
+
             var modelPattern = new ModelPattern(
                 ElliottModelType.TRIANGLE_EXPANDING, arg.Candles);
+            
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetCorrectiveRandomSet(arg);
+                return modelPattern;
+            }
 
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
+            double waveALen = arg.Range * RandomWithinRange(0.2, 0.7);
+            double waveA = arg.StartValue + arg.IsUpK * waveALen;
+            double waveE = arg.EndValue;
+
+            double waveDMaxAdd = Math.Abs(arg.StartValue - dLimit);
+            double bToA = SelectRandomly(MAP_EXPANDING_TRIANGLE_WAVE_NEXT_TO_PREV,
+                (waveALen + waveDMaxAdd * MAIN_ALLOWANCE_MAX_RATIO) / waveALen,
+                (waveALen + waveDMaxAdd / 2) / waveALen);
+            double waveBLen = waveALen * bToA;
+            double waveB = waveA - arg.IsUpK * waveBLen;
+
+            double waveAToE = Math.Abs(waveA - waveE);
+            double cToB = SelectRandomly(MAP_EXPANDING_TRIANGLE_WAVE_NEXT_TO_PREV,
+                (waveBLen + waveAToE * MAIN_ALLOWANCE_MAX_RATIO) / waveBLen,
+                (waveBLen + waveAToE*MAIN_ALLOWANCE_MAX_RATIO_INVERT) / waveBLen);
+            double waveCLen = waveBLen * cToB;
+            
+            double waveBMaxAdd = Math.Abs(waveB - dLimit);
+            double waveC = waveB + arg.IsUpK * waveCLen;
+            double dToC = SelectRandomly(MAP_EXPANDING_TRIANGLE_WAVE_NEXT_TO_PREV,
+                (waveCLen + waveBMaxAdd * MAIN_ALLOWANCE_MAX_RATIO) / waveCLen,
+                (waveCLen + waveBMaxAdd * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / waveCLen);
+
+            double waveDLen = waveCLen * dToC;
+            double waveD = waveC - arg.IsUpK * waveDLen;
+
+            int[] bars4Gen = PatternGenKit.SplitNumber(
+                arg.BarsCount, new[]
+                {
+                    0.10 * RandomBigRatio(),
+                    0.15 * RandomBigRatio(),
+                    0.15 * RandomBigRatio(),
+                    0.25 * RandomBigRatio(),
+                    0.35 * RandomBigRatio()
+                });
+
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveA, waveB, waveC, waveD, waveE},
+                new[] {waveA, waveB, waveC, waveD, waveE},
+                new[] {arg.StartValue, waveA, waveB, waveC, waveD });
+
+            double eWaveLen = Math.Abs(waveD - waveE);
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(CORRECTION_E, CORRECTION_A,
+                        eWaveLen / waveALen)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(CORRECTION_E, CORRECTION_A,
+                    (double)bars4Gen[4] / bars4Gen[0]));
+
             return modelPattern;
-            //}
         }
 
         private ModelPattern GetCombination(PatternArgsItem arg)
@@ -1021,18 +1080,33 @@ namespace TradeKit.PatternGeneration
 
         private ModelPattern GetRunningTriangle(PatternArgsItem arg)
         {
+            double bLimit = arg.IsUp ? arg.Min : arg.Max;
+            if (arg.IsUp && bLimit >= arg.StartValue ||
+                !arg.IsUp && bLimit <= arg.StartValue)
+                throw new ArgumentException(nameof(arg));
+
             var modelPattern = new ModelPattern(
                 ElliottModelType.TRIANGLE_RUNNING, arg.Candles);
+            
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetCorrectiveRandomSet(arg);
+                return modelPattern;
+            }
 
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
+            modelPattern = GetContractingTriangle(arg, true,
+                ElliottModelType.TRIANGLE_RUNNING);
             return modelPattern;
-            //}
         }
 
         private ModelPattern GetContractingTriangle(PatternArgsItem arg)
+        {
+            return GetContractingTriangle(arg, false, 
+                ElliottModelType.TRIANGLE_CONTRACTING);
+        }
+
+        private ModelPattern GetContractingTriangle(
+            PatternArgsItem arg, bool useRunning, ElliottModelType model)
         {
             double aLimit = arg.IsUp ? arg.Max : arg.Min;
 
@@ -1040,8 +1114,7 @@ namespace TradeKit.PatternGeneration
                 !arg.IsUp && aLimit >= arg.EndValue)
                 throw new ArgumentException(nameof(arg));
 
-            var modelPattern = new ModelPattern(
-                ElliottModelType.TRIANGLE_CONTRACTING, arg.Candles);
+            var modelPattern = new ModelPattern(model, arg.Candles);
             
             if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
             {
@@ -1064,10 +1137,21 @@ namespace TradeKit.PatternGeneration
 
             double waveA = arg.StartValue + arg.IsUpK * aWaveLen;
             double waveADiffE = Math.Abs(waveA - waveE);
-            
+
+            double runningPoint = arg.IsUp ? arg.Min : arg.Max;
+            double rangeBLen = Math.Abs(arg.EndValue - runningPoint);
+            double rangeBLenMin = useRunning 
+                ? arg.Range 
+                : rangeBLen * MAIN_ALLOWANCE_MAX_RATIO;
+
+            double rangeBLenMax = useRunning
+                ? arg.Range +
+                  Math.Abs(arg.StartValue - runningPoint) * MAIN_ALLOWANCE_MAX_RATIO_INVERT
+                : rangeBLen * MAIN_ALLOWANCE_MAX_RATIO_INVERT;
+
             double bToA = SelectRandomly(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, 
-                (waveADiffE + arg.Range * MAIN_ALLOWANCE_MAX_RATIO) / aWaveLen,
-                (waveADiffE + arg.Range * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / aWaveLen);
+                (waveADiffE + rangeBLenMin) / aWaveLen,
+                (waveADiffE + rangeBLenMax) / aWaveLen);
 
             double bWaveLen = bToA * aWaveLen;
             double waveB = waveA - arg.IsUpK * bWaveLen;
@@ -1096,11 +1180,27 @@ namespace TradeKit.PatternGeneration
                     0.15 * RandomBigRatio(),
                     0.10 * RandomBigRatio()
                 });
+            
+            Dictionary<string, ElliottModelType[]> models = 
+                ModelRules[modelPattern.Model].Models;
+
+            bool allowTriangleInE = m_Random.NextDouble() < 0.01;
+            ElliottModelType[] patterns = 
+            {
+                WeightedRandomlySelectModel(models[CORRECTION_A]),
+                WeightedRandomlySelectModel(models[CORRECTION_B]),
+                WeightedRandomlySelectModel(models[CORRECTION_C]),
+                WeightedRandomlySelectModel(models[CORRECTION_D]),
+                allowTriangleInE
+                    ? ElliottModelType.TRIANGLE_CONTRACTING
+                    : WeightedRandomlySelectModel(models[CORRECTION_E]),
+            }; // We can allow only one dzz here, but looks like we don't need to.
 
             FillPattern(arg, modelPattern, bars4Gen,
                 new[] {waveA, waveB, waveC, waveD, waveE},
-                new[] {waveA, waveB, waveC, waveD, waveE},
-                new[] {arg.StartValue, waveA, waveB, waveC, waveD});
+                new[] {waveA, waveB, waveC, waveD, allowTriangleInE ? waveC : waveD},
+                new[] {arg.StartValue, waveA, waveB, waveC, waveD},
+                patterns);
 
             double eWaveLen = Math.Abs(waveD - waveE);
             modelPattern.LengthRatios.AddRange(
@@ -1466,6 +1566,10 @@ namespace TradeKit.PatternGeneration
         private static readonly
             SortedDictionary<byte, double> MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV =
                 new() { { 0, 0 }, { 5, 0.5 }, { 20, 0.618 }, { 80, 0.786 }, { 90, 0.9 }, { 95, 0.95 } };
+
+        private static readonly
+            SortedDictionary<byte, double> MAP_EXPANDING_TRIANGLE_WAVE_NEXT_TO_PREV =
+                new() { { 0, 0 }, { 5, 1.272 }, { 30, 1.618 }, { 80, 2.618 }, { 95, 3.618 } };
 
         #endregion
 
