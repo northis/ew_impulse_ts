@@ -39,6 +39,8 @@
     <Compile Include="PatternGeneration\LengthRatio.cs" />
     <Compile Include="PatternGeneration\DurationRatio.cs" />
     <Compile Include="PatternGeneration\ModelPattern.cs" />
+    <Compile Include="PatternGeneration\NotationHelper.cs" />
+    <Compile Include="PatternGeneration\NotationItem.cs" />
     <Compile Include="PatternGeneration\PatternArgsItem.cs" />
     <Compile Include="PatternGeneration\PatternGenerator.cs" />
     <Compile Include="AlgoBase\PivotPointsFinder.cs" />
@@ -71,6 +73,7 @@
     <Compile Include="ML\MachineLearning.cs" />
     <Compile Include="ML\Prediction.cs" />
     <Compile Include="PatternGeneration\PatternGenKit.cs" />
+    <Compile Include="PatternGeneration\PatternManager.cs" />
     <Compile Include="PriceAction\CandlePatternSettings.cs" />
     <Compile Include="PriceAction\CandlePatternType.cs" />
     <Compile Include="PriceAction\CandlesResult.cs" />

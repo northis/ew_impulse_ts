@@ -1,16 +1,16 @@
-﻿using Plotly.NET;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
-using static Plotly.NET.StyleParam.Range;
 
 namespace TradeKit.PatternGeneration
 {
     public class PatternGenerator
     {
+        #region Fields & consts
+
         private readonly Random m_Random;
         private const int SIMPLE_BARS_THRESHOLD = 10;
         private const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
@@ -34,7 +34,8 @@ namespace TradeKit.PatternGeneration
         public const string CORRECTION_XX = "xx";
         public const string CORRECTION_Z = "z";
 
-        public Dictionary<ElliottModelType, ModelRules> ModelRules { get; private set; }
+        public static Dictionary<ElliottModelType, ModelRules> ModelRules 
+        { get; private set; }
 
         private Dictionary<ElliottModelType, Func<PatternArgsItem, ModelPattern>> m_ModelGeneratorsMap;
 
@@ -42,7 +43,6 @@ namespace TradeKit.PatternGeneration
         private HashSet<ElliottModelType> m_DeepCorrections;
         private HashSet<ElliottModelType> m_DiagonalImpulses;
         private HashSet<ElliottModelType> m_TruncatedImpulses;
-        private HashSet<ElliottModelType> m_RunningCorrections;
 
         private HashSet<ElliottModelType> m_Wave1Impulse;
         private HashSet<ElliottModelType> m_Wave2Impulse;
@@ -50,13 +50,22 @@ namespace TradeKit.PatternGeneration
         private HashSet<ElliottModelType> m_Wave5Impulse;
         private ElliottModelType[] m_ImpulseOnly;
 
+        #endregion
+
+        static PatternGenerator()
+        {
+            InitModelRulesStatic();
+        }
+
         public PatternGenerator()
         {
             InitModelRules();
             m_Random = new Random();
         }
 
-        private void InitModelRules()
+        #region Models init
+
+        private static void InitModelRulesStatic()
         {
             ModelRules = new Dictionary<ElliottModelType, ModelRules>
             {
@@ -419,27 +428,31 @@ namespace TradeKit.PatternGeneration
             };
 
             ModelRules[ElliottModelType.FLAT_REGULAR] =
-                ModelRules[ElliottModelType.FLAT_EXTENDED] with 
-                    {ProbabilityCoefficient = 0.0005 };
+                ModelRules[ElliottModelType.FLAT_EXTENDED] with
+                { ProbabilityCoefficient = 0.0005 };
 
             ModelRules[ElliottModelType.FLAT_RUNNING] =
                 ModelRules[ElliottModelType.FLAT_EXTENDED];
 
             ModelRules[ElliottModelType.TRIANGLE_EXPANDING] =
                 ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
-                    { ProbabilityCoefficient = 0.001 };
+                { ProbabilityCoefficient = 0.001 };
 
             ModelRules[ElliottModelType.DIAGONAL_EXPANDING_INITIAL] =
                 ModelRules[ElliottModelType.DIAGONAL_CONTRACTING_INITIAL] with
-                    { ProbabilityCoefficient = 0.01 };
+                { ProbabilityCoefficient = 0.01 };
 
             ModelRules[ElliottModelType.DIAGONAL_EXPANDING_ENDING] =
                 ModelRules[ElliottModelType.DIAGONAL_CONTRACTING_ENDING] with
-                    { ProbabilityCoefficient = 0.0001 };
-            
+                { ProbabilityCoefficient = 0.0001 };
+
             ModelRules[ElliottModelType.TRIANGLE_RUNNING] =
                 ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
-                    { ProbabilityCoefficient = 0.1 };
+                { ProbabilityCoefficient = 0.1 };
+        }
+
+        private void InitModelRules()
+        {
 
             m_ModelGeneratorsMap = new Dictionary<ElliottModelType, 
                 Func<PatternArgsItem, ModelPattern>>
@@ -488,16 +501,6 @@ namespace TradeKit.PatternGeneration
                 ElliottModelType.DIAGONAL_CONTRACTING_ENDING
             };
 
-            m_RunningCorrections = new HashSet<ElliottModelType>
-            {
-                ElliottModelType.FLAT_EXTENDED,
-                ElliottModelType.FLAT_RUNNING,
-                ElliottModelType.COMBINATION,
-                ElliottModelType.TRIANGLE_RUNNING,
-                ElliottModelType.TRIANGLE_EXPANDING,
-                ElliottModelType.TRIANGLE_CONTRACTING
-            };
-
             ModelRules impulse = ModelRules[ElliottModelType.IMPULSE];
             m_Wave1Impulse = impulse.Models[IMPULSE_ONE].ToHashSet();
             m_Wave2Impulse = impulse.Models[IMPULSE_TWO].ToHashSet();
@@ -507,6 +510,16 @@ namespace TradeKit.PatternGeneration
             m_ImpulseOnly = new[] { ElliottModelType.IMPULSE };
         }
 
+        #endregion
+
+        /// <summary>
+        /// Gets the pattern according by the passed data.
+        /// </summary>
+        /// <param name="args">The arguments.</param>
+        /// <param name="model">The model type.</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException">BarsCount</exception>
+        /// <exception cref="NotSupportedException">Not supported model {model}</exception>
         public ModelPattern GetPattern(PatternArgsItem args, ElliottModelType model)
         {
             if (args.BarsCount <= 0)
