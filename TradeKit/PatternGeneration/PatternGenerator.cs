@@ -5,6 +5,7 @@ using System.Linq;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
+using static Plotly.NET.StyleParam.Range;
 
 namespace TradeKit.PatternGeneration
 {
@@ -947,15 +948,77 @@ namespace TradeKit.PatternGeneration
 
         private ModelPattern GetCombination(PatternArgsItem arg)
         {
+            if (arg.IsUp && arg.Min >= arg.StartValue ||
+                !arg.IsUp && arg.Max <= arg.StartValue)
+                throw new ArgumentException(nameof(arg));
+
+            if (arg.IsUp && arg.Max <= arg.EndValue ||
+                !arg.IsUp && arg.Min >= arg.EndValue)
+                throw new ArgumentException(nameof(arg));
+
+
             var modelPattern = new ModelPattern(
                 ElliottModelType.COMBINATION, arg.Candles);
+            
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetCorrectiveRandomSet(arg);
+                return modelPattern;
+            }
 
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
+            double max = arg.Max;
+            double min = arg.Min;
+
+            double localMax = Math.Max(arg.EndValue, arg.StartValue);
+            double localMin = Math.Min(arg.EndValue, arg.StartValue);
+            if (Math.Abs(localMax - arg.Max) > arg.Range) max = localMax + arg.Range;
+            if (Math.Abs(localMin - arg.Min) > arg.Range) min = localMin - arg.Range;
+            
+            double maxWaveWLen = Math.Abs(arg.StartValue - (arg.IsUp ? max : min));
+            double waveWLen = maxWaveWLen * RandomWithinRange(
+                0.3, MAIN_ALLOWANCE_MAX_RATIO_INVERT);
+
+            double waveW = arg.StartValue + arg.IsUpK * waveWLen;
+            double maxWaveXLen = Math.Abs(waveW - (arg.IsUp ? min : max));
+            double waveXLen = maxWaveXLen * RandomWithinRange(
+                0.3, MAIN_ALLOWANCE_MAX_RATIO_INVERT);
+
+            double waveX = waveW - arg.IsUpK * waveXLen;
+            double waveY = arg.EndValue;
+            Dictionary<string, ElliottModelType[]> models =
+                ModelRules[modelPattern.Model].Models;
+
+            ElliottModelType modelW = WeightedRandomlySelectModel(models[CORRECTION_W]);
+            ElliottModelType modelX = WeightedRandomlySelectModel(models[CORRECTION_X]);
+            ElliottModelType modelY = WeightedRandomlySelectModel(models[CORRECTION_Y]);
+
+            int[] bars4Gen = PatternGenKit.SplitNumber(
+                arg.BarsCount, new[]
+                {
+                    (m_ShallowCorrections.Contains(modelW) ? 0.35 : 0.2) * RandomBigRatio(),
+                    (m_ShallowCorrections.Contains(modelX) ? 0.35 : 0.2) * RandomBigRatio(),
+                    (m_ShallowCorrections.Contains(modelY) ? 0.35 : 0.2) * RandomBigRatio(),
+                });
+
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveW, waveX, waveY},
+                new[] {max, max, max},
+                new[] {min, min, min},
+                new[] {modelW, modelX, modelY});
+
+            double waveYLen = Math.Abs(waveY - waveX);
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(CORRECTION_Y, CORRECTION_W, waveYLen / waveWLen),
+                    new LengthRatio(CORRECTION_X, CORRECTION_W, waveXLen / waveWLen)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(CORRECTION_Y, CORRECTION_W,
+                    (double) bars4Gen[2] / bars4Gen[0]));
+
             return modelPattern;
-            //}
         }
 
         private ModelPattern GetDoubleZigzag(PatternArgsItem arg)
@@ -969,6 +1032,7 @@ namespace TradeKit.PatternGeneration
                 return modelPattern;
             }
             
+            // TODO o-x line?
             Dictionary<string, ElliottModelType[]> models
                 = ModelRules[modelPattern.Model].Models;
             ElliottModelType theModelX = WeightedRandomlySelectModel(models[CORRECTION_X]);
@@ -1003,7 +1067,7 @@ namespace TradeKit.PatternGeneration
 
             modelPattern.DurationRatios.Add(
                 new DurationRatio(CORRECTION_Y, CORRECTION_W,
-                    modelPattern.PatternKeyPoints[2].Item2 / modelPattern.PatternKeyPoints[0].Item1));
+                    (double)bars4Gen[2] / bars4Gen[0]));
 
             return modelPattern;
         }
@@ -1367,31 +1431,29 @@ namespace TradeKit.PatternGeneration
 
             return GetDiagonal(arg, modelPattern);
         }
-        
+
+        private ModelPattern GetExpandingDiagonal(
+            PatternArgsItem arg, ElliottModelType model)
+        {
+            var modelPattern = new ModelPattern(model, arg.Candles);
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            {
+                GetCorrectiveRandomSet(arg);
+                return modelPattern;
+            }
+
+
+            return modelPattern;
+        }
+
         private ModelPattern GetInitialExpandingDiagonal(PatternArgsItem arg)
         {
-            var modelPattern = new ModelPattern(
-                ElliottModelType.DIAGONAL_EXPANDING_INITIAL, arg.Candles);
-
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
-            return modelPattern;
-            //}
+            return GetExpandingDiagonal(arg, ElliottModelType.DIAGONAL_EXPANDING_INITIAL);
         }
 
         private ModelPattern GetEndingExpandingDiagonal(PatternArgsItem arg)
         {
-            var modelPattern = new ModelPattern(
-                ElliottModelType.DIAGONAL_EXPANDING_ENDING, arg.Candles);
-
-            // TODO
-            //if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
-            //{
-            GetCorrectiveRandomSet(arg);
-            return modelPattern;
-            //}
+            return GetExpandingDiagonal(arg, ElliottModelType.DIAGONAL_EXPANDING_ENDING);
         }
 
         #endregion
@@ -1425,8 +1487,8 @@ namespace TradeKit.PatternGeneration
             {
                 var cdl = new JsonCandleExport
                 {
-                    H = args.Max,
-                    L = args.Min,
+                    H = Math.Round(args.Max, args.Accuracy),
+                    L = Math.Round(args.Min, args.Accuracy)
                 };
 
                 FillBorderCandlesStart(args, cdl);

@@ -191,6 +191,17 @@ public class PatternGenTests
     }
 
     [Test]
+    public void CombinationTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(70, 90, i) { Min = 50, Max = 110 }, ElliottModelType.COMBINATION);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
     public void RunningFlatTest()
     {
         for (int i = 15; i <= 15; i++)
