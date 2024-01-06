@@ -114,6 +114,21 @@ public class PatternGenTests
     }
 
     [Test]
+    public void ExpandingDiagonalTest()
+    {
+        for (int i = 15; i <= 15; i++)
+        {
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_EXPANDING_INITIAL);
+            SaveResultFiles(model);
+
+            model = m_PatternGenerator.GetPattern(
+                new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_EXPANDING_ENDING);
+            SaveResultFiles(model);
+        }
+    }
+
+    [Test]
     public void ZigzagTest()
     {
         for (int i = 15; i <= 15; i++)

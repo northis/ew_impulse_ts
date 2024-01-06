@@ -1442,7 +1442,54 @@ namespace TradeKit.PatternGeneration
                 return modelPattern;
             }
 
+            double wave1Len = arg.Range * RandomWithinRange(0.1, 0.4);
+            double wave1 = arg.StartValue + arg.IsUpK * wave1Len;
+            double wave5 = arg.EndValue;
 
+            double wave2Len = wave1Len * SelectRandomly(MAP_DEEP_CORRECTION);
+            double wave2 = wave1 - arg.IsUpK * wave2Len;
+
+            double wave1RestLen = Math.Abs(wave1 - wave5);
+
+            // we use ratios for the expanded triangle
+            double wave3Len = wave1Len * SelectRandomly(MAP_EXPANDING_TRIANGLE_WAVE_NEXT_TO_PREV,
+                (wave1Len + wave1RestLen * MAIN_ALLOWANCE_MAX_RATIO) / wave1Len,
+                (wave1Len + wave1RestLen * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / wave1Len);
+
+            double wave3 = wave2 + arg.IsUpK * wave3Len;
+
+            double wave3Minus2 = Math.Abs(wave3Len - wave2Len);
+            double wave4Len = wave2Len * SelectRandomly(MAP_EXPANDING_TRIANGLE_WAVE_NEXT_TO_PREV,
+                (wave2Len + wave3Minus2 * MAIN_ALLOWANCE_MAX_RATIO) / wave2Len,
+                (wave2Len + wave3Minus2 * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / wave2Len);
+
+            double wave4 = wave3 - arg.IsUpK * wave4Len;
+            int[] bars4Gen = PatternGenKit.SplitNumber(
+                arg.BarsCount, new[]
+                {
+                    0.1 * RandomBigRatio(),
+                    0.15 * RandomBigRatio(),
+                    0.15 * RandomBigRatio(),
+                    0.25 * RandomBigRatio(),
+                    0.35 * RandomBigRatio(),
+                });
+
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {wave1, wave2, wave3, wave4, wave5},
+                new[] {wave1, wave2, wave3, wave4, wave5},
+                new[] {arg.StartValue, wave1, wave2, wave3, wave4 });
+
+            double wave5Len = Math.Abs(wave5 - wave4);
+            modelPattern.LengthRatios.AddRange(
+                new[]
+                {
+                    new LengthRatio(IMPULSE_FIVE, IMPULSE_ONE,
+                        wave5Len / wave1Len)
+                });
+
+            modelPattern.DurationRatios.Add(
+                new DurationRatio(IMPULSE_FIVE, IMPULSE_ONE,
+                    (double)bars4Gen[4] / bars4Gen[0]));
             return modelPattern;
         }
 
