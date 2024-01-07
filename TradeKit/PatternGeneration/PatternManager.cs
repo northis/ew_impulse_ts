@@ -15,10 +15,10 @@ namespace TradeKit.PatternGeneration
             m_Generator = generator;
         }
 
-        public List<JsonCandleExport> GetCandles(
-            DateTime start, DateTime end, TimeFrame tf)
-        {
+        //public List<JsonCandleExport> GetCandles(
+        //    DateTime start, DateTime end, TimeFrame tf)
+        //{
 
-        }
+        //}
     }
 }

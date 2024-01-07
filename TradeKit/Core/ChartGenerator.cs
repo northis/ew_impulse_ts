@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.FSharp.Core;
 using Plotly.NET;
 using Plotly.NET.LayoutObjects;
+using TradeKit.Json;
 using static Plotly.NET.StyleParam;
 
 namespace TradeKit.Core
@@ -18,26 +19,22 @@ namespace TradeKit.Core
         public const double CHART_FONT_MAIN = 24;
 
         public static GenericChart.GenericChart GetCandlestickChart(
-            List<ICandle> candles,
-            string name,
-            DateTime start,
-            TimeSpan timeFrameTimeSpan)
+            List<JsonCandleExport> candles,
+            string name)
         {
             double[] o = new double[candles.Count];
             double[] h = new double[candles.Count];
             double[] l = new double[candles.Count];
             double[] c = new double[candles.Count];
             DateTime[] d = new DateTime[candles.Count];
-
-            DateTime current = start;
+            
             for (int i = 0; i < candles.Count; i++)
             {
                 o[i] = candles[i].O;
                 h[i] = candles[i].H;
                 c[i] = candles[i].C;
                 l[i] = candles[i].L;
-                d[i] = current;
-                current = current.Add(timeFrameTimeSpan);
+                d[i] = candles[i].OpenDate;
             }
 
             GenericChart.GenericChart res = GetCandlestickChart(o, h, l, c, d, name);

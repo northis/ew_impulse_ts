@@ -13,7 +13,7 @@ namespace TradeKit.Json
         /// Gets or sets the date.
         /// </summary>
         [JsonProperty("d")]
-        public DateTime? OpenDate { get; set; }
+        public DateTime OpenDate { get; set; }
 
         /// <summary>
         /// Gets or sets the open value.

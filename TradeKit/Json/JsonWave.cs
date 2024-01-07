@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System;
+using Newtonsoft.Json;
 namespace TradeKit.Json
 {
     /// <summary>
@@ -13,13 +14,13 @@ namespace TradeKit.Json
         public string WaveName { get; set; }
         
         /// <summary>
-        /// Gets or sets the index or the wave.
+        /// Gets or sets the datetime of the wave.
         /// </summary>
-        [JsonProperty("i")]
-        public int Index { get; set; }
+        [JsonProperty("d")]
+        public DateTime DateTime { get; set; }
 
         /// <summary>
-        /// Gets or sets the value (price) or the wave.
+        /// Gets or sets the value (price) of the wave.
         /// </summary>
         [JsonProperty("v")]
         public double Value { get; set; }

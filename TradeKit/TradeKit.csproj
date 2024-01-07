@@ -38,6 +38,8 @@
     <Compile Include="Json\JsonGeneratedModel.cs" />
     <Compile Include="PatternGeneration\LengthRatio.cs" />
     <Compile Include="PatternGeneration\DurationRatio.cs" />
+    <Compile Include="PatternGeneration\PatternKeyPoint.cs" />
+    <Compile Include="PatternGeneration\PlainModelPattern.cs" />
     <Compile Include="PatternGeneration\ModelPattern.cs" />
     <Compile Include="PatternGeneration\NotationHelper.cs" />
     <Compile Include="PatternGeneration\NotationItem.cs" />

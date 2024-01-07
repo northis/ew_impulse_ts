@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
@@ -48,6 +49,7 @@ namespace TradeKit.PatternGeneration
         private HashSet<ElliottModelType> m_Wave2Impulse;
         private HashSet<ElliottModelType> m_Wave4Impulse;
         private HashSet<ElliottModelType> m_Wave5Impulse;
+        private HashSet<TimeFrameInfo> m_TimeFrames;
         private ElliottModelType[] m_ImpulseOnly;
 
         #endregion
@@ -453,7 +455,6 @@ namespace TradeKit.PatternGeneration
 
         private void InitModelRules()
         {
-
             m_ModelGeneratorsMap = new Dictionary<ElliottModelType, 
                 Func<PatternArgsItem, ModelPattern>>
             {
@@ -508,6 +509,16 @@ namespace TradeKit.PatternGeneration
             m_Wave5Impulse = impulse.Models[IMPULSE_FIVE].ToHashSet();
 
             m_ImpulseOnly = new[] { ElliottModelType.IMPULSE };
+
+            m_TimeFrames = new HashSet<TimeFrameInfo>
+            {
+                TimeFrameHelper.TimeFrames[TimeFrame.Minute],
+                TimeFrameHelper.TimeFrames[TimeFrame.Minute5],
+                TimeFrameHelper.TimeFrames[TimeFrame.Minute15],
+                TimeFrameHelper.TimeFrames[TimeFrame.Hour],
+                TimeFrameHelper.TimeFrames[TimeFrame.Hour4],
+                TimeFrameHelper.TimeFrames[TimeFrame.Daily]
+            };
         }
 
         #endregion
@@ -525,10 +536,15 @@ namespace TradeKit.PatternGeneration
             if (args.BarsCount <= 0)
                 throw new ArgumentException(nameof(args.BarsCount));
 
+            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame];
+            if (!m_TimeFrames.Contains(tfInfo))
+                throw new ArgumentException(nameof(args.TimeFrame));
+
             if (m_ModelGeneratorsMap.TryGetValue(model,
                     out Func<PatternArgsItem, ModelPattern> actionGen))
             {
-                return actionGen(args);
+                ModelPattern modelResult = actionGen(args);
+                return modelResult;
             }
 
             throw new NotSupportedException($"Not supported model {model}");
@@ -693,7 +709,7 @@ namespace TradeKit.PatternGeneration
             double runningLimit3And5 = arg.IsUp ? arg.Max : arg.Min;
             FillPattern(arg, modelPattern, bars4Gen,
                 new[] {wave1, wave2, wave3, wave4, wave5},
-                new[] {arg.StartValue, wave1, wave2, wave3, wave4},
+                new[] {arg.StartValue, arg.StartValue, wave2, wave3, wave4},
                 new[]
                 {
                     wave1,
@@ -730,7 +746,7 @@ namespace TradeKit.PatternGeneration
                 !arg.IsUp && bLimit <= arg.StartValue)
                 throw new ArgumentException(nameof(bLimit));
 
-            List<ICandle> candles = arg.Candles;
+            List<JsonCandleExport> candles = arg.Candles;
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_EXTENDED, candles);
             // TODO use logic from the running flat?
@@ -776,7 +792,7 @@ namespace TradeKit.PatternGeneration
 
             modelPattern.DurationRatios.Add(
                 new DurationRatio(CORRECTION_B, CORRECTION_A,
-                    modelPattern.PatternKeyPoints[1].Item2 / modelPattern.PatternKeyPoints[0].Item1));
+                    (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
         }
@@ -818,7 +834,7 @@ namespace TradeKit.PatternGeneration
 
             modelPattern.DurationRatios.Add(
                 new DurationRatio(CORRECTION_B, CORRECTION_A,
-                    modelPattern.PatternKeyPoints[1].Item2 / modelPattern.PatternKeyPoints[0].Item1));
+                    (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
         }
@@ -1150,7 +1166,7 @@ namespace TradeKit.PatternGeneration
 
             modelPattern.DurationRatios.Add(
                 new DurationRatio(CORRECTION_B, CORRECTION_A,
-                    modelPattern.PatternKeyPoints[1].Item2 / modelPattern.PatternKeyPoints[0].Item1));
+                    (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
         }
@@ -1208,7 +1224,7 @@ namespace TradeKit.PatternGeneration
             double endAddRange = addRange - restRange * MAIN_ALLOWANCE_MAX_RATIO;
 
             double doubleRange = arg.Range * 2;
-            double aWaveLen = doubleRange < endAddRange
+            double aWaveLen = doubleRange < endAddRange && doubleRange > startAddRange
                 ? PatternGenKit.GetNormalDistributionNumber(m_Random, startAddRange, endAddRange, doubleRange)
                 : RandomWithinRange(startAddRange, endAddRange);
 
@@ -1342,7 +1358,7 @@ namespace TradeKit.PatternGeneration
 
             modelPattern.DurationRatios.Add(
                 new DurationRatio(CORRECTION_B, CORRECTION_A,
-                    modelPattern.PatternKeyPoints[1].Item2 / modelPattern.PatternKeyPoints[0].Item1));
+                    (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
         }
@@ -1538,9 +1554,10 @@ namespace TradeKit.PatternGeneration
             GetRandomSet(args, m_Random.Next(2, 5), true);
         }
 
-        private void GetRandomSet(PatternArgsItem args, double variance = 1, bool useFullRange = false)
+        private void GetRandomSet(
+            PatternArgsItem args, double variance = 1, bool useFullRange = false)
         {
-            List<ICandle> candles = args.Candles;
+            List<JsonCandleExport> candles = args.Candles;
             if (args.BarsCount <= 0) return;
 
             if (args.BarsCount == 1)
@@ -1548,7 +1565,8 @@ namespace TradeKit.PatternGeneration
                 var cdl = new JsonCandleExport
                 {
                     H = Math.Round(args.Max, args.Accuracy),
-                    L = Math.Round(args.Min, args.Accuracy)
+                    L = Math.Round(args.Min, args.Accuracy),
+                    OpenDate = args.DateStart
                 };
 
                 FillBorderCandlesStart(args, cdl);
@@ -1562,7 +1580,7 @@ namespace TradeKit.PatternGeneration
 
             double previousClose = args.StartValue;
             double stepLinear = args.Range / args.BarsCount;
-
+            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame];
             for (int i = 0; i < args.BarsCount; i++)
             {
                 double open;
@@ -1619,7 +1637,8 @@ namespace TradeKit.PatternGeneration
                     C = Math.Round(close, args.Accuracy),
                     H = Math.Round(high.Value, args.Accuracy),
                     O = Math.Round(open, args.Accuracy),
-                    L = Math.Round(low.Value, args.Accuracy)
+                    L = Math.Round(low.Value, args.Accuracy),
+                    OpenDate = args.DateStart.Add(tfInfo.TimeSpan * i)
                 };
 
                 // handle PrevCandleExtremum value, it can beyond the range
@@ -1629,7 +1648,7 @@ namespace TradeKit.PatternGeneration
                 previousClose = cdl.C;
             }
 
-            var endItem = (JsonCandleExport)candles[^1];
+            JsonCandleExport endItem = candles[^1];
             FillBorderCandlesEnd(args, endItem);
         }
 
@@ -1717,13 +1736,27 @@ namespace TradeKit.PatternGeneration
 
             ModelPattern modelCurrent = null;
 
-            bool isUp = arg.IsUp;
+            bool isUp = arg.IsUp; 
+            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[arg.TimeFrame];
             for (int i = 0; i < values.Length; i++)
             {
+                DateTime dateStart = modelCurrent == null
+                    ? arg.DateStart
+                    : arg.DateStart.Add(tfInfo.TimeSpan *
+                                        bars4Gen.Take(i).Sum());
+
+                DateTime dateEnd = arg.DateStart.Add(tfInfo.TimeSpan *
+                                                     bars4Gen.Take(i + 1).Sum());
+
                 PatternArgsItem waveArg = modelCurrent == null
-                    ? new PatternArgsItem(arg.StartValue, values[i], bars4Gen[i])
-                    : GetNext(isUp, bars4Gen[i],
-                        modelCurrent.Candles[^1], values[i - 1], values[i]);
+                    ? new PatternArgsItem(arg.StartValue,
+                        values[i],
+                        dateStart,
+                        dateEnd,
+                        arg.TimeFrame)
+                    : GetNext(isUp, modelCurrent.Candles[^1],
+                        values[i - 1], values[i],
+                        dateStart, dateEnd, arg.TimeFrame);
 
                 ElliottModelType model = definedModels == null
                     ? WeightedRandomlySelectModel(models[keys[i]])
@@ -1741,11 +1774,12 @@ namespace TradeKit.PatternGeneration
 
             for (int i = 0; i < values.Length - 1; i++)
             {
-                pattern.PatternKeyPoints.Add(
-                    (bars4Gen.Take(i + 1).Sum() - 1, values[i]));
+                DateTime dt = arg.DateStart.Add(
+                    tfInfo.TimeSpan * (bars4Gen.Take(i + 1).Sum() - 1));
+                pattern.PatternKeyPoints.Add((dt, values[i]));
             }
 
-            pattern.PatternKeyPoints.Add((arg.BarsCount - 1, arg.EndValue));
+            pattern.PatternKeyPoints.Add((arg.DateEnd, arg.EndValue));
         }
 
         private T WeightedRandomlySelect<T>(List<(T, double)> toSelect)
@@ -1919,10 +1953,12 @@ namespace TradeKit.PatternGeneration
 
         private PatternArgsItem GetNext(
             bool isNextUp,
-            int barsCount,
-            ICandle lastCandle,
+            JsonCandleExport lastCandle,
             double currentWave,
-            double nextWave)
+            double nextWave,
+            DateTime dateStart,
+            DateTime dateEnd,
+            TimeFrame timeFrame)
         {
             PatternArgsItem waveNext;
             double lastClose = lastCandle.C;
@@ -1933,14 +1969,13 @@ namespace TradeKit.PatternGeneration
                     ? lastCandle.L 
                     : lastCandle.H, nextWave);
 
-                if (lastCandle is JsonCandleExport jsonCandle)
-                    jsonCandle.C = newValC;
-                waveNext = new PatternArgsItem(newValC, nextWave, barsCount);
+                lastCandle.C = newValC;
+                waveNext = new PatternArgsItem(newValC, nextWave, dateStart, dateEnd, timeFrame);
             }
             else
             {
                 waveNext = new PatternArgsItem(
-                    lastClose, nextWave, barsCount, currentWave);
+                    lastClose, nextWave, dateStart, dateEnd, timeFrame, currentWave);
             }
 
             return waveNext;

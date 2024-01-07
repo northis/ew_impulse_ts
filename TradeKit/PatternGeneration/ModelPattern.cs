@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
 
@@ -10,11 +10,11 @@ namespace TradeKit.PatternGeneration
     public class ModelPattern
     {
         public ModelPattern(ElliottModelType model,
-            List<ICandle> candles,
-            List<(int, double)> patternKeyPoints = null)
+            List<JsonCandleExport> candles,
+            List<(DateTime, double)> patternKeyPoints = null)
         {
             Model = model;
-            PatternKeyPoints = patternKeyPoints ?? new List<(int, double)>();
+            PatternKeyPoints = patternKeyPoints ?? new List<(DateTime, double)>();
             Candles = candles;
             ChildModelPatterns = new List<ModelPattern>();
             LengthRatios = new List<LengthRatio>();
@@ -44,12 +44,12 @@ namespace TradeKit.PatternGeneration
         /// <summary>
         /// Gets the map index (from <see cref="Candles"/>)-price of the key points of the pattern.
         /// </summary>
-        public List<(int, double)> PatternKeyPoints { get; }
+        public List<(DateTime, double)> PatternKeyPoints { get; }
 
         /// <summary>
         /// Gets the candles of the pattern.
         /// </summary>
-        public List<ICandle> Candles { get; }
+        public List<JsonCandleExport> Candles { get; }
 
         /// <summary>
         /// Converts to JSON.
@@ -59,18 +59,21 @@ namespace TradeKit.PatternGeneration
             var res = new JsonGeneratedModel
             {
                 Model = Model,
-                Candles = Candles.Cast<JsonCandleExport>().ToArray(),
+                Candles = Candles.ToArray(),
                 Waves = new JsonWave[PatternKeyPoints.Count]
             };
 
-            string[] waveNames = pg.ModelRules[Model].Models.Keys.ToArray();
+            string[] waveNames = PatternGenerator
+                .ModelRules[Model]
+                .Models.Keys
+                .ToArray();
             for (int i = 0; i < PatternKeyPoints.Count; i++)
             {
                 string waveName = waveNames[i];
                 var kp = PatternKeyPoints[i];
                 res.Waves[i] = new JsonWave
                 {
-                    Index = kp.Item1, 
+                    DateTime = kp.Item1, 
                     Value = kp.Item2, 
                     WaveName = waveName
                 };

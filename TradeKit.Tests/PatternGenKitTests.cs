@@ -1,4 +1,3 @@
-using System.Linq;
 using TradeKit.PatternGeneration;
 
 namespace TradeKit.Tests

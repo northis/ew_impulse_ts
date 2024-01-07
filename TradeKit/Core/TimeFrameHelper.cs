@@ -8,7 +8,7 @@ namespace TradeKit.Core
     /// <summary>
     /// Handles all the Time Frame-related logic
     /// </summary>
-    internal static class TimeFrameHelper
+    public static class TimeFrameHelper
     {
         static TimeFrameHelper()
         {

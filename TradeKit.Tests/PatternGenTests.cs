@@ -1,10 +1,11 @@
-﻿using Newtonsoft.Json;
+﻿using cAlgo.API;
+using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
-using Telegram.Bot.Types;
 using TradeKit.Core;
 using TradeKit.Impulse;
+using TradeKit.Json;
 using TradeKit.PatternGeneration;
 using File = System.IO.File;
 
@@ -19,6 +20,19 @@ public class PatternGenTests
 
     private static readonly string FOLDER_TO_SAVE = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "images");
+    
+    private readonly TimeFrame m_TimeFrame = TimeFrame.Minute;
+
+    private (DateTime, DateTime) GetDateRange(int barCount)
+    {
+        DateTime dt = DateTime.UtcNow;
+        dt = new DateTime(dt.Year, dt.Month, dt.Day);
+
+        TimeSpan step = TimeFrameHelper.TimeFrames[m_TimeFrame].TimeSpan;
+        DateTime dtStart = dt.Add(-barCount * step);
+
+        return (dtStart, dt);
+    }
 
     [SetUp]
     public void Setup()
@@ -44,35 +58,28 @@ public class PatternGenTests
     }
 
     private void SaveChart(
-        List<ICandle> candles, string name, string fileName,
+        List<JsonCandleExport> candles, string name, string fileName,
         ModelPattern? model = null)
     {
         Console.WriteLine($" bar count is {candles.Count}");
         Console.WriteLine("Model result:");
 
         if (model != null) Console.WriteLine(model.ToString());
-
-        DateTime dt = DateTime.UtcNow;
-        dt = new DateTime(dt.Year, dt.Month, dt.Day);
-
-        TimeSpan step = TimeSpan.FromMinutes(15);
-        DateTime dtStart = dt.Add(-candles.Count * step);
-
+        
         GenericChart.GenericChart chart = ChartGenerator.GetCandlestickChart(
-            candles, name, dtStart, step);
+            candles, name);
 
         if (model?.PatternKeyPoints != null)
         {
             var annotations = new List<Annotation>();
-            string[] names = 
-                m_PatternGenerator.ModelRules[model.Model].Models.Keys.ToArray();
+            string[] names =
+                PatternGenerator.ModelRules[model.Model].Models.Keys.ToArray();
 
             for (int i = 0; i < model.PatternKeyPoints.Count; i++)
             {
-                var annotation = model.PatternKeyPoints[i];
-                DateTime date = dtStart.Add(step * annotation.Item1);
+                (DateTime, double) annotation = model.PatternKeyPoints[i];
                 annotations.Add(ChartGenerator.GetAnnotation(
-                    date,
+                    annotation.Item1,
                     annotation.Item2,
                     ChartGenerator.WHITE_COLOR,
                     ChartGenerator.CHART_FONT_MAIN,
@@ -92,8 +99,10 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(40, 60, i) {Min = 30}, ElliottModelType.FLAT_EXTENDED);
+                new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame)
+                    {Min = 30}, ElliottModelType.FLAT_EXTENDED);
             SaveResultFiles(model);
         }
     }
@@ -103,12 +112,13 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             //ModelPattern model = m_PatternGenerator.GetPattern(
-            //    new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_CONTRACTING_INITIAL);
+            //    new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.DIAGONAL_CONTRACTING_INITIAL);
             //SaveResultFiles(model);
-
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(40, 60, i) { Max = 70 }, ElliottModelType.DIAGONAL_CONTRACTING_ENDING);
+                new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame)
+                    { Max = 70 }, ElliottModelType.DIAGONAL_CONTRACTING_ENDING);
             SaveResultFiles(model);
         }
     }
@@ -118,12 +128,13 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_EXPANDING_INITIAL);
+                new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.DIAGONAL_EXPANDING_INITIAL);
             SaveResultFiles(model);
 
             model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(40, 60, i), ElliottModelType.DIAGONAL_EXPANDING_ENDING);
+                new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.DIAGONAL_EXPANDING_ENDING);
             SaveResultFiles(model);
         }
     }
@@ -133,8 +144,9 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(60, 40, i), ElliottModelType.ZIGZAG);
+                new PatternArgsItem(60, 40, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.ZIGZAG);
             SaveResultFiles(model);
         }
     }
@@ -144,8 +156,9 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(60, 40, i), ElliottModelType.FLAT_REGULAR);
+                new PatternArgsItem(60, 40, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.FLAT_REGULAR);
             SaveResultFiles(model);
         }
     }
@@ -155,8 +168,9 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(60, 40, i), ElliottModelType.DOUBLE_ZIGZAG);
+                new PatternArgsItem(60, 40, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.DOUBLE_ZIGZAG);
             SaveResultFiles(model);
         }
     }
@@ -166,8 +180,9 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(60, 40, i), ElliottModelType.TRIPLE_ZIGZAG);
+                new PatternArgsItem(60, 40, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.TRIPLE_ZIGZAG);
             SaveResultFiles(model);
         }
     }
@@ -177,8 +192,10 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(70, 90, i) {Max = 120}, ElliottModelType.TRIANGLE_CONTRACTING);
+                new PatternArgsItem(70, 90, dates.Item1, dates.Item2, m_TimeFrame)
+                    {Max = 120}, ElliottModelType.TRIANGLE_CONTRACTING);
             SaveResultFiles(model);
         }
     }
@@ -188,8 +205,10 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(70, 90, i) { Max = 120, Min = 50}, ElliottModelType.TRIANGLE_RUNNING);
+                new PatternArgsItem(70, 90, dates.Item1, dates.Item2, m_TimeFrame)
+                    { Max = 120, Min = 50}, ElliottModelType.TRIANGLE_RUNNING);
             SaveResultFiles(model);
         }
     }
@@ -199,8 +218,10 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(70, 90, i) { Min = 50 }, ElliottModelType.TRIANGLE_EXPANDING);
+                new PatternArgsItem(70, 90, dates.Item1, dates.Item2, m_TimeFrame)
+                    { Min = 50 }, ElliottModelType.TRIANGLE_EXPANDING);
             SaveResultFiles(model);
         }
     }
@@ -210,8 +231,10 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(70, 90, i) { Min = 50, Max = 110 }, ElliottModelType.COMBINATION);
+                new PatternArgsItem(70, 90, dates.Item1, dates.Item2, m_TimeFrame) 
+                    { Min = 50, Max = 110 }, ElliottModelType.COMBINATION);
             SaveResultFiles(model);
         }
     }
@@ -221,8 +244,10 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
+            (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(60, 40, i) {Max = 66, Min = 34}, ElliottModelType.FLAT_RUNNING);
+                new PatternArgsItem(60, 40, dates.Item1, dates.Item2, m_TimeFrame)
+                    {Max = 66, Min = 34}, ElliottModelType.FLAT_RUNNING);
             SaveResultFiles(model);
         }
     }
@@ -234,8 +259,10 @@ public class PatternGenTests
         {
             for (int j = 0; j < 10; j++)
             {
+                (DateTime, DateTime) dates = GetDateRange(i);
                 ModelPattern model = m_PatternGenerator.GetPattern(
-                    new PatternArgsItem(40, 60, i){Max = 61}, ElliottModelType.IMPULSE);
+                    new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame)
+                        {Max = 61}, ElliottModelType.IMPULSE);
 
                 SaveResultFiles(model);
             }
