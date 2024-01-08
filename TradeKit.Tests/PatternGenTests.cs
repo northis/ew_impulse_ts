@@ -144,10 +144,13 @@ public class PatternGenTests
     {
         for (int i = 15; i <= 15; i++)
         {
-            (DateTime, DateTime) dates = GetDateRange(i);
-            ModelPattern model = m_PatternGenerator.GetPattern(
-                new PatternArgsItem(60, 40, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.ZIGZAG);
-            SaveResultFiles(model);
+            for (int j = 0; j < 10; j++)
+            {
+                (DateTime, DateTime) dates = GetDateRange(i);
+                ModelPattern model = m_PatternGenerator.GetPattern(
+                    new PatternArgsItem(60, 40, dates.Item1, dates.Item2, m_TimeFrame), ElliottModelType.ZIGZAG);
+                SaveResultFiles(model);
+            }
         }
     }
 
@@ -255,17 +258,11 @@ public class PatternGenTests
     [Test]
     public void ImpulseTest()
     {
-        for (int i = 30; i <= 30; i++)
-        {
-            for (int j = 0; j < 10; j++)
-            {
-                (DateTime, DateTime) dates = GetDateRange(i);
-                ModelPattern model = m_PatternGenerator.GetPattern(
-                    new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame)
-                        {Max = 61}, ElliottModelType.IMPULSE);
+        (DateTime, DateTime) dates = GetDateRange(150);
+        ModelPattern model = m_PatternGenerator.GetPattern(
+            new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame)
+                { Max = 61 }, ElliottModelType.IMPULSE);
 
-                SaveResultFiles(model);
-            }
-        }
+        SaveResultFiles(model);
     }
 }

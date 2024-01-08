@@ -52,6 +52,11 @@ namespace TradeKit.PatternGeneration
         public List<JsonCandleExport> Candles { get; }
 
         /// <summary>
+        /// Gets the depth level.
+        /// </summary>
+        public byte Level { get; set; }
+
+        /// <summary>
         /// Converts to JSON.
         /// </summary>
         public JsonGeneratedModel ToJson(PatternGenerator pg)
