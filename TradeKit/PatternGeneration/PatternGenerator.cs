@@ -532,9 +532,9 @@ namespace TradeKit.PatternGeneration
         /// <exception cref="NotSupportedException">Not supported model {model}</exception>
         public ModelPattern GetPattern(PatternArgsItem args, ElliottModelType model)
         {
-            ModelPattern res = GetPatternInner(args, model);
-            ValidateAndCorrectCandles(res.Candles);
-            return res;
+            ModelPattern modelPattern = GetPatternInner(args, model);
+            ValidateAndCorrectCandles(modelPattern, args.Accuracy);
+            return modelPattern;
         }
 
         #region Main patterns
@@ -1574,8 +1574,8 @@ namespace TradeKit.PatternGeneration
             {
                 var cdl = new JsonCandleExport
                 {
-                    H = Math.Round(args.Max, args.Accuracy),
-                    L = Math.Round(args.Min, args.Accuracy),
+                    H = args.Max,
+                    L = args.Min,
                     OpenDate = args.DateStart
                 };
 
@@ -1644,10 +1644,10 @@ namespace TradeKit.PatternGeneration
 
                 var cdl = new JsonCandleExport
                 {
-                    C = Math.Round(close, args.Accuracy),
-                    H = Math.Round(high.Value, args.Accuracy),
-                    O = Math.Round(open, args.Accuracy),
-                    L = Math.Round(low.Value, args.Accuracy),
+                    C = close,
+                    H = high.Value,
+                    O = open,
+                    L = low.Value,
                     OpenDate = args.DateStart.Add(tfInfo.TimeSpan * i)
                 };
 
@@ -1720,8 +1720,24 @@ namespace TradeKit.PatternGeneration
 
         #region Helpers
 
-        private void ValidateAndCorrectCandles(List<JsonCandleExport> candles)
+        private void ValidateAndCorrectCandles(
+            ModelPattern modelPattern, int accuracy)
         {
+            List<JsonCandleExport> candles = modelPattern.Candles;
+            foreach (JsonCandleExport candle in candles)
+            {
+                candle.H = Math.Round(candle.H, accuracy);
+                candle.L = Math.Round(candle.L, accuracy);
+                candle.O = Math.Round(candle.O, accuracy);
+                candle.C = Math.Round(candle.C, accuracy);
+            }
+
+            foreach (List<PatternKeyPoint> keyPointValues in modelPattern.PatternKeyPoints.Values)
+            {
+                foreach (PatternKeyPoint keyPointValue in keyPointValues)
+                    keyPointValue.Value = Math.Round(keyPointValue.Value, accuracy);
+            }
+
             if (candles.Count < 2) return;
 
             for (int i = 1; i < candles.Count; i++)
@@ -1747,11 +1763,17 @@ namespace TradeKit.PatternGeneration
                     candles[i].C = newClose;
                 }
 
-                if (Math.Abs(currentCandle.O - prevCandle.C) < double.Epsilon)
+                if (Math.Abs(currentCandle.O - prevCandle.C) <= double.Epsilon)
                     continue;
 
                 if (currentCandle.C < prevCandle.H && currentCandle.C > prevCandle.L)
+                {
                     prevCandle.C = currentCandle.O;
+                    continue;
+                }
+
+                if (currentCandle.L < prevCandle.C && currentCandle.H > prevCandle.C)
+                    currentCandle.O = prevCandle.C;
             }
         }
 

@@ -66,16 +66,17 @@ namespace TradeKit.Core
         }
 
         public static Annotation GetAnnotation(
-            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text, YAnchorPosition yAnchor = null)
+            DateTime x, double y, Color textColor, double textSize, Color backgroundColor, string text, YAnchorPosition yAnchor = null, 
+            int? yShift = null)
         {
             FSharpOption<double> doubleDef = 1d.ToFSharp();
             Annotation annotation = Annotation.init(
                 X: x.ToFSharp(),
                 Y: y.ToFSharp(),
-                Align: StyleParam.AnnotationAlignment.Center,
+                Align: AnnotationAlignment.Center,
                 ArrowColor: null,
-                ArrowHead: StyleParam.ArrowHead.Square,
-                ArrowSide: StyleParam.ArrowSide.None,
+                ArrowHead: ArrowHead.Square,
+                ArrowSide: ArrowSide.None,
                 ArrowSize: null,
                 AX: doubleDef,
                 AXRef: doubleDef,
@@ -101,17 +102,17 @@ namespace TradeKit.Core
                 TemplateItemName: null,
                 Text: text,
                 TextAngle: null,
-                VAlign: StyleParam.VerticalAlign.Middle,
+                VAlign: VerticalAlign.Middle,
                 Visible: null,
                 Width: null,
-                XAnchor: StyleParam.XAnchorPosition.Center,
+                XAnchor: XAnchorPosition.Center,
                 XClick: doubleDef,
                 XRef: doubleDef,
                 XShift: null,
-                YAnchor: yAnchor ?? StyleParam.YAnchorPosition.Middle,
+                YAnchor: yAnchor ?? YAnchorPosition.Middle,
                 YClick: doubleDef,
                 YRef: doubleDef,
-                YShift: null);
+                YShift: yShift?.ToFSharp());
             return annotation;
         }
 

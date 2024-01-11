@@ -73,18 +73,31 @@ public class PatternGenTests
         if (model?.PatternKeyPoints != null)
         {
             var annotations = new List<Annotation>();
+            bool isUp = model.Candles[0].O - model.Candles[^1].C > 0;
+
             foreach (DateTime patternKeyDt in model.PatternKeyPoints.Keys)
             {
                 List<PatternKeyPoint> points = model.PatternKeyPoints[patternKeyDt];
-                foreach (PatternKeyPoint point in points)
+                IOrderedEnumerable<PatternKeyPoint> ordered = isUp
+                    ? points.OrderBy(a => a.Notation.Level)
+                    : points.OrderByDescending(a => a.Notation.Level);
+
+                int offset = 0;
+                foreach (PatternKeyPoint point in ordered)
                 {
+                    int size = chartFontSizeCorrect + point.Notation.FontSize;
+
                     annotations.Add(ChartGenerator.GetAnnotation(
                         patternKeyDt,
                         point.Value,
                         ChartGenerator.WHITE_COLOR,
-                        chartFontSizeCorrect + point.Notation.FontSize,
-                        ChartGenerator.SEMI_WHITE_COLOR, point.Notation.NotationKey));
+                        size,
+                        ChartGenerator.SEMI_WHITE_COLOR,
+                        point.Notation.NotationKey, null, offset));
+                    offset += Convert.ToInt32(1.5 * size) * (isUp ? 1 : -1);
                 }
+
+                isUp = !isUp;
             }
 
             chart.WithAnnotations(annotations);
