@@ -11,20 +11,21 @@ namespace TradeKit.PatternGeneration
     {
         public ModelPattern(ElliottModelType model,
             List<JsonCandleExport> candles,
-            List<(DateTime, double)> patternKeyPoints = null)
+            Dictionary<DateTime, List<PatternKeyPoint>> patternKeyPoints = null)
         {
             Model = model;
-            PatternKeyPoints = patternKeyPoints ?? new List<(DateTime, double)>();
+            PatternKeyPoints = patternKeyPoints ?? 
+                               new Dictionary<DateTime, List<PatternKeyPoint>>();
             Candles = candles;
-            ChildModelPatterns = new List<ModelPattern>();
+            //ChildModelPatterns = new List<ModelPattern>();
             LengthRatios = new List<LengthRatio>();
             DurationRatios = new List<DurationRatio>();
         }
 
-        /// <summary>
-        /// Gets or sets the possible child model patterns.
-        /// </summary>
-        public List<ModelPattern> ChildModelPatterns { get; }
+        ///// <summary>
+        ///// Gets or sets the possible child model patterns.
+        ///// </summary>
+        //public List<ModelPattern> ChildModelPatterns { get; }
 
         /// <summary>
         /// Gets or sets the length relations (for ex. wave C to wave A in pips).
@@ -42,12 +43,12 @@ namespace TradeKit.PatternGeneration
         public ElliottModelType Model { get; }
 
         /// <summary>
-        /// Gets the map index (from <see cref="Candles"/>)-price of the key points of the pattern.
+        /// Gets the map datetime (from <see cref="Candles"/>)-price of the key points of the pattern (plain dic).
         /// </summary>
-        public List<(DateTime, double)> PatternKeyPoints { get; }
+        public Dictionary<DateTime, List<PatternKeyPoint>> PatternKeyPoints { get; }
 
         /// <summary>
-        /// Gets the candles of the pattern.
+        /// Gets the candles of the pattern (plain list).
         /// </summary>
         public List<JsonCandleExport> Candles { get; }
 
@@ -65,26 +66,25 @@ namespace TradeKit.PatternGeneration
             {
                 Model = Model,
                 Candles = Candles.ToArray(),
-                Waves = new JsonWave[PatternKeyPoints.Count]
+                Waves = new List<JsonWave>[PatternKeyPoints.Keys.Count]
             };
 
-            string[] waveNames = PatternGenerator
-                .ModelRules[Model]
-                .Models.Keys
-                .ToArray();
-            for (int i = 0; i < PatternKeyPoints.Count; i++)
+            int i = 0;
+            foreach (DateTime key in PatternKeyPoints.Keys)
             {
-                string waveName = waveNames[i];
-                var kp = PatternKeyPoints[i];
-                res.Waves[i] = new JsonWave
-                {
-                    DateTime = kp.Item1, 
-                    Value = kp.Item2, 
-                    WaveName = waveName
-                };
+                res.Waves[i] = PatternKeyPoints[key]
+                    .Select(a => new JsonWave
+                    {
+                        DateTime = key,
+                        Value = a.Value,
+                        WaveName = a.Notation.NotationKey,
+                        Level = a.Notation.Level,
+                        Type = a.Notation.Type
+                    }).ToList();
+                i++;
             }
 
-            res.ChildModels = ChildModelPatterns.Select(a => a.ToJson(pg)).ToArray();
+            //res.ChildModels = ChildModelPatterns.Select(a => a.ToJson(pg)).ToArray();
             return res;
         }
 
@@ -108,16 +108,16 @@ namespace TradeKit.PatternGeneration
                     stringBuilder.AppendLine(dRatio.ToString());
             }
 
-            if (ChildModelPatterns.Count > 0)
-            {
-                stringBuilder.AppendLine("Child models: {");
-                foreach (ModelPattern childModel in ChildModelPatterns)
-                {
-                    stringBuilder.AppendLine(childModel.ToString());
-                }
+            //if (ChildModelPatterns.Count > 0)
+            //{
+            //    stringBuilder.AppendLine("Child models: {");
+            //    foreach (ModelPattern childModel in ChildModelPatterns)
+            //    {
+            //        stringBuilder.AppendLine(childModel.ToString());
+            //    }
 
-                stringBuilder.AppendLine("}");
-            }
+            //    stringBuilder.AppendLine("}");
+            //}
 
             return stringBuilder.ToString();
         }

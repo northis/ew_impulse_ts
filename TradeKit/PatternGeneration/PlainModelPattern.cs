@@ -14,43 +14,8 @@ namespace TradeKit.PatternGeneration
         {
             m_ModelPattern = modelPattern;
             Model = modelPattern.Model;
-            Candles = modelPattern.Candles.Cast<JsonCandleExport>().ToList();
+            Candles = modelPattern.Candles;
             PatternKeyPoints = new Dictionary<DateTime, List<PatternKeyPoint>>();
-        }
-
-        void ProcessModels(ModelPattern modelPattern, int offset = 0)
-        {
-            int modelsCount = modelPattern.ChildModelPatterns.Count;
-            if (modelsCount == 0)
-            {
-                //PatternKeyPoints.Add(new (0,0d,null));
-                //new NotationItem()
-                //var cd = modelPattern.Candles.Cast<JsonCandleExport>().ToArray();
-                //foreach ((int, double) patternKeyPoint in modelPattern.PatternKeyPoints)
-                //{
-                //    DateTime? dt = cd[patternKeyPoint.Item1].OpenDate;
-                //    if (!dt.HasValue)
-                //        throw new ApplicationException($"{nameof(PlainModelPattern)}: cannot do it without the dates");
-
-                //    //if (PatternKeyPoints.ContainsKey(dt.Value))
-                //    //    PatternKeyPoints[dt.Value];
-                //}
-
-                //PatternKeyPoints = modelPattern.PatternKeyPoints
-                //    .GroupBy(a => cd[a.Item1].OpenDate.GetValueOrDefault())
-                //    .ToDictionary(a => a.Key,
-                //        b => b.Select(c =>
-                //                new PatternKeyPoint(c.Item1, c.Item2,
-                //                    new NotationItem(modelPattern.Model, 0, "", "", 1)))
-                //            .ToArray());
-            }
-
-            for (int i = 0; i < modelsCount; i++)
-            {
-                ModelPattern model = modelPattern.ChildModelPatterns[i];
-                int nextOffset = offset + model.Candles.Count;
-
-            }
         }
 
         /// <summary>

@@ -1,5 +1,8 @@
 ﻿using System;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using TradeKit.Impulse;
+
 namespace TradeKit.Json
 {
     /// <summary>
@@ -24,5 +27,18 @@ namespace TradeKit.Json
         /// </summary>
         [JsonProperty("v")]
         public double Value { get; set; }
+
+        /// <summary>
+        /// Gets or sets the wave type.
+        /// </summary>
+        [JsonProperty("type")]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public ElliottModelType Type { get; set; }
+
+        /// <summary>
+        /// Gets or sets the level (depth) of the wave.
+        /// </summary>
+        [JsonProperty("l")]
+        public byte Level { get; set; }
     }
 }

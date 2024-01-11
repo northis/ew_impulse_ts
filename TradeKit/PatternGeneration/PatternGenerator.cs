@@ -532,6 +532,15 @@ namespace TradeKit.PatternGeneration
         /// <exception cref="NotSupportedException">Not supported model {model}</exception>
         public ModelPattern GetPattern(PatternArgsItem args, ElliottModelType model)
         {
+            ModelPattern res = GetPatternInner(args, model);
+            ValidateAndCorrectCandles(res.Candles);
+            return res;
+        }
+
+        #region Main patterns
+
+        private ModelPattern GetPatternInner(PatternArgsItem args, ElliottModelType model)
+        {
             if (args.BarsCount <= 0)
                 throw new ArgumentException(nameof(args.BarsCount));
 
@@ -543,14 +552,11 @@ namespace TradeKit.PatternGeneration
                     out Func<PatternArgsItem, ModelPattern> actionGen))
             {
                 ModelPattern modelResult = actionGen(args);
-                ValidateAndCorrectCandles(modelResult.Candles);
                 return modelResult;
             }
 
             throw new NotSupportedException($"Not supported model {model}");
         }
-
-        #region Main patterns
 
         private ModelPattern GetImpulse(PatternArgsItem arg)
         {
@@ -1740,6 +1746,12 @@ namespace TradeKit.PatternGeneration
                     candles[i].O = newOpen;
                     candles[i].C = newClose;
                 }
+
+                if (Math.Abs(currentCandle.O - prevCandle.C) < double.Epsilon)
+                    continue;
+
+                if (currentCandle.C < prevCandle.H && currentCandle.C > prevCandle.L)
+                    prevCandle.C = currentCandle.O;
             }
         }
 
@@ -1760,6 +1772,15 @@ namespace TradeKit.PatternGeneration
                 bars4Gen.Length != models.Count ||
                 bars4Gen.Length != keys.Length)
                 throw new ArgumentException(nameof(pattern));
+
+            void AddKeyPoint(DateTime dt, PatternKeyPoint point)
+            {
+                if (pattern.PatternKeyPoints.ContainsKey(dt))
+                    pattern.PatternKeyPoints[dt].Add(point);
+                else
+                    pattern.PatternKeyPoints[dt] =
+                        new List<PatternKeyPoint> { point };
+            }
 
             ModelPattern modelCurrent = null;
             bool isUp = arg.IsUp; 
@@ -1791,24 +1812,40 @@ namespace TradeKit.PatternGeneration
                     ? WeightedRandomlySelectModel(models[keys[i]])
                     : definedModels[i];
 
-                ModelPattern modelWave = GetPattern(waveArg, model);
-                pattern.ChildModelPatterns.Add(modelWave);
+                ModelPattern modelWave = GetPatternInner(waveArg, model);
+                foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> keyPoint 
+                         in modelWave.PatternKeyPoints)
+                {
+                    foreach (PatternKeyPoint kPointVal in keyPoint.Value)
+                    {
+                        AddKeyPoint(keyPoint.Key, kPointVal);
+                    }
+                }
+
+                //pattern.ChildModelPatterns.Add(modelWave);
                 pattern.Candles.AddRange(modelWave.Candles);
                 modelCurrent = modelWave;
                 isUp = !isUp;
             }
 
-            pattern.Level = (byte) (pattern.ChildModelPatterns.Max(a => a.Level) + 1);
+            pattern.Level = (byte) (pattern.PatternKeyPoints.Count > 0
+                ? pattern.PatternKeyPoints.Max(
+                    a => a.Value.Max(b => b.Notation.Level)) + 1
+                : 0);
+            
+            NotationItem[] notation = 
+                NotationHelper.GetNotation(pattern.Model, pattern.Level);
 
-            for (int i = 0; i < values.Length - 1; i++)
+            for (int i = 0; i < values.Length; i++)
             {
-                DateTime dt = arg.DateStart.Add(
-                    tfInfo.TimeSpan * (bars4Gen.Take(i + 1).Sum() - 1));
-                pattern.PatternKeyPoints.Add((dt, values[i]));
-            }
+                int barIndex = bars4Gen.Take(i + 1).Sum() - 1;
+                DateTime dt = arg.DateStart.Add(tfInfo.TimeSpan * barIndex);
+                
+                PatternKeyPoint patternKeyPoint = new PatternKeyPoint(
+                    barIndex, values[i], notation[i]);
 
-            pattern.PatternKeyPoints.Add((arg.DateStart.Add(
-                tfInfo.TimeSpan * bars4Gen.Sum()), arg.EndValue));
+                AddKeyPoint(dt, patternKeyPoint);
+            }
         }
 
         private T WeightedRandomlySelect<T>(List<(T, double)> toSelect)
@@ -1928,7 +1965,8 @@ namespace TradeKit.PatternGeneration
                     min = valuesMap.Where(a => a.Key > 0).Min(a => a.Value);
                 else
                     min = RandomWithinRange(
-                        max * MAIN_ALLOWANCE_MAX_RATIO, max * MAIN_ALLOWANCE_MAX_RATIO_INVERT);
+                        max * MAIN_ALLOWANCE_MAX_RATIO,
+                        max * MAIN_ALLOWANCE_MAX_RATIO_INVERT);
             }
 
             if (double.IsNaN(max))

@@ -66,24 +66,25 @@ public class PatternGenTests
 
         if (model != null) Console.WriteLine(model.ToString());
         
-        GenericChart.GenericChart chart = ChartGenerator.GetCandlestickChart(
-            candles, name);
+        GenericChart.GenericChart chart = 
+            ChartGenerator.GetCandlestickChart(candles, name);
 
+        const byte chartFontSizeCorrect = (byte)ChartGenerator.CHART_FONT_MAIN - 4;
         if (model?.PatternKeyPoints != null)
         {
             var annotations = new List<Annotation>();
-            string[] names =
-                PatternGenerator.ModelRules[model.Model].Models.Keys.ToArray();
-
-            for (int i = 0; i < model.PatternKeyPoints.Count; i++)
+            foreach (DateTime patternKeyDt in model.PatternKeyPoints.Keys)
             {
-                (DateTime, double) annotation = model.PatternKeyPoints[i];
-                annotations.Add(ChartGenerator.GetAnnotation(
-                    annotation.Item1,
-                    annotation.Item2,
-                    ChartGenerator.WHITE_COLOR,
-                    ChartGenerator.CHART_FONT_MAIN,
-                    ChartGenerator.SEMI_WHITE_COLOR, names[i]));
+                List<PatternKeyPoint> points = model.PatternKeyPoints[patternKeyDt];
+                foreach (PatternKeyPoint point in points)
+                {
+                    annotations.Add(ChartGenerator.GetAnnotation(
+                        patternKeyDt,
+                        point.Value,
+                        ChartGenerator.WHITE_COLOR,
+                        chartFontSizeCorrect + point.Notation.FontSize,
+                        ChartGenerator.SEMI_WHITE_COLOR, point.Notation.NotationKey));
+                }
             }
 
             chart.WithAnnotations(annotations);
@@ -258,7 +259,7 @@ public class PatternGenTests
     [Test]
     public void ImpulseTest()
     {
-        (DateTime, DateTime) dates = GetDateRange(150);
+        (DateTime, DateTime) dates = GetDateRange(50);
         ModelPattern model = m_PatternGenerator.GetPattern(
             new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame)
                 { Max = 61 }, ElliottModelType.IMPULSE);

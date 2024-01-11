@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System.Collections.Generic;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using TradeKit.Impulse;
 
@@ -31,6 +32,6 @@ namespace TradeKit.Json
         /// <summary>
         /// Gets the waves entities.
         /// </summary>
-        public JsonWave[] Waves { get; set; }
+        public List<JsonWave>[] Waves { get; set; }
     }
 }
