@@ -39,7 +39,7 @@ namespace TradeKit.PatternGeneration
             DateTime dateEnd,
             TimeFrame timeFrame,
             double? prevCandleExtremum = null,
-            int accuracy = 4)
+            int accuracy = Helper.ML_DEF_ACCURACY_PART)
         {
             StartValue = startValue;
             EndValue = endValue;

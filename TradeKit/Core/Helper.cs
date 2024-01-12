@@ -1,4 +1,5 @@
-﻿using System;
+﻿using cAlgo.API;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -68,8 +69,10 @@ namespace TradeKit.Core
         public const double MIN_ALLOWED_VOLUME_LOTS = 0.01;
         public const double MAX_ALLOWED_VOLUME_LOTS = 10;
 
-        public const ushort ML_IMPULSE_VECTOR_RANK = 10;
+        public const ushort ML_IMPULSE_VECTOR_RANK = 40;
+        public const ushort ML_MAX_BATCH_ITEMS = 100;
         public const double ML_TEST_SET_PART = 0.1;
+        public const int ML_DEF_ACCURACY_PART = 5;
 
         /// <summary>
         /// Gets the directory to save images.
@@ -139,6 +142,24 @@ namespace TradeKit.Core
         {
             List<HashSet<double>> res = FindGroups(profile, (a, b) => a >= b);
             return res;
+        }
+
+        /// <summary>
+        /// Gets the date range for the bars count and TF passed.
+        /// </summary>
+        /// <param name="barCount">The bar count.</param>
+        /// <param name="timeFrame">The time frame.</param>
+        /// <returns>start-end dates range</returns>
+        public static (DateTime, DateTime) GetDateRange(
+            int barCount, TimeFrame timeFrame)
+        {
+            DateTime dt = DateTime.UtcNow;
+            dt = new DateTime(dt.Year, dt.Month, dt.Day);
+
+            TimeSpan step = TimeFrameHelper.TimeFrames[timeFrame].TimeSpan;
+            DateTime dtStart = dt.Add(-barCount * step);
+
+            return (dtStart, dt);
         }
 
         /// <summary>

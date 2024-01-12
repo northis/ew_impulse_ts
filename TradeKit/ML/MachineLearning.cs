@@ -3,18 +3,88 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
+using cAlgo.API;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using Microsoft.ML;
 using Microsoft.ML.Data;
 using Microsoft.ML.Trainers;
+using Microsoft.ML.Transforms;
 using TradeKit.Json;
 using Newtonsoft.Json;
+using TradeKit.PatternGeneration;
+using TradeKit.Impulse;
 
 namespace TradeKit.ML
 {
     public static class MachineLearning
     {
+        /// <summary>
+        /// Gets the model vector for ML usage based on the passed candle set.
+        /// </summary>
+        /// <param name="candles">The candles.</param>
+        /// <param name="startValue">The start value.</param>
+        /// <param name="endValue">The end value.</param>
+        /// <param name="rank">The rank of the vector.</param>
+        /// <param name="accuracy">Digits count after the dot.</param>
+        /// <returns>The result vector <see cref="rank"/>X2 dimension.</returns>
+        public static float[] GetModelVector<T>(
+            List<T> candles,
+            double startValue,
+            double endValue,
+            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK,
+            int accuracy = Helper.ML_DEF_ACCURACY_PART) where T : ICandle
+        {
+            double step = 2d * candles.Count / rank;
+            double? high = null;
+            double? low = null;
+            double offset = 0;
+            int newArrayIndex = 0;
+            float[] vector = new float[rank]; // near and far points
+
+            int isUpK = startValue < endValue ? 1 : -1;
+            double range = Math.Abs(endValue - startValue);
+            double rangeK = isUpK / range;
+
+            void Add()
+            {
+                if (!high.HasValue || !low.HasValue)
+                    throw new ApplicationException(
+                        $"{nameof(GetModelVector)} error");
+
+                offset += step;
+
+                float diffH = Convert.ToSingle(
+                    Math.Round((high.Value - startValue) * rangeK, accuracy));
+                float diffL = Convert.ToSingle(
+                    Math.Round((low.Value - startValue) * rangeK, accuracy));
+
+                bool isCloserL = Math.Abs(diffL) < Math.Abs(diffH);
+
+                float currentNear = isCloserL ? diffL : diffH;
+                float currentFar = isCloserL ? diffH : diffL;
+                
+                vector[newArrayIndex] = currentNear;
+                newArrayIndex++;
+                vector[newArrayIndex] = currentFar;
+                newArrayIndex++;
+
+                high = null;
+                low = null;
+            }
+
+            for (int i = 0; i < candles.Count; i++)
+            {
+                if (i > offset + step) Add();
+                ICandle cdl = candles[i];
+                if (!high.HasValue || cdl.H > high) high = cdl.H;
+                if (!low.HasValue || cdl.L < low) low = cdl.L;
+            }
+
+            Add();
+            return vector;
+        }
+
         /// <summary>
         /// Gets the vector for ML usage based on the passed candle set profile.
         /// </summary>
@@ -23,7 +93,8 @@ namespace TradeKit.ML
         /// <param name="rank">The rank of the desired vector.</param>
         /// <returns>The vector.</returns>
         private static float[] GetModelVector(
-            List<ICandle> candles, bool isUp, ushort rank = Helper.ML_IMPULSE_VECTOR_RANK)
+            List<ICandle> candles, bool isUp, 
+            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK)
         {
             SortedDictionary<double, int> profile =
                 CandleTransformer.GetProfile(candles, isUp, out _);
@@ -119,7 +190,50 @@ namespace TradeKit.ML
             return res;
         }
 
-        private static IEnumerable<LearnItem> IterateLearn(IEnumerable<LearnFilesItem> filesItems)
+        /// <summary>
+        /// Gets the prepared learn item with vector.
+        /// </summary>
+        /// <param name="generator">The generator.</param>
+        /// <returns>The prepared learn items with vectors.</returns>
+        public static LearnItem GetIterateLearn(PatternGenerator generator)
+        {
+            TimeFrame tf = TimeFrame.Minute15;
+            const int minBarCount = Helper.ML_IMPULSE_VECTOR_RANK / 2;
+            const int maxBarCount = 200;
+            int barCount = Random.Shared.Next(minBarCount, maxBarCount);
+
+            (DateTime, DateTime) barsDates = Helper.GetDateRange(barCount, tf);
+
+            const int accuracy = Helper.ML_DEF_ACCURACY_PART;
+            double startValue = Math.Round(
+                Random.Shared.NextDouble() * 10000 + 5000, accuracy);
+            double endValue = Math.Round(
+                startValue + Random.Shared.NextDouble() * 1000 - 500);
+
+            ElliottModelType modelType = ElliottModelType.IMPULSE;
+            bool isImpulse = true;
+            double selectValue = Random.Shared.NextDouble();
+            if (selectValue > 0.67)
+            {
+                modelType = selectValue > 0.83
+                    ? ElliottModelType.ZIGZAG
+                    : ElliottModelType.DOUBLE_ZIGZAG;
+                isImpulse = false;
+            }
+
+            ModelPattern pattern = generator.GetPattern(
+                new PatternArgsItem(startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy),
+                modelType, true);
+
+            float[] vector = GetModelVector(
+                pattern.Candles, startValue, endValue,
+                Helper.ML_IMPULSE_VECTOR_RANK, accuracy);
+
+            return new LearnItem(isImpulse, vector);
+        }
+
+        private static IEnumerable<LearnItem> IterateLearn(
+            IEnumerable<LearnFilesItem> filesItems)
         {
             foreach (LearnFilesItem filesItem in filesItems)
             {
@@ -153,13 +267,23 @@ namespace TradeKit.ML
         /// </summary>
         /// <param name="learnFiles">The learn files.</param>
         /// <param name="fileToSave">The file to save.</param>
+        /// <param name="filesLimit">The files limit.</param>
         public static void RunLearn(
-            IEnumerable<LearnFilesItem> learnFiles, string fileToSave)
+            IEnumerable<LearnFilesItem> learnFiles, 
+            string fileToSave,
+            int filesLimit = Helper.ML_MAX_BATCH_ITEMS)
         {
-            RunLearn(IterateLearn(learnFiles), fileToSave);
+            RunLearn(IterateLearn(learnFiles).Take(filesLimit), fileToSave);
         }
 
-        private static void RunLearn(IEnumerable<LearnItem> learnSet, string fileToSave)
+        /// <summary>
+        /// Runs the learn for the passed collection.
+        /// </summary>
+        /// <param name="learnSet">The learn set.</param>
+        /// <param name="fileToSave">The file to save.</param>
+        public static void RunLearn(
+            IEnumerable<LearnItem> learnSet, 
+            string fileToSave)
         {
             Logger.Write($"{nameof(RunLearn)} start");
             var mlContext = new MLContext();
@@ -167,22 +291,12 @@ namespace TradeKit.ML
 
             string labelColumn = "Label";
             string featuresColumn = "Features";
-
-            var dataProcessPipeline =
-                mlContext.Transforms.CopyColumns(outputColumnName: labelColumn, inputColumnName: nameof(LearnItem.IsFit))
-                    .Append(mlContext.Transforms.Concatenate(featuresColumn, 
-                        nameof(LearnItem.V0),
-                        nameof(LearnItem.V1),
-                        nameof(LearnItem.V2),
-                        nameof(LearnItem.V3),
-                        nameof(LearnItem.V4),
-                        nameof(LearnItem.V5),
-                        nameof(LearnItem.V6),
-                        nameof(LearnItem.V7),
-                        nameof(LearnItem.V8),
-                        nameof(LearnItem.V9)))
-                    .AppendCacheCheckpoint(mlContext); 
             
+            EstimatorChain<TypeConvertingTransformer> dataProcessPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: labelColumn, inputColumnName: nameof(LearnItem.IsFit))
+                .Append(mlContext.Transforms.Concatenate(featuresColumn, nameof(LearnItem.Vector)))
+                .Append(mlContext.Transforms.Conversion.ConvertType(outputColumnName: "Features", inputColumnName: featuresColumn, outputKind: DataKind.Single))
+                .AppendCacheCheckpoint(mlContext);
+
             SdcaLogisticRegressionBinaryTrainer trainer = mlContext.BinaryClassification.Trainers.SdcaLogisticRegression(labelColumnName: labelColumn, featureColumnName: featuresColumn);
             var trainingPipeline = dataProcessPipeline.Append(trainer);
 

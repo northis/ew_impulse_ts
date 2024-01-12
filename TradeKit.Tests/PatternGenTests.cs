@@ -8,8 +8,7 @@ namespace TradeKit.Tests;
 public class PatternGenTests
 {
     private PatternGenerator m_PatternGenerator;
-
-
+    
     private static readonly string FOLDER_TO_SAVE = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "images");
     
@@ -17,13 +16,7 @@ public class PatternGenTests
 
     private (DateTime, DateTime) GetDateRange(int barCount)
     {
-        DateTime dt = DateTime.UtcNow;
-        dt = new DateTime(dt.Year, dt.Month, dt.Day);
-
-        TimeSpan step = TimeFrameHelper.TimeFrames[m_TimeFrame].TimeSpan;
-        DateTime dtStart = dt.Add(-barCount * step);
-
-        return (dtStart, dt);
+        return Helper.GetDateRange(barCount, m_TimeFrame);
     }
 
     [SetUp]
@@ -200,9 +193,12 @@ public class PatternGenTests
     public void ImpulseTest()
     {
         (DateTime, DateTime) dates = GetDateRange(15);
+
+        PatternArgsItem paramArgs = new PatternArgsItem(
+            40, 60, dates.Item1, dates.Item2, m_TimeFrame) {Max = 61};
         ModelPattern model = m_PatternGenerator.GetPattern(
-            new PatternArgsItem(40, 60, dates.Item1, dates.Item2, m_TimeFrame)
-                {Max = 61}, ElliottModelType.IMPULSE, true);
+            paramArgs, ElliottModelType.IMPULSE, true);
+        
         ChartGenerator.SaveResultFiles(model, FOLDER_TO_SAVE, model.Level);
     }
 }
