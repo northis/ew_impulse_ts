@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Microsoft.FSharp.Core;
+using Newtonsoft.Json;
 using Plotly.NET;
+using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Json;
+using TradeKit.PatternGeneration;
 using static Plotly.NET.StyleParam;
 
 namespace TradeKit.Core
@@ -159,6 +163,77 @@ namespace TradeKit.Core
                 .WithYAxisStyle(Side: Side.Right, title: null);
 
             return resultChart;
+        }
+
+        private static string GetTempString =>
+            Path.GetFileNameWithoutExtension(Path.GetTempFileName());
+
+        private static string GetChartFileName(ModelPattern model)
+        {
+            string name = model.Model.ToString().ToLowerInvariant();
+            string fileName = $"{name}_{model.Candles.Count}_{GetTempString}";
+            return fileName;
+        }
+
+        public static void SaveResultFiles(
+            ModelPattern model, string folderToSave, byte filterLevel = 0)
+        {
+            string fileName = GetChartFileName(model);
+            SaveChart(model, folderToSave, filterLevel);
+
+            string jsonFilePath = Path.Join(folderToSave, $"{fileName}.json");
+            string json = JsonConvert.SerializeObject(
+                model.ToJson(), Formatting.Indented);
+            File.WriteAllText(jsonFilePath, json);
+        }
+
+        public static void SaveChart(
+            ModelPattern model, string folderToSave, byte filterLevel = 0)
+        {
+            string name = model.Model.ToString().Replace("_", " ").ToUpperInvariant();
+            List<JsonCandleExport> candles = model.Candles;
+            GenericChart.GenericChart chart = GetCandlestickChart(candles, name);
+
+            const byte chartFontSizeCorrect = (byte)CHART_FONT_MAIN - 4;
+            if (model?.PatternKeyPoints != null)
+            {
+                var annotations = new List<Annotation>();
+                bool isUp = model.Candles[0].O - model.Candles[^1].C > 0;
+
+                foreach (DateTime patternKeyDt in model.PatternKeyPoints.Keys)
+                {
+                    IEnumerable<PatternKeyPoint> points =
+                        model.PatternKeyPoints[patternKeyDt]
+                            .Where(a => a.Notation.Level >= filterLevel);
+                    IOrderedEnumerable<PatternKeyPoint> ordered =
+                        isUp
+                            ? points.OrderByDescending(a => a.Notation.Level)
+                            : points.OrderBy(a => a.Notation.Level);
+
+                    int offset = chartFontSizeCorrect;
+                    foreach (PatternKeyPoint point in ordered)
+                    {
+                        int size = chartFontSizeCorrect + point.Notation.FontSize;
+                        annotations.Add(GetAnnotation(
+                            patternKeyDt,
+                            point.Value,
+                            WHITE_COLOR,
+                            size,
+                            SEMI_WHITE_COLOR,
+                            point.Notation.NotationKey, null, offset));
+                        offset += Convert.ToInt32(2 * size);
+                    }
+
+                    isUp = !isUp;
+                }
+
+                chart.WithAnnotations(annotations);
+                chart.WithTitle(name);
+            }
+
+            string fileName = GetChartFileName(model);
+            string pngPath = Path.Combine(folderToSave, fileName);
+            chart.SavePNG(pngPath, null, 1000, 1000);
         }
     }
 }

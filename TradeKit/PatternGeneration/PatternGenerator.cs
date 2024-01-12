@@ -10,6 +10,8 @@ namespace TradeKit.PatternGeneration
 {
     public class PatternGenerator
     {
+        private readonly bool m_GenerateExtraInfo;
+
         #region Fields & consts
 
         private readonly Random m_Random;
@@ -49,9 +51,9 @@ namespace TradeKit.PatternGeneration
         private HashSet<ElliottModelType> m_Wave2Impulse;
         private HashSet<ElliottModelType> m_Wave4Impulse;
         private HashSet<ElliottModelType> m_Wave5Impulse;
-        private HashSet<TimeFrameInfo> m_TimeFrames;
+        private Dictionary<TimeFrameInfo, Func<DateTime, DateTime>> m_TimeFrames;
         private ElliottModelType[] m_ImpulseOnly;
-
+        
         #endregion
 
         static PatternGenerator()
@@ -59,8 +61,9 @@ namespace TradeKit.PatternGeneration
             InitModelRulesStatic();
         }
 
-        public PatternGenerator()
+        public PatternGenerator(bool generateExtraInfo)
         {
+            m_GenerateExtraInfo = generateExtraInfo;
             InitModelRules();
             m_Random = new Random();
         }
@@ -509,15 +512,34 @@ namespace TradeKit.PatternGeneration
             m_Wave5Impulse = impulse.Models[IMPULSE_FIVE].ToHashSet();
 
             m_ImpulseOnly = new[] { ElliottModelType.IMPULSE };
-
-            m_TimeFrames = new HashSet<TimeFrameInfo>
+            m_TimeFrames = new Dictionary<TimeFrameInfo, Func<DateTime, DateTime>>()
             {
-                TimeFrameHelper.TimeFrames[TimeFrame.Minute],
-                TimeFrameHelper.TimeFrames[TimeFrame.Minute5],
-                TimeFrameHelper.TimeFrames[TimeFrame.Minute15],
-                TimeFrameHelper.TimeFrames[TimeFrame.Hour],
-                TimeFrameHelper.TimeFrames[TimeFrame.Hour4],
-                TimeFrameHelper.TimeFrames[TimeFrame.Daily]
+                {
+                    TimeFrameHelper.TimeFrames[TimeFrame.Minute],
+                    a => new DateTime(a.Year, a.Month, a.Day, a.Hour, a.Minute, 0)
+                },
+                {
+                    TimeFrameHelper.TimeFrames[TimeFrame.Minute5],
+                    a => new DateTime(
+                        a.Year, a.Month, a.Day, a.Hour, a.Minute - a.Minute % 5, 0)
+                },
+                {
+                    TimeFrameHelper.TimeFrames[TimeFrame.Minute15],
+                    a => new DateTime(
+                        a.Year, a.Month, a.Day, a.Hour, a.Minute - a.Minute % 15, 0)
+                },
+                {
+                    TimeFrameHelper.TimeFrames[TimeFrame.Hour],
+                    a => new DateTime(a.Year, a.Month, a.Day, a.Hour, 0, 0)
+                },
+                {
+                    TimeFrameHelper.TimeFrames[TimeFrame.Hour4],
+                    a => new DateTime(a.Year, a.Month, a.Day, a.Hour - a.Hour % 4, 0, 0)
+                },
+                {
+                    TimeFrameHelper.TimeFrames[TimeFrame.Daily],
+                    a => new DateTime(a.Year, a.Month, a.Day)
+                }
             };
         }
 
@@ -528,26 +550,85 @@ namespace TradeKit.PatternGeneration
         /// </summary>
         /// <param name="args">The arguments.</param>
         /// <param name="model">The model type.</param>
+        /// <param name="useScaleFrom1M">If true, the candles will be scaled from 1m time frame to the requested one. This can increase the emulation quality.</param>
         /// <exception cref="ArgumentException">BarsCount</exception>
         /// <exception cref="NotSupportedException">Not supported model {model}</exception>
-        public ModelPattern GetPattern(PatternArgsItem args, ElliottModelType model)
+        public ModelPattern GetPattern(
+            PatternArgsItem args, ElliottModelType model, bool useScaleFrom1M = false)
         {
-            ModelPattern modelPattern = GetPatternInner(args, model);
+            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame];
+            if (!m_TimeFrames.ContainsKey(tfInfo))
+                throw new ArgumentException(nameof(args.TimeFrame));
+
+            TimeFrame originalTimeFrame = args.TimeFrame;
+            args.RecalculateDates(m_TimeFrames[tfInfo](args.DateStart),
+                m_TimeFrames[tfInfo](args.DateEnd),
+                useScaleFrom1M ? TimeFrame.Minute : args.TimeFrame);
+
+            ModelPattern modelPattern = GetPatternInner(args, model, useScaleFrom1M);
             ValidateAndCorrectCandles(modelPattern, args.Accuracy);
+            if (useScaleFrom1M)
+            {
+                TimeSpan ts = tfInfo.TimeSpan;
+                DateTime currentDate = args.DateStart;
+                DateTime nextDate = currentDate.Add(ts);
+
+                double? open = null;
+                double? close = null;
+                double? high = null;
+                double? low = null;
+
+                List<JsonCandleExport> scaledCandles = new List<JsonCandleExport>();
+                void Add()
+                {
+                    scaledCandles.Add(new JsonCandleExport
+                    {
+                        O = open.GetValueOrDefault(),
+                        H = high.GetValueOrDefault(),
+                        L = low.GetValueOrDefault(),
+                        C = close.GetValueOrDefault(),
+                        OpenDate = currentDate
+                    });
+                }
+
+                foreach (JsonCandleExport candle in
+                         modelPattern.Candles.OrderBy(a => a.OpenDate))
+                {
+                    if (candle.OpenDate > nextDate)
+                    {
+                        Add();
+                        currentDate = nextDate;
+                        nextDate = nextDate.Add(ts);
+                        open = null;
+                        high = null;
+                        low = null;
+                    }
+
+                    open ??= candle.O;
+                    close = candle.C;
+
+                    if (!high.HasValue || candle.H > high)
+                        high = candle.H;
+                    if (!low.HasValue || candle.L < low)
+                        low = candle.L;
+                }
+
+                Add();
+                modelPattern.Candles = scaledCandles;
+            }
+
+            args.RecalculateDates(args.DateStart, args.DateEnd, originalTimeFrame);
             return modelPattern;
         }
 
         #region Main patterns
 
-        private ModelPattern GetPatternInner(PatternArgsItem args, ElliottModelType model)
+        private ModelPattern GetPatternInner(
+            PatternArgsItem args, ElliottModelType model, bool useScaleFrom1M)
         {
             if (args.BarsCount <= 0)
                 throw new ArgumentException(nameof(args.BarsCount));
-
-            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame];
-            if (!m_TimeFrames.Contains(tfInfo))
-                throw new ArgumentException(nameof(args.TimeFrame));
-
+            
             if (m_ModelGeneratorsMap.TryGetValue(model,
                     out Func<PatternArgsItem, ModelPattern> actionGen))
             {
@@ -726,6 +807,9 @@ namespace TradeKit.PatternGeneration
                     wave5
                 });
 
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
+
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
@@ -741,7 +825,6 @@ namespace TradeKit.PatternGeneration
 
             modelPattern.DurationRatios.Add(
                 new DurationRatio(IMPULSE_FOUR, IMPULSE_TWO, wave4Dur / wave2Dur));
-
             return modelPattern;
         }
 
@@ -785,6 +868,9 @@ namespace TradeKit.PatternGeneration
                 new[] {waveA, waveB, waveC},
                 new[] {waveC, waveB, arg.IsUp ? arg.Max : arg.Min },
                 new[] {waveB, waveC, waveB });
+            
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
 
             double waveBLength = Math.Abs(waveA - waveB);
             modelPattern.LengthRatios.AddRange(
@@ -815,7 +901,7 @@ namespace TradeKit.PatternGeneration
             }
 
             double bToA = RandomWithinRange(0.9, 1);
-            double cToA = SelectRandomly(MAP_REG_FLAT_WAVE_C_TO_A);
+            double cToA = SelectRandomly(MAP_REG_FLAT_WAVE_C_TO_A, bToA);
             double waveALen = arg.Range / (1 - bToA + cToA);
             double waveBLen = bToA * waveALen;
 
@@ -829,6 +915,9 @@ namespace TradeKit.PatternGeneration
                 new[] {waveA, waveB, waveC},
                 new[] {arg.StartValue, waveC, arg.IsUp ? arg.Max : arg.Min},
                 new[] {waveC, arg.StartValue, waveB});
+
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
 
             double waveCLen = cToA * waveALen;
             modelPattern.LengthRatios.AddRange(
@@ -889,6 +978,9 @@ namespace TradeKit.PatternGeneration
                 new[] {waveW, waveX, waveY, waveXx, waveZ},
                 new[] {waveW, arg.StartValue, waveY, waveX, waveXx},
                 new[] {arg.StartValue, waveY, waveX, waveZ, waveZ});
+
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
 
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -966,6 +1058,9 @@ namespace TradeKit.PatternGeneration
                 new[] {waveA, waveB, waveC, waveD, waveE},
                 new[] {arg.StartValue, waveA, waveB, waveC, waveD });
 
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
+
             double eWaveLen = Math.Abs(waveD - waveE);
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -1041,6 +1136,9 @@ namespace TradeKit.PatternGeneration
                 new[] {min, min, min},
                 new[] {modelW, modelX, modelY});
 
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
+
             double waveYLen = Math.Abs(waveY - waveX);
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -1078,7 +1176,7 @@ namespace TradeKit.PatternGeneration
             bool isShallow = m_ShallowCorrections.Contains(theModelX);
             double xToW = SelectRandomly(isShallow
                 ? MAP_SHALLOW_CORRECTION
-                : MAP_DEEP_CORRECTION);
+                : MAP_DEEP_CORRECTION, double.NaN, Math.Min(yToW, 1));
 
             double waveWLen = arg.Range / (1 - xToW + yToW);
 
@@ -1092,6 +1190,9 @@ namespace TradeKit.PatternGeneration
                 new[] { waveW, waveX, waveY },
                 new[] { waveW, arg.StartValue, waveX },
                 new[] { arg.StartValue, waveY, waveY });
+
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
 
             modelPattern.LengthRatios.AddRange(
                 new[]
@@ -1163,6 +1264,9 @@ namespace TradeKit.PatternGeneration
                 new[] {arg.StartValue, waveC, waveB}, 
                 definedModels);
 
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
+
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
@@ -1222,12 +1326,11 @@ namespace TradeKit.PatternGeneration
             }
 
             double waveE = arg.EndValue;
-
-            double addRange = Math.Abs(arg.StartValue - aLimit);
+            
             double restRange = Math.Abs(waveE - aLimit);
-            double startAddRange =
-                MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS * restRange / addRange;
-            double endAddRange = addRange - restRange * MAIN_ALLOWANCE_MAX_RATIO;
+            double startAddRange = arg.Range + MAIN_ALLOWANCE_MAX_RATIO * restRange;
+            double endAddRange = arg.Range + 
+                                 restRange * MAIN_ALLOWANCE_MAX_RATIO_INVERT;
 
             double doubleRange = arg.Range * 2;
             double aWaveLen = doubleRange < endAddRange && doubleRange > startAddRange
@@ -1240,11 +1343,11 @@ namespace TradeKit.PatternGeneration
             double runningPoint = arg.IsUp ? arg.Min : arg.Max;
             double rangeBLen = Math.Abs(arg.EndValue - runningPoint);
             double rangeBLenMin = useRunning 
-                ? arg.Range 
+                ? aWaveLen
                 : rangeBLen * MAIN_ALLOWANCE_MAX_RATIO;
 
             double rangeBLenMax = useRunning
-                ? arg.Range +
+                ? aWaveLen +
                   Math.Abs(arg.StartValue - runningPoint) * MAIN_ALLOWANCE_MAX_RATIO_INVERT
                 : rangeBLen * MAIN_ALLOWANCE_MAX_RATIO_INVERT;
 
@@ -1258,7 +1361,7 @@ namespace TradeKit.PatternGeneration
             
             double cToB = SelectRandomly(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV,
                 (waveBDiffE + waveADiffE * MAIN_ALLOWANCE_MAX_RATIO) / bWaveLen,
-                (waveBDiffE + waveADiffE * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / bWaveLen);
+                1);
 
             double cWaveLen = cToB * bWaveLen;
             double waveC = waveB + arg.IsUpK * cWaveLen;
@@ -1266,7 +1369,7 @@ namespace TradeKit.PatternGeneration
 
             double dToC = SelectRandomly(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV,
                 (waveCDiffE + waveBDiffE * MAIN_ALLOWANCE_MAX_RATIO) / bWaveLen,
-                (waveCDiffE + waveBDiffE * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / bWaveLen);
+                1);
             double dWaveLen = dToC * cWaveLen;
             double waveD = waveC - arg.IsUpK * dWaveLen;
             
@@ -1300,6 +1403,9 @@ namespace TradeKit.PatternGeneration
                 new[] {waveA, waveB, waveC, waveD, waveC },
                 new[] {arg.StartValue, waveA, waveB, waveC, waveD},
                 patterns);
+
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
 
             double eWaveLen = Math.Abs(waveD - waveE);
             modelPattern.LengthRatios.AddRange(
@@ -1362,6 +1468,9 @@ namespace TradeKit.PatternGeneration
                 new[] {waveA, waveB, waveC},
                 new[] {arg.IsUp ? arg.Max : arg.Min, arg.Min, waveB},
                 new[] {waveB, arg.Max, arg.IsUp ? arg.Max : arg.Min});
+
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
 
             double waveBLen = Math.Abs(waveC - waveB);
             modelPattern.LengthRatios.AddRange(
@@ -1450,6 +1559,9 @@ namespace TradeKit.PatternGeneration
                 new[] {wave1, wave2, wave5, wave4, arg.IsUp ? arg.Max : arg.Min},
                 new[] {arg.StartValue, wave1, wave2, wave3, wave3});
 
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
+
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
@@ -1524,6 +1636,9 @@ namespace TradeKit.PatternGeneration
                 new[] {wave1, wave2, wave3, wave4, wave5},
                 new[] {wave1, wave2, wave3, wave4, wave5},
                 new[] {arg.StartValue, wave1, wave2, wave3, wave4 });
+
+            if (!m_GenerateExtraInfo)
+                return modelPattern;
 
             double wave5Len = Math.Abs(wave5 - wave4);
             modelPattern.LengthRatios.AddRange(
@@ -1651,14 +1766,6 @@ namespace TradeKit.PatternGeneration
                     OpenDate = args.DateStart.Add(tfInfo.TimeSpan * i)
                 };
 
-                if (cdl.H < cdl.C || cdl.H < cdl.O ||
-                    cdl.L > cdl.C || cdl.L > cdl.O)
-                {
-
-                }
-
-                // handle PrevCandleExtremum value, it can beyond the range
-
                 candles.Add(cdl);
                 previousClose = cdl.C;
             }
@@ -1745,35 +1852,31 @@ namespace TradeKit.PatternGeneration
                 JsonCandleExport prevCandle = candles[i - 1];
                 JsonCandleExport currentCandle = candles[i];
 
-                if (currentCandle.H < currentCandle.O ||
-                    currentCandle.H < currentCandle.C ||
-                    currentCandle.L > currentCandle.O ||
-                    currentCandle.L > currentCandle.C)
+                if (Math.Abs(currentCandle.O - prevCandle.C) >= double.Epsilon)
                 {
-                    double newOpen = currentCandle.O;
-                    double newClose = currentCandle.C;
-
-                    if (newOpen < currentCandle.L || newOpen > currentCandle.H)
-                        newOpen = prevCandle.C;
-
-                    if (newClose < currentCandle.L || newClose > currentCandle.H)
-                        newClose = newOpen;
-
-                    candles[i].O = newOpen;
-                    candles[i].C = newClose;
+                    if (!(currentCandle.C < prevCandle.H) || 
+                        !(currentCandle.C > prevCandle.L))
+                    {
+                        if (currentCandle.L < prevCandle.C && currentCandle.H > prevCandle.C)
+                            currentCandle.O = prevCandle.C;
+                    }
+                    else
+                    {
+                        prevCandle.C = currentCandle.O;
+                    }
                 }
 
-                if (Math.Abs(currentCandle.O - prevCandle.C) <= double.Epsilon)
-                    continue;
+                if (currentCandle.H < currentCandle.O) 
+                    currentCandle.H = currentCandle.O;
 
-                if (currentCandle.C < prevCandle.H && currentCandle.C > prevCandle.L)
-                {
-                    prevCandle.C = currentCandle.O;
-                    continue;
-                }
+                if (currentCandle.H < currentCandle.C)
+                    currentCandle.H = currentCandle.C;
 
-                if (currentCandle.L < prevCandle.C && currentCandle.H > prevCandle.C)
-                    currentCandle.O = prevCandle.C;
+                if (currentCandle.L > currentCandle.O)
+                    currentCandle.L = currentCandle.O;
+
+                if (currentCandle.L > currentCandle.C)
+                    currentCandle.L = currentCandle.C;
             }
         }
 
@@ -1834,7 +1937,7 @@ namespace TradeKit.PatternGeneration
                     ? WeightedRandomlySelectModel(models[keys[i]])
                     : definedModels[i];
 
-                ModelPattern modelWave = GetPatternInner(waveArg, model);
+                ModelPattern modelWave = GetPatternInner(waveArg, model, false);
                 foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> keyPoint 
                          in modelWave.PatternKeyPoints)
                 {
@@ -1843,12 +1946,14 @@ namespace TradeKit.PatternGeneration
                         AddKeyPoint(keyPoint.Key, kPointVal);
                     }
                 }
-
-                //pattern.ChildModelPatterns.Add(modelWave);
+                
                 pattern.Candles.AddRange(modelWave.Candles);
                 modelCurrent = modelWave;
                 isUp = !isUp;
             }
+
+            if (!m_GenerateExtraInfo)
+                return;
 
             pattern.Level = (byte) (pattern.PatternKeyPoints.Count > 0
                 ? pattern.PatternKeyPoints.Max(

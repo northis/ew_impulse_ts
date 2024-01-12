@@ -48,9 +48,9 @@ namespace TradeKit.PatternGeneration
         public Dictionary<DateTime, List<PatternKeyPoint>> PatternKeyPoints { get; }
 
         /// <summary>
-        /// Gets the candles of the pattern (plain list).
+        /// Gets or sets the candles of the pattern (plain list).
         /// </summary>
-        public List<JsonCandleExport> Candles { get; }
+        public List<JsonCandleExport> Candles { get; internal set; }
 
         /// <summary>
         /// Gets the depth level.
@@ -60,7 +60,7 @@ namespace TradeKit.PatternGeneration
         /// <summary>
         /// Converts to JSON.
         /// </summary>
-        public JsonGeneratedModel ToJson(PatternGenerator pg)
+        public JsonGeneratedModel ToJson()
         {
             var res = new JsonGeneratedModel
             {
@@ -83,8 +83,6 @@ namespace TradeKit.PatternGeneration
                     }).ToList();
                 i++;
             }
-
-            //res.ChildModels = ChildModelPatterns.Select(a => a.ToJson(pg)).ToArray();
             return res;
         }
 
