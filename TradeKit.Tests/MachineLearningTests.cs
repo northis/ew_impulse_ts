@@ -25,8 +25,8 @@ namespace TradeKit.Tests
         [Test]
         public void RunLearningTest()
         {
-            LearnItem[] res = new LearnItem[100];
-            for (int i = 0; i < 100; i++)
+            LearnItem[] res = new LearnItem[10000];
+            for (int i = 0; i < 10000; i++)
             {
                 res[i] = MachineLearning.GetIterateLearn(m_PatternGenerator);
             }

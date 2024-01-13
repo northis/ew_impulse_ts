@@ -794,9 +794,11 @@ namespace TradeKit.PatternGeneration
                 throw new ApplicationException("Wave 4/1 overlapse");
 
             double wave4To1Len = Math.Abs(wave4 - wave1);
+
+            double wave4Limit = arg.IsUp ? arg.Max : arg.Min;
             FillPattern(arg, modelPattern, bars4Gen,
                 new[] {wave1, wave2, wave3, wave4, wave5},
-                new[] {arg.StartValue, arg.StartValue, wave2, wave5, wave4},
+                new[] {arg.StartValue, arg.StartValue, wave2, wave4Limit, wave4},
                 new[]
                 {
                     wave1,
@@ -947,37 +949,50 @@ namespace TradeKit.PatternGeneration
 
             Dictionary<string, ElliottModelType[]> models
                 = ModelRules[modelPattern.Model].Models;
+            ElliottModelType theModelX =
+                WeightedRandomlySelectModel(models[CORRECTION_X]);
             ElliottModelType theModelXx =
                 WeightedRandomlySelectModel(models[CORRECTION_XX]);
 
-            // use the same ratios from zz
-            double zToW = SelectRandomly(ZIGZAG_C_TO_A);
-            double xxToY = SelectRandomly(m_ShallowCorrections.Contains(theModelXx)
+            double waveZ = arg.EndValue;
+            double xzToW = SelectRandomly(ZIGZAG_X_Z_TO_W);
+            double xToW = SelectRandomly(m_ShallowCorrections.Contains(theModelX)
+                ? MAP_SHALLOW_CORRECTION
+                : MAP_DEEP_CORRECTION, double.NaN, Math.Min(xzToW, 1));
+
+            double waveWLen = arg.Range / (1 - xToW + xzToW);
+            double waveXLen = waveWLen * xToW;
+
+            double waveW = arg.StartValue + arg.IsUpK * waveWLen;
+            double waveX = waveW - arg.IsUpK * waveXLen;
+            
+            double xxToY = SelectRandomly(m_ShallowCorrections.Contains(theModelX)
                 ? MAP_SHALLOW_CORRECTION
                 : MAP_DEEP_CORRECTION);
             
-            ElliottModelType theModelX =
-                WeightedRandomlySelectModel(models[CORRECTION_X]);
-            double xToW = SelectRandomly(m_ShallowCorrections.Contains(theModelX)
-                ? MAP_SHALLOW_CORRECTION
-                : MAP_DEEP_CORRECTION);
-            double yToW = SelectRandomly(ZIGZAG_C_TO_A);
+            double restWzLen = Math.Abs(waveW - waveZ);
+            double waveYLen = RandomWithinRange(
+                waveXLen + restWzLen * MAIN_ALLOWANCE_MAX_RATIO,
+                waveXLen + restWzLen * MAIN_ALLOWANCE_MAX_RATIO_INVERT);
 
-            double waveWLen = arg.Range / (1 - xToW + yToW - yToW * xxToY + zToW);
-            double waveYLen = waveWLen * yToW;
-            //double waveZLen = waveWLen * zToW;
-            double waveW = arg.StartValue + arg.IsUpK * waveWLen;
-            double waveX = waveW - arg.IsUpK * waveWLen * xToW;
+            double waveXxLen = waveYLen * xxToY;
             double waveY = waveX + arg.IsUpK * waveYLen;
-            double waveXx = waveY - arg.IsUpK * waveYLen * xxToY;
-            double waveZ = arg.EndValue;
+            double waveXx = waveY - arg.IsUpK * waveXxLen;
 
             int[] bars4Gen = SplitByN(arg.BarsCount, 5);
 
             FillPattern(arg, modelPattern, bars4Gen,
                 new[] {waveW, waveX, waveY, waveXx, waveZ},
                 new[] {waveW, arg.StartValue, waveY, waveX, waveXx},
-                new[] {arg.StartValue, waveY, waveX, waveZ, waveZ});
+                new[] {arg.StartValue, waveY, waveX, waveZ, waveZ},
+                new[]
+                {
+                    WeightedRandomlySelectModel(models[CORRECTION_W]), 
+                    theModelX,
+                    WeightedRandomlySelectModel(models[CORRECTION_Y]),
+                    theModelXx,
+                    WeightedRandomlySelectModel(models[CORRECTION_Z])
+                });
 
             if (!m_GenerateExtraInfo)
                 return modelPattern;
@@ -985,17 +1000,14 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_Y, CORRECTION_W, yToW),
-                    new LengthRatio(CORRECTION_Z, CORRECTION_W, zToW)
+                    new LengthRatio(CORRECTION_X, CORRECTION_W, xToW)
                 });
 
             modelPattern.DurationRatios.AddRange(
                 new[]
                 {
-                    new DurationRatio(CORRECTION_Y, CORRECTION_W,
-                        (double) bars4Gen[2] / bars4Gen[0]),
-                    new DurationRatio(CORRECTION_Z, CORRECTION_W,
-                        (double) bars4Gen[4] / bars4Gen[0])
+                    new DurationRatio(CORRECTION_X, CORRECTION_W,
+                        (double) bars4Gen[1] / bars4Gen[0])
                 });
 
             return modelPattern;
@@ -1186,10 +1198,15 @@ namespace TradeKit.PatternGeneration
             double waveY = arg.EndValue;
 
             int[] bars4Gen = SplitByTree(arg.BarsCount);
-            FillPattern(arg, modelPattern, bars4Gen, 
-                new[] { waveW, waveX, waveY },
-                new[] { waveW, arg.StartValue, waveX },
-                new[] { arg.StartValue, waveY, waveY });
+            FillPattern(arg, modelPattern, bars4Gen,
+                new[] {waveW, waveX, waveY},
+                new[] {waveW, arg.StartValue, waveX},
+                new[] {arg.StartValue, waveY, waveY}, new[]
+                {
+                    WeightedRandomlySelectModel(models[CORRECTION_W]),
+                    theModelX,
+                    WeightedRandomlySelectModel(models[CORRECTION_Y])
+                });
 
             if (!m_GenerateExtraInfo)
                 return modelPattern;
@@ -1228,7 +1245,7 @@ namespace TradeKit.PatternGeneration
             bool isShallow = m_ShallowCorrections.Contains(theModelB);
             double bToA = SelectRandomly(isShallow
                 ? MAP_SHALLOW_CORRECTION
-                : MAP_DEEP_CORRECTION);
+                : MAP_DEEP_CORRECTION, double.NaN, Math.Min(cToA, 1));
 
             double waveALen = arg.Range / (1 - bToA + cToA);
 
@@ -1773,10 +1790,14 @@ namespace TradeKit.PatternGeneration
             JsonCandleExport endItem = candles[^1];
             FillBorderCandlesEnd(args, endItem);
         }
-        
+
         #endregion
 
         #region Fibonacci ratios
+
+        private static readonly
+            SortedDictionary<byte, double> ZIGZAG_X_Z_TO_W =
+                new() { { 0, 0 }, { 5, 1 }, { 25, 1.618 }, { 50, 2.618 }, { 80, 3.618 }, { 90, 4.236 } };
 
         private static readonly
             SortedDictionary<byte, double> ZIGZAG_C_TO_A =

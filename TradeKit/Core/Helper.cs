@@ -71,7 +71,7 @@ namespace TradeKit.Core
 
         public const ushort ML_IMPULSE_VECTOR_RANK = 40;
         public const ushort ML_MAX_BATCH_ITEMS = 100;
-        public const double ML_TEST_SET_PART = 0.1;
+        public const double ML_TEST_SET_PART = 0.25;
         public const int ML_DEF_ACCURACY_PART = 5;
 
         /// <summary>

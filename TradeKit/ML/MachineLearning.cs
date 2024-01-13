@@ -287,31 +287,30 @@ namespace TradeKit.ML
         {
             Logger.Write($"{nameof(RunLearn)} start");
             var mlContext = new MLContext();
-            IDataView dataView = mlContext.Data.LoadFromEnumerable(learnSet);
-
-            string labelColumn = "Label";
             string featuresColumn = "Features";
-            
-            EstimatorChain<TypeConvertingTransformer> dataProcessPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: labelColumn, inputColumnName: nameof(LearnItem.IsFit))
-                .Append(mlContext.Transforms.Concatenate(featuresColumn, nameof(LearnItem.Vector)))
-                .Append(mlContext.Transforms.Conversion.ConvertType(outputColumnName: "Features", inputColumnName: featuresColumn, outputKind: DataKind.Single))
+
+            IDataView trainingDataView = mlContext.Data.LoadFromEnumerable(learnSet);
+            DataOperationsCatalog.TrainTestData dataSplit = mlContext.Data.TrainTestSplit(
+                trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
+            IDataView trainData = dataSplit.TrainSet;
+            IDataView testData = dataSplit.TestSet;
+            var dataProcessPipeline = mlContext.Transforms.Concatenate(featuresColumn, nameof(LearnItem.Vector))
+                .Append(mlContext.Transforms.NormalizeMinMax(featuresColumn))
                 .AppendCacheCheckpoint(mlContext);
-
-            SdcaLogisticRegressionBinaryTrainer trainer = mlContext.BinaryClassification.Trainers.SdcaLogisticRegression(labelColumnName: labelColumn, featureColumnName: featuresColumn);
+            
+            var trainer = mlContext.BinaryClassification.Trainers.SgdCalibrated(labelColumnName: nameof(LearnItem.IsFit), featureColumnName: featuresColumn);
             var trainingPipeline = dataProcessPipeline.Append(trainer);
-
-            DataOperationsCatalog.TrainTestData split = 
-                mlContext.Data.TrainTestSplit(
-                dataView, testFraction: Helper.ML_TEST_SET_PART);
-            var model = trainingPipeline.Fit(split.TrainSet);
-            IDataView predictions = model.Transform(split.TestSet);
-            CalibratedBinaryClassificationMetrics metrics = mlContext.BinaryClassification.Evaluate(predictions);
+            
+            ITransformer trainedModel = trainingPipeline.Fit(trainData);
+            IDataView predictions = trainedModel.Transform(testData);
+            var metrics = mlContext.BinaryClassification.Evaluate(
+                predictions, labelColumnName: nameof(LearnItem.IsFit));
 
             Logger.Write($"Accuracy: {metrics.Accuracy:P2}");
             Logger.Write($"AUC: {metrics.AreaUnderRocCurve:P2}");
             Logger.Write($"F1 Score: {metrics.F1Score:P2}");
-            
-            mlContext.Model.Save(model, dataView.Schema, fileToSave);
+
+            mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSave);
             Logger.Write($"{nameof(RunLearn)} end");
         }
 
