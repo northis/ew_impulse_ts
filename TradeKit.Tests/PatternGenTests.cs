@@ -1,4 +1,6 @@
 ﻿using cAlgo.API;
+using Plotly.NET.TraceObjects;
+using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.PatternGeneration;
@@ -12,7 +14,7 @@ public class PatternGenTests
     private static readonly string FOLDER_TO_SAVE = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "images");
     
-    private readonly TimeFrame m_TimeFrame = TimeFrame.Minute15;
+    private readonly TimeFrame m_TimeFrame = TimeFrame.Minute5;
 
     private (DateTime, DateTime) GetDateRange(int barCount)
     {
@@ -195,10 +197,9 @@ public class PatternGenTests
         (DateTime, DateTime) dates = GetDateRange(15);
 
         PatternArgsItem paramArgs = new PatternArgsItem(
-            40, 60, dates.Item1, dates.Item2, m_TimeFrame) {Max = 61};
+            40, 60, dates.Item1, dates.Item2, m_TimeFrame);
         ModelPattern model = m_PatternGenerator.GetPattern(
             paramArgs, ElliottModelType.IMPULSE, true);
-        
         ChartGenerator.SaveResultFiles(model, FOLDER_TO_SAVE, model.Level);
     }
 }

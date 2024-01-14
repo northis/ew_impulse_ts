@@ -15,7 +15,7 @@ namespace TradeKit.Tests
         [SetUp]
         public void Setup()
         {
-            m_PatternGenerator = new PatternGenerator(false);
+            m_PatternGenerator = new PatternGenerator(true);
             if (!Directory.Exists(FOLDER_TO_SAVE))
                 Directory.CreateDirectory(FOLDER_TO_SAVE);
 
@@ -25,8 +25,8 @@ namespace TradeKit.Tests
         [Test]
         public void RunLearningTest()
         {
-            LearnItem[] res = new LearnItem[10000];
-            for (int i = 0; i < 10000; i++)
+            LearnItem[] res = new LearnItem[100000];
+            for (int i = 0; i < 100000; i++)
             {
                 res[i] = MachineLearning.GetIterateLearn(m_PatternGenerator);
             }

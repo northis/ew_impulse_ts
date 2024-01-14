@@ -233,7 +233,7 @@ namespace TradeKit.Core
 
             string fileName = GetChartFileName(model);
             string pngPath = Path.Combine(folderToSave, fileName);
-            chart.SavePNG(pngPath, null, 1000, 1000);
+            chart.SavePNG(pngPath, null, 5000, 1000);
         }
     }
 }

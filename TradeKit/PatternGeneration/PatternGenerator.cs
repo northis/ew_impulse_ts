@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
+using Plotly.NET.TraceObjects;
+using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
@@ -565,7 +567,7 @@ namespace TradeKit.PatternGeneration
                 m_TimeFrames[tfInfo](args.DateEnd),
                 useScaleFrom1M ? TimeFrame.Minute : args.TimeFrame);
 
-            ModelPattern modelPattern = GetPatternInner(args, model, useScaleFrom1M);
+            ModelPattern modelPattern = GetPatternInner(args, model);
             ValidateAndCorrectCandles(modelPattern, args.Accuracy);
             if (useScaleFrom1M)
             {
@@ -623,8 +625,7 @@ namespace TradeKit.PatternGeneration
 
         #region Main patterns
 
-        private ModelPattern GetPatternInner(
-            PatternArgsItem args, ElliottModelType model, bool useScaleFrom1M)
+        private ModelPattern GetPatternInner(PatternArgsItem args, ElliottModelType model)
         {
             if (args.BarsCount <= 0)
                 throw new ArgumentException(nameof(args.BarsCount));
@@ -835,7 +836,10 @@ namespace TradeKit.PatternGeneration
             double bLimit = arg.IsUp ? arg.Min : arg.Max;
             if (arg.IsUp && bLimit >= arg.StartValue ||
                 !arg.IsUp && bLimit <= arg.StartValue)
-                throw new ArgumentException(nameof(bLimit));
+            {
+                // unable to do the running part
+               return GetZigzag(arg);
+            };
 
             List<JsonCandleExport> candles = arg.Candles;
             var modelPattern = new ModelPattern(
@@ -1018,7 +1022,10 @@ namespace TradeKit.PatternGeneration
             double dLimit = arg.IsUp ? arg.Min : arg.Max;
             if (arg.IsUp && dLimit >= arg.StartValue ||
                 !arg.IsUp && dLimit <= arg.StartValue)
-                throw new ArgumentException(nameof(arg));
+            {
+                // We cannot perform the running part, so we replace it with ZZ.
+                return GetZigzag(arg);
+            };
 
             var modelPattern = new ModelPattern(
                 ElliottModelType.TRIANGLE_EXPANDING, arg.Candles);
@@ -1091,17 +1098,15 @@ namespace TradeKit.PatternGeneration
         private ModelPattern GetCombination(PatternArgsItem arg)
         {
             if (arg.IsUp && arg.Min >= arg.StartValue ||
-                !arg.IsUp && arg.Max <= arg.StartValue)
-                throw new ArgumentException(nameof(arg));
-
-            if (arg.IsUp && arg.Max <= arg.EndValue ||
+                !arg.IsUp && arg.Max <= arg.StartValue || 
+                arg.IsUp && arg.Max <= arg.EndValue ||
                 !arg.IsUp && arg.Min >= arg.EndValue)
-                throw new ArgumentException(nameof(arg));
+            {
+                // We cannot perform the running part, so we replace it with DZZ.
+               return GetDoubleZigzag(arg);
+            };
 
-
-            var modelPattern = new ModelPattern(
-                ElliottModelType.COMBINATION, arg.Candles);
-            
+            var modelPattern = new ModelPattern(ElliottModelType.COMBINATION, arg.Candles);
             if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
             {
                 GetCorrectiveRandomSet(arg);
@@ -1301,12 +1306,18 @@ namespace TradeKit.PatternGeneration
         private ModelPattern GetRunningTriangle(PatternArgsItem arg)
         {
             double bLimit = arg.IsUp ? arg.Min : arg.Max;
+
+            var pattern = ElliottModelType.TRIANGLE_RUNNING;
+            var useRunning = true;
             if (arg.IsUp && bLimit >= arg.StartValue ||
                 !arg.IsUp && bLimit <= arg.StartValue)
-                throw new ArgumentException(nameof(arg));
+            {
+                // replace with common triangle
+                pattern = ElliottModelType.TRIANGLE_CONTRACTING;
+                useRunning = false;
+            };
 
-            var modelPattern = new ModelPattern(
-                ElliottModelType.TRIANGLE_RUNNING, arg.Candles);
+            var modelPattern = new ModelPattern(pattern, arg.Candles);
             
             if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
             {
@@ -1314,8 +1325,7 @@ namespace TradeKit.PatternGeneration
                 return modelPattern;
             }
 
-            modelPattern = GetContractingTriangle(arg, true,
-                ElliottModelType.TRIANGLE_RUNNING);
+            modelPattern = GetContractingTriangle(arg, useRunning, pattern);
             return modelPattern;
         }
 
@@ -1332,7 +1342,10 @@ namespace TradeKit.PatternGeneration
 
             if (arg.IsUp && aLimit <= arg.EndValue ||
                 !arg.IsUp && aLimit >= arg.EndValue)
-                throw new ArgumentException(nameof(arg));
+            {
+                // We cannot perform the running part, so we replace it with ZZ.
+                return GetZigzag(arg);
+            };
 
             var modelPattern = new ModelPattern(model, arg.Candles);
             
@@ -1385,7 +1398,7 @@ namespace TradeKit.PatternGeneration
             double waveCDiffE = Math.Abs(waveC - waveE);
 
             double dToC = SelectRandomly(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV,
-                (waveCDiffE + waveBDiffE * MAIN_ALLOWANCE_MAX_RATIO) / bWaveLen,
+                (waveCDiffE + waveBDiffE * MAIN_ALLOWANCE_MAX_RATIO) / cWaveLen,
                 1);
             double dWaveLen = dToC * cWaveLen;
             double waveD = waveC - arg.IsUpK * dWaveLen;
@@ -1442,14 +1455,15 @@ namespace TradeKit.PatternGeneration
         private ModelPattern GetRunningFlat(PatternArgsItem arg)
         {
             double bLimit = arg.IsUp ? arg.Min : arg.Max;
-            if (arg.IsUp && bLimit >= arg.StartValue ||
-                !arg.IsUp && bLimit <= arg.StartValue)
-                throw new ArgumentException(nameof(bLimit));
-
             double aLimit = arg.IsUp ? arg.Max : arg.Min;
-            if (arg.IsUp && aLimit <= arg.EndValue ||
+            if (arg.IsUp && bLimit >= arg.StartValue ||
+                !arg.IsUp && bLimit <= arg.StartValue ||
+                arg.IsUp && aLimit <= arg.EndValue ||
                 !arg.IsUp && aLimit >= arg.EndValue)
-                throw new ArgumentException(nameof(aLimit));
+            {
+                // We cannot perform the running part, so we replace it with ZZ.
+                return GetZigzag(arg);
+            }
 
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_RUNNING, arg.Candles);
@@ -1958,7 +1972,7 @@ namespace TradeKit.PatternGeneration
                     ? WeightedRandomlySelectModel(models[keys[i]])
                     : definedModels[i];
 
-                ModelPattern modelWave = GetPatternInner(waveArg, model, false);
+                ModelPattern modelWave = GetPatternInner(waveArg, model);
                 foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> keyPoint 
                          in modelWave.PatternKeyPoints)
                 {

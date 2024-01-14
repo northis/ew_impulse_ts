@@ -15,6 +15,7 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
+        private readonly BarProvidersFactory m_BarsFactory;
         private readonly string m_PathToMlModel;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
@@ -58,6 +59,7 @@ namespace TradeKit.Impulse
             string pathToMlModel = null)
             : base(mainBarsProvider, mainBarsProvider.Symbol)
         {
+            m_BarsFactory = barsFactory;
             m_PathToMlModel = pathToMlModel;
             for (int i = Helper.MIN_IMPULSE_SCALE;
                  i <= Helper.MAX_IMPULSE_SCALE;
@@ -329,7 +331,23 @@ namespace TradeKit.Impulse
                 if (UseML)
                 {
                     outExtrema = new ElliottModelResult(ElliottModelType.IMPULSE,
-                        new[] {startItem.Value, endItem.Value}, new ElliottModelResult[] { });
+                        new[] {startItem.Value, endItem.Value}, 
+                        new ElliottModelResult[] { });
+                    
+                    var candles = Helper.GetCandles(BarsProvider, startItem.Key, endItem.Key);
+                    Prediction prediction =
+                        MachineLearning.Predict(candles, startItem.Value.Value, endItem.Value.Value, m_PathToMlModel);
+
+                    if (prediction is not {PredictedLabel: true})
+                    {
+                        Logger.Write($"{BarsProvider.Symbol}, {BarsProvider.TimeFrame}: setup is not an impulse");
+                        return;
+                    }
+
+                    if (prediction.Score < 20)
+                    {
+                        return;
+                    }
                 }
                 else
                 {
@@ -418,18 +436,6 @@ namespace TradeKit.Impulse
                     out double channelRatio,
                     out double standardDeviation,
                     out SortedDictionary<double, int> profile);
-
-                if (!string.IsNullOrEmpty(m_PathToMlModel))
-                {
-                    Prediction prediction = 
-                        MachineLearning.Predict(profile, m_PathToMlModel);
-
-                    if (!prediction.PredictedLabel)
-                    {
-                        IsInSetup = false;
-                        return;
-                    }
-                }
 
                 //bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
                 //if (!isImpulseProfile)

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using TradeKit.Json;
 
 namespace TradeKit.Core
 {
@@ -18,15 +19,15 @@ namespace TradeKit.Core
         public static string PrivateChartUrl = Environment.GetEnvironmentVariable(ENV_PRIVATE_URL_KEY) ?? "https://www.tradingview.com/chart/";
 
         
-        public const double MINIMUM_BARS_IN_IMPULSE = 6;
+        public const double MINIMUM_BARS_IN_IMPULSE = 200;
         public const double BARS_DEPTH = 200;
         public const int EXTREMA_MAX = 200;
         public const double PERCENT_ALLOWANCE_SL = 2;
         public const double PERCENT_ALLOWANCE_TP = 0;
         public const double MAX_SPREAD_RATIO = 0.15;
-        public const int MIN_IMPULSE_SCALE = 25;
-        public const int MAX_IMPULSE_SCALE = 100;
-        public const int STEP_IMPULSE_SCALE = 25;
+        public const int MIN_IMPULSE_SCALE = 100;
+        public const int MAX_IMPULSE_SCALE = 500;
+        public const int STEP_IMPULSE_SCALE = 200;
         
         public const double IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES = 0.4;
         public const double IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES = 2;
@@ -69,9 +70,9 @@ namespace TradeKit.Core
         public const double MIN_ALLOWED_VOLUME_LOTS = 0.01;
         public const double MAX_ALLOWED_VOLUME_LOTS = 10;
 
-        public const ushort ML_IMPULSE_VECTOR_RANK = 40;
+        public const ushort ML_IMPULSE_VECTOR_RANK = 400;
         public const ushort ML_MAX_BATCH_ITEMS = 100;
-        public const double ML_TEST_SET_PART = 0.25;
+        public const double ML_TEST_SET_PART = 0.3;
         public const int ML_DEF_ACCURACY_PART = 5;
 
         /// <summary>
@@ -160,6 +161,39 @@ namespace TradeKit.Core
             DateTime dtStart = dt.Add(-barCount * step);
 
             return (dtStart, dt);
+        }
+
+        /// <summary>
+        /// Gets the candles for the bar provider passed.
+        /// </summary>
+        /// <param name="bp">The bar provider.</param>
+        /// <param name="startDate">The start date.</param>
+        /// <param name="endDate">The end date.</param>
+        public static List<JsonCandleExport> GetCandles(
+            IBarsProvider bp, DateTime startDate, DateTime endDate)
+        {
+            int startIndex = bp.GetIndexByTime(startDate);
+            int endIndex = bp.GetIndexByTime(endDate);
+            if (endIndex - startIndex < 1)
+                bp.LoadBars(startDate);
+
+            startIndex = bp.GetIndexByTime(startDate);
+            endIndex = bp.GetIndexByTime(endDate);
+
+            var candlesForExport = new List<JsonCandleExport>();
+            for (int i = startIndex; i <= endIndex; i++)
+            {
+                candlesForExport.Add(new JsonCandleExport
+                {
+                    O = bp.GetOpenPrice(i),
+                    C = bp.GetOpenPrice(i),
+                    H = bp.GetHighPrice(i),
+                    L = bp.GetLowPrice(i),
+                    OpenDate = bp.GetOpenTime(i)
+                });
+            }
+
+            return candlesForExport;
         }
 
         /// <summary>

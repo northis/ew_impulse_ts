@@ -7,13 +7,11 @@ using cAlgo.API;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using Microsoft.ML;
-using Microsoft.ML.Data;
-using Microsoft.ML.Trainers;
-using Microsoft.ML.Transforms;
 using TradeKit.Json;
 using Newtonsoft.Json;
 using TradeKit.PatternGeneration;
 using TradeKit.Impulse;
+using System.Diagnostics;
 
 namespace TradeKit.ML
 {
@@ -199,7 +197,7 @@ namespace TradeKit.ML
         {
             TimeFrame tf = TimeFrame.Minute15;
             const int minBarCount = Helper.ML_IMPULSE_VECTOR_RANK / 2;
-            const int maxBarCount = 200;
+            const int maxBarCount = 1000;
             int barCount = Random.Shared.Next(minBarCount, maxBarCount);
 
             (DateTime, DateTime) barsDates = Helper.GetDateRange(barCount, tf);
@@ -221,10 +219,8 @@ namespace TradeKit.ML
                 isImpulse = false;
             }
 
-            ModelPattern pattern = generator.GetPattern(
-                new PatternArgsItem(startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy),
-                modelType, true);
-
+            var arg = new PatternArgsItem(startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy);
+            ModelPattern pattern = generator.GetPattern(arg, modelType, true);
             float[] vector = GetModelVector(
                 pattern.Candles, startValue, endValue,
                 Helper.ML_IMPULSE_VECTOR_RANK, accuracy);
@@ -318,14 +314,26 @@ namespace TradeKit.ML
         /// Predicts by the specified model path and the specified candle set.
         /// </summary>
         /// <param name="candles">The candles.</param>
-        /// <param name="isUp">True if we consider the set of candles as ascending movement, otherwise false.</param>
+        /// <param name="startValue">The start value.</param>
+        /// <param name="endValue">The end value.</param>
         /// <param name="modelPath">The model path.</param>
+        /// <param name="rank">The rank of the vector.</param>
+        /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static Prediction Predict(
-            List<ICandle> candles, bool isUp, string modelPath)
+        public static Prediction? Predict<T>(
+            List<T> candles,
+            double startValue,
+            double endValue, 
+            string modelPath,
+            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK,
+            int accuracy = Helper.ML_DEF_ACCURACY_PART) where T:ICandle
         {
-            float[] vector = GetModelVector(candles, isUp);
-            Prediction res = Predict(modelPath, vector);
+            if (candles.Count < rank / 2)
+                return null;
+            
+            float[] vector = GetModelVector(
+                candles, startValue, endValue, rank, accuracy);
+            Prediction? res = Predict(modelPath, vector);
             return res;
         }
 
@@ -335,11 +343,11 @@ namespace TradeKit.ML
         /// <param name="profile">The impulse profile.</param>
         /// <param name="modelPath">The model path.</param>
         /// <returns>The prediction.</returns>
-        public static Prediction Predict(
+        public static Prediction? Predict(
             SortedDictionary<double, int> profile, string modelPath)
         {
             float[] vector = GetModelVector(profile);
-            Prediction res = Predict(modelPath, vector);
+            Prediction? res = Predict(modelPath, vector);
             return res;
         }
 
@@ -349,15 +357,15 @@ namespace TradeKit.ML
         /// <param name="modelPath">The model path.</param>
         /// <param name="vector">The vector.</param>
         /// <returns>The prediction.</returns>
-        private static Prediction Predict(string modelPath, float[] vector)
+        private static Prediction? Predict(string modelPath, float[] vector)
         { 
             MLContext mlContext = new MLContext();
             var trainedModel = mlContext.Model.Load(modelPath, out _);
-            Prediction prediction = Predict(trainedModel, mlContext, vector);
+            Prediction? prediction = Predict(trainedModel, mlContext, vector);
             return prediction;
         }
         
-        private static Prediction Predict(
+        private static Prediction? Predict(
             ITransformer model, MLContext mlContext, float[] vector)
         {
             PredictionEngine<LearnItem, Prediction>? predictionEngine = mlContext.Model.CreatePredictionEngine<LearnItem, Prediction>(model);
