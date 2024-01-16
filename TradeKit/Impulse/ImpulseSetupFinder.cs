@@ -344,7 +344,7 @@ namespace TradeKit.Impulse
                         return;
                     }
 
-                    if (prediction.Score < 20)
+                    if (prediction.Score < 10)
                     {
                         return;
                     }

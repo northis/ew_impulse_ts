@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using TradeKit.PatternGeneration;
 using TradeKit.Impulse;
 using System.Diagnostics;
+using Microsoft.ML.Data;
 
 namespace TradeKit.ML
 {
@@ -275,17 +276,16 @@ namespace TradeKit.ML
         /// <summary>
         /// Runs the learn for the passed collection.
         /// </summary>
-        /// <param name="learnSet">The learn set.</param>
+        /// <param name="mlContext">ML context item.</param>
+        /// <param name="trainingDataView">The data set.</param>
         /// <param name="fileToSave">The file to save.</param>
-        public static void RunLearn(
-            IEnumerable<LearnItem> learnSet, 
+        private static void RunLearnInner(
+            MLContext mlContext,
+            IDataView trainingDataView,
             string fileToSave)
         {
-            Logger.Write($"{nameof(RunLearn)} start");
-            var mlContext = new MLContext();
             string featuresColumn = "Features";
-
-            IDataView trainingDataView = mlContext.Data.LoadFromEnumerable(learnSet);
+            
             DataOperationsCatalog.TrainTestData dataSplit = mlContext.Data.TrainTestSplit(
                 trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
             IDataView trainData = dataSplit.TrainSet;
@@ -293,10 +293,10 @@ namespace TradeKit.ML
             var dataProcessPipeline = mlContext.Transforms.Concatenate(featuresColumn, nameof(LearnItem.Vector))
                 .Append(mlContext.Transforms.NormalizeMinMax(featuresColumn))
                 .AppendCacheCheckpoint(mlContext);
-            
+
             var trainer = mlContext.BinaryClassification.Trainers.SgdCalibrated(labelColumnName: nameof(LearnItem.IsFit), featureColumnName: featuresColumn);
             var trainingPipeline = dataProcessPipeline.Append(trainer);
-            
+
             ITransformer trainedModel = trainingPipeline.Fit(trainData);
             IDataView predictions = trainedModel.Transform(testData);
             var metrics = mlContext.BinaryClassification.Evaluate(
@@ -308,6 +308,49 @@ namespace TradeKit.ML
 
             mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSave);
             Logger.Write($"{nameof(RunLearn)} end");
+        }
+
+        /// <summary>
+        /// Runs the learn for the passed collection.
+        /// </summary>
+        /// <param name="fileCsvToLoad">The CSV file to load.</param>
+        /// <param name="fileToSave">The file to save.</param>
+        public static void RunLearn(
+            string fileCsvToLoad,
+            string fileToSave)
+        {
+            Logger.Write($"{nameof(RunLearn)} start");
+            var mlContext = new MLContext();
+            TextLoader textLoader = mlContext.Data.CreateTextLoader(new TextLoader.Options
+            {
+                Separators = new[] { ';' },
+                HasHeader = false,
+                AllowQuoting = true,
+                AllowSparse = false,
+                Columns = new[]
+                {
+                    new TextLoader.Column(nameof(LearnItem.IsFit), DataKind.Boolean, 0),
+                    new TextLoader.Column(nameof(LearnItem.Vector), DataKind.Single, 1, 40)
+                }
+            });
+
+            IDataView allData = textLoader.Load(fileCsvToLoad);
+            RunLearnInner(mlContext, allData, fileToSave);
+        }
+
+        /// <summary>
+        /// Runs the learn for the passed collection.
+        /// </summary>
+        /// <param name="learnSet">The learn set.</param>
+        /// <param name="fileToSave">The file to save.</param>
+        public static void RunLearn(
+        IEnumerable<LearnItem> learnSet, 
+        string fileToSave)
+        {
+            Logger.Write($"{nameof(RunLearn)} start");
+            var mlContext = new MLContext();
+            IDataView trainingDataView = mlContext.Data.LoadFromEnumerable(learnSet);
+            RunLearnInner(mlContext,trainingDataView, fileToSave);
         }
 
         /// <summary>

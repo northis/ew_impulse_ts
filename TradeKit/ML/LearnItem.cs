@@ -1,4 +1,6 @@
-﻿using Microsoft.ML.Data;
+﻿using System;
+using System.Linq;
+using Microsoft.ML.Data;
 using TradeKit.Core;
 
 namespace TradeKit.ML
@@ -15,5 +17,17 @@ namespace TradeKit.ML
 
         [VectorType(Helper.ML_IMPULSE_VECTOR_RANK)]
         public float[] Vector { get; init; }
+
+        public override string ToString()
+        {
+            return $"{IsFit};{string.Join(";", Vector)}";
+        }
+
+        public static LearnItem FromString(string str)
+        {
+            var split = str.Split(";", StringSplitOptions.RemoveEmptyEntries);
+            return new LearnItem(bool.Parse(split[0]), 
+                split[1..].Select(float.Parse).ToArray());
+        }
     }
 }

@@ -25,9 +25,9 @@ namespace TradeKit.Core
         public const double PERCENT_ALLOWANCE_SL = 2;
         public const double PERCENT_ALLOWANCE_TP = 0;
         public const double MAX_SPREAD_RATIO = 0.15;
-        public const int MIN_IMPULSE_SCALE = 100;
-        public const int MAX_IMPULSE_SCALE = 500;
-        public const int STEP_IMPULSE_SCALE = 200;
+        public const int MIN_IMPULSE_SCALE = 20;
+        public const int MAX_IMPULSE_SCALE = 220;
+        public const int STEP_IMPULSE_SCALE = 50;
         
         public const double IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES = 0.4;
         public const double IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES = 2;
