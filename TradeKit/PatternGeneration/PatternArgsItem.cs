@@ -21,6 +21,7 @@ namespace TradeKit.PatternGeneration
         public bool IsUp { get; }
         public int IsUpK { get; }
         public List<JsonCandleExport> Candles { get; }
+        public byte LevelDeep { get; set; }
 
         public void RecalculateDates(
             DateTime dateStart, DateTime dateEnd, TimeFrame timeFrame)

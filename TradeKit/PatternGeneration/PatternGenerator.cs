@@ -18,6 +18,7 @@ namespace TradeKit.PatternGeneration
 
         private readonly Random m_Random;
         private const int SIMPLE_BARS_THRESHOLD = 10;
+        private const byte MAX_DEEP_LEVEL = 10;
         private const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
         private const double MAIN_ALLOWANCE_MAX_RATIO_INVERT = 1- MAIN_ALLOWANCE_MAX_RATIO;
         private const double MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS = 1 + MAIN_ALLOWANCE_MAX_RATIO;
@@ -644,7 +645,7 @@ namespace TradeKit.PatternGeneration
         {
             var modelPattern = new ModelPattern(
                 ElliottModelType.IMPULSE, arg.Candles);
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetImpulseRandomSet(arg);
                 return modelPattern;
@@ -845,7 +846,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_EXTENDED, candles);
 
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -900,7 +901,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_REGULAR, arg.Candles);
             
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -945,7 +946,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.TRIPLE_ZIGZAG, arg.Candles);
             
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1030,7 +1031,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.TRIANGLE_EXPANDING, arg.Candles);
             
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1107,7 +1108,7 @@ namespace TradeKit.PatternGeneration
             };
 
             var modelPattern = new ModelPattern(ElliottModelType.COMBINATION, arg.Candles);
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1176,7 +1177,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.DOUBLE_ZIGZAG, arg.Candles);
             
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1235,7 +1236,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.ZIGZAG, arg.Candles);
 
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1319,7 +1320,7 @@ namespace TradeKit.PatternGeneration
 
             var modelPattern = new ModelPattern(pattern, arg.Candles);
             
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1349,7 +1350,7 @@ namespace TradeKit.PatternGeneration
 
             var modelPattern = new ModelPattern(model, arg.Candles);
             
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1468,7 +1469,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.FLAT_RUNNING, arg.Candles);
             
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1525,7 +1526,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.DIAGONAL_CONTRACTING_ENDING, arg.Candles);
 
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1612,7 +1613,7 @@ namespace TradeKit.PatternGeneration
             var modelPattern = new ModelPattern(
                 ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, arg.Candles);
 
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetImpulseRandomSet(arg);
                 return modelPattern;
@@ -1625,7 +1626,7 @@ namespace TradeKit.PatternGeneration
             PatternArgsItem arg, ElliottModelType model)
         {
             var modelPattern = new ModelPattern(model, arg.Candles);
-            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD)
+            if (arg.BarsCount < SIMPLE_BARS_THRESHOLD || arg.LevelDeep >= MAX_DEEP_LEVEL)
             {
                 GetCorrectiveRandomSet(arg);
                 return modelPattern;
@@ -1965,7 +1966,8 @@ namespace TradeKit.PatternGeneration
                     arg.TimeFrame)
                 {
                     Max = max,
-                    Min = min
+                    Min = min,
+                    LevelDeep = (byte) (arg.LevelDeep + 1)
                 };
 
                 ElliottModelType model = definedModels == null
@@ -1973,12 +1975,16 @@ namespace TradeKit.PatternGeneration
                     : definedModels[i];
 
                 ModelPattern modelWave = GetPatternInner(waveArg, model);
-                foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> keyPoint 
-                         in modelWave.PatternKeyPoints)
+
+                if (m_GenerateExtraInfo)
                 {
-                    foreach (PatternKeyPoint kPointVal in keyPoint.Value)
+                    foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> keyPoint
+                             in modelWave.PatternKeyPoints)
                     {
-                        AddKeyPoint(keyPoint.Key, kPointVal);
+                        foreach (PatternKeyPoint kPointVal in keyPoint.Value)
+                        {
+                            AddKeyPoint(keyPoint.Key, kPointVal);
+                        }
                     }
                 }
                 

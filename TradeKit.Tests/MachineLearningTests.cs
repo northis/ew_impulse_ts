@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading;
 using TradeKit.ML;
 using TradeKit.PatternGeneration;
@@ -13,7 +14,7 @@ namespace TradeKit.Tests
         private static readonly string FOLDER_TO_SAVE = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "ml");
 
-        private SemaphoreSlim m_Semaphore;
+        private ConcurrentQueue<string> m_ConcurrentQueue;
 
 
         [SetUp]
@@ -27,54 +28,64 @@ namespace TradeKit.Tests
             m_ModelFileToSave = Path.Join(FOLDER_TO_SAVE, "ml1m.csv");
 
         }
-        
-        private async Task WriteToFileAsync(string path, string content)
+
+        private async Task WriteToFileAsync(string path)
         {
-            await m_Semaphore.WaitAsync();
-            try
-            {
-                await using StreamWriter sw = new StreamWriter(path, true);
-                await sw.WriteLineAsync(content);
-            }
-            finally
-            {
-                m_Semaphore.Release();
-            }
+            await Task.Delay(5000);
         }
-        
-        private async Task RunMultipleTasksAsync(
+
+        private void WriteToFileAsync(string path, string content)
+        {
+            using StreamWriter sw = new StreamWriter(path, true);
+            sw.WriteLine(content);
+        }
+
+        private void RunMultipleTasksAsync(
             string path, int numberOfThreads, int callsPerThread)
         {
-            m_Semaphore = new SemaphoreSlim(1, 1);
-            var tasks = new Task[numberOfThreads];
+            m_ConcurrentQueue = new ConcurrentQueue<string>();
+            var tasks = new List<Task>();
             for (int i = 0; i < numberOfThreads; i++)
             {
-                tasks[i] = Task.Run(async () =>
-                {
-                    for (int j = 0; j < callsPerThread; j++)
-                    {
-                        try
-                        {
-                            string content = MachineLearning
-                                .GetIterateLearn(m_PatternGenerator).ToString();
-                            await WriteToFileAsync(path, content);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(ex);
-                        }
-                    }
-                });
+                tasks.Add(Task.Run(() => GenerateBatch(callsPerThread)));
             }
             
-            await Task.WhenAll(tasks);
-            m_Semaphore.Dispose();
+            var res = Task.WhenAll(tasks);
+
+            using StreamWriter sw = new StreamWriter(path, true);
+            while (!res.IsCompleted)
+            {
+                if (m_ConcurrentQueue.TryDequeue(out string result))
+                {
+                    sw.WriteLine(result);
+                }
+                else
+                {
+                    Thread.Sleep(1000);
+                }
+            }
+        }
+
+        void GenerateBatch(int callsPerThread)
+        {
+            for (int j = 0; j < callsPerThread; j++)
+            {
+                try
+                {
+                    string content = MachineLearning.GetIterateLearn(m_PatternGenerator).ToString();
+                    m_ConcurrentQueue.Enqueue(content);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            }
         }
 
         [Test]
-        public async Task RunLearningTest()
+        public void RunLearningTest()
         {
-            await RunMultipleTasksAsync(m_ModelFileToSave, 10000, 100);
+            RunMultipleTasksAsync(m_ModelFileToSave, 50000, 20);
             MachineLearning.RunLearn(m_ModelFileToSave, m_FileToSave);
 
             //LearnItem[] res = new LearnItem[100000];
