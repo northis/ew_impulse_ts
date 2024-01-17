@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
-using Plotly.NET.TraceObjects;
-using Plotly.NET;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
@@ -17,7 +15,7 @@ namespace TradeKit.PatternGeneration
         #region Fields & consts
 
         private readonly Random m_Random;
-        private const int SIMPLE_BARS_THRESHOLD = 10;
+        private const int SIMPLE_BARS_THRESHOLD = 100;
         private const byte MAX_DEEP_LEVEL = 10;
         private const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
         private const double MAIN_ALLOWANCE_MAX_RATIO_INVERT = 1- MAIN_ALLOWANCE_MAX_RATIO;
@@ -1933,6 +1931,11 @@ namespace TradeKit.PatternGeneration
                 bars4Gen.Length != models.Count ||
                 bars4Gen.Length != keys.Length)
                 throw new ArgumentException(nameof(pattern));
+
+            if (arg.LevelDeep > 10)
+            {
+
+            }
 
             void AddKeyPoint(DateTime dt, PatternKeyPoint point)
             {

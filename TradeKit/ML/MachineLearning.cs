@@ -197,8 +197,8 @@ namespace TradeKit.ML
         public static LearnItem GetIterateLearn(PatternGenerator generator)
         {
             TimeFrame tf = TimeFrame.Minute15;
-            const int minBarCount = Helper.ML_IMPULSE_VECTOR_RANK / 2;
-            const int maxBarCount = 1000;
+            const int minBarCount = Helper.ML_MIN_BARS_COUNT;
+            const int maxBarCount = Helper.ML_MAX_BARS_COUNT;
             int barCount = Random.Shared.Next(minBarCount, maxBarCount);
 
             (DateTime, DateTime) barsDates = Helper.GetDateRange(barCount, tf);

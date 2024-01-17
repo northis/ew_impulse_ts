@@ -85,7 +85,7 @@ namespace TradeKit.Tests
         [Test]
         public void RunLearningTest()
         {
-            RunMultipleTasksAsync(m_ModelFileToSave, 50000, 20);
+            RunMultipleTasksAsync(m_ModelFileToSave, 100, 10000);
             MachineLearning.RunLearn(m_ModelFileToSave, m_FileToSave);
 
             //LearnItem[] res = new LearnItem[100000];

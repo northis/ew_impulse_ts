@@ -20,7 +20,8 @@ namespace TradeKit.ML
 
         public override string ToString()
         {
-            return $"{IsFit};{string.Join(";", Vector)}";
+            return
+                $"{IsFit};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
         }
 
         public static LearnItem FromString(string str)
