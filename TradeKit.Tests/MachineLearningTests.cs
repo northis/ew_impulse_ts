@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.IO;
 using System.Threading;
 using TradeKit.ML;
 using TradeKit.PatternGeneration;
@@ -14,7 +15,7 @@ namespace TradeKit.Tests
         private static readonly string FOLDER_TO_SAVE = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "ml");
 
-        private ConcurrentQueue<string> m_ConcurrentQueue;
+        private ConcurrentQueue<LearnItem> m_ConcurrentQueue;
 
 
         [SetUp]
@@ -43,7 +44,7 @@ namespace TradeKit.Tests
         private void RunMultipleTasksAsync(
             string path, int numberOfThreads, int callsPerThread)
         {
-            m_ConcurrentQueue = new ConcurrentQueue<string>();
+            m_ConcurrentQueue = new ConcurrentQueue<LearnItem>();
             var tasks = new List<Task>();
             for (int i = 0; i < numberOfThreads; i++)
             {
@@ -51,19 +52,20 @@ namespace TradeKit.Tests
             }
             
             var res = Task.WhenAll(tasks);
+            res.Wait();
 
-            using StreamWriter sw = new StreamWriter(path, true);
-            while (!res.IsCompleted)
-            {
-                if (m_ConcurrentQueue.TryDequeue(out string result))
-                {
-                    sw.WriteLine(result);
-                }
-                else
-                {
-                    Thread.Sleep(1000);
-                }
-            }
+            //using StreamWriter sw = new StreamWriter(path, true);
+            //while (!res.IsCompleted)
+            //{
+            //    if (m_ConcurrentQueue.TryDequeue(out LearnItem result))
+            //    {
+            //        sw.WriteLine(result);
+            //    }
+            //    else
+            //    {
+            //        Thread.Sleep(1000);
+            //    }
+            //}
         }
 
         void GenerateBatch(int callsPerThread)
@@ -72,7 +74,7 @@ namespace TradeKit.Tests
             {
                 try
                 {
-                    string content = MachineLearning.GetIterateLearn(m_PatternGenerator).ToString();
+                    var content = MachineLearning.GetIterateLearn(m_PatternGenerator);
                     m_ConcurrentQueue.Enqueue(content);
                 }
                 catch (Exception ex)
@@ -82,11 +84,21 @@ namespace TradeKit.Tests
             }
         }
 
+        IEnumerable<LearnItem> GetFromFile()
+        {
+            using StreamReader sr = new StreamReader(m_ModelFileToSave, true);
+            while (!sr.EndOfStream)
+            {
+                LearnItem item = LearnItem.FromString(sr.ReadLine());
+                yield return item;
+            }
+        }
+
         [Test]
         public void RunLearningTest()
         {
             RunMultipleTasksAsync(m_ModelFileToSave, 100, 10000);
-            MachineLearning.RunLearn(m_ModelFileToSave, m_FileToSave);
+            MachineLearning.RunLearn(GetFromFile(), m_FileToSave);
 
             //LearnItem[] res = new LearnItem[100000];
             //for (int i = 0; i < 100000; i++)

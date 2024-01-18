@@ -28,7 +28,7 @@ namespace TradeKit.ML
         {
             var split = str.Split(";", StringSplitOptions.RemoveEmptyEntries);
             return new LearnItem(bool.Parse(split[0]), 
-                split[1..].Select(float.Parse).ToArray());
+                split[1..].Select(a=>float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray());
         }
     }
 }
