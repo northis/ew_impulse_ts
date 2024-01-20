@@ -92,6 +92,11 @@ namespace TradeKit.Core
         /// </summary>
         public const string JSON_STAT_FILE_NAME = "stat.json";
 
+        /// <summary>
+        /// The ML .csv stat file name
+        /// </summary>
+        public const string ML_CSV_STAT_FILE_NAME = "ml.csv";
+
         public const string CHART_FILE_TYPE_EXTENSION = ".png";
 
         /// <summary>

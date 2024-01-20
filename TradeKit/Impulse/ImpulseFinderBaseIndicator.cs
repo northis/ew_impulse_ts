@@ -66,32 +66,6 @@ namespace TradeKit.Impulse
         {
             int levelIndex = e.Level.BarIndex;
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
-            if (e.Waves is { Length: > 0 })
-            {
-                BarPoint start = e.Waves[0];
-                BarPoint currentBar = start;
-                BarPoint[] rest = e.Waves[1..];
-                foreach (BarPoint wave in rest)
-                {
-                    int endIndex = wave.BarIndex;
-                    Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
-                        currentBar.BarIndex, currentBar.Value, endIndex, wave.Value, Color.LightBlue);
-                    currentBar = wave;
-                }
-
-                int startIndex = start.BarIndex;
-                BarPoint end = e.Waves[^1];
-                var currentLevel = Math.Min(start.Value, end.Value);
-                var currentIndex = startIndex;
-                foreach (KeyValuePair<double, int> profile in e.Profile)
-                {
-                    Chart.DrawTrendLine($"P{levelIndex}+{profile.Key}",
-                        currentIndex, currentLevel, startIndex + profile.Value, profile.Key, Color.MediumVioletRed);
-                    currentLevel = profile.Key;
-                    currentIndex = startIndex + profile.Value;
-                }
-
-            }
 
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");

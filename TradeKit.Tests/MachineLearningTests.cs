@@ -30,11 +30,6 @@ namespace TradeKit.Tests
 
         }
 
-        private async Task WriteToFileAsync(string path)
-        {
-            await Task.Delay(5000);
-        }
-
         private void WriteToFileAsync(string path, string content)
         {
             using StreamWriter sw = new StreamWriter(path, true);

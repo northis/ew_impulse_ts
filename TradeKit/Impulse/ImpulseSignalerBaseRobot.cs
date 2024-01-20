@@ -7,9 +7,11 @@ using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
+using Plotly.NET.TraceObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Json;
+using TradeKit.ML;
 using static Plotly.NET.StyleParam;
 
 namespace TradeKit.Impulse
@@ -143,15 +145,18 @@ namespace TradeKit.Impulse
             Rangebreak[] rangeBreaks = null)
         {
             int barsCount = chartDataSource.D.Length;
+            if (!tradeResult || barsCount < Helper.ML_MIN_BARS_COUNT)
+                return;
+
             var candlesForExport = new List<JsonCandleExport>();
 
-            int startIndex = -1;
-            int entryIndex = -1;
-            int endIndex = -1;
+            //int startIndex = -1;
+            //int entryIndex = -1;
+            //int endIndex = -1;
 
             BarPoint startWave = signalEventArgs.Waves[0];
             BarPoint endWave = signalEventArgs.Waves[^1];
-            BarPoint entry = signalEventArgs.Level;
+            //BarPoint entry = signalEventArgs.Level;
 
             for (int i = 0; i < barsCount; i++)
             {
@@ -168,60 +173,71 @@ namespace TradeKit.Impulse
                     OpenDate = date
                 });
 
-                if (FindWavePoint(startWave, startIndex, date, high, low))
-                    startIndex = i;
+                //if (FindWavePoint(startWave, startIndex, date, high, low))
+                //    startIndex = i;
 
-                if (FindWavePoint(endWave, endIndex, date, high, low))
-                    endIndex = i + 1;
+                //if (FindWavePoint(endWave, endIndex, date, high, low))
+                //    endIndex = i + 1;
 
-                if (FindWavePoint(entry, entryIndex, date, high, low)) 
-                    entryIndex = i;
+                //if (FindWavePoint(entry, entryIndex, date, high, low)) 
+                //    entryIndex = i;
             }
-            
-            if (startIndex < 0 || endIndex < 0)
-            {
-                Logger.Write("Cannot extract impulse");
-                return;
-            }
-            
-            GenericChart.GenericChart resultChart =                ChartGenerator.GetCandlestickChart(
-                    chartDataSource.O[startIndex..endIndex],
-                    chartDataSource.H[startIndex..endIndex],
-                    chartDataSource.L[startIndex..endIndex],
-                    chartDataSource.C[startIndex..endIndex],
-                    chartDataSource.D[startIndex..endIndex], 
-                    barProvider.Symbol.Name, 
-                    rangeBreaks);
 
-            string jpgFilePath = Path.Join(dirPath, Helper.SAMPLE_IMG_FILE_NAME);
-            resultChart.SavePNG(jpgFilePath, null, CHART_WIDTH, CHART_HEIGHT);
+            float[] vector = MachineLearning.GetModelVector(
+                candlesForExport, startWave.Value, endWave.Value,
+                Helper.ML_IMPULSE_VECTOR_RANK, Symbol.Digits);
 
-            var exportStat = new JsonSymbolStatExport
-            {
-                Symbol = barProvider.Symbol.Name,
-                Entry = signalEventArgs.Level.Value,
-                EntryIndex = entryIndex,
-                Stop = signalEventArgs.StopLoss.Value,
-                Take = signalEventArgs.TakeProfit.Value,
-                StartIndex = startIndex,
-                FinishIndex = endIndex,
-                TimeFrame = barProvider.TimeFrame.ShortName,
-                Result = tradeResult,
-                Accuracy = barProvider.Symbol.Digits
-            };
+            var saveToLog =  new LearnItem(true, vector);
 
-            string jsonFilePath = Path.Join(dirPath, Helper.JSON_STAT_FILE_NAME);
-            string json = JsonConvert.SerializeObject(exportStat, Formatting.None);
-            File.WriteAllText(jsonFilePath, json);
+            string csvFilePath = Path.Join(
+                Helper.DirectoryToSaveImages, Helper.ML_CSV_STAT_FILE_NAME);
+            using StreamWriter sw = new StreamWriter(csvFilePath, true);
+            sw.WriteLine(saveToLog);
 
-            var exportData = new JsonSymbolDataExport
-            {
-                Candles = candlesForExport.ToArray()
-            };
+            //if (startIndex < 0 || endIndex < 0)
+            //{
+            //    Logger.Write("Cannot extract impulse");
+            //    return;
+            //}
 
-            jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
-            json = JsonConvert.SerializeObject(exportData, Formatting.None);
-            File.WriteAllText(jsonFilePath, json);
+            //GenericChart.GenericChart resultChart =                ChartGenerator.GetCandlestickChart(
+            //        chartDataSource.O[startIndex..endIndex],
+            //        chartDataSource.H[startIndex..endIndex],
+            //        chartDataSource.L[startIndex..endIndex],
+            //        chartDataSource.C[startIndex..endIndex],
+            //        chartDataSource.D[startIndex..endIndex], 
+            //        barProvider.Symbol.Name, 
+            //        rangeBreaks);
+
+            //string jpgFilePath = Path.Join(dirPath, Helper.SAMPLE_IMG_FILE_NAME);
+            //resultChart.SavePNG(jpgFilePath, null, CHART_WIDTH, CHART_HEIGHT);
+
+            //var exportStat = new JsonSymbolStatExport
+            //{
+            //    Symbol = barProvider.Symbol.Name,
+            //    Entry = signalEventArgs.Level.Value,
+            //    EntryIndex = entryIndex,
+            //    Stop = signalEventArgs.StopLoss.Value,
+            //    Take = signalEventArgs.TakeProfit.Value,
+            //    StartIndex = startIndex,
+            //    FinishIndex = endIndex,
+            //    TimeFrame = barProvider.TimeFrame.ShortName,
+            //    Result = tradeResult,
+            //    Accuracy = barProvider.Symbol.Digits
+            //};
+
+            //string jsonFilePath = Path.Join(dirPath, Helper.JSON_STAT_FILE_NAME);
+            //string json = JsonConvert.SerializeObject(exportStat, Formatting.None);
+            //File.WriteAllText(jsonFilePath, json);
+
+            //var exportData = new JsonSymbolDataExport
+            //{
+            //    Candles = candlesForExport.ToArray()
+            //};
+
+            //jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
+            //json = JsonConvert.SerializeObject(exportData, Formatting.None);
+            //File.WriteAllText(jsonFilePath, json);
         }
     }
 }
