@@ -371,26 +371,49 @@ namespace TradeKit.ML
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK,
             int accuracy = Helper.ML_DEF_ACCURACY_PART) where T:ICandle
         {
-            if (candles.Count < rank / 2)
-                return null;
-            
-            float[] vector = GetModelVector(
-                candles, startValue, endValue, rank, accuracy);
-            Prediction? res = Predict(modelPath, vector);
-            return res;
+            return PredictInner(candles, startValue, endValue, rank, accuracy, null, modelPath);
         }
 
         /// <summary>
-        /// Predicts by the specified model path and the specified impulse profile..
+        /// Predicts by the specified model path and the specified candle set.
         /// </summary>
-        /// <param name="profile">The impulse profile.</param>
-        /// <param name="modelPath">The model path.</param>
+        /// <param name="candles">The candles.</param>
+        /// <param name="startValue">The start value.</param>
+        /// <param name="endValue">The end value.</param>
+        /// <param name="modelBytes">The bytes of the ML model.</param>
+        /// <param name="rank">The rank of the vector.</param>
+        /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static Prediction? Predict(
-            SortedDictionary<double, int> profile, string modelPath)
+        public static Prediction? Predict<T>(
+            List<T> candles,
+            double startValue,
+            double endValue,
+            byte[] modelBytes,
+            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK,
+            int accuracy = Helper.ML_DEF_ACCURACY_PART) where T : ICandle
         {
-            float[] vector = GetModelVector(profile);
-            Prediction? res = Predict(modelPath, vector);
+            return PredictInner(candles, startValue, endValue, rank, accuracy, modelBytes);
+        }
+
+        private static Prediction? PredictInner<T>(
+            List<T> candles,
+            double startValue,
+            double endValue,
+            ushort rank,
+            int accuracy,
+            byte[]? modelBytes = null,
+            string? modelPath = null) where T : ICandle
+        {
+            if (modelBytes == null && modelPath == null || candles.Count < rank / 2)
+                return null;
+
+            float[] vector = GetModelVector(
+                candles, startValue, endValue, rank, accuracy);
+
+            Prediction? res = modelBytes != null 
+                ? Predict(modelBytes, vector) 
+                : Predict(modelPath, vector);
+            
             return res;
         }
 
@@ -407,7 +430,23 @@ namespace TradeKit.ML
             Prediction? prediction = Predict(trainedModel, mlContext, vector);
             return prediction;
         }
-        
+
+        /// <summary>
+        /// Predicts by the specified model path and the vector.
+        /// </summary>
+        /// <param name="modelBytes">The model byte array.</param>
+        /// <param name="vector">The vector.</param>
+        /// <returns>The prediction.</returns>
+        private static Prediction? Predict(byte[] modelBytes, float[] vector)
+        {
+            MLContext mlContext = new MLContext();
+
+            using var ms = new MemoryStream(modelBytes);
+            ITransformer trainedModel = mlContext.Model.Load(ms, out _);
+            Prediction? prediction = Predict(trainedModel, mlContext, vector);
+            return prediction;
+        }
+
         private static Prediction? Predict(
             ITransformer model, MLContext mlContext, float[] vector)
         {

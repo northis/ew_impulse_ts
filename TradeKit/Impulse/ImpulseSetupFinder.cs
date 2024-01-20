@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -15,8 +13,7 @@ namespace TradeKit.Impulse
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
-        private readonly BarProvidersFactory m_BarsFactory;
-        private readonly string m_PathToMlModel;
+        private readonly BarProvidersFactory m_BarProvidersFactory;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
         private readonly ElliottWavePatternFinder m_PatternFinder;
@@ -44,23 +41,17 @@ namespace TradeKit.Impulse
         
         public int TriggerBarIndex { get; set; }
 
-        public bool UseML =>
-            !string.IsNullOrEmpty(m_PathToMlModel) && 
-            File.Exists(m_PathToMlModel);
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
-        /// <param name="barsFactory">The factory for the bar providers.</param>
-        /// <param name="pathToMlModel">Null if we don't want to use the AI-based impulse finder, or full path to the model.</param>
+        /// <param name="barProvidersFactory">The bar provider factory.</param>
         public ImpulseSetupFinder(
-            IBarsProvider mainBarsProvider, BarProvidersFactory barsFactory,
-            string pathToMlModel = null)
+            IBarsProvider mainBarsProvider, BarProvidersFactory barProvidersFactory)
             : base(mainBarsProvider, mainBarsProvider.Symbol)
         {
-            m_BarsFactory = barsFactory;
-            m_PathToMlModel = pathToMlModel;
+            m_BarProvidersFactory = barProvidersFactory;
+            
             for (int i = Helper.MIN_IMPULSE_SCALE;
                  i <= Helper.MAX_IMPULSE_SCALE;
                  i += Helper.STEP_IMPULSE_SCALE)
@@ -68,54 +59,8 @@ namespace TradeKit.Impulse
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
             }
 
-            m_PatternFinder = new ElliottWavePatternFinder(mainBarsProvider, barsFactory);
-        }
-
-        private bool IsImpulseProfile(
-            SortedDictionary<double, int> profile, double startValue, double endValue)
-        {
-            List<HashSet<double>> groups = Helper.FindGroups(profile);
-            if (groups == null || groups.Count < 2)
-            {
-                return false;
-            }
-
-            double len = Math.Abs(startValue - endValue);
-            double lenFibo = len / 2;
-            double middlePrice = Math.Min(startValue, endValue) + lenFibo;
-
-            double[] maxPeaksKeys = groups
-                .Select(a => a.MaxBy(b => profile[b]))
-                .ToArray();
-
-            double[] topGroupsKeys = maxPeaksKeys
-                .OrderByDescending(a => profile[a])
-                .Take(2)
-                .ToArray();
-            KeyValuePair<double, double> firstGroup = new KeyValuePair<double, double>(topGroupsKeys[0], profile[topGroupsKeys[0]]);
-            KeyValuePair<double, double> secondGroup = new KeyValuePair<double, double>(topGroupsKeys[1], profile[topGroupsKeys[1]]);
-
-            int diff = Convert.ToInt32(firstGroup.Value / secondGroup.Value);
-            double peakDistance = Math.Abs(firstGroup.Key - secondGroup.Key);
-
-            if (peakDistance < len * Helper.IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES)
-                // peaks are too close
-            {
-                return false;
-            }
-
-            if (diff > Helper.IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES)
-            {
-                return false;
-            }
-
-            if (firstGroup.Key < middlePrice && secondGroup.Key < middlePrice ||
-                firstGroup.Key > middlePrice && secondGroup.Key > middlePrice)
-            {
-                return false;
-            }
-
-            return true;
+            m_PatternFinder = new ElliottWavePatternFinder(
+                BarsProvider.TimeFrame, barProvidersFactory);
         }
 
         private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, 
@@ -151,8 +96,7 @@ namespace TradeKit.Impulse
             }
 
             bool isUp = endValue > startItem.Value;
-            profile = CandleTransformer.GetProfile(
-                candles, isUp, out double overlapsedIndex);
+            profile = CandleTransformer.GetProfile(candles, isUp, out double overlapsedIndex);
 
             SortedDictionary<double, int>.ValueCollection countParts = profile.Values;
             double avgParts = countParts.Average();
@@ -326,40 +270,13 @@ namespace TradeKit.Impulse
                 }
 
                 m_PreFinder = null;
-
-                ElliottModelResult outExtrema;
-                if (UseML)
+                if (!m_PatternFinder.IsImpulse(startItem.Value, endItem.Value, out ElliottModelResult outExtrema))
                 {
-                    outExtrema = new ElliottModelResult(ElliottModelType.IMPULSE,
-                        new[] {startItem.Value, endItem.Value}, 
-                        new ElliottModelResult[] { });
-                    
-                    var candles = Helper.GetCandles(BarsProvider, startItem.Key, endItem.Key);
-                    Prediction prediction =
-                        MachineLearning.Predict(candles, startItem.Value.Value, endItem.Value.Value, m_PathToMlModel);
-
-                    if (prediction is not {PredictedLabel: true})
-                    {
-                        Logger.Write($"{BarsProvider.Symbol}, {BarsProvider.TimeFrame}: setup is not an impulse");
-                        return;
-                    }
-
-                    if (prediction.Score < 10)
-                    {
-                        return;
-                    }
+                    // The move is not an impulse.
+                    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
+                    return;
                 }
-                else
-                {
-                    if (!m_PatternFinder.IsImpulse(
-                            startItem.Value, endItem.Value, out outExtrema))
-                    {
-                        // The move is not an impulse.
-                        // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
-                        return;
-                    }
-                }
-                
+
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)
                 {
@@ -436,13 +353,6 @@ namespace TradeKit.Impulse
                     out double channelRatio,
                     out double standardDeviation,
                     out SortedDictionary<double, int> profile);
-
-                //bool isImpulseProfile = IsImpulseProfile(profile, startValue, endValue);
-                //if (!isImpulseProfile)
-                //{
-                //    IsInSetup = false;
-                //    return;
-                //}
 
                 if (!isImpulseUp)
                 {

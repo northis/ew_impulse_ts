@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
 using cAlgo.API;
-using cAlgo.API.Indicators;
 using TradeKit.Core;
 using TradeKit.Impulse;
-using static Plotly.NET.StyleParam;
+using TradeKit.Json;
+using TradeKit.ML;
+using TradeKit.Resources;
 
 namespace TradeKit.AlgoBase
 {
@@ -16,305 +15,24 @@ namespace TradeKit.AlgoBase
     /// </summary>
     public class ElliottWavePatternFinder
     {
-        private readonly IBarsProvider m_BarsProvider;
-
-        private Dictionary<ElliottModelType, ModelRules> m_ModelRules;
-        private readonly ExactExtremumFinder m_ExactExtremumFinder;
+        private readonly IBarsProvider m_BarsProviderMinor;
+        private readonly IBarsProvider m_BarsProviderMinorX2;
+        private readonly TimeFrameInfo m_MainFrameInfo;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
         /// </summary>
-        /// <param name="barsProvider">The bars provider.</param>
-        /// <param name="barsFactory">The factory for the bar providers.</param>
-        public ElliottWavePatternFinder(
-            IBarsProvider barsProvider, BarProvidersFactory barsFactory)
+        /// <param name="mainTimeFrame">The main TF</param>
+        /// <param name="barProvidersFactory">The bar provider factory (to get moe info).</param>
+        public ElliottWavePatternFinder(TimeFrame mainTimeFrame, BarProvidersFactory barProvidersFactory)
         {
-            m_BarsProvider = barsProvider;
-                barsFactory.GetBarsProvider(
-                    TimeFrameHelper.GetPreviousTimeFrameInfo(barsProvider.TimeFrame).TimeFrame);
+            var tfInfo = TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame);
 
-            m_ExactExtremumFinder = new ExactExtremumFinder(barsProvider, barsFactory);
-            //InitModelRules();
-        }
-
-        #region EA model rules
-
-        private bool CheckImpulseRulesPoints(List<BarPoint> barPoints)
-        {
-            // We should have all impulse points
-            if (barPoints.Count != 6)
-            {
-                return false;
-            }
-
-            BarPoint wave0 = barPoints[0];
-            BarPoint wave5 = barPoints[5];
-
-            bool isUp = wave0 < wave5;
-            int k = isUp ? 1 : -1;
-            BarPoint wave1 = barPoints[1];
-            BarPoint wave2 = barPoints[2];
-            BarPoint wave3 = barPoints[3];
-            BarPoint wave4 = barPoints[4];
-
-            TimeSpan wave1Dur = wave1.OpenTime - wave0.OpenTime;
-            TimeSpan wave2Dur = wave2.OpenTime - wave1.OpenTime;
-            TimeSpan wave3Dur = wave3.OpenTime - wave2.OpenTime;
-            TimeSpan wave4Dur = wave4.OpenTime - wave3.OpenTime;
-            TimeSpan wave5Dur = wave5.OpenTime - wave4.OpenTime;
-
-            if (wave1Dur<= TimeSpan.Zero ||
-                wave2Dur <= TimeSpan.Zero ||
-                wave3Dur <= TimeSpan.Zero ||
-                wave4Dur <= TimeSpan.Zero ||
-                wave5Dur <= TimeSpan.Zero)
-                return false;
-
-            double durationRatio = wave4Dur.TotalSeconds / wave2Dur.TotalSeconds;
-            if (durationRatio < 0.95 || durationRatio > 3)
-                return false;
-
-            double wave1Len = k * (wave1 - wave0);
-            double wave3Len = k * (wave3 - wave2);
-            double wave5Len = k * (wave5 - wave4);
-
-            if (wave1Len <= 0 || wave3Len <= 0 || wave5Len <= 0)
-                return false;
-
-            bool orderRule = k * (wave4 - wave1) > 0;
-            bool lengthRule = wave3Len > wave1Len || wave1Len > wave5Len;
-
-            return orderRule && lengthRule;
-        }
-
-        private bool CheckSmoothImpulse(
-            Dictionary<int, ValueTuple<int, double>> points, double fullLength)
-        {
-            double[] pullbacks = points.Select(a => a.Value.Item2).ToArray();
-            //double pullbackAvg = pullbacks.Average();
-            double pullbackMax = pullbacks.Max();
-            //double pullbackSum = pullbacks.Sum(a => Math.Pow(a - pullbackAvg, 2));
-            //double standardDeviation = Math.Sqrt(pullbackSum / (pullbacks.Length - 1));
-            if (pullbackMax / fullLength <= 0.3/* && standardDeviation >= 0.9*/)
-                return true;
-
-            return false;
-        }
-
-        private ElliottModelResult CheckImpulseRules(
-            List<BarPoint> barPoints, bool useRecursion = true)
-        {
-            if (barPoints.Count < 2)
-                return null;
-
-            if (barPoints.Count == 2 || CheckImpulseRulesPoints(barPoints))
-                return new ElliottModelResult(
-                    ElliottModelType.IMPULSE, barPoints.ToArray(), null);
-
-            BarPoint wave0 = barPoints[0];
-            BarPoint wave5 = barPoints[^1];
-
-            double lengthImpulse = Math.Abs(wave5 - wave0);
-            if (lengthImpulse < double.Epsilon)
-                return null;
-
-            bool isUp = wave0 < wave5;
-            int bpCount = barPoints.Count;
-            var overlaps = new Dictionary<int, ValueTuple<int, double>>();
-
-            for (int i = 0; i < bpCount; i++)
-            {
-                var localOverlap = new List<ValueTuple<int, double>>();
-                for (int j = i + 1; j < bpCount; j++)
-                {
-                    double diff = barPoints[i].Value - barPoints[j].Value;
-                    diff = isUp ? diff : -diff;
-
-                    if (diff > 0)
-                        localOverlap.Add(
-                            new ValueTuple<int, double>(j, diff));
-                }
-
-                if (localOverlap.Count == 0)
-                    overlaps[i] = new ValueTuple<int, double>(0, 0);
-                else
-                    overlaps[i] = isUp
-                        ? localOverlap.MinBy(a => a.Item2)
-                        : localOverlap.MaxBy(a => a.Item2);
-            }
-
-            var sortedOverlapse = new SortedDictionary<int, double>();
-            foreach (KeyValuePair<int, (int, double)> pair in overlaps)
-                sortedOverlapse.Add(pair.Key, pair.Value.Item2);
-            
-            //if (CheckSmoothImpulse(overlaps, lengthImpulse))
-            //{
-            //    return new ElliottModelResult(
-            //        ElliottModelType.IMPULSE, new[] {wave0, wave5}, null);
-            //}
-            
-            int[] maxKeys = Helper.FindGroups(sortedOverlapse)
-                .Select(a => a.MaxBy(b => overlaps[b].Item2))
-                .OrderByDescending(a => overlaps[a].Item2)
-                .ToArray();
-
-            BarPoint[] barPointsArray = barPoints.ToArray();
-            foreach (int maxKey in maxKeys)
-            {
-               (int, double) overlap = overlaps[maxKey];
-
-               int thirdWaveEndIndex = maxKey;
-               if (thirdWaveEndIndex <= 1)
-                   continue;
-
-               BarPoint thirdWaveEnd = barPointsArray[thirdWaveEndIndex];
-                // This is either the 3rd wave end index (main scenario) or
-                // end of wave B of a flat/trangle or wave X of a combination
-                // of the 4th wave.
-
-                BarPoint[] wave3RdKeys =
-                    barPointsArray[..thirdWaveEndIndex];
-
-                if (isUp && wave3RdKeys.MaxBy(a => a.Value)?.Value > thirdWaveEnd.Value || 
-                    !isUp && wave3RdKeys.MinBy(a => a.Value)?.Value < thirdWaveEnd.Value)
-                    continue;
-
-                int forthWaveEndIndex = overlap.Item1;
-                BarPoint forthWaveEnd = barPointsArray[forthWaveEndIndex];
-                // We should consider 4th wave as zigzag and this will be the end index,
-                // and a triangle or combination - in this case this will be the lowest (the highest) point index inside the 4th wave.
-
-                foreach (int leftKey in maxKeys.Where(a => a < thirdWaveEndIndex))
-                {
-                    // Either the 1st wave end index, or wave B of a flat or wave X of a combination of the 2nd wave
-                    int firstWaveEndIndex = leftKey;
-                    if (firstWaveEndIndex < 1)
-                        continue;
-
-                    BarPoint firstWaveEnd = barPointsArray[firstWaveEndIndex];
-                    BarPoint[] wave2NdKeys = 
-                        barPointsArray[firstWaveEndIndex..thirdWaveEndIndex];
-
-                    // A running flat or a combination with a triangle in the wave Y won't be
-                    // covered by it
-                    BarPoint wave2End = isUp
-                        ? wave2NdKeys.MinBy(a => a.Value)
-                        : wave2NdKeys.MaxBy(a => a.Value);
-                    if (wave2End == null || wave2End.BarIndex == 0)
-                        continue;
-
-                    BarPoint[] wave1StKeys =
-                        barPointsArray[..(firstWaveEndIndex-1)];
-                    if (wave1StKeys.Length == 0)
-                        continue;
-                    
-                    if (isUp && 
-                        wave1StKeys.MaxBy(a => a.Value)?.Value > firstWaveEnd.Value
-                        || !isUp && 
-                        wave1StKeys.MinBy(a => a.Value)?.Value < firstWaveEnd.Value)
-                        continue;
-                    
-                    // We don't want to use flats for now.
-                    BarPoint[] wave1St2NdKeys =
-                        barPointsArray
-                            .Skip(firstWaveEndIndex)
-                            .TakeWhile(a => a.BarIndex < wave2End.BarIndex)
-                            .ToArray();
-
-                    if (isUp &&
-                        wave1St2NdKeys.MaxBy(a => a.Value)?.Value > firstWaveEnd.Value
-                        || !isUp &&
-                        wave1St2NdKeys.MinBy(a => a.Value)?.Value < firstWaveEnd.Value)
-                        continue;
-
-                    var impulseCandidate = new List<BarPoint>
-                    {
-                        wave0, firstWaveEnd, wave2End, thirdWaveEnd, forthWaveEnd, wave5
-                    };
-
-                    if (CheckImpulseRulesPoints(impulseCandidate))
-                    {
-                        //if (useRecursion)
-                        //{
-
-                        //    List<BarPoint> wave3Keys =
-                        //        barPointsArray.SkipWhile(a => a.BarIndex < wave2End.BarIndex)
-                        //            .TakeWhile(a => a.BarIndex <= thirdWaveEnd.BarIndex)
-                        //            .ToList();
-
-                        //    ElliottModelResult innerResult = 
-                        //        CheckImpulseRules(wave3Keys, false);
-                        //    if (innerResult == null)
-                        //        return null;
-
-                        //    var innerPoints = innerResult.Extrema[1..^2];
-
-                        //    impulseCandidate.Clear();
-                        //    impulseCandidate.Add(wave0);
-                        //    impulseCandidate.Add(firstWaveEnd);
-                        //    impulseCandidate.AddRange(innerPoints);
-                        //    impulseCandidate.Add(forthWaveEnd);
-                        //    impulseCandidate.Add(wave5);
-
-                        //}
-
-                        return new ElliottModelResult(
-                            ElliottModelType.IMPULSE, impulseCandidate.ToArray(), null);
-                    }
-
-                    // Add recursive call here
-                    //// Check the inner structures
-                    //Dictionary<string, ElliottModelType[]> rules =
-                    //    m_ModelRules[ElliottModelType.IMPULSE].Models;
-                    //foreach (KeyValuePair<string, ElliottModelType[]> rule in rules)
-                    //{
-
-                    //}
-
-                }
-            }
-
-            return null;
-        }
-
-
-        #endregion
-
-        private List<BarPoint> GetKeyBarPoints(List<Candle> candles, bool isUp)
-        {
-            if (candles.Count == 0)
-                return null;
-
-            if (candles[0].O < candles[^1].C != isUp)
-                return null;
-
-            var bars = new List<BarPoint>();
-            void AddBp(BarPoint bp)
-            {
-                bars.Add(bp);
-            }
-
-            for (int i = 0; i < candles.Count; i++)
-            {
-                Candle c = candles[i];
-
-                if (!c.Index.HasValue)
-                    return null;
-                int chartIndex = c.Index.Value;
-
-                BarPoint Bp(double v) => new(v, chartIndex, m_BarsProvider);
-
-                bool isNotFirst = i > 0;
-                bool isNotLast = i < candles.Count - 1;
-                if (isNotFirst) AddBp(Bp(c.O));
-
-                if (isNotFirst || !isUp) AddBp(Bp(c.H));
-                if (isNotLast || !isUp) AddBp(Bp(c.L));
-
-                if (isNotLast) AddBp(Bp(c.C));
-            }
-
-            return bars;
+            m_BarsProviderMinor = barProvidersFactory.GetBarsProvider(tfInfo.TimeFrame);
+            m_BarsProviderMinorX2 = tfInfo.TimeFrame == tfInfo.PrevTimeFrame
+                ? null
+                : barProvidersFactory.GetBarsProvider(tfInfo.PrevTimeFrame);
+            m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame];
         }
 
         /// <summary>
@@ -328,52 +46,29 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
-            result = null;
-            var barsCount = end.BarIndex - start.BarIndex;
-            var period = barsCount;
-            if (period < Helper.PIVOT_PERIOD_MIN)
-            {
-                result = null;
-                return false;
-            }
-            
-            bool isImpulseUp = start.Value < end.Value;
-            m_ExactExtremumFinder.Reset(!isImpulseUp);
-            m_ExactExtremumFinder.Calculate(start.BarIndex, end.BarIndex);
-            SortedDictionary<DateTime, BarPoint> extremaDict = m_ExactExtremumFinder.Extrema;
+            result = new ElliottModelResult(ElliottModelType.IMPULSE,
+                new[] { start, end },
+                new ElliottModelResult[] { });
 
-            DateTime start1 = start.OpenTime.AddSeconds(1);
-            DateTime end1 = end.OpenTime.AddSeconds(1);
-            
-            if (!extremaDict.ContainsKey(start.OpenTime) &&
-                !extremaDict.ContainsKey(start1) ||
-                !extremaDict.ContainsKey(end.OpenTime) &&
-                !extremaDict.ContainsKey(end1))
+            DateTime startDate = start.OpenTime;
+            DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
+
+            List<JsonCandleExport> candles = Helper.GetCandles(
+                m_BarsProviderMinor, startDate, endDate);
+            if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
+                m_BarsProviderMinorX2 != null)
+            {
+                candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
+            }
+
+            Prediction prediction =
+                MachineLearning.Predict(candles, start.Value, end.Value, MLModels.impulse1m);
+
+            if (prediction is not { PredictedLabel: true })
             {
                 return false;
-            }
-            
-            List<BarPoint> extremaList = m_ExactExtremumFinder.ToExtremaList();
-            if (extremaList.Count > 0)
-            {
-                BarPoint lastExtremum = extremaList[^1];
-                if (lastExtremum.BarIndex == end.BarIndex &&
-                    Math.Abs(lastExtremum.Value - end.Value) > double.Epsilon)
-                {
-                    extremaList.Remove(lastExtremum);
-                    extremaList.Add(end);
-                }
+            };
 
-                BarPoint firstExtremum = extremaList[0];
-                if (firstExtremum.BarIndex == start.BarIndex &&
-                    Math.Abs(firstExtremum.Value - start.Value) > double.Epsilon)
-                {
-                    extremaList.Remove(firstExtremum);
-                    extremaList.Insert(0, start);
-                }
-            }
-
-            result = CheckImpulseRules(extremaList);
             return result != null;
         }
     }

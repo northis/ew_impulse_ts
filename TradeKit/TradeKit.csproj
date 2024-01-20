@@ -5,7 +5,7 @@
     <EnableDefaultItems>False</EnableDefaultItems>
 	  <Version>1.0.1</Version>
 	  <Authors>Mikhail Berdnikov</Authors>
-	  <Copyright>Mikhail Berdnikov (C) 2022</Copyright>
+	  <Copyright>Mikhail Berdnikov (C) 2024</Copyright>
 	  <RepositoryUrl>https://github.com/northis/ew_impulse_ts</RepositoryUrl>
 	  <Product>Elliott Wave Impulse Kit Library</Product>
 	  <Description>Elliott Wave Impulse Kit Library for cTrader</Description>
@@ -36,6 +36,11 @@
     <Compile Include="Core\ChartGenerator.cs" />
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />
+    <Compile Include="Resources\MLModels.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>MLModels.resx</DependentUpon>
+    </Compile>
     <Compile Include="PatternGeneration\LengthRatio.cs" />
     <Compile Include="PatternGeneration\DurationRatio.cs" />
     <Compile Include="PatternGeneration\PatternKeyPoint.cs" />
@@ -121,5 +126,14 @@
     <Compile Include="Telegram\TelegramReporter.cs" />
     <Compile Include="Core\TimeFrameHelper.cs" />
     <Compile Include="Core\TimeFrameInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\MLModels.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>MLModels.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\impulse1m.zip" />
   </ItemGroup>
 </Project>

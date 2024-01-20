@@ -18,19 +18,7 @@ namespace TradeKit.Impulse
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
         private const string IMPULSE_SETTINGS = "⚡Impulse Settings";
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this bot should use AI-based algorithm.
-        /// </summary>
-        [Parameter("Use AI model", DefaultValue = false, Group = IMPULSE_SETTINGS)]
-        public bool UseAiModel { get; set; }
-
-        /// <summary>
-        /// Gets or sets the path to AI-model.
-        /// </summary>
-        [Parameter("Path to AI model", DefaultValue = null, Group = IMPULSE_SETTINGS)]
-        public string PathToModel { get; set; }
-
+        
         /// <summary>
         /// Gets the name of the bot.
         /// </summary>
@@ -84,9 +72,7 @@ namespace TradeKit.Impulse
         {
             var barsProvider = GetBarsProvider(bars, symbolEntity);
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
-            var sf = new ImpulseSetupFinder(
-                barsProvider, barProvidersFactory,
-                UseAiModel ? PathToModel : null);
+            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
             return sf;
         }
 
