@@ -69,6 +69,9 @@ namespace TradeKit.AlgoBase
                 return false;
             };
 
+            if (prediction.Score < 1)
+                return false;
+
             Logger.Write($"Predicted score:{prediction.Score}");
             return result != null;
         }

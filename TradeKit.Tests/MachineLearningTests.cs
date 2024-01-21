@@ -11,6 +11,7 @@ namespace TradeKit.Tests
         private PatternGenerator m_PatternGenerator;
         private string m_FileToSave;
         private string m_ModelFileToSave;
+        private string m_MarketFileToRead;
 
         private static readonly string FOLDER_TO_SAVE = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "ml");
@@ -27,7 +28,7 @@ namespace TradeKit.Tests
 
             m_FileToSave = Path.Join(FOLDER_TO_SAVE, "impulse1m.zip");
             m_ModelFileToSave = Path.Join(FOLDER_TO_SAVE, "ml1m.csv");
-
+            m_MarketFileToRead = Path.Join(FOLDER_TO_SAVE, "ml.csv");
         }
 
         private void WriteToFileAsync(string path, string content)
@@ -82,9 +83,19 @@ namespace TradeKit.Tests
         IEnumerable<LearnItem> GetFromFile()
         {
             using StreamReader sr = new StreamReader(m_ModelFileToSave, true);
-            while (!sr.EndOfStream)
+            while (!sr.EndOfStream && !sr.EndOfStream)
             {
                 LearnItem item = LearnItem.FromString(sr.ReadLine());
+                yield return item;
+            }
+        }
+
+        IEnumerable<LearnItem> GetImpulseFromFile()
+        {
+            using StreamReader srImpulse = new StreamReader(m_MarketFileToRead, true);
+            while (!srImpulse.EndOfStream)
+            {
+                LearnItem item = LearnItem.FromString(srImpulse.ReadLine());
                 yield return item;
             }
         }
@@ -92,8 +103,15 @@ namespace TradeKit.Tests
         [Test]
         public void RunLearningTest()
         {
-            RunMultipleTasksAsync(m_ModelFileToSave, 100, 10000);
-            MachineLearning.RunLearn(GetFromFile(), m_FileToSave);
+            RunMultipleTasksAsync(m_ModelFileToSave, 10, 400);
+
+            foreach (LearnItem li in GetImpulseFromFile())
+            {
+                m_ConcurrentQueue.Enqueue(li);
+            }
+
+            MachineLearning.RunLearn(
+                m_ConcurrentQueue.OrderBy(a => a.Vector[10]), m_FileToSave);
 
             //LearnItem[] res = new LearnItem[100000];
             //for (int i = 0; i < 100000; i++)

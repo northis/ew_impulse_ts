@@ -567,6 +567,7 @@ namespace TradeKit.PatternGeneration
                 useScaleFrom1M ? TimeFrame.Minute : args.TimeFrame);
 
             ModelPattern modelPattern = GetPatternInner(args, model);
+            
             ValidateAndCorrectCandles(modelPattern, args.Accuracy);
             if (useScaleFrom1M)
             {
@@ -579,17 +580,30 @@ namespace TradeKit.PatternGeneration
                 double? high = null;
                 double? low = null;
 
+                DateTime highDateTime = DateTime.MinValue;
+                DateTime lowDateTime = DateTime.MinValue;
+                List<PatternKeyPoint> patternKeys = null;
+                var keysMap = new Dictionary<DateTime, List<PatternKeyPoint>>();
+
                 List<JsonCandleExport> scaledCandles = new List<JsonCandleExport>();
                 void Add()
                 {
-                    scaledCandles.Add(new JsonCandleExport
+                    var jsCandle = new JsonCandleExport
                     {
                         O = open.GetValueOrDefault(),
                         H = high.GetValueOrDefault(),
                         L = low.GetValueOrDefault(),
                         C = close.GetValueOrDefault(),
-                        OpenDate = currentDate
-                    });
+                        OpenDate = currentDate,
+                        IsHighFirst = highDateTime < lowDateTime
+                    };
+
+                    scaledCandles.Add(jsCandle);
+
+                    if (patternKeys != null)
+                    {
+                        keysMap[jsCandle.OpenDate] = patternKeys;
+                    }
                 }
 
                 foreach (JsonCandleExport candle in
@@ -603,15 +617,39 @@ namespace TradeKit.PatternGeneration
                         open = null;
                         high = null;
                         low = null;
+                        highDateTime = DateTime.MinValue;
+                        lowDateTime = DateTime.MinValue;
+                        patternKeys = null;
+                    }
+
+                    if (modelPattern.PatternKeyPoints.ContainsKey(candle.OpenDate))
+                    {
+                        List<PatternKeyPoint> levels =
+                            modelPattern.PatternKeyPoints[candle.OpenDate]
+                                .Where(a => a.Notation.Level == modelPattern.Level)
+                                .ToList();
+
+                        if (levels.Count > 0)
+                        {
+                            patternKeys ??= new List<PatternKeyPoint>();
+                            patternKeys.AddRange(levels);
+                        }
                     }
 
                     open ??= candle.O;
                     close = candle.C;
 
                     if (!high.HasValue || candle.H > high)
+                    {
                         high = candle.H;
+                        highDateTime = candle.OpenDate;
+                    }
+
                     if (!low.HasValue || candle.L < low)
+                    {
                         low = candle.L;
+                        lowDateTime = candle.OpenDate;
+                    }
                 }
 
                 Add();
@@ -1698,7 +1736,7 @@ namespace TradeKit.PatternGeneration
 
         #region Simple sets
 
-        private void GetImpulseRandomSet(PatternArgsItem args)
+        public void GetImpulseRandomSet(PatternArgsItem args)
         {
             GetRandomSet(args, 0.2);
         }
@@ -1979,26 +2017,20 @@ namespace TradeKit.PatternGeneration
 
                 ModelPattern modelWave = GetPatternInner(waveArg, model);
 
-                if (m_GenerateExtraInfo)
+                foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> keyPoint
+                         in modelWave.PatternKeyPoints)
                 {
-                    foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> keyPoint
-                             in modelWave.PatternKeyPoints)
+                    foreach (PatternKeyPoint kPointVal in keyPoint.Value)
                     {
-                        foreach (PatternKeyPoint kPointVal in keyPoint.Value)
-                        {
-                            AddKeyPoint(keyPoint.Key, kPointVal);
-                        }
+                        AddKeyPoint(keyPoint.Key, kPointVal);
                     }
                 }
-                
+
                 pattern.Candles.AddRange(modelWave.Candles);
                 modelCurrent = modelWave;
                 isUp = !isUp;
             }
-
-            if (!m_GenerateExtraInfo)
-                return;
-
+            
             pattern.Level = (byte) (pattern.PatternKeyPoints.Count > 0
                 ? pattern.PatternKeyPoints.Max(
                     a => a.Value.Max(b => b.Notation.Level)) + 1

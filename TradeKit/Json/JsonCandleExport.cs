@@ -16,6 +16,12 @@ namespace TradeKit.Json
         public DateTime OpenDate { get; set; }
 
         /// <summary>
+        /// Gets or sets if the H is earlier than the L.
+        /// </summary>
+        [JsonProperty("hf")]
+        public bool IsHighFirst { get; set; }
+
+        /// <summary>
         /// Gets or sets the open value.
         /// </summary>
         [JsonProperty("o")]

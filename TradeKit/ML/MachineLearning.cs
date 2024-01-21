@@ -212,18 +212,21 @@ namespace TradeKit.ML
             ElliottModelType modelType = ElliottModelType.IMPULSE;
             bool isImpulse = true;
             double selectValue = Random.Shared.NextDouble();
-            if (selectValue > 0.67)
-            {
-                modelType = selectValue > 0.83
+            var arg = new PatternArgsItem(startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy);
+            //if (selectValue > 0.67)
+            //{
+                //modelType = selectValue > 0.83
+                modelType = selectValue > 0.5
                     ? ElliottModelType.ZIGZAG
                     : ElliottModelType.DOUBLE_ZIGZAG;
                 isImpulse = false;
-            }
+            //}
 
-            var arg = new PatternArgsItem(startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy);
             ModelPattern pattern = generator.GetPattern(arg, modelType, true);
+            List<JsonCandleExport> candles = pattern.Candles;
+            
             float[] vector = GetModelVector(
-                pattern.Candles, startValue, endValue,
+                candles, startValue, endValue,
                 Helper.ML_IMPULSE_VECTOR_RANK, accuracy);
 
             return new LearnItem(isImpulse, vector);
