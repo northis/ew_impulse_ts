@@ -103,7 +103,7 @@ namespace TradeKit.Tests
         [Test]
         public void RunLearningTest()
         {
-            //RunMultipleTasksAsync(m_ModelFileToSave, 10, 400);
+            RunMultipleTasksAsync(m_ModelFileToSave, 100, 10000);
 
             //foreach (LearnItem li in GetImpulseFromFile())
             //{
