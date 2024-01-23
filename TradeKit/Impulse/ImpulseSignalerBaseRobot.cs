@@ -187,7 +187,7 @@ namespace TradeKit.Impulse
                 candlesForExport, startWave.Value, endWave.Value,
                 Helper.ML_IMPULSE_VECTOR_RANK, Symbol.Digits);
 
-            var saveToLog =  new LearnItem(true, vector);
+            var saveToLog =  new LearnItem(ElliottModelType.IMPULSE, vector);
 
             string csvFilePath = Path.Join(
                 Helper.DirectoryToSaveImages, Helper.ML_CSV_STAT_FILE_NAME);

@@ -2,7 +2,6 @@
 {
     public enum ElliottModelType
     {
-        NONE,
         IMPULSE,
         DIAGONAL_CONTRACTING_INITIAL,
         DIAGONAL_CONTRACTING_ENDING,
@@ -17,6 +16,6 @@
         FLAT_REGULAR,
         FLAT_EXTENDED,
         FLAT_RUNNING,
-        COMBINATION,
+        COMBINATION
     }
 }

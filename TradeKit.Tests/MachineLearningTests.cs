@@ -48,20 +48,20 @@ namespace TradeKit.Tests
             }
             
             var res = Task.WhenAll(tasks);
-            res.Wait();
+            //res.Wait();
 
-            //using StreamWriter sw = new StreamWriter(path, true);
-            //while (!res.IsCompleted)
-            //{
-            //    if (m_ConcurrentQueue.TryDequeue(out LearnItem result))
-            //    {
-            //        sw.WriteLine(result);
-            //    }
-            //    else
-            //    {
-            //        Thread.Sleep(1000);
-            //    }
-            //}
+            using StreamWriter sw = new StreamWriter(path, true);
+            while (!res.IsCompleted)
+            {
+                if (m_ConcurrentQueue.TryDequeue(out LearnItem result))
+                {
+                    sw.WriteLine(result);
+                }
+                else
+                {
+                    Thread.Sleep(1000);
+                }
+            }
         }
 
         void GenerateBatch(int callsPerThread)
@@ -80,13 +80,13 @@ namespace TradeKit.Tests
             }
         }
 
-        IEnumerable<LearnItem> GetFromFile()
+        IEnumerable<ModelInput> GetFromFile()
         {
             using StreamReader sr = new StreamReader(m_ModelFileToSave, true);
             while (!sr.EndOfStream && !sr.EndOfStream)
             {
                 LearnItem item = LearnItem.FromString(sr.ReadLine());
-                yield return item;
+                yield return new ModelInput {IsFit = (uint) item.FitType, Vector = item.Vector};
             }
         }
 
@@ -103,15 +103,14 @@ namespace TradeKit.Tests
         [Test]
         public void RunLearningTest()
         {
-            RunMultipleTasksAsync(m_ModelFileToSave, 10, 400);
+            //RunMultipleTasksAsync(m_ModelFileToSave, 10, 400);
 
-            foreach (LearnItem li in GetImpulseFromFile())
-            {
-                m_ConcurrentQueue.Enqueue(li);
-            }
+            //foreach (LearnItem li in GetImpulseFromFile())
+            //{
+            //    m_ConcurrentQueue.Enqueue(li);
+            //}
 
-            MachineLearning.RunLearn(
-                m_ConcurrentQueue.OrderBy(a => a.Vector[10]), m_FileToSave);
+            MachineLearning.RunLearn(GetFromFile(), m_FileToSave);
 
             //LearnItem[] res = new LearnItem[100000];
             //for (int i = 0; i < 100000; i++)

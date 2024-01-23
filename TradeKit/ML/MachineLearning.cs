@@ -11,13 +11,25 @@ using TradeKit.Json;
 using Newtonsoft.Json;
 using TradeKit.PatternGeneration;
 using TradeKit.Impulse;
-using System.Diagnostics;
 using Microsoft.ML.Data;
 
 namespace TradeKit.ML
 {
     public static class MachineLearning
     {
+        private static readonly HashSet<ElliottModelType> SIDE_MODELS = new()
+        {
+            ElliottModelType.TRIANGLE_CONTRACTING,
+            ElliottModelType.TRIANGLE_RUNNING,
+            ElliottModelType.COMBINATION,
+            ElliottModelType.FLAT_EXTENDED,
+            ElliottModelType.FLAT_RUNNING,
+            ElliottModelType.TRIANGLE_EXPANDING
+        };
+
+        private static readonly ElliottModelType[] MODELS = Enum.GetValues<ElliottModelType>();
+        private static int LAST_MODELS_INDEX = MODELS.Length - 1;
+
         /// <summary>
         /// Gets the model vector for ML usage based on the passed candle set.
         /// </summary>
@@ -209,30 +221,27 @@ namespace TradeKit.ML
             double endValue = Math.Round(
                 startValue + Random.Shared.NextDouble() * 1000 - 500);
 
-            ElliottModelType modelType = ElliottModelType.IMPULSE;
-            bool isImpulse = true;
-            double selectValue = Random.Shared.NextDouble();
-            var arg = new PatternArgsItem(startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy);
-            //if (selectValue > 0.67)
-            //{
-                //modelType = selectValue > 0.83
-                modelType = selectValue > 0.5
-                    ? ElliottModelType.ZIGZAG
-                    : ElliottModelType.DOUBLE_ZIGZAG;
-                isImpulse = false;
-            //}
+            ElliottModelType model = MODELS[Random.Shared.Next(0, LAST_MODELS_INDEX)];
+            var arg = new PatternArgsItem(
+                startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy);
 
-            ModelPattern pattern = generator.GetPattern(arg, modelType, true);
+            if (SIDE_MODELS.Contains(model))
+            {
+                arg.Max += arg.Range * Random.Shared.NextDouble();
+                arg.Min -= arg.Range * Random.Shared.NextDouble();
+            }
+
+            ModelPattern pattern = generator.GetPattern(arg, model, true);
             List<JsonCandleExport> candles = pattern.Candles;
             
             float[] vector = GetModelVector(
                 candles, startValue, endValue,
                 Helper.ML_IMPULSE_VECTOR_RANK, accuracy);
 
-            return new LearnItem(isImpulse, vector);
+            return new LearnItem(model, vector);
         }
 
-        private static IEnumerable<LearnItem> IterateLearn(
+        private static IEnumerable<ModelInput> IterateLearn(
             IEnumerable<LearnFilesItem> filesItems)
         {
             foreach (LearnFilesItem filesItem in filesItems)
@@ -258,7 +267,7 @@ namespace TradeKit.ML
                 }
 
                 float[] vectors = GetVectors(stat, data);
-                yield return new LearnItem(filesItem.IsFit, vectors);
+                yield return new ModelInput{IsFit = (uint)(filesItem.IsFit ? ElliottModelType.IMPULSE : ElliottModelType.DOUBLE_ZIGZAG), Vector = vectors };
             }
         }
 
@@ -287,27 +296,31 @@ namespace TradeKit.ML
             IDataView trainingDataView,
             string fileToSave)
         {
-            string featuresColumn = "Features";
-            
             DataOperationsCatalog.TrainTestData dataSplit = mlContext.Data.TrainTestSplit(
                 trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
             IDataView trainData = dataSplit.TrainSet;
             IDataView testData = dataSplit.TestSet;
-            var dataProcessPipeline = mlContext.Transforms.Concatenate(featuresColumn, nameof(LearnItem.Vector))
-                .Append(mlContext.Transforms.NormalizeMinMax(featuresColumn))
+            var dataProcessPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: LearnItem.LABEL_COLUMN, inputColumnName: LearnItem.LABEL_COLUMN)
+                .Append(mlContext.Transforms.Concatenate(
+                    LearnItem.FEATURES_COLUMN, LearnItem.FEATURES_COLUMN))
+                .Append(mlContext.Transforms.NormalizeMinMax(LearnItem.FEATURES_COLUMN))
                 .AppendCacheCheckpoint(mlContext);
-
-            var trainer = mlContext.BinaryClassification.Trainers.SgdCalibrated(labelColumnName: nameof(LearnItem.IsFit), featureColumnName: featuresColumn);
-            var trainingPipeline = dataProcessPipeline.Append(trainer);
-
+            
+            var trainer = mlContext.MulticlassClassification.Trainers.SdcaNonCalibrated(labelColumnName: LearnItem.LABEL_COLUMN, 
+                featureColumnName: LearnItem.FEATURES_COLUMN);
+            var trainingPipeline = dataProcessPipeline.Append(trainer)
+                .Append(mlContext.Transforms.Conversion.MapKeyToValue(
+                    LearnItem.PREDICTED_LABEL_COLUMN));
+            
             ITransformer trainedModel = trainingPipeline.Fit(trainData);
-            IDataView predictions = trainedModel.Transform(testData);
-            var metrics = mlContext.BinaryClassification.Evaluate(
-                predictions, labelColumnName: nameof(LearnItem.IsFit));
+            
+            var predictions = trainedModel.Transform(testData);
+            var metrics = mlContext.MulticlassClassification.Evaluate(predictions, LearnItem.LABEL_COLUMN);
 
-            Logger.Write($"Accuracy: {metrics.Accuracy:P2}");
-            Logger.Write($"AUC: {metrics.AreaUnderRocCurve:P2}");
-            Logger.Write($"F1 Score: {metrics.F1Score:P2}");
+            Logger.Write($"Macro accuracy: {metrics.MacroAccuracy:P2}");
+            Logger.Write($"Micro accuracy: {metrics.MicroAccuracy:P2}");
+            Logger.Write($"Log loss reduction: {metrics.LogLossReduction:P2}");
+            Logger.Write($"Log loss: {metrics.LogLoss:P2}");
 
             mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSave);
             Logger.Write($"{nameof(RunLearn)} end");
@@ -332,7 +345,7 @@ namespace TradeKit.ML
                 AllowSparse = false,
                 Columns = new[]
                 {
-                    new TextLoader.Column(nameof(LearnItem.IsFit), DataKind.Boolean, 0),
+                    new TextLoader.Column(nameof(LearnItem.FitType), DataKind.Boolean, 0),
                     new TextLoader.Column(nameof(LearnItem.Vector), DataKind.Single, 1, 40)
                 }
             });
@@ -347,7 +360,7 @@ namespace TradeKit.ML
         /// <param name="learnSet">The learn set.</param>
         /// <param name="fileToSave">The file to save.</param>
         public static void RunLearn(
-        IEnumerable<LearnItem> learnSet, 
+        IEnumerable<ModelInput> learnSet, 
         string fileToSave)
         {
             Logger.Write($"{nameof(RunLearn)} start");
@@ -366,7 +379,7 @@ namespace TradeKit.ML
         /// <param name="rank">The rank of the vector.</param>
         /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static Prediction? Predict<T>(
+        public static ModelOutput? Predict<T>(
             List<T> candles,
             double startValue,
             double endValue, 
@@ -387,7 +400,7 @@ namespace TradeKit.ML
         /// <param name="rank">The rank of the vector.</param>
         /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static Prediction? Predict<T>(
+        public static ModelOutput? Predict<T>(
             List<T> candles,
             double startValue,
             double endValue,
@@ -398,7 +411,7 @@ namespace TradeKit.ML
             return PredictInner(candles, startValue, endValue, rank, accuracy, modelBytes);
         }
 
-        private static Prediction? PredictInner<T>(
+        private static ModelOutput? PredictInner<T>(
             List<T> candles,
             double startValue,
             double endValue,
@@ -413,7 +426,7 @@ namespace TradeKit.ML
             float[] vector = GetModelVector(
                 candles, startValue, endValue, rank, accuracy);
 
-            Prediction? res = modelBytes != null 
+            ModelOutput? res = modelBytes != null 
                 ? Predict(modelBytes, vector) 
                 : Predict(modelPath, vector);
             
@@ -426,11 +439,11 @@ namespace TradeKit.ML
         /// <param name="modelPath">The model path.</param>
         /// <param name="vector">The vector.</param>
         /// <returns>The prediction.</returns>
-        private static Prediction? Predict(string modelPath, float[] vector)
+        private static ModelOutput? Predict(string modelPath, float[] vector)
         { 
             MLContext mlContext = new MLContext();
             var trainedModel = mlContext.Model.Load(modelPath, out _);
-            Prediction? prediction = Predict(trainedModel, mlContext, vector);
+            ModelOutput? prediction = Predict(trainedModel, mlContext, vector);
             return prediction;
         }
 
@@ -440,23 +453,23 @@ namespace TradeKit.ML
         /// <param name="modelBytes">The model byte array.</param>
         /// <param name="vector">The vector.</param>
         /// <returns>The prediction.</returns>
-        private static Prediction? Predict(byte[] modelBytes, float[] vector)
+        private static ModelOutput? Predict(byte[] modelBytes, float[] vector)
         {
             MLContext mlContext = new MLContext();
 
             using var ms = new MemoryStream(modelBytes);
             ITransformer trainedModel = mlContext.Model.Load(ms, out _);
-            Prediction? prediction = Predict(trainedModel, mlContext, vector);
+            ModelOutput? prediction = Predict(trainedModel, mlContext, vector);
             return prediction;
         }
 
-        private static Prediction? Predict(
+        private static ModelOutput? Predict(
             ITransformer model, MLContext mlContext, float[] vector)
         {
-            PredictionEngine<LearnItem, Prediction>? predictionEngine = mlContext.Model.CreatePredictionEngine<LearnItem, Prediction>(model);
+            PredictionEngine<LearnItem, ModelOutput>? predictionEngine = mlContext.Model.CreatePredictionEngine<LearnItem, ModelOutput>(model);
             
-            LearnItem learnItem = new LearnItem(false, vector);
-            Prediction? predictionResult = predictionEngine.Predict(learnItem);
+            LearnItem learnItem = new LearnItem(ElliottModelType.IMPULSE, vector);
+            ModelOutput? predictionResult = predictionEngine.Predict(learnItem);
             return predictionResult;
         }
     }
