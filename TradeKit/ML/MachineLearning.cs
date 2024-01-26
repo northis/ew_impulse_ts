@@ -28,7 +28,6 @@ namespace TradeKit.ML
         };
 
         private static readonly ElliottModelType[] MODELS = Enum.GetValues<ElliottModelType>();
-        private static int LAST_MODELS_INDEX = MODELS.Length - 1;
 
         /// <summary>
         /// Gets the model vector for ML usage based on the passed candle set.
@@ -220,8 +219,8 @@ namespace TradeKit.ML
                 Random.Shared.NextDouble() * 10000 + 5000, accuracy);
             double endValue = Math.Round(
                 startValue + Random.Shared.NextDouble() * 1000 - 500);
-
-            ElliottModelType model = MODELS[Random.Shared.Next(0, LAST_MODELS_INDEX)];
+            
+            ElliottModelType model = MODELS[Random.Shared.Next(0, MODELS.Length)];
             var arg = new PatternArgsItem(
                 startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy);
 
@@ -466,9 +465,9 @@ namespace TradeKit.ML
         private static ModelOutput? Predict(
             ITransformer model, MLContext mlContext, float[] vector)
         {
-            PredictionEngine<LearnItem, ModelOutput>? predictionEngine = mlContext.Model.CreatePredictionEngine<LearnItem, ModelOutput>(model);
-            
-            LearnItem learnItem = new LearnItem(ElliottModelType.IMPULSE, vector);
+            PredictionEngine<ModelInput, ModelOutput>? predictionEngine = mlContext.Model.CreatePredictionEngine<ModelInput, ModelOutput>(model);
+
+            ModelInput learnItem = new ModelInput {Vector = vector};
             ModelOutput? predictionResult = predictionEngine.Predict(learnItem);
             return predictionResult;
         }

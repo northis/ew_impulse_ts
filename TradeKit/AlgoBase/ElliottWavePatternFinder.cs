@@ -61,20 +61,16 @@ namespace TradeKit.AlgoBase
                 candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
 
+            Debugger.Launch();
             ModelOutput prediction =
                 MachineLearning.Predict(candles, start.Value, end.Value, MLModels.impulse1m);
 
-            var imp = (int) ElliottModelType.IMPULSE;
-            if (prediction == null || prediction.PredictedIsFit - 1 != imp)
+            if (prediction == null || prediction.MainModel != ElliottModelType.IMPULSE)
             {
                 return false;
             }
 
-            float score = prediction.Score[imp];
-            if (score < 1)
-                return false;
-
-            Logger.Write($"Predicted score:{score}");
+            Dictionary<ElliottModelType, float> models = prediction.GetModelsDictionary();
             return result != null;
         }
     }

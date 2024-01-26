@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
+using TradeKit.Impulse;
 using TradeKit.ML;
 using TradeKit.PatternGeneration;
 
@@ -103,7 +104,7 @@ namespace TradeKit.Tests
         [Test]
         public void RunLearningTest()
         {
-            RunMultipleTasksAsync(m_ModelFileToSave, 100, 10000);
+            RunMultipleTasksAsync(m_ModelFileToSave, 10, 1000);
 
             //foreach (LearnItem li in GetImpulseFromFile())
             //{
