@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using TradeKit.Core;
+using TradeKit.Impulse;
 
 namespace TradeKit.EventArgs
 {
     public class ImpulseSignalEventArgs : SignalEventArgs
     {
+        public ElliottModelResult Model { get; }
+
         public ImpulseSignalEventArgs(
-            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, BarPoint[] waves, DateTime startViewBarIndex, string comment, SortedDictionary<double, int> profile)
+            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, ElliottModelResult model, DateTime startViewBarIndex, string comment)
             : base(level, takeProfit, stopLoss, startViewBarIndex,null, comment)
         {
-            Waves = waves;
-            Profile = profile;
+            Model = model;
         }
-
-        public BarPoint[] Waves { get; }
-
-        public SortedDictionary<double, int> Profile { get; }
     }
 }

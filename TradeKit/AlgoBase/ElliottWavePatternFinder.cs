@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Impulse;
@@ -47,8 +48,7 @@ namespace TradeKit.AlgoBase
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
             result = new ElliottModelResult(ElliottModelType.IMPULSE,
-                new[] { start, end },
-                new ElliottModelResult[] { });
+                new[] {start, end}, null, null);
 
             DateTime startDate = start.OpenTime;
             DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
@@ -60,18 +60,20 @@ namespace TradeKit.AlgoBase
             {
                 candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
-
-            Debugger.Launch();
+            
             ModelOutput prediction =
-                MachineLearning.Predict(candles, start.Value, end.Value, MLModels.impulse1m);
+                MachineLearning.Predict(candles, start.Value, end.Value, MLModels.modelsEW);
 
-            if (prediction == null || prediction.MainModel != ElliottModelType.IMPULSE)
+            if (prediction == null || prediction.PredictedIsFit == 0 ||
+                !(prediction.MainModel == ElliottModelType.IMPULSE ||
+                  prediction.MainModel == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL))
             {
                 return false;
             }
 
-            Dictionary<ElliottModelType, float> models = prediction.GetModelsDictionary();
-            return result != null;
+            result.Models = prediction.GetModelsMap();
+            result.MaxScore = prediction.MaxValue;
+            return true;
         }
     }
 }

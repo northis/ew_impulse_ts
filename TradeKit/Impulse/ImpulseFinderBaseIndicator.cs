@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using cAlgo.API;
+﻿using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 
@@ -27,6 +25,7 @@ namespace TradeKit.Impulse
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
             Subscribe(m_SetupFinder);
         }
+
         /// <summary>
         /// Called when stop event loss occurs.
         /// </summary>
@@ -65,8 +64,8 @@ namespace TradeKit.Impulse
         protected override void OnEnter(object sender, ImpulseSignalEventArgs e)
         {
             int levelIndex = e.Level.BarIndex;
-            Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
-
+            var icon = Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
+            Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }

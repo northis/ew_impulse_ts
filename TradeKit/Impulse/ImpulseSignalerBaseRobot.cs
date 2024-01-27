@@ -154,8 +154,8 @@ namespace TradeKit.Impulse
             //int entryIndex = -1;
             //int endIndex = -1;
 
-            BarPoint startWave = signalEventArgs.Waves[0];
-            BarPoint endWave = signalEventArgs.Waves[^1];
+            BarPoint startWave = signalEventArgs.Model.Extrema[0];
+            BarPoint endWave = signalEventArgs.Model.Extrema[^1];
             //BarPoint entry = signalEventArgs.Level;
 
             for (int i = 0; i < barsCount; i++)

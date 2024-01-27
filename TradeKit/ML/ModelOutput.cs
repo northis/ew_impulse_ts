@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using cAlgo.API.Indicators;
+﻿using System;
+using System.Linq;
 using Microsoft.ML.Data;
 using TradeKit.Impulse;
 
@@ -7,27 +7,35 @@ namespace TradeKit.ML
 {
     public class ModelOutput
     {
-        private Dictionary<ElliottModelType, float> m_ModelsDictionary;
+        private (ElliottModelType, float)[] m_ModelsMap;
 
         [ColumnName(LearnItem.PREDICTED_LABEL_COLUMN)]
         public uint PredictedIsFit { get; set; }
 
         public float[] Score { get; set; }
+        public float MaxValue { get; set; }
 
         public ElliottModelType MainModel => (ElliottModelType) (PredictedIsFit - 1);
 
-        public Dictionary<ElliottModelType, float> GetModelsDictionary()
+        public (ElliottModelType, float)[] GetModelsMap()
         {
-            if (m_ModelsDictionary != null)
-                return m_ModelsDictionary;
+            if (m_ModelsMap != null)
+                return m_ModelsMap;
 
-            var res = new Dictionary<ElliottModelType, float>();
+            var res = new (ElliottModelType, float)[Score.Length];
+            float min = Score.Min();
+            float max = Score.Max();
+            float range = max - min;
+
             for (int i = 0; i < Score.Length; i++)
             {
-                res[(ElliottModelType) i] = Score[i];
+                res[i] = new ((ElliottModelType)i, (Score[i] - min) / range);
             }
 
-            m_ModelsDictionary = res;
+            Array.Sort(res, (a, b) => a.Item2 >= b.Item2 ? -1 : 1);
+
+            MaxValue = max;
+            m_ModelsMap = res;
             return res;
         }
     }

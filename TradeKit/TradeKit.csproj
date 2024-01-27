@@ -136,6 +136,6 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\impulse1m.zip" />
+    <None Include="Resources\modelsEW.zip" />
   </ItemGroup>
 </Project>

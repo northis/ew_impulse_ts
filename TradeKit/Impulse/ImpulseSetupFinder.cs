@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
@@ -61,57 +62,6 @@ namespace TradeKit.Impulse
 
             m_PatternFinder = new ElliottWavePatternFinder(
                 BarsProvider.TimeFrame, barProvidersFactory);
-        }
-
-        private void GetStatistics(KeyValuePair<DateTime, BarPoint> startItem, 
-            BarPoint edgeExtremum, 
-            double endValue,
-            int barsCount, 
-            double max, 
-            double min, 
-            out int stochasticPercent, 
-            out int overlapsePercent,
-            out double channelRatio,
-            out double standardDeviation, 
-            out SortedDictionary<double, int> profile)
-        {
-            channelRatio = (startItem.Value.BarIndex - edgeExtremum.BarIndex)/ (double)barsCount;
-
-            double stochH = max;
-            double stochL = min;
-
-            for (int i = startItem.Value.BarIndex; i >= startItem.Value.BarIndex - barsCount; i--)
-            {
-                double localH = BarsProvider.GetHighPrice(i);
-                double localL = BarsProvider.GetLowPrice(i);
-                if (localH > stochH) stochH = localH;
-                if (localL < stochL) stochL = localL;
-            }
-
-            var candles = new List<ICandle>();
-            for (int i = startItem.Value.BarIndex; i < startItem.Value.BarIndex + barsCount; i++)
-            {
-                Candle cdl = Candle.FromIndex(BarsProvider, i);
-                candles.Add(cdl);
-            }
-
-            bool isUp = endValue > startItem.Value;
-            profile = CandleTransformer.GetProfile(candles, isUp, out double overlapsedIndex);
-
-            SortedDictionary<double, int>.ValueCollection countParts = profile.Values;
-            double avgParts = countParts.Average();
-            double sum = countParts.Sum(a => Math.Pow(a - avgParts, 2));
-            standardDeviation = Math.Sqrt(sum / (countParts.Count - 1));
-
-            double totalLength = max - min;
-            double stochLength = stochH - stochL;
-
-            //How many do candles overlapse (from 0 to 100)
-            overlapsePercent =
-                Convert.ToInt32(totalLength > 0 ? 100 * overlapsedIndex / (totalLength * barsCount) : 0);
-
-            //How big the impulse are (from 0 to 100)
-            stochasticPercent = Convert.ToInt32(stochLength > 0 ? 100 * (endValue - stochL) / stochLength : 0);
         }
 
         /// <summary>
@@ -345,30 +295,21 @@ namespace TradeKit.Impulse
                 var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
-                double impulseLengthPercent = 100 * Math.Abs(setupLength) / startValue;
 
-                GetStatistics(startItem, edgeExtremum, endValue, barsCount, max, min,
-                    out int stochasticPercent,
-                    out int overlapsePercent,
-                    out double channelRatio,
-                    out double standardDeviation,
-                    out SortedDictionary<double, int> profile);
+                string score = outExtrema.MaxScore.HasValue
+                    ? $"{(int) outExtrema.MaxScore}{Environment.NewLine}"
+                : string.Empty;
 
-                if (!isImpulseUp)
-                {
-                    // for sell movements normalize impulse strength value
-                    stochasticPercent = 100 - stochasticPercent;
-                }
+                string comment = score + string.Join(Environment.NewLine,
+                    outExtrema.Models.Select(a => $"{a.Item1}: {a.Item2:F4}").Take(3));
 
-                string paramsStringComment = $"∠{channelRatio:F1} 💪{stochasticPercent}% ↑↓{overlapsePercent}% 📏{impulseLengthPercent:F2}% σ{standardDeviation:F2}".Replace(",",".");
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
-                    outExtrema.Extrema,
+                    outExtrema,
                     viewDateTime,
-                    paramsStringComment,
-                    profile));
+                    comment));
                 // Here we should give a trade signal.
             }
 
