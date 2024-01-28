@@ -9,15 +9,15 @@ namespace TradeKit.Tests
     {
         private PatternGenerator m_PatternGenerator;
         private string m_SimpleModelToSave;
+        private string m_SimpleVectorsFileToSave;
         private string m_FullModelToSave;
-        private string m_ModelFileToSave;
+        private string m_FullVectorsFileToSave;
         private string m_MarketFileToRead;
 
         private static readonly string FOLDER_TO_SAVE = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "ml");
 
         private ConcurrentQueue<ModelInput> m_ConcurrentQueue;
-
 
         [SetUp]
         public void Setup()
@@ -28,14 +28,9 @@ namespace TradeKit.Tests
 
             m_SimpleModelToSave = Path.Join(FOLDER_TO_SAVE, "simple_model.zip");
             m_FullModelToSave = Path.Join(FOLDER_TO_SAVE, "full_model.zip");
-            m_ModelFileToSave = Path.Join(FOLDER_TO_SAVE, "ml1m.csv");
+            m_FullVectorsFileToSave = Path.Join(FOLDER_TO_SAVE, "full_ml_ew.csv");
+            m_SimpleVectorsFileToSave = Path.Join(FOLDER_TO_SAVE, "simple_ml_ew.csv");
             m_MarketFileToRead = Path.Join(FOLDER_TO_SAVE, "ml.csv");
-        }
-
-        private void WriteToFileAsync(string path, string content)
-        {
-            using StreamWriter sw = new StreamWriter(path, true);
-            sw.WriteLine(content);
         }
 
         private void RunMultipleTasksAsync<T>(
@@ -81,9 +76,9 @@ namespace TradeKit.Tests
             }
         }
 
-        IEnumerable<T> GetFromFile<T>() where T : ModelInput, new()
+        IEnumerable<T> GetFromFile<T>(string file) where T : ModelInput, new()
         {
-            using StreamReader sr = new StreamReader(m_ModelFileToSave, true);
+            using StreamReader sr = new StreamReader(file, true);
             while (!sr.EndOfStream && !sr.EndOfStream)
             {
                 ModelInput item = ModelInput.FromString(sr.ReadLine());
@@ -104,15 +99,15 @@ namespace TradeKit.Tests
         [Test]
         public void RunSimpleLearningTest()
         {
-            RunMultipleTasksAsync<SimpleModelInput>(m_SimpleModelToSave, 10, 1000, Helper.ML_SIMPLE_VECTOR_RANK);
-            MachineLearning.RunLearn(GetFromFile<SimpleModelInput>(), m_SimpleModelToSave);
+            RunMultipleTasksAsync<SimpleModelInput>(m_SimpleVectorsFileToSave, 10, 1000, Helper.ML_SIMPLE_VECTOR_RANK);
+            MachineLearning.RunLearn(GetFromFile<SimpleModelInput>(m_SimpleVectorsFileToSave), m_SimpleModelToSave);
         }
 
         [Test]
         public void RunFullLearningTest()
         {
-            RunMultipleTasksAsync<ModelInput>(m_FullModelToSave, 10, 1000, Helper.ML_IMPULSE_VECTOR_RANK);
-            MachineLearning.RunLearn(GetFromFile<ModelInput>(), m_FullModelToSave);
+            RunMultipleTasksAsync<ModelInput>(m_FullVectorsFileToSave, 10, 1000, Helper.ML_IMPULSE_VECTOR_RANK);
+            MachineLearning.RunLearn(GetFromFile<ModelInput>(m_FullVectorsFileToSave), m_FullModelToSave);
         }
     }
 }
