@@ -2,7 +2,6 @@
 using System.Linq;
 using System;
 using TradeKit.Core;
-using TradeKit.Impulse;
 
 namespace TradeKit.ML
 {

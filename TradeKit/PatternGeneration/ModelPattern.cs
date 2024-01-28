@@ -17,15 +17,9 @@ namespace TradeKit.PatternGeneration
             PatternKeyPoints = patternKeyPoints ?? 
                                new Dictionary<DateTime, List<PatternKeyPoint>>();
             Candles = candles;
-            //ChildModelPatterns = new List<ModelPattern>();
             LengthRatios = new List<LengthRatio>();
             DurationRatios = new List<DurationRatio>();
         }
-
-        ///// <summary>
-        ///// Gets or sets the possible child model patterns.
-        ///// </summary>
-        //public List<ModelPattern> ChildModelPatterns { get; }
 
         /// <summary>
         /// Gets or sets the length relations (for ex. wave C to wave A in pips).
@@ -56,6 +50,11 @@ namespace TradeKit.PatternGeneration
         /// Gets the depth level.
         /// </summary>
         public byte Level { get; set; }
+
+        /// <summary>
+        /// Gets or sets the pattern arguments this model was generate from.
+        /// </summary>
+        public PatternArgsItem PatternArgs { get; set; }
 
         /// <summary>
         /// Converts to JSON.
@@ -105,17 +104,6 @@ namespace TradeKit.PatternGeneration
                 foreach (DurationRatio dRatio in DurationRatios)
                     stringBuilder.AppendLine(dRatio.ToString());
             }
-
-            //if (ChildModelPatterns.Count > 0)
-            //{
-            //    stringBuilder.AppendLine("Child models: {");
-            //    foreach (ModelPattern childModel in ChildModelPatterns)
-            //    {
-            //        stringBuilder.AppendLine(childModel.ToString());
-            //    }
-
-            //    stringBuilder.AppendLine("}");
-            //}
 
             return stringBuilder.ToString();
         }

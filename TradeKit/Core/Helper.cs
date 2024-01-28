@@ -71,6 +71,10 @@ namespace TradeKit.Core
         public const ushort ML_MAX_BARS_COUNT = 1000;
         public const ushort ML_MAX_BATCH_ITEMS = 100;
         public const double ML_TEST_SET_PART = 0.3;
+        public const ushort ML_WAVE_COUNT_3_MODEL = 2;// in between 0ABC -> AB, 0WXY -> WX
+        public const ushort ML_WAVE_COUNT_5_MODEL = 4;// in between 012345 -> 1234
+        // 0ABCDE -> ABCD
+        // 0WXYXxZ -> WXYXx
         public const int ML_DEF_ACCURACY_PART = 5;
 
         /// <summary>

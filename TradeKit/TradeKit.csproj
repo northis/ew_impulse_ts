@@ -38,6 +38,8 @@
     <Compile Include="Json\JsonGeneratedModel.cs" />
     <Compile Include="ML\ModelInput.cs" />
     <Compile Include="ML\ModelOutput.cs" />
+    <Compile Include="ML\RegressionInput5.cs" />
+    <Compile Include="ML\RegressionInput3.cs" />
     <Compile Include="Resources\MLModels.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

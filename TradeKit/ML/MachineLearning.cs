@@ -200,13 +200,8 @@ namespace TradeKit.ML
             return res;
         }
 
-        /// <summary>
-        /// Gets the prepared learn item with vector.
-        /// </summary>
-        /// <param name="generator">The generator.</param>
-        /// <param name="vectorRank">The rank of the vector.</param>
-        /// <returns>The prepared learn items with vectors.</returns>
-        public static T GetIterateLearn<T>(PatternGenerator generator, ushort vectorRank) where T: ModelInput, new()
+        private static ModelPattern GetModelPattern(
+            PatternGenerator generator, ElliottModelType model)
         {
             TimeFrame tf = TimeFrame.Minute15;
             const int minBarCount = Helper.ML_MIN_BARS_COUNT;
@@ -220,8 +215,7 @@ namespace TradeKit.ML
                 Random.Shared.NextDouble() * 10000 + 5000, accuracy);
             double endValue = Math.Round(
                 startValue + Random.Shared.NextDouble() * 1000 - 500);
-            
-            ElliottModelType model = MODELS[Random.Shared.Next(0, MODELS.Length)];
+
             var arg = new PatternArgsItem(
                 startValue, endValue, barsDates.Item1, barsDates.Item2, tf, accuracy);
 
@@ -232,12 +226,27 @@ namespace TradeKit.ML
             }
 
             ModelPattern pattern = generator.GetPattern(arg, model, true);
+            pattern.PatternArgs = arg;
+            return pattern;
+        }
+
+        /// <summary>
+        /// Gets the prepared learn item with vector.
+        /// </summary>
+        /// <param name="generator">The generator.</param>
+        /// <param name="vectorRank">The rank of the vector.</param>
+        /// <returns>The prepared learn items with vectors.</returns>
+        public static T GetIterateLearn<T>(PatternGenerator generator, ushort vectorRank)
+            where T: ModelInput, new()
+        {
+            ElliottModelType model = MODELS[Random.Shared.Next(0, MODELS.Length)];
+            ModelPattern pattern = GetModelPattern(generator, model);
             List<JsonCandleExport> candles = pattern.Candles;
             
             float[] vector = GetModelVector(
-                candles, startValue, endValue, vectorRank, accuracy);
+                candles, pattern.PatternArgs.StartValue, pattern.PatternArgs.EndValue, vectorRank, pattern.PatternArgs.Accuracy);
 
-            return new T {IsFit = (uint) model, Vector = vector};
+            return new T {IsFit = (uint)pattern.Model, Vector = vector};
         }
 
         private static IEnumerable<ModelInput> IterateLearn(
