@@ -36,7 +36,6 @@
     <Compile Include="Core\ChartGenerator.cs" />
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />
-    <Compile Include="ML\SimpleModelInput.cs" />
     <Compile Include="ML\ModelInput.cs" />
     <Compile Include="ML\ModelOutput.cs" />
     <Compile Include="Resources\MLModels.Designer.cs">
@@ -135,6 +134,6 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\modelsEW.zip" />
+    <None Include="Resources\modelsEW_full.zip" />
   </ItemGroup>
 </Project>

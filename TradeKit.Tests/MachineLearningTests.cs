@@ -8,8 +8,6 @@ namespace TradeKit.Tests
     public class MachineLearningTests
     {
         private PatternGenerator m_PatternGenerator;
-        private string m_SimpleModelToSave;
-        private string m_SimpleVectorsFileToSave;
         private string m_FullModelToSave;
         private string m_FullVectorsFileToSave;
         private string m_MarketFileToRead;
@@ -25,11 +23,9 @@ namespace TradeKit.Tests
             m_PatternGenerator = new PatternGenerator(true);
             if (!Directory.Exists(FOLDER_TO_SAVE))
                 Directory.CreateDirectory(FOLDER_TO_SAVE);
-
-            m_SimpleModelToSave = Path.Join(FOLDER_TO_SAVE, "simple_model.zip");
+            
             m_FullModelToSave = Path.Join(FOLDER_TO_SAVE, "full_model.zip");
             m_FullVectorsFileToSave = Path.Join(FOLDER_TO_SAVE, "full_ml_ew.csv");
-            m_SimpleVectorsFileToSave = Path.Join(FOLDER_TO_SAVE, "simple_ml_ew.csv");
             m_MarketFileToRead = Path.Join(FOLDER_TO_SAVE, "ml.csv");
         }
 
@@ -94,13 +90,6 @@ namespace TradeKit.Tests
                 ModelInput item = ModelInput.FromString(srImpulse.ReadLine());
                 yield return item;
             }
-        }
-
-        [Test]
-        public void RunSimpleLearningTest()
-        {
-            RunMultipleTasksAsync<SimpleModelInput>(m_SimpleVectorsFileToSave, 10, 1000, Helper.ML_SIMPLE_VECTOR_RANK);
-            MachineLearning.RunLearn(GetFromFile<SimpleModelInput>(m_SimpleVectorsFileToSave), m_SimpleModelToSave);
         }
 
         [Test]

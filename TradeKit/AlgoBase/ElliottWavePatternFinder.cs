@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
@@ -15,8 +16,6 @@ namespace TradeKit.AlgoBase
     /// </summary>
     public class ElliottWavePatternFinder
     {
-        private readonly bool m_UseMainCandlesOnly;
-        private readonly IBarsProvider m_BarsProvider;
         private readonly IBarsProvider m_BarsProviderMinor;
         private readonly IBarsProvider m_BarsProviderMinorX2;
         private readonly TimeFrameInfo m_MainFrameInfo;
@@ -26,18 +25,9 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="mainTimeFrame">The main TF</param>
         /// <param name="barProvidersFactory">The bar provider factory (to get moe info).</param>
-        /// <param name="useMainCandlesOnly">True if we can use only main TF.</param>
-        public ElliottWavePatternFinder(TimeFrame mainTimeFrame, BarProvidersFactory barProvidersFactory,
-            bool useMainCandlesOnly = false)
+        public ElliottWavePatternFinder(TimeFrame mainTimeFrame, BarProvidersFactory barProvidersFactory)
         {
-            m_UseMainCandlesOnly = useMainCandlesOnly;
             m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame];
-            if (useMainCandlesOnly)
-            {
-                m_BarsProvider = barProvidersFactory.GetBarsProvider(m_MainFrameInfo.TimeFrame);
-                return;
-            }
-
             var tfInfo = TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame);
 
             m_BarsProviderMinor = barProvidersFactory.GetBarsProvider(tfInfo.TimeFrame);
@@ -62,26 +52,21 @@ namespace TradeKit.AlgoBase
 
             DateTime startDate = start.OpenTime;
             DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
-
             List<JsonCandleExport> candles;
-            if (m_UseMainCandlesOnly)
+            byte[] modelBytes;
+            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK;
+            modelBytes = MLModels.modelsEW_full;
+            candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
+            if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
+                m_BarsProviderMinorX2 != null)
             {
-                candles = Helper.GetCandles(m_BarsProvider, startDate, endDate);
-            }
-            else
-            {
-                candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
-                if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
-                    m_BarsProviderMinorX2 != null)
-                {
-                    candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
-                }
+                candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
 
             ModelOutput prediction =
-                MachineLearning.Predict(candles, start.Value, end.Value, MLModels.modelsEW);
+                MachineLearning.Predict(candles, start.Value, end.Value, modelBytes, rank);
 
-            if (prediction == null || prediction.PredictedIsFit == 0)
+            if (prediction == null)
             {
                 return false;
             }
@@ -89,10 +74,10 @@ namespace TradeKit.AlgoBase
             result.Models = prediction.GetModelsMap();
             (ElliottModelType, float) model = result.Models[0];
 
-            //(ElliottModelType, float)[] topModels = result.Models.Take(3).ToArray();
+            (ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
 
-            if (model.Item1 is not (ElliottModelType.IMPULSE or ElliottModelType.DIAGONAL_CONTRACTING_INITIAL) /*|| 
-                topModels.Any(a => a.Item1 == ElliottModelType.DOUBLE_ZIGZAG)*/)
+            if (model.Item1 != ElliottModelType.IMPULSE ||
+                topModels.Any(a => a.Item1 == ElliottModelType.DOUBLE_ZIGZAG))
             {
                 return false;
             }

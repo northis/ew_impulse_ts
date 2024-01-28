@@ -74,7 +74,7 @@ namespace TradeKit.Impulse
         {
             var barsProvider = GetBarsProvider(bars, symbolEntity);
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
-            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory, false);
+            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
             return sf;
         }
 
