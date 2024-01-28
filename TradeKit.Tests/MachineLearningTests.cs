@@ -1,7 +1,5 @@
 using System.Collections.Concurrent;
-using System.IO;
-using System.Threading;
-using TradeKit.Impulse;
+using TradeKit.Core;
 using TradeKit.ML;
 using TradeKit.PatternGeneration;
 
@@ -10,14 +8,15 @@ namespace TradeKit.Tests
     public class MachineLearningTests
     {
         private PatternGenerator m_PatternGenerator;
-        private string m_FileToSave;
+        private string m_SimpleModelToSave;
+        private string m_FullModelToSave;
         private string m_ModelFileToSave;
         private string m_MarketFileToRead;
 
         private static readonly string FOLDER_TO_SAVE = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "ml");
 
-        private ConcurrentQueue<LearnItem> m_ConcurrentQueue;
+        private ConcurrentQueue<ModelInput> m_ConcurrentQueue;
 
 
         [SetUp]
@@ -27,7 +26,8 @@ namespace TradeKit.Tests
             if (!Directory.Exists(FOLDER_TO_SAVE))
                 Directory.CreateDirectory(FOLDER_TO_SAVE);
 
-            m_FileToSave = Path.Join(FOLDER_TO_SAVE, "impulse1m.zip");
+            m_SimpleModelToSave = Path.Join(FOLDER_TO_SAVE, "simple_model.zip");
+            m_FullModelToSave = Path.Join(FOLDER_TO_SAVE, "full_model.zip");
             m_ModelFileToSave = Path.Join(FOLDER_TO_SAVE, "ml1m.csv");
             m_MarketFileToRead = Path.Join(FOLDER_TO_SAVE, "ml.csv");
         }
@@ -38,14 +38,14 @@ namespace TradeKit.Tests
             sw.WriteLine(content);
         }
 
-        private void RunMultipleTasksAsync(
-            string path, int numberOfThreads, int callsPerThread)
+        private void RunMultipleTasksAsync<T>(
+            string path, int numberOfThreads, int callsPerThread, ushort rank) where T : ModelInput, new()
         {
-            m_ConcurrentQueue = new ConcurrentQueue<LearnItem>();
+            m_ConcurrentQueue = new ConcurrentQueue<ModelInput>();
             var tasks = new List<Task>();
             for (int i = 0; i < numberOfThreads; i++)
             {
-                tasks.Add(Task.Run(() => GenerateBatch(callsPerThread)));
+                tasks.Add(Task.Run(() => GenerateBatch<T>(callsPerThread, rank)));
             }
             
             var res = Task.WhenAll(tasks);
@@ -54,7 +54,7 @@ namespace TradeKit.Tests
             using StreamWriter sw = new StreamWriter(path, true);
             while (!res.IsCompleted)
             {
-                if (m_ConcurrentQueue.TryDequeue(out LearnItem result))
+                if (m_ConcurrentQueue.TryDequeue(out ModelInput result))
                 {
                     sw.WriteLine(result);
                 }
@@ -65,13 +65,13 @@ namespace TradeKit.Tests
             }
         }
 
-        void GenerateBatch(int callsPerThread)
+        void GenerateBatch<T>(int callsPerThread, ushort rank) where T : ModelInput, new()
         {
             for (int j = 0; j < callsPerThread; j++)
             {
                 try
                 {
-                    var content = MachineLearning.GetIterateLearn(m_PatternGenerator);
+                    var content = MachineLearning.GetIterateLearn<T>(m_PatternGenerator, rank);
                     m_ConcurrentQueue.Enqueue(content);
                 }
                 catch (Exception ex)
@@ -81,45 +81,38 @@ namespace TradeKit.Tests
             }
         }
 
-        IEnumerable<ModelInput> GetFromFile()
+        IEnumerable<T> GetFromFile<T>() where T : ModelInput, new()
         {
             using StreamReader sr = new StreamReader(m_ModelFileToSave, true);
             while (!sr.EndOfStream && !sr.EndOfStream)
             {
-                LearnItem item = LearnItem.FromString(sr.ReadLine());
-                yield return new ModelInput {IsFit = (uint) item.FitType, Vector = item.Vector};
+                ModelInput item = ModelInput.FromString(sr.ReadLine());
+                yield return new T {IsFit = item.IsFit, Vector = item.Vector};
             }
         }
 
-        IEnumerable<LearnItem> GetImpulseFromFile()
+        IEnumerable<ModelInput> GetImpulseFromFile()
         {
             using StreamReader srImpulse = new StreamReader(m_MarketFileToRead, true);
             while (!srImpulse.EndOfStream)
             {
-                LearnItem item = LearnItem.FromString(srImpulse.ReadLine());
+                ModelInput item = ModelInput.FromString(srImpulse.ReadLine());
                 yield return item;
             }
         }
 
         [Test]
-        public void RunLearningTest()
+        public void RunSimpleLearningTest()
         {
-            RunMultipleTasksAsync(m_ModelFileToSave, 10, 1000);
+            RunMultipleTasksAsync<SimpleModelInput>(m_SimpleModelToSave, 10, 1000, Helper.ML_SIMPLE_VECTOR_RANK);
+            MachineLearning.RunLearn(GetFromFile<SimpleModelInput>(), m_SimpleModelToSave);
+        }
 
-            //foreach (LearnItem li in GetImpulseFromFile())
-            //{
-            //    m_ConcurrentQueue.Enqueue(li);
-            //}
-
-            MachineLearning.RunLearn(GetFromFile(), m_FileToSave);
-
-            //LearnItem[] res = new LearnItem[100000];
-            //for (int i = 0; i < 100000; i++)
-            //{
-            //    res[i] = MachineLearning.GetIterateLearn(m_PatternGenerator);
-            //}
-
-            //MachineLearning.RunLearn(res, m_FileToSave);
+        [Test]
+        public void RunFullLearningTest()
+        {
+            RunMultipleTasksAsync<ModelInput>(m_FullModelToSave, 10, 1000, Helper.ML_IMPULSE_VECTOR_RANK);
+            MachineLearning.RunLearn(GetFromFile<ModelInput>(), m_FullModelToSave);
         }
     }
 }

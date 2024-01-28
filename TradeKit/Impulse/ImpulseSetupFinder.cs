@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
-using TradeKit.ML;
 
 namespace TradeKit.Impulse
 {
@@ -47,21 +45,30 @@ namespace TradeKit.Impulse
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
         /// <param name="barProvidersFactory">The bar provider factory.</param>
+        /// <param name="useMainCandlesOnly">True if we can use only main TF.</param>
         public ImpulseSetupFinder(
-            IBarsProvider mainBarsProvider, BarProvidersFactory barProvidersFactory)
+            IBarsProvider mainBarsProvider, 
+            BarProvidersFactory barProvidersFactory,
+            bool useMainCandlesOnly)
             : base(mainBarsProvider, mainBarsProvider.Symbol)
         {
             m_BarProvidersFactory = barProvidersFactory;
-            
-            for (int i = Helper.MIN_IMPULSE_SCALE;
-                 i <= Helper.MAX_IMPULSE_SCALE;
-                 i += Helper.STEP_IMPULSE_SCALE)
+            if (useMainCandlesOnly)
             {
-                m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
+                m_ExtremumFinders.Add(new ExtremumFinder(Helper.MAX_IMPULSE_SCALE, BarsProvider));
+            }
+            else
+            {
+                for (int i = Helper.MIN_IMPULSE_SCALE;
+                     i <= Helper.MAX_IMPULSE_SCALE;
+                     i += Helper.STEP_IMPULSE_SCALE)
+                {
+                    m_ExtremumFinders.Add(new ExtremumFinder(Helper.MIN_IMPULSE_SCALE, BarsProvider));
+                }
             }
 
             m_PatternFinder = new ElliottWavePatternFinder(
-                BarsProvider.TimeFrame, barProvidersFactory);
+                BarsProvider.TimeFrame, barProvidersFactory, useMainCandlesOnly);
         }
 
         /// <summary>

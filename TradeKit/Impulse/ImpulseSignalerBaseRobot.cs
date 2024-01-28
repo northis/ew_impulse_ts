@@ -74,7 +74,7 @@ namespace TradeKit.Impulse
         {
             var barsProvider = GetBarsProvider(bars, symbolEntity);
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
-            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
+            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory, false);
             return sf;
         }
 
@@ -150,13 +150,8 @@ namespace TradeKit.Impulse
 
             var candlesForExport = new List<JsonCandleExport>();
 
-            //int startIndex = -1;
-            //int entryIndex = -1;
-            //int endIndex = -1;
-
             BarPoint startWave = signalEventArgs.Model.Extrema[0];
             BarPoint endWave = signalEventArgs.Model.Extrema[^1];
-            //BarPoint entry = signalEventArgs.Level;
 
             for (int i = 0; i < barsCount; i++)
             {
@@ -172,72 +167,22 @@ namespace TradeKit.Impulse
                     L = low,
                     OpenDate = date
                 });
-
-                //if (FindWavePoint(startWave, startIndex, date, high, low))
-                //    startIndex = i;
-
-                //if (FindWavePoint(endWave, endIndex, date, high, low))
-                //    endIndex = i + 1;
-
-                //if (FindWavePoint(entry, entryIndex, date, high, low)) 
-                //    entryIndex = i;
             }
 
             float[] vector = MachineLearning.GetModelVector(
                 candlesForExport, startWave.Value, endWave.Value,
                 Helper.ML_IMPULSE_VECTOR_RANK, Symbol.Digits);
 
-            var saveToLog =  new LearnItem(ElliottModelType.IMPULSE, vector);
+            var saveToLog = new ModelInput
+            {
+                IsFit = (uint) ElliottModelType.IMPULSE, 
+                Vector = vector
+            };
 
             string csvFilePath = Path.Join(
                 Helper.DirectoryToSaveImages, Helper.ML_CSV_STAT_FILE_NAME);
             using StreamWriter sw = new StreamWriter(csvFilePath, true);
             sw.WriteLine(saveToLog);
-
-            //if (startIndex < 0 || endIndex < 0)
-            //{
-            //    Logger.Write("Cannot extract impulse");
-            //    return;
-            //}
-
-            //GenericChart.GenericChart resultChart =                ChartGenerator.GetCandlestickChart(
-            //        chartDataSource.O[startIndex..endIndex],
-            //        chartDataSource.H[startIndex..endIndex],
-            //        chartDataSource.L[startIndex..endIndex],
-            //        chartDataSource.C[startIndex..endIndex],
-            //        chartDataSource.D[startIndex..endIndex], 
-            //        barProvider.Symbol.Name, 
-            //        rangeBreaks);
-
-            //string jpgFilePath = Path.Join(dirPath, Helper.SAMPLE_IMG_FILE_NAME);
-            //resultChart.SavePNG(jpgFilePath, null, CHART_WIDTH, CHART_HEIGHT);
-
-            //var exportStat = new JsonSymbolStatExport
-            //{
-            //    Symbol = barProvider.Symbol.Name,
-            //    Entry = signalEventArgs.Level.Value,
-            //    EntryIndex = entryIndex,
-            //    Stop = signalEventArgs.StopLoss.Value,
-            //    Take = signalEventArgs.TakeProfit.Value,
-            //    StartIndex = startIndex,
-            //    FinishIndex = endIndex,
-            //    TimeFrame = barProvider.TimeFrame.ShortName,
-            //    Result = tradeResult,
-            //    Accuracy = barProvider.Symbol.Digits
-            //};
-
-            //string jsonFilePath = Path.Join(dirPath, Helper.JSON_STAT_FILE_NAME);
-            //string json = JsonConvert.SerializeObject(exportStat, Formatting.None);
-            //File.WriteAllText(jsonFilePath, json);
-
-            //var exportData = new JsonSymbolDataExport
-            //{
-            //    Candles = candlesForExport.ToArray()
-            //};
-
-            //jsonFilePath = Path.Join(dirPath, Helper.JSON_DATA_FILE_NAME);
-            //json = JsonConvert.SerializeObject(exportData, Formatting.None);
-            //File.WriteAllText(jsonFilePath, json);
         }
     }
 }

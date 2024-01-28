@@ -9,7 +9,7 @@ namespace TradeKit.ML
     {
         private (ElliottModelType, float)[] m_ModelsMap;
 
-        [ColumnName(LearnItem.PREDICTED_LABEL_COLUMN)]
+        [ColumnName(ModelInput.PREDICTED_LABEL_COLUMN)]
         public uint PredictedIsFit { get; set; }
 
         public float[] Score { get; set; }

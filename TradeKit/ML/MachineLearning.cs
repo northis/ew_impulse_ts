@@ -204,8 +204,9 @@ namespace TradeKit.ML
         /// Gets the prepared learn item with vector.
         /// </summary>
         /// <param name="generator">The generator.</param>
+        /// <param name="vectorRank">The rank of the vector.</param>
         /// <returns>The prepared learn items with vectors.</returns>
-        public static LearnItem GetIterateLearn(PatternGenerator generator)
+        public static T GetIterateLearn<T>(PatternGenerator generator, ushort vectorRank) where T: ModelInput, new()
         {
             TimeFrame tf = TimeFrame.Minute15;
             const int minBarCount = Helper.ML_MIN_BARS_COUNT;
@@ -234,10 +235,9 @@ namespace TradeKit.ML
             List<JsonCandleExport> candles = pattern.Candles;
             
             float[] vector = GetModelVector(
-                candles, startValue, endValue,
-                Helper.ML_IMPULSE_VECTOR_RANK, accuracy);
+                candles, startValue, endValue, vectorRank, accuracy);
 
-            return new LearnItem(model, vector);
+            return new T {IsFit = (uint) model, Vector = vector};
         }
 
         private static IEnumerable<ModelInput> IterateLearn(
@@ -299,22 +299,22 @@ namespace TradeKit.ML
                 trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
             IDataView trainData = dataSplit.TrainSet;
             IDataView testData = dataSplit.TestSet;
-            var dataProcessPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: LearnItem.LABEL_COLUMN, inputColumnName: LearnItem.LABEL_COLUMN)
+            var dataProcessPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: ModelInput.LABEL_COLUMN, inputColumnName: ModelInput.LABEL_COLUMN)
                 .Append(mlContext.Transforms.Concatenate(
-                    LearnItem.FEATURES_COLUMN, LearnItem.FEATURES_COLUMN))
-                .Append(mlContext.Transforms.NormalizeMinMax(LearnItem.FEATURES_COLUMN))
+                    ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN))
+                .Append(mlContext.Transforms.NormalizeMinMax(ModelInput.FEATURES_COLUMN))
                 .AppendCacheCheckpoint(mlContext);
             
-            var trainer = mlContext.MulticlassClassification.Trainers.SdcaNonCalibrated(labelColumnName: LearnItem.LABEL_COLUMN, 
-                featureColumnName: LearnItem.FEATURES_COLUMN);
+            var trainer = mlContext.MulticlassClassification.Trainers.SdcaNonCalibrated(labelColumnName: ModelInput.LABEL_COLUMN, 
+                featureColumnName: ModelInput.FEATURES_COLUMN);
             var trainingPipeline = dataProcessPipeline.Append(trainer)
                 .Append(mlContext.Transforms.Conversion.MapKeyToValue(
-                    LearnItem.PREDICTED_LABEL_COLUMN));
+                    ModelInput.PREDICTED_LABEL_COLUMN));
             
             ITransformer trainedModel = trainingPipeline.Fit(trainData);
             
             var predictions = trainedModel.Transform(testData);
-            var metrics = mlContext.MulticlassClassification.Evaluate(predictions, LearnItem.LABEL_COLUMN);
+            var metrics = mlContext.MulticlassClassification.Evaluate(predictions, ModelInput.LABEL_COLUMN);
 
             Logger.Write($"Macro accuracy: {metrics.MacroAccuracy:P2}");
             Logger.Write($"Micro accuracy: {metrics.MicroAccuracy:P2}");
@@ -328,39 +328,11 @@ namespace TradeKit.ML
         /// <summary>
         /// Runs the learn for the passed collection.
         /// </summary>
-        /// <param name="fileCsvToLoad">The CSV file to load.</param>
-        /// <param name="fileToSave">The file to save.</param>
-        public static void RunLearn(
-            string fileCsvToLoad,
-            string fileToSave)
-        {
-            Logger.Write($"{nameof(RunLearn)} start");
-            var mlContext = new MLContext();
-            TextLoader textLoader = mlContext.Data.CreateTextLoader(new TextLoader.Options
-            {
-                Separators = new[] { ';' },
-                HasHeader = false,
-                AllowQuoting = true,
-                AllowSparse = false,
-                Columns = new[]
-                {
-                    new TextLoader.Column(nameof(LearnItem.FitType), DataKind.Boolean, 0),
-                    new TextLoader.Column(nameof(LearnItem.Vector), DataKind.Single, 1, 40)
-                }
-            });
-
-            IDataView allData = textLoader.Load(fileCsvToLoad);
-            RunLearnInner(mlContext, allData, fileToSave);
-        }
-
-        /// <summary>
-        /// Runs the learn for the passed collection.
-        /// </summary>
         /// <param name="learnSet">The learn set.</param>
         /// <param name="fileToSave">The file to save.</param>
-        public static void RunLearn(
-        IEnumerable<ModelInput> learnSet, 
-        string fileToSave)
+        public static void RunLearn<T>(
+        IEnumerable<T> learnSet, 
+        string fileToSave) where T: ModelInput, new()
         {
             Logger.Write($"{nameof(RunLearn)} start");
             var mlContext = new MLContext();

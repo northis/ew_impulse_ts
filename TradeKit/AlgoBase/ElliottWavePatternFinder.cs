@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
@@ -16,6 +15,8 @@ namespace TradeKit.AlgoBase
     /// </summary>
     public class ElliottWavePatternFinder
     {
+        private readonly bool m_UseMainCandlesOnly;
+        private readonly IBarsProvider m_BarsProvider;
         private readonly IBarsProvider m_BarsProviderMinor;
         private readonly IBarsProvider m_BarsProviderMinorX2;
         private readonly TimeFrameInfo m_MainFrameInfo;
@@ -25,15 +26,24 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="mainTimeFrame">The main TF</param>
         /// <param name="barProvidersFactory">The bar provider factory (to get moe info).</param>
-        public ElliottWavePatternFinder(TimeFrame mainTimeFrame, BarProvidersFactory barProvidersFactory)
+        /// <param name="useMainCandlesOnly">True if we can use only main TF.</param>
+        public ElliottWavePatternFinder(TimeFrame mainTimeFrame, BarProvidersFactory barProvidersFactory,
+            bool useMainCandlesOnly = false)
         {
+            m_UseMainCandlesOnly = useMainCandlesOnly;
+            m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame];
+            if (useMainCandlesOnly)
+            {
+                m_BarsProvider = barProvidersFactory.GetBarsProvider(m_MainFrameInfo.TimeFrame);
+                return;
+            }
+
             var tfInfo = TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame);
 
             m_BarsProviderMinor = barProvidersFactory.GetBarsProvider(tfInfo.TimeFrame);
             m_BarsProviderMinorX2 = tfInfo.TimeFrame == tfInfo.PrevTimeFrame
                 ? null
                 : barProvidersFactory.GetBarsProvider(tfInfo.PrevTimeFrame);
-            m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame];
         }
 
         /// <summary>
@@ -53,25 +63,41 @@ namespace TradeKit.AlgoBase
             DateTime startDate = start.OpenTime;
             DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
 
-            List<JsonCandleExport> candles = Helper.GetCandles(
-                m_BarsProviderMinor, startDate, endDate);
-            if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
-                m_BarsProviderMinorX2 != null)
+            List<JsonCandleExport> candles;
+            if (m_UseMainCandlesOnly)
             {
-                candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
+                candles = Helper.GetCandles(m_BarsProvider, startDate, endDate);
             }
-            
+            else
+            {
+                candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
+                if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
+                    m_BarsProviderMinorX2 != null)
+                {
+                    candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
+                }
+            }
+
             ModelOutput prediction =
                 MachineLearning.Predict(candles, start.Value, end.Value, MLModels.modelsEW);
 
-            if (prediction == null || prediction.PredictedIsFit == 0 ||
-                !(prediction.MainModel == ElliottModelType.IMPULSE ||
-                  prediction.MainModel == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL))
+            if (prediction == null || prediction.PredictedIsFit == 0)
             {
                 return false;
             }
 
             result.Models = prediction.GetModelsMap();
+            (ElliottModelType, float) model = result.Models[0];
+
+            //(ElliottModelType, float)[] topModels = result.Models.Take(3).ToArray();
+
+            if (model.Item1 is not (ElliottModelType.IMPULSE or ElliottModelType.DIAGONAL_CONTRACTING_INITIAL) /*|| 
+                topModels.Any(a => a.Item1 == ElliottModelType.DOUBLE_ZIGZAG)*/)
+            {
+                return false;
+            }
+
+            result.Type = model.Item1;
             result.MaxScore = prediction.MaxValue;
             return true;
         }

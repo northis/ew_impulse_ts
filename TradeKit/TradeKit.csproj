@@ -36,6 +36,7 @@
     <Compile Include="Core\ChartGenerator.cs" />
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />
+    <Compile Include="ML\SimpleModelInput.cs" />
     <Compile Include="ML\ModelInput.cs" />
     <Compile Include="ML\ModelOutput.cs" />
     <Compile Include="Resources\MLModels.Designer.cs">
@@ -77,9 +78,7 @@
     <Compile Include="Core\TrendType.cs" />
     <Compile Include="EventArgs\PriceActionSignalEventArgs.cs" />
     <Compile Include="ML\LearnFilesItem.cs" />
-    <Compile Include="ML\LearnItem.cs" />
     <Compile Include="ML\MachineLearning.cs" />
-    <Compile Include="ML\Prediction.cs" />
     <Compile Include="PatternGeneration\PatternGenKit.cs" />
     <Compile Include="PriceAction\CandlePatternSettings.cs" />
     <Compile Include="PriceAction\CandlePatternType.cs" />

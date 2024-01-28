@@ -15,6 +15,12 @@ namespace TradeKit.Impulse
         private IBarsProvider m_BarsProvider;
 
         /// <summary>
+        /// Gets or sets a value indicating whether the logging is enabled.
+        /// </summary>
+        [Parameter("Use minor TF", DefaultValue = true)]
+        public bool UseMinorTimeFrame { get; set; }
+
+        /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
         protected override void Initialize()
@@ -22,7 +28,8 @@ namespace TradeKit.Impulse
             base.Initialize();
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
             m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame);
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
+            m_SetupFinder = new ImpulseSetupFinder(
+                m_BarsProvider, barProvidersFactory, !UseMinorTimeFrame);
             Subscribe(m_SetupFinder);
         }
 

@@ -28,9 +28,6 @@ namespace TradeKit.Core
         public const int MIN_IMPULSE_SCALE = 20;
         public const int MAX_IMPULSE_SCALE = 220;
         public const int STEP_IMPULSE_SCALE = 100;
-        
-        public const double IMPULSE_PROFILE_PEAKS_DISTANCE_TIMES = 0.4;
-        public const double IMPULSE_PROFILE_PEAKS_DIFFERENCE_TIMES = 2;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;
@@ -55,7 +52,6 @@ namespace TradeKit.Core
         public const int MOVING_AVERAGE_PERIOD = 13;
 
         public const int PIVOT_PERIOD = 2;// yes
-        public const int PIVOT_PERIOD_MIN = 2;
 
         public const int STOCHASTIC_K_PERIODS = 5;
         public const int STOCHASTIC_D_PERIODS = 3;
@@ -72,6 +68,8 @@ namespace TradeKit.Core
 
         public const ushort ML_IMPULSE_VECTOR_RANK = 400;
         public const ushort ML_MIN_BARS_COUNT = ML_IMPULSE_VECTOR_RANK / 2;
+        public const ushort ML_SIMPLE_VECTOR_RANK = 40;
+        public const ushort ML_SIMPLE_MIN_BARS_COUNT = ML_SIMPLE_VECTOR_RANK / 2;
         public const ushort ML_MAX_BARS_COUNT = 1000;
         public const ushort ML_MAX_BATCH_ITEMS = 100;
         public const double ML_TEST_SET_PART = 0.3;
@@ -103,6 +101,7 @@ namespace TradeKit.Core
         /// Main png file name to show
         /// </summary>
         public const string MAIN_IMG_FILE_NAME = "img.02";
+
         /// <summary>
         /// Main png file name to show + .png
         /// </summary>

@@ -1,15 +1,39 @@
 ﻿using Microsoft.ML.Data;
+using System.Linq;
+using System;
 using TradeKit.Core;
+using TradeKit.Impulse;
 
 namespace TradeKit.ML
 {
     public class ModelInput
     {
-        [ColumnName(LearnItem.LABEL_COLUMN)]
+        public const string FEATURES_COLUMN = "Features";
+        public const string LABEL_COLUMN = "Label";
+        public const string PREDICTED_LABEL_COLUMN = "PredictedLabel";
+
+        [ColumnName(LABEL_COLUMN)]
         public uint IsFit { get; set; }
 
-        [ColumnName(LearnItem.FEATURES_COLUMN)]
+        [ColumnName(FEATURES_COLUMN)]
         [VectorType(Helper.ML_IMPULSE_VECTOR_RANK)]
-        public float[] Vector { get; set; }
+        public virtual float[] Vector { get; set; }
+
+        public override string ToString()
+        {
+            return
+                $"{(int)IsFit};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
+        }
+
+        public static ModelInput FromString(string str)
+        {
+            string[] split = str.Split(";", StringSplitOptions.RemoveEmptyEntries);
+            return new ModelInput
+            {
+                IsFit = uint.Parse(split[0]),
+                Vector = split[1..].Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture))
+                    .ToArray()
+            };
+        }
     }
 }
