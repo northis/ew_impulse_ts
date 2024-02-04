@@ -236,17 +236,91 @@ namespace TradeKit.ML
         /// <param name="generator">The generator.</param>
         /// <param name="vectorRank">The rank of the vector.</param>
         /// <returns>The prepared learn items with vectors.</returns>
-        public static T GetIterateLearn<T>(PatternGenerator generator, ushort vectorRank)
-            where T: ModelInput, new()
+        public static ModelInput GetIterateLearn(PatternGenerator generator, ushort vectorRank)
         {
             ElliottModelType model = MODELS[Random.Shared.Next(0, MODELS.Length)];
             ModelPattern pattern = GetModelPattern(generator, model);
             List<JsonCandleExport> candles = pattern.Candles;
-            
-            float[] vector = GetModelVector(
-                candles, pattern.PatternArgs.StartValue, pattern.PatternArgs.EndValue, vectorRank, pattern.PatternArgs.Accuracy);
 
-            return new T {IsFit = (uint)pattern.Model, Vector = vector};
+            PatternArgsItem patternArgs = pattern.PatternArgs;
+
+            float[] vector = GetModelVector(
+                candles, patternArgs.StartValue, patternArgs.EndValue, vectorRank, patternArgs.Accuracy);
+
+            var modelInput = new ModelInput
+            {
+                IsFit = (uint) pattern.Model, 
+                Vector = vector, 
+                Index1 = -1,
+                Index2 = -1,
+                Index3 = -1,
+                Index4 = -1
+            };
+
+            void AssignNextIndex(float index)
+            {
+                if (modelInput.Index1 < 0)
+                {
+                    modelInput.Index1 = index;
+                    return;
+                }
+
+                if (modelInput.Index2 < 0)
+                {
+                    modelInput.Index2 = index;
+                    return;
+                }
+
+                if (modelInput.Index3 < 0)
+                {
+                    modelInput.Index3 = index;
+                    return;
+                }
+
+                if (modelInput.Index4 < 0)
+                {
+                    modelInput.Index4 = index;
+                }
+            }
+
+            int vectorRankHalf = vectorRank / 2;// 2 values for each candle
+            TimeSpan timeSpanVector = (patternArgs.DateEnd - patternArgs.DateStart)
+                                      / vectorRankHalf;
+
+            float minDx = Convert.ToSingle(Math.Pow(10, -patternArgs.Accuracy));
+
+            // Here we assume the candles don't have gaps and
+            // we can re-calculate dates to indices here
+            // This is possible on this generated models only.
+            foreach (DateTime dt in pattern.PatternKeyPoints.Keys.OrderBy(a => a))
+            {
+                int index = Convert.ToInt32((dt - patternArgs.DateStart) / timeSpanVector);
+                if (index >= vectorRankHalf)
+                    break;
+
+                List<PatternKeyPoint> values = pattern.PatternKeyPoints[dt];
+                foreach (PatternKeyPoint value in values)
+                {
+                    int doubleIndex = index * 2;
+                    float near = vector[doubleIndex];
+                    float far = vector[doubleIndex + 1];
+
+                    float relativeValue = Convert.ToSingle(
+                        Math.Round(
+                            patternArgs.IsUpK * (value.Value - patternArgs.StartValue)
+                            / patternArgs.Range, patternArgs.Accuracy));
+
+                    if (Math.Abs(relativeValue - near) < Math.Abs(relativeValue - far))
+                    {
+                        AssignNextIndex(doubleIndex);
+                        continue;
+                    }
+
+                    AssignNextIndex(doubleIndex + 1);
+                }
+            }
+
+            return modelInput;
         }
 
         private static IEnumerable<ModelInput> IterateLearn(
@@ -275,6 +349,7 @@ namespace TradeKit.ML
                 }
 
                 float[] vectors = GetVectors(stat, data);
+                
                 yield return new ModelInput{IsFit = (uint)(filesItem.IsFit ? ElliottModelType.IMPULSE : ElliottModelType.DOUBLE_ZIGZAG), Vector = vectors };
             }
         }
@@ -359,7 +434,7 @@ namespace TradeKit.ML
         /// <param name="rank">The rank of the vector.</param>
         /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static ModelOutput? Predict<T>(
+        public static ClassPrediction? Predict<T>(
             List<T> candles,
             double startValue,
             double endValue, 
@@ -380,7 +455,7 @@ namespace TradeKit.ML
         /// <param name="rank">The rank of the vector.</param>
         /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static ModelOutput? Predict<T>(
+        public static ClassPrediction? Predict<T>(
             List<T> candles,
             double startValue,
             double endValue,
@@ -391,7 +466,7 @@ namespace TradeKit.ML
             return PredictInner(candles, startValue, endValue, rank, accuracy, modelBytes);
         }
 
-        private static ModelOutput? PredictInner<T>(
+        private static ClassPrediction? PredictInner<T>(
             List<T> candles,
             double startValue,
             double endValue,
@@ -406,7 +481,7 @@ namespace TradeKit.ML
             float[] vector = GetModelVector(
                 candles, startValue, endValue, rank, accuracy);
 
-            ModelOutput? res = modelBytes != null 
+            ClassPrediction? res = modelBytes != null 
                 ? Predict(modelBytes, vector) 
                 : Predict(modelPath, vector);
             
@@ -419,11 +494,11 @@ namespace TradeKit.ML
         /// <param name="modelPath">The model path.</param>
         /// <param name="vector">The vector.</param>
         /// <returns>The prediction.</returns>
-        private static ModelOutput? Predict(string modelPath, float[] vector)
+        private static ClassPrediction? Predict(string modelPath, float[] vector)
         { 
             MLContext mlContext = new MLContext();
             var trainedModel = mlContext.Model.Load(modelPath, out _);
-            ModelOutput? prediction = Predict(trainedModel, mlContext, vector);
+            ClassPrediction? prediction = Predict(trainedModel, mlContext, vector);
             return prediction;
         }
 
@@ -433,23 +508,23 @@ namespace TradeKit.ML
         /// <param name="modelBytes">The model byte array.</param>
         /// <param name="vector">The vector.</param>
         /// <returns>The prediction.</returns>
-        private static ModelOutput? Predict(byte[] modelBytes, float[] vector)
+        private static ClassPrediction? Predict(byte[] modelBytes, float[] vector)
         {
             MLContext mlContext = new MLContext();
 
             using var ms = new MemoryStream(modelBytes);
             ITransformer trainedModel = mlContext.Model.Load(ms, out _);
-            ModelOutput? prediction = Predict(trainedModel, mlContext, vector);
+            ClassPrediction? prediction = Predict(trainedModel, mlContext, vector);
             return prediction;
         }
 
-        private static ModelOutput? Predict(
+        private static ClassPrediction? Predict(
             ITransformer model, MLContext mlContext, float[] vector)
         {
-            PredictionEngine<ModelInput, ModelOutput>? predictionEngine = mlContext.Model.CreatePredictionEngine<ModelInput, ModelOutput>(model);
+            PredictionEngine<ModelInput, ClassPrediction>? predictionEngine = mlContext.Model.CreatePredictionEngine<ModelInput, ClassPrediction>(model);
 
             ModelInput learnItem = new ModelInput {Vector = vector};
-            ModelOutput? predictionResult = predictionEngine.Predict(learnItem);
+            ClassPrediction? predictionResult = predictionEngine.Predict(learnItem);
             return predictionResult;
         }
     }

@@ -63,7 +63,7 @@ namespace TradeKit.AlgoBase
                 candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
 
-            ModelOutput prediction =
+            ClassPrediction prediction =
                 MachineLearning.Predict(candles, start.Value, end.Value, modelBytes, rank);
 
             if (prediction == null)

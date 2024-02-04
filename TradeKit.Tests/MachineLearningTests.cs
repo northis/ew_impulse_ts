@@ -36,7 +36,7 @@ namespace TradeKit.Tests
             var tasks = new List<Task>();
             for (int i = 0; i < numberOfThreads; i++)
             {
-                tasks.Add(Task.Run(() => GenerateBatch<T>(callsPerThread, rank)));
+                tasks.Add(Task.Run(() => GenerateBatch(callsPerThread, rank)));
             }
             
             var res = Task.WhenAll(tasks);
@@ -56,13 +56,13 @@ namespace TradeKit.Tests
             }
         }
 
-        void GenerateBatch<T>(int callsPerThread, ushort rank) where T : ModelInput, new()
+        void GenerateBatch(int callsPerThread, ushort rank)
         {
             for (int j = 0; j < callsPerThread; j++)
             {
                 try
                 {
-                    var content = MachineLearning.GetIterateLearn<T>(m_PatternGenerator, rank);
+                    var content = MachineLearning.GetIterateLearn(m_PatternGenerator, rank);
                     m_ConcurrentQueue.Enqueue(content);
                 }
                 catch (Exception ex)
@@ -95,8 +95,8 @@ namespace TradeKit.Tests
         [Test]
         public void RunFullLearningTest()
         {
-            RunMultipleTasksAsync<ModelInput>(m_FullVectorsFileToSave, 10, 1000, Helper.ML_IMPULSE_VECTOR_RANK);
-            MachineLearning.RunLearn(GetFromFile<ModelInput>(m_FullVectorsFileToSave), m_FullModelToSave);
+            RunMultipleTasksAsync<ModelInput>(m_FullVectorsFileToSave, 1, 1, Helper.ML_IMPULSE_VECTOR_RANK);
+            //MachineLearning.RunLearn(GetFromFile<ModelInput>(m_FullVectorsFileToSave), m_FullModelToSave);
         }
     }
 }

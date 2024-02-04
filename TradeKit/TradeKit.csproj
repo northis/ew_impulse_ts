@@ -36,10 +36,10 @@
     <Compile Include="Core\ChartGenerator.cs" />
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />
+    <Compile Include="ML\CombinedPrediction.cs" />
     <Compile Include="ML\ModelInput.cs" />
-    <Compile Include="ML\ModelOutput.cs" />
-    <Compile Include="ML\RegressionInput5.cs" />
-    <Compile Include="ML\RegressionInput3.cs" />
+    <Compile Include="ML\ClassPrediction.cs" />
+    <Compile Include="ML\RegressionInput.cs" />
     <Compile Include="Resources\MLModels.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

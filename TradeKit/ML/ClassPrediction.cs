@@ -5,7 +5,7 @@ using TradeKit.Impulse;
 
 namespace TradeKit.ML
 {
-    public class ModelOutput
+    public class ClassPrediction
     {
         private (ElliottModelType, float)[] m_ModelsMap;
 

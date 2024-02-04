@@ -567,7 +567,6 @@ namespace TradeKit.PatternGeneration
                 useScaleFrom1M ? TimeFrame.Minute : args.TimeFrame);
 
             ModelPattern modelPattern = GetPatternInner(args, model);
-            
             ValidateAndCorrectCandles(modelPattern, args.Accuracy);
             if (useScaleFrom1M)
             {
@@ -599,11 +598,7 @@ namespace TradeKit.PatternGeneration
                     };
 
                     scaledCandles.Add(jsCandle);
-
-                    if (patternKeys != null)
-                    {
-                        keysMap[jsCandle.OpenDate] = patternKeys;
-                    }
+                    if (patternKeys != null) keysMap[jsCandle.OpenDate] = patternKeys;
                 }
 
                 foreach (JsonCandleExport candle in
@@ -654,6 +649,10 @@ namespace TradeKit.PatternGeneration
 
                 Add();
                 modelPattern.Candles = scaledCandles;
+                modelPattern.PatternKeyPoints.Clear();
+
+                foreach (KeyValuePair<DateTime, List<PatternKeyPoint>> map in keysMap)
+                    modelPattern.PatternKeyPoints.Add(map.Key, map.Value);
             }
 
             args.RecalculateDates(args.DateStart, args.DateEnd, originalTimeFrame);
