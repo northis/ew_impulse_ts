@@ -8,7 +8,8 @@ namespace TradeKit.Tests
     public class MachineLearningTests
     {
         private PatternGenerator m_PatternGenerator;
-        private string m_FullModelToSave;
+        private string m_ClassificationModelToSave;
+        private string m_RegressionModelToSave;
         private string m_FullVectorsFileToSave;
         private string m_MarketFileToRead;
 
@@ -24,7 +25,8 @@ namespace TradeKit.Tests
             if (!Directory.Exists(FOLDER_TO_SAVE))
                 Directory.CreateDirectory(FOLDER_TO_SAVE);
             
-            m_FullModelToSave = Path.Join(FOLDER_TO_SAVE, "full_model.zip");
+            m_ClassificationModelToSave = Path.Join(FOLDER_TO_SAVE, "classification.zip");
+            m_RegressionModelToSave = Path.Join(FOLDER_TO_SAVE, "regression.zip");
             m_FullVectorsFileToSave = Path.Join(FOLDER_TO_SAVE, "full_ml_ew.csv");
             m_MarketFileToRead = Path.Join(FOLDER_TO_SAVE, "ml.csv");
         }
@@ -96,7 +98,7 @@ namespace TradeKit.Tests
         public void RunFullLearningTest()
         {
             RunMultipleTasksAsync<ModelInput>(m_FullVectorsFileToSave, 1, 1, Helper.ML_IMPULSE_VECTOR_RANK);
-            //MachineLearning.RunLearn(GetFromFile<ModelInput>(m_FullVectorsFileToSave), m_FullModelToSave);
+            MachineLearning.RunLearn(GetFromFile<ModelInput>(m_FullVectorsFileToSave), m_ClassificationModelToSave, m_RegressionModelToSave);
         }
     }
 }

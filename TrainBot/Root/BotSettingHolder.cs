@@ -30,13 +30,15 @@ namespace TrainBot.Root
             Directory.CreateDirectory(BrokenFolder);
             Directory.CreateDirectory(MlFolder);
 
-            MlModelPath = Path.Join(MlFolder, "model.zip");
+            MlClassificationModelPath = Path.Join(MlFolder, "classification.zip");
+            MlRegressionModelPath = Path.Join(MlFolder, "regression.zip");
         }
 
         #region Properties
         public string InputFolder { get; }
         public string MlFolder { get; }
-        public string MlModelPath { get; }
+        public string MlClassificationModelPath { get; }
+        public string MlRegressionModelPath { get; }
         public string PositiveFolder { get; }
         public string PositiveDiagonalFolder { get; }
         public string NegativeFolder { get; }

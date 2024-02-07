@@ -47,7 +47,7 @@ public class LearnManager
                 filesToLearnPositive.Concat(filesToLearnNegative);
 
             TradeKit.ML.MachineLearning.RunLearn(
-                dataToLearn, m_Settings.MlModelPath);
+                dataToLearn, m_Settings.MlClassificationModelPath, m_Settings.MlRegressionModelPath);
         }
         catch (Exception ex)
         {

@@ -171,7 +171,7 @@ namespace TradeKit.Impulse
 
             float[] vector = MachineLearning.GetModelVector(
                 candlesForExport, startWave.Value, endWave.Value,
-                Helper.ML_IMPULSE_VECTOR_RANK, Symbol.Digits);
+                Helper.ML_IMPULSE_VECTOR_RANK, Symbol.Digits).Item1;
 
             var saveToLog = new ModelInput
             {

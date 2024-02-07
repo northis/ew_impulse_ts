@@ -52,26 +52,20 @@ namespace TradeKit.AlgoBase
 
             DateTime startDate = start.OpenTime;
             DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
-            List<JsonCandleExport> candles;
-            byte[] modelBytes;
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK;
-            modelBytes = MLModels.modelsEW_full;
-            candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
+            byte[] modelBytes = MLModels.modelsEW_full;
+            byte[] modelRegressionBytes = MLModels.modelsEW_full;//TODO
+            List<JsonCandleExport> candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
             if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
                 m_BarsProviderMinorX2 != null)
             {
                 candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
 
-            ClassPrediction prediction =
-                MachineLearning.Predict(candles, start.Value, end.Value, modelBytes, rank);
-
-            if (prediction == null)
-            {
-                return false;
-            }
-
-            result.Models = prediction.GetModelsMap();
+            CombinedPrediction<JsonCandleExport> prediction =
+                MachineLearning.Predict(candles, start.Value, end.Value, modelBytes, modelRegressionBytes, rank);
+            
+            result.Models = prediction.Classification.GetModelsMap();
             (ElliottModelType, float) model = result.Models[0];
 
             (ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
@@ -83,7 +77,7 @@ namespace TradeKit.AlgoBase
             }
 
             result.Type = model.Item1;
-            result.MaxScore = prediction.MaxValue;
+            result.MaxScore = prediction.Classification.MaxValue;
             return true;
         }
     }

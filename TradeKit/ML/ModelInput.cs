@@ -26,7 +26,7 @@ namespace TradeKit.ML
         public override string ToString()
         {
             return
-                $"{(int)IsFit};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
+                $"{(int)IsFit};{(int)Index1};{(int)Index2};{(int)Index3};{(int)Index4};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
         }
 
         public static ModelInput FromString(string str)
@@ -35,7 +35,11 @@ namespace TradeKit.ML
             return new ModelInput
             {
                 IsFit = uint.Parse(split[0]),
-                Vector = split[1..].Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture))
+                Index1 = int.Parse(split[1]),
+                Index2 = int.Parse(split[2]),
+                Index3 = int.Parse(split[3]),
+                Index4 = int.Parse(split[4]),
+                Vector = split[5..].Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture))
                     .ToArray()
             };
         }

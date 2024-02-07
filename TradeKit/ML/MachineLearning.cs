@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using TradeKit.PatternGeneration;
 using TradeKit.Impulse;
 using Microsoft.ML.Data;
+using Microsoft.ML.Trainers.FastTree;
 
 namespace TradeKit.ML
 {
@@ -37,8 +38,8 @@ namespace TradeKit.ML
         /// <param name="endValue">The end value.</param>
         /// <param name="rank">The rank of the vector.</param>
         /// <param name="accuracy">Digits count after the dot.</param>
-        /// <returns>The result vector <see cref="rank"/>X2 dimension.</returns>
-        public static float[] GetModelVector<T>(
+        /// <returns>The result vectors <see cref="rank"/>X2 dimension: float model value, candle index, original candle value</returns>
+        public static (float[], int[], double[]) GetModelVector<T>(
             List<T> candles,
             double startValue,
             double endValue,
@@ -48,9 +49,13 @@ namespace TradeKit.ML
             double step = 2d * candles.Count / rank;
             double? high = null;
             double? low = null;
+            int highIndex = -1;
+            int lowIndex = -1;
             double offset = 0;
             int newArrayIndex = 0;
-            float[] vector = new float[rank]; // near and far points
+            var resultVector = new float[rank]; // near and far points
+            var resultCandleIndices = new int[rank];
+            var resultCandleValues = new double[rank]; 
 
             int isUpK = startValue < endValue ? 1 : -1;
             double range = Math.Abs(endValue - startValue);
@@ -71,14 +76,28 @@ namespace TradeKit.ML
 
                 bool isCloserL = Math.Abs(diffL) < Math.Abs(diffH);
 
-                float currentNear = isCloserL ? diffL : diffH;
-                float currentFar = isCloserL ? diffH : diffL;
-                
-                vector[newArrayIndex] = currentNear;
-                newArrayIndex++;
-                vector[newArrayIndex] = currentFar;
-                newArrayIndex++;
+                if (isCloserL)
+                {
+                    resultVector[newArrayIndex] = diffL;
+                    resultCandleIndices[newArrayIndex] = lowIndex;
+                    resultCandleValues[newArrayIndex] = low.Value;
+                    newArrayIndex++;
+                    resultVector[newArrayIndex] = diffH;
+                    resultCandleIndices[newArrayIndex] = highIndex;
+                    resultCandleValues[newArrayIndex] = high.Value;
+                }
+                else
+                {
+                    resultVector[newArrayIndex] = diffH;
+                    resultCandleIndices[newArrayIndex] = highIndex;
+                    resultCandleValues[newArrayIndex] = high.Value;
+                    newArrayIndex++;
+                    resultVector[newArrayIndex] = diffL;
+                    resultCandleIndices[newArrayIndex] = lowIndex;
+                    resultCandleValues[newArrayIndex] = low.Value;
+                }
 
+                newArrayIndex++;
                 high = null;
                 low = null;
             }
@@ -87,12 +106,21 @@ namespace TradeKit.ML
             {
                 if (i > offset + step) Add();
                 ICandle cdl = candles[i];
-                if (!high.HasValue || cdl.H > high) high = cdl.H;
-                if (!low.HasValue || cdl.L < low) low = cdl.L;
+                if (!high.HasValue || cdl.H > high)
+                {
+                    high = cdl.H;
+                    highIndex = i;
+                }
+
+                if (!low.HasValue || cdl.L < low)
+                {
+                    low = cdl.L;
+                    lowIndex = i;
+                }
             }
 
             Add();
-            return vector;
+            return (resultVector, resultCandleIndices, resultCandleValues);
         }
 
         /// <summary>
@@ -245,12 +273,12 @@ namespace TradeKit.ML
             PatternArgsItem patternArgs = pattern.PatternArgs;
 
             float[] vector = GetModelVector(
-                candles, patternArgs.StartValue, patternArgs.EndValue, vectorRank, patternArgs.Accuracy);
+                candles, patternArgs.StartValue, patternArgs.EndValue, vectorRank, patternArgs.Accuracy).Item1;
 
             var modelInput = new ModelInput
             {
-                IsFit = (uint) pattern.Model, 
-                Vector = vector, 
+                IsFit = (uint) pattern.Model,
+                Vector = vector,
                 Index1 = -1,
                 Index2 = -1,
                 Index3 = -1,
@@ -358,14 +386,17 @@ namespace TradeKit.ML
         /// Runs the learn from the files passed and saves the result model to the file specified.
         /// </summary>
         /// <param name="learnFiles">The learn files.</param>
-        /// <param name="fileToSave">The file to save.</param>
+        /// <param name="fileToSaveClassification">The file to save (classification).</param>
+        /// <param name="fileToSaveRegression">The file to save (regression).</param>
         /// <param name="filesLimit">The files limit.</param>
         public static void RunLearn(
             IEnumerable<LearnFilesItem> learnFiles, 
-            string fileToSave,
+            string fileToSaveClassification,
+            string fileToSaveRegression,
             int filesLimit = Helper.ML_MAX_BATCH_ITEMS)
         {
-            RunLearn(IterateLearn(learnFiles).Take(filesLimit), fileToSave);
+            RunLearn(IterateLearn(learnFiles)
+                .Take(filesLimit), fileToSaveClassification, fileToSaveRegression);
         }
 
         /// <summary>
@@ -373,39 +404,69 @@ namespace TradeKit.ML
         /// </summary>
         /// <param name="mlContext">ML context item.</param>
         /// <param name="trainingDataView">The data set.</param>
-        /// <param name="fileToSave">The file to save.</param>
+        /// <param name="fileToSaveClassification">The file to save (classification).</param>
+        /// <param name="fileToSaveRegression">The file to save (regression).</param>
         private static void RunLearnInner(
             MLContext mlContext,
             IDataView trainingDataView,
-            string fileToSave)
+            string fileToSaveClassification,
+            string fileToSaveRegression)
         {
             DataOperationsCatalog.TrainTestData dataSplit = mlContext.Data.TrainTestSplit(
                 trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
             IDataView trainData = dataSplit.TrainSet;
             IDataView testData = dataSplit.TestSet;
-            var dataProcessPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: ModelInput.LABEL_COLUMN, inputColumnName: ModelInput.LABEL_COLUMN)
+
+            var classificationPipeline = mlContext.Transforms.Conversion.MapValueToKey(
+                    outputColumnName: ModelInput.LABEL_COLUMN, 
+                    inputColumnName: ModelInput.LABEL_COLUMN)
                 .Append(mlContext.Transforms.Concatenate(
                     ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.Transforms.NormalizeMinMax(ModelInput.FEATURES_COLUMN))
-                .AppendCacheCheckpoint(mlContext);
-            
-            var trainer = mlContext.MulticlassClassification.Trainers.SdcaNonCalibrated(labelColumnName: ModelInput.LABEL_COLUMN, 
-                featureColumnName: ModelInput.FEATURES_COLUMN);
-            var trainingPipeline = dataProcessPipeline.Append(trainer)
+                .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy(
+                    labelColumnName: ModelInput.LABEL_COLUMN,
+                    featureColumnName: ModelInput.FEATURES_COLUMN))
                 .Append(mlContext.Transforms.Conversion.MapKeyToValue(
                     ModelInput.PREDICTED_LABEL_COLUMN));
             
-            ITransformer trainedModel = trainingPipeline.Fit(trainData);
-            
+            var regressionPipeline = mlContext.Transforms
+                .Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
+                    labelColumnName: nameof(ModelInput.Index1),
+                    featureColumnName: ModelInput.FEATURES_COLUMN))
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
+                    labelColumnName: nameof(ModelInput.Index2),
+                    featureColumnName: ModelInput.FEATURES_COLUMN))
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
+                    labelColumnName: nameof(ModelInput.Index3),
+                    featureColumnName: ModelInput.FEATURES_COLUMN))
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
+                    labelColumnName: nameof(ModelInput.Index4),
+                    featureColumnName: ModelInput.FEATURES_COLUMN));
+
+
+            ITransformer trainedModel = classificationPipeline.Fit(trainData);
+            ITransformer regressionModel = regressionPipeline.Fit(trainData);
+
             var predictions = trainedModel.Transform(testData);
             var metrics = mlContext.MulticlassClassification.Evaluate(predictions, ModelInput.LABEL_COLUMN);
 
-            Logger.Write($"Macro accuracy: {metrics.MacroAccuracy:P2}");
+            Logger.Write($"Classification, macro accuracy: {metrics.MacroAccuracy:P2}");
             Logger.Write($"Micro accuracy: {metrics.MicroAccuracy:P2}");
             Logger.Write($"Log loss reduction: {metrics.LogLossReduction:P2}");
             Logger.Write($"Log loss: {metrics.LogLoss:P2}");
 
-            mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSave);
+            var regressionMetrics1 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index1));
+            var regressionMetrics2 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index2));
+            var regressionMetrics3 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index3));
+            var regressionMetrics4 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index4));
+
+            Logger.Write($"Regression, Index1, Mean Squared Error: {regressionMetrics1.MeanSquaredError:#.##}, R^2 {regressionMetrics1.RSquared:#.##}");
+            Logger.Write($"Regression, Index2, Mean Squared Error: {regressionMetrics2.MeanSquaredError:#.##}, R^2 {regressionMetrics2.RSquared:#.##}");
+            Logger.Write($"Regression, Index3, Mean Squared Error: {regressionMetrics3.MeanSquaredError:#.##}, R^2 {regressionMetrics3.RSquared:#.##}");
+            Logger.Write($"Regression, Index4, Mean Squared Error: {regressionMetrics4.MeanSquaredError:#.##}, R^2 {regressionMetrics4.RSquared:#.##}");
+
+            mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSaveClassification);
+            mlContext.Model.Save(regressionModel, trainingDataView.Schema, fileToSaveRegression);
             Logger.Write($"{nameof(RunLearn)} end");
         }
 
@@ -413,15 +474,18 @@ namespace TradeKit.ML
         /// Runs the learn for the passed collection.
         /// </summary>
         /// <param name="learnSet">The learn set.</param>
-        /// <param name="fileToSave">The file to save.</param>
+        /// <param name="fileToSaveClassification">The file to save (classification).</param>
+        /// <param name="fileToSaveRegression">The file to save (regression).</param>
         public static void RunLearn<T>(
         IEnumerable<T> learnSet, 
-        string fileToSave) where T: ModelInput, new()
+        string fileToSaveClassification,
+        string fileToSaveRegression) where T: ModelInput, new()
         {
             Logger.Write($"{nameof(RunLearn)} start");
             var mlContext = new MLContext();
             IDataView trainingDataView = mlContext.Data.LoadFromEnumerable(learnSet);
-            RunLearnInner(mlContext,trainingDataView, fileToSave);
+            RunLearnInner(
+                mlContext,trainingDataView, fileToSaveClassification, fileToSaveRegression);
         }
 
         /// <summary>
@@ -430,61 +494,54 @@ namespace TradeKit.ML
         /// <param name="candles">The candles.</param>
         /// <param name="startValue">The start value.</param>
         /// <param name="endValue">The end value.</param>
-        /// <param name="modelPath">The model path.</param>
-        /// <param name="rank">The rank of the vector.</param>
+        /// <param name="modelClassBytes">The bytes of the ML classification model.</param>
+        /// <param name="regressionClassBytes">The bytes of the ML regression model.</param>
+        /// <param name="rank">The dimension or the ML vector</param>
         /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static ClassPrediction? Predict<T>(
-            List<T> candles,
-            double startValue,
-            double endValue, 
-            string modelPath,
-            ushort rank = Helper.ML_IMPULSE_VECTOR_RANK,
-            int accuracy = Helper.ML_DEF_ACCURACY_PART) where T:ICandle
-        {
-            return PredictInner(candles, startValue, endValue, rank, accuracy, null, modelPath);
-        }
-
-        /// <summary>
-        /// Predicts by the specified model path and the specified candle set.
-        /// </summary>
-        /// <param name="candles">The candles.</param>
-        /// <param name="startValue">The start value.</param>
-        /// <param name="endValue">The end value.</param>
-        /// <param name="modelBytes">The bytes of the ML model.</param>
-        /// <param name="rank">The rank of the vector.</param>
-        /// <param name="accuracy">Digits count after the dot.</param>
-        /// <returns>The prediction.</returns>
-        public static ClassPrediction? Predict<T>(
+        public static CombinedPrediction<T> Predict<T>(
             List<T> candles,
             double startValue,
             double endValue,
-            byte[] modelBytes,
+            byte[] modelClassBytes,
+            byte[] regressionClassBytes,
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK,
             int accuracy = Helper.ML_DEF_ACCURACY_PART) where T : ICandle
         {
-            return PredictInner(candles, startValue, endValue, rank, accuracy, modelBytes);
-        }
-
-        private static ClassPrediction? PredictInner<T>(
-            List<T> candles,
-            double startValue,
-            double endValue,
-            ushort rank,
-            int accuracy,
-            byte[]? modelBytes = null,
-            string? modelPath = null) where T : ICandle
-        {
-            if (modelBytes == null && modelPath == null || candles.Count < rank / 2)
+            if (candles.Count < rank / 2)
                 return null;
 
-            float[] vector = GetModelVector(
+            (float[], int[], double[]) vectorResult = GetModelVector(
                 candles, startValue, endValue, rank, accuracy);
+            float[] vector = vectorResult.Item1;
+            int[] indices = vectorResult.Item2;
+            double[] values = vectorResult.Item3;
 
-            ClassPrediction? res = modelBytes != null 
-                ? Predict(modelBytes, vector) 
-                : Predict(modelPath, vector);
-            
+            ClassPrediction classPrediction = Predict<ClassPrediction>(
+                modelClassBytes, vector);
+            RegressionPrediction regressionPrediction = Predict<RegressionPrediction>(
+                regressionClassBytes, vector);
+
+            var res = new CombinedPrediction<T>
+            {
+                Classification = classPrediction,
+                Regression = regressionPrediction
+            };
+
+            int index1 = Convert.ToInt32(regressionPrediction.Index1);
+            int index2 = Convert.ToInt32(regressionPrediction.Index2);
+            res.Wave1 = (candles[indices[index1]], values[index1]);
+            res.Wave2 = (candles[indices[index2]], values[index2]);
+
+            if (regressionPrediction.Index3 >= 0 &&
+                regressionPrediction.Index4 >= 0)
+            {
+                int index3 = Convert.ToInt32(regressionPrediction.Index3);
+                int index4 = Convert.ToInt32(regressionPrediction.Index4);
+                res.Wave3 = (candles[indices[index3]], values[index3]);
+                res.Wave4 = (candles[indices[index4]], values[index4]);
+            }
+
             return res;
         }
 
@@ -494,11 +551,11 @@ namespace TradeKit.ML
         /// <param name="modelPath">The model path.</param>
         /// <param name="vector">The vector.</param>
         /// <returns>The prediction.</returns>
-        private static ClassPrediction? Predict(string modelPath, float[] vector)
+        private static T Predict<T>(string modelPath, float[] vector) where T : class, new()
         { 
             MLContext mlContext = new MLContext();
             var trainedModel = mlContext.Model.Load(modelPath, out _);
-            ClassPrediction? prediction = Predict(trainedModel, mlContext, vector);
+            T prediction = Predict<T>(trainedModel, mlContext, vector);
             return prediction;
         }
 
@@ -508,23 +565,23 @@ namespace TradeKit.ML
         /// <param name="modelBytes">The model byte array.</param>
         /// <param name="vector">The vector.</param>
         /// <returns>The prediction.</returns>
-        private static ClassPrediction? Predict(byte[] modelBytes, float[] vector)
+        private static T Predict<T>(byte[] modelBytes, float[] vector) where T : class, new()
         {
             MLContext mlContext = new MLContext();
 
             using var ms = new MemoryStream(modelBytes);
             ITransformer trainedModel = mlContext.Model.Load(ms, out _);
-            ClassPrediction? prediction = Predict(trainedModel, mlContext, vector);
+            T prediction = Predict<T>(trainedModel, mlContext, vector);
             return prediction;
         }
 
-        private static ClassPrediction? Predict(
-            ITransformer model, MLContext mlContext, float[] vector)
+        private static T Predict<T>(
+            ITransformer model, MLContext mlContext, float[] vector) where T:class, new()
         {
-            PredictionEngine<ModelInput, ClassPrediction>? predictionEngine = mlContext.Model.CreatePredictionEngine<ModelInput, ClassPrediction>(model);
+            PredictionEngine<ModelInput, T>? predictionEngine = mlContext.Model.CreatePredictionEngine<ModelInput, T>(model);
 
             ModelInput learnItem = new ModelInput {Vector = vector};
-            ClassPrediction? predictionResult = predictionEngine.Predict(learnItem);
+            T predictionResult = predictionEngine.Predict(learnItem);
             return predictionResult;
         }
     }
