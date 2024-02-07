@@ -1,25 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using Newtonsoft.Json;
 using Plotly.NET;
-using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
-using Plotly.NET.TraceObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Json;
 using TradeKit.ML;
 using static Plotly.NET.StyleParam;
+using Color = Plotly.NET.Color;
 
 namespace TradeKit.Impulse
 {
     public class ImpulseSignalerBaseRobot : BaseRobot<ImpulseSetupFinder, ImpulseSignalEventArgs>
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
-        private const string IMPULSE_SETTINGS = "⚡Impulse Settings";
         
         /// <summary>
         /// Gets the name of the bot.
@@ -27,6 +25,22 @@ namespace TradeKit.Impulse
         public override string GetBotName()
         {
             return BOT_NAME;
+        }
+
+        protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
+            List<DateTime> chartDateTimes)
+        {
+            string[] waveNotations = PatternGeneration.PatternGenerator.ModelRules[signalEventArgs.Model.Type].Models
+                .Keys.ToArray();
+            
+            for (int i = 0; i < signalEventArgs.Model.Extrema.Count; i++)
+            {
+                string notation = waveNotations[i];
+                BarPoint bp = signalEventArgs.Model.Extrema[i];
+                var ann = ChartGenerator.GetAnnotation(bp.OpenTime, bp.Value, ChartGenerator.SEMI_WHITE_COLOR, 16,
+                    Color.fromARGB(0, 0, 0, 0), notation);
+                candlestickChart.WithAnnotation(ann);
+            }
         }
 
         /// <summary>
@@ -113,27 +127,6 @@ namespace TradeKit.Impulse
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// Finds the wave point.
-        /// We want to match index/DT/value from one TF to another.
-        /// </summary>
-        /// <param name="bp">The bp (bigger TF).</param>
-        /// <param name="index">The index (smaller TF).</param>
-        /// <param name="date">The dt.</param>
-        /// <param name="high">The high.</param>
-        /// <param name="low">The low.</param>
-        /// <returns>True, if the wave point has been found.</returns>
-        private bool FindWavePoint(
-            BarPoint bp, int index, DateTime date, double high, double low)
-        {
-            // We use +1 sec to place high and low to a sorted dictionary,
-            // so this is a side-effect.
-            return date >= bp.OpenTime.AddSeconds(-1) &&
-                   index < 0 &&
-                   (Math.Abs(high - bp.Value) < double.Epsilon ||
-                    Math.Abs(low - bp.Value) < double.Epsilon);
         }
 
         protected override void OnSaveRawChartDataForManualAnalysis(

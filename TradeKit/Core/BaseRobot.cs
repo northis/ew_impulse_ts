@@ -812,8 +812,8 @@ namespace TradeKit.Core
                 throw new NotSupportedException($"We don't support {barProvider.TimeFrame.Name} time frame");
 
             var s = new ChartDataSource(earlyBar, barsCount);
-            //var rangeBreaks = new List<DateTime>();
-            //var validDateTimes = new List<DateTime>();
+            var rangeBreaks = new List<DateTime>();
+            var validDateTimes = new List<DateTime>();
 
             for (int i = earlyBar; i <= lastIndex; i++)
             {
@@ -830,70 +830,69 @@ namespace TradeKit.Core
                     continue;
                 }
 
-                //DateTime prevDateTime = barProvider.GetOpenTime(i - 1);
-                //TimeSpan diffToPrevious = currentDateTime - prevDateTime;
-                //if (i != firstIndex && diffToPrevious > timeFrameInfo.TimeSpan)
-                //{
-                //    while (currentDateTime >= prevDateTime)
-                //    {
-                //        prevDateTime = prevDateTime.Add(timeFrameInfo.TimeSpan);
-                //        rangeBreaks.Add(prevDateTime);
-                //    }
-                //}
-                //else
-                //{
-                //    validDateTimes.Add(currentDateTime);
-                //}
+                DateTime prevDateTime = barProvider.GetOpenTime(i - 1);
+                TimeSpan diffToPrevious = currentDateTime - prevDateTime;
+                if (i != firstIndex && diffToPrevious > timeFrameInfo.TimeSpan)
+                {
+                    while (currentDateTime >= prevDateTime)
+                    {
+                        prevDateTime = prevDateTime.Add(timeFrameInfo.TimeSpan);
+                        rangeBreaks.Add(prevDateTime);
+                    }
+                }
+                else
+                {
+                    validDateTimes.Add(currentDateTime);
+                }
             }
 
-            //DateTime lastOpenDateTime = s.D[^1];
-            //DateTime lastCloseDateTime = lastOpenDateTime;
+            DateTime lastOpenDateTime = s.D[^1];
+            DateTime lastCloseDateTime = lastOpenDateTime;
 
-            //GenericChart.GenericChart candlestickChart = ChartGenerator.GetCandlestickChart(
-            //    s.O, s.H, s.L, s.C, s.D, barProvider.Symbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
-            //    out Rangebreak[] rbs);
-            
-            //OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
-            //GenericChart.GenericChart[] layers = 
-            //    GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime) 
-            //    ?? Array.Empty<GenericChart.GenericChart>();
-            
-            //GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
-            //        layers.Concat(new[] {candlestickChart}))
-            //    .WithTitle(
-            //        $@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
-            //        Font.init(Size: CHART_FONT_HEADER));
+            GenericChart.GenericChart candlestickChart = ChartGenerator.GetCandlestickChart(
+                s.O, s.H, s.L, s.C, s.D, barProvider.Symbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
+                out Rangebreak[] rbs);
 
-            //string fileName = startView.ToString("s").Replace(":", "-");
-            //string dirPath = Path.Combine(Helper.DirectoryToSaveImages,
-            //    $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}");
-            //Directory.CreateDirectory(dirPath);
+            OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
+            GenericChart.GenericChart[] layers =
+                GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime)
+                ?? Array.Empty<GenericChart.GenericChart>();
 
-            //string imageName;
+            GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
+                    layers.Concat(new[] { candlestickChart }))
+                .WithTitle(
+                    $@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
+                    Font.init(Size: CHART_FONT_HEADER));
+
+            string fileName = startView.ToString("s").Replace(":", "-");
+            string dirPath = Path.Combine(Helper.DirectoryToSaveImages,
+                $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}");
+            Directory.CreateDirectory(dirPath);
+
+            string imageName;
             if (SaveChartForManualAnalysis)
             {
                 if (showTradeResult)
                 {
                     OnSaveRawChartDataForManualAnalysis(
                         s, signalEventArgs, barProvider, null, successTrade.GetValueOrDefault());
-                    //OnSaveRawChartDataForManualAnalysis(
-                    //    s, signalEventArgs, barProvider, dirPath, successTrade.GetValueOrDefault(), rbs);
-                    //imageName = Helper.MAIN_IMG_FILE_NAME;
+                    OnSaveRawChartDataForManualAnalysis(
+                        s, signalEventArgs, barProvider, dirPath, successTrade.GetValueOrDefault(), rbs);
+                    imageName = Helper.MAIN_IMG_FILE_NAME;
                 }
                 else
                 {
-                    //imageName = FIRST_CHART_FILE_POSTFIX;
+                    imageName = FIRST_CHART_FILE_POSTFIX;
                 }
             }
             else
             {
-               // imageName = ZERO_CHART_FILE_POSTFIX;
+                imageName = ZERO_CHART_FILE_POSTFIX;
             }
 
-            return null;
-            //string filePath = Path.Combine(dirPath, imageName);
-            //resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
-            //return $"{filePath}{Helper.CHART_FILE_TYPE_EXTENSION}";
+            string filePath = Path.Combine(dirPath, imageName);
+            resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
+            return $"{filePath}{Helper.CHART_FILE_TYPE_EXTENSION}";
         }
 
         /// <summary>

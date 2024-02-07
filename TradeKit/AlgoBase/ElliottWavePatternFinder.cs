@@ -16,6 +16,7 @@ namespace TradeKit.AlgoBase
     /// </summary>
     public class ElliottWavePatternFinder
     {
+        private readonly IBarsProvider m_BarsProviderMain;
         private readonly IBarsProvider m_BarsProviderMinor;
         private readonly IBarsProvider m_BarsProviderMinorX2;
         private readonly TimeFrameInfo m_MainFrameInfo;
@@ -28,6 +29,7 @@ namespace TradeKit.AlgoBase
         public ElliottWavePatternFinder(TimeFrame mainTimeFrame, BarProvidersFactory barProvidersFactory)
         {
             m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame];
+            m_BarsProviderMain = barProvidersFactory.GetBarsProvider(mainTimeFrame);
             var tfInfo = TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame);
 
             m_BarsProviderMinor = barProvidersFactory.GetBarsProvider(tfInfo.TimeFrame);
@@ -47,8 +49,8 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
-            result = new ElliottModelResult(ElliottModelType.IMPULSE,
-                new[] {start, end}, null, null);
+            List<BarPoint> waves = new List<BarPoint> {start, end};
+            result = new ElliottModelResult(ElliottModelType.IMPULSE, waves, null, null);
 
             DateTime startDate = start.OpenTime;
             DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
@@ -67,13 +69,27 @@ namespace TradeKit.AlgoBase
             
             result.Models = prediction.Classification.GetModelsMap();
             (ElliottModelType, float) model = result.Models[0];
-
             (ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
 
             if (model.Item1 != ElliottModelType.IMPULSE ||
                 topModels.Any(a => a.Item1 == ElliottModelType.DOUBLE_ZIGZAG))
             {
                 return false;
+            }
+
+            BarPoint GetBarPoint((JsonCandleExport, double) item)
+            {
+                var bp = new BarPoint(item.Item2, item.Item1.OpenDate, m_BarsProviderMain);
+                return bp;
+            }
+
+            waves.Insert(1, GetBarPoint(prediction.Wave1));
+            waves.Insert(2, GetBarPoint(prediction.Wave2));
+
+            if (prediction.Wave3 != null && prediction.Wave4 != null)
+            {
+                waves.Insert(3, GetBarPoint(prediction.Wave3.Value));
+                waves.Insert(4, GetBarPoint(prediction.Wave4.Value));
             }
 
             result.Type = model.Item1;

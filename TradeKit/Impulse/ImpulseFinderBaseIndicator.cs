@@ -1,4 +1,7 @@
 ﻿using cAlgo.API;
+using System.Collections.Generic;
+using System;
+using System.Linq;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 
@@ -66,6 +69,21 @@ namespace TradeKit.Impulse
             int levelIndex = e.Level.BarIndex;
             var icon = Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
             Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
+
+            if (e.Model.Extrema is { Count: > 0 })
+            {
+                BarPoint start = e.Model.Extrema[0];
+                BarPoint currentBar = start;
+                BarPoint[] rest = e.Model.Extrema.Skip(1).ToArray();
+                foreach (BarPoint wave in rest)
+                {
+                    int endIndex = wave.BarIndex;
+                    Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
+                        currentBar.BarIndex, currentBar.Value, endIndex, wave.Value, Color.LightBlue);
+                    currentBar = wave;
+                }
+            }
+
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }
