@@ -429,7 +429,7 @@ namespace TradeKit.ML
                     ModelInput.PREDICTED_LABEL_COLUMN));
             
             var regressionPipeline = mlContext.Transforms
-                .Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                .Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN, ModelInput.LABEL_COLUMN)
                 .Append(mlContext.Regression.Trainers.FastTreeTweedie(
                     labelColumnName: nameof(ModelInput.Index1),
                     featureColumnName: ModelInput.FEATURES_COLUMN))
@@ -442,7 +442,6 @@ namespace TradeKit.ML
                 .Append(mlContext.Regression.Trainers.FastTreeTweedie(
                     labelColumnName: nameof(ModelInput.Index4),
                     featureColumnName: ModelInput.FEATURES_COLUMN));
-
 
             ITransformer trainedModel = classificationPipeline.Fit(trainData);
             ITransformer regressionModel = regressionPipeline.Fit(trainData);
@@ -485,7 +484,7 @@ namespace TradeKit.ML
             var mlContext = new MLContext();
             IDataView trainingDataView = mlContext.Data.LoadFromEnumerable(learnSet);
             RunLearnInner(
-                mlContext,trainingDataView, fileToSaveClassification, fileToSaveRegression);
+                mlContext, trainingDataView, fileToSaveClassification, fileToSaveRegression);
         }
 
         /// <summary>
