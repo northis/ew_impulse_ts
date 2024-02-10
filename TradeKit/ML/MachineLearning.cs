@@ -404,13 +404,11 @@ namespace TradeKit.ML
         /// </summary>
         /// <param name="mlContext">ML context item.</param>
         /// <param name="trainingDataView">The data set.</param>
-        /// <param name="fileToSaveClassification">The file to save (classification).</param>
-        /// <param name="fileToSaveRegression">The file to save (regression).</param>
-        private static void RunLearnInner(
+        /// <param name="fileToSave">The file to save the result ML model.</param>
+        private static void RunLearnClassification(
             MLContext mlContext,
             IDataView trainingDataView,
-            string fileToSaveClassification,
-            string fileToSaveRegression)
+            string fileToSave)
         {
             DataOperationsCatalog.TrainTestData dataSplit = mlContext.Data.TrainTestSplit(
                 trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
@@ -428,8 +426,42 @@ namespace TradeKit.ML
                 .Append(mlContext.Transforms.Conversion.MapKeyToValue(
                     ModelInput.PREDICTED_LABEL_COLUMN));
             
-            var regressionPipeline = mlContext.Transforms
-                .Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN, ModelInput.LABEL_COLUMN)
+            ITransformer trainedModel = classificationPipeline.Fit(trainData);
+
+            var predictions = trainedModel.Transform(testData);
+            var metrics = mlContext.MulticlassClassification.Evaluate(predictions, ModelInput.LABEL_COLUMN);
+
+            Logger.Write($"Classification, macro accuracy: {metrics.MacroAccuracy:P2}");
+            Logger.Write($"Micro accuracy: {metrics.MicroAccuracy:P2}");
+            Logger.Write($"Log loss reduction: {metrics.LogLossReduction:P2}");
+            Logger.Write($"Log loss: {metrics.LogLoss:P2}");
+            
+            mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSave);
+            Logger.Write($"{nameof(RunLearnClassification)} end");
+        }
+
+
+        /// <summary>
+        /// Runs the learn for the passed collection.
+        /// </summary>
+        /// <param name="mlContext">ML context item.</param>
+        /// <param name="trainingDataView">The data set.</param>
+        /// <param name="fileToSave">The file to save the result ML model.</param>
+        private static void RunLearnRegression(
+            MLContext mlContext,
+            IDataView trainingDataView,
+            string fileToSave)
+        {
+            DataOperationsCatalog.TrainTestData dataSplit = mlContext.Data.TrainTestSplit(
+                trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
+            IDataView trainData = dataSplit.TrainSet;
+            IDataView testData = dataSplit.TestSet;
+
+            var regressionPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: ClassInput.CLASS_TYPE_ENCODED, inputColumnName: nameof(ClassInput.Class))
+                .Append(mlContext.Transforms.Categorical.OneHotEncoding(ClassInput.CLASS_TYPE_ENCODED, ClassInput.CLASS_TYPE_ENCODED))
+                .Append(mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, nameof(ClassInput.Vector), ClassInput.CLASS_TYPE_ENCODED))
+                .Append(mlContext.Transforms.NormalizeMinMax(ModelInput.FEATURES_COLUMN))
+                .AppendCacheCheckpoint(mlContext)
                 .Append(mlContext.Regression.Trainers.FastTreeTweedie(
                     labelColumnName: nameof(ModelInput.Index1),
                     featureColumnName: ModelInput.FEATURES_COLUMN))
@@ -443,17 +475,7 @@ namespace TradeKit.ML
                     labelColumnName: nameof(ModelInput.Index4),
                     featureColumnName: ModelInput.FEATURES_COLUMN));
 
-            ITransformer trainedModel = classificationPipeline.Fit(trainData);
             ITransformer regressionModel = regressionPipeline.Fit(trainData);
-
-            var predictions = trainedModel.Transform(testData);
-            var metrics = mlContext.MulticlassClassification.Evaluate(predictions, ModelInput.LABEL_COLUMN);
-
-            Logger.Write($"Classification, macro accuracy: {metrics.MacroAccuracy:P2}");
-            Logger.Write($"Micro accuracy: {metrics.MicroAccuracy:P2}");
-            Logger.Write($"Log loss reduction: {metrics.LogLossReduction:P2}");
-            Logger.Write($"Log loss: {metrics.LogLoss:P2}");
-
             var regressionMetrics1 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index1));
             var regressionMetrics2 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index2));
             var regressionMetrics3 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index3));
@@ -463,12 +485,9 @@ namespace TradeKit.ML
             Logger.Write($"Regression, Index2, Mean Squared Error: {regressionMetrics2.MeanSquaredError:#.##}, R^2 {regressionMetrics2.RSquared:#.##}");
             Logger.Write($"Regression, Index3, Mean Squared Error: {regressionMetrics3.MeanSquaredError:#.##}, R^2 {regressionMetrics3.RSquared:#.##}");
             Logger.Write($"Regression, Index4, Mean Squared Error: {regressionMetrics4.MeanSquaredError:#.##}, R^2 {regressionMetrics4.RSquared:#.##}");
-
-            mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSaveClassification);
-            mlContext.Model.Save(regressionModel, trainingDataView.Schema, fileToSaveRegression);
-            Logger.Write($"{nameof(RunLearn)} end");
+            mlContext.Model.Save(regressionModel, trainingDataView.Schema, fileToSave);
+            Logger.Write($"{nameof(RunLearnRegression)} end");
         }
-
         /// <summary>
         /// Runs the learn for the passed collection.
         /// </summary>
@@ -482,9 +501,13 @@ namespace TradeKit.ML
         {
             Logger.Write($"{nameof(RunLearn)} start");
             var mlContext = new MLContext();
-            IDataView trainingDataView = mlContext.Data.LoadFromEnumerable(learnSet);
-            RunLearnInner(
-                mlContext, trainingDataView, fileToSaveClassification, fileToSaveRegression);
+            // ReSharper disable PossibleMultipleEnumeration
+
+            RunLearnClassification(
+                mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
+
+            RunLearnRegression(
+                mlContext, mlContext.Data.LoadFromEnumerable(learnSet.Select(ClassInput.FromModelInput)), fileToSaveRegression);
         }
 
         /// <summary>

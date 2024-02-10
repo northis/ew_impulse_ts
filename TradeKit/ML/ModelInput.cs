@@ -13,7 +13,7 @@ namespace TradeKit.ML
 
         [ColumnName(LABEL_COLUMN)]
         public uint IsFit { get; set; }
-
+        
         [ColumnName(FEATURES_COLUMN)]
         [VectorType(Helper.ML_IMPULSE_VECTOR_RANK)]
         public virtual float[] Vector { get; set; }

@@ -38,6 +38,7 @@
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />
     <Compile Include="ML\CombinedPrediction.cs" />
+    <Compile Include="ML\ClassInput.cs" />
     <Compile Include="ML\ModelInput.cs" />
     <Compile Include="ML\ClassPrediction.cs" />
     <Compile Include="ML\RegressionPrediction.cs" />
