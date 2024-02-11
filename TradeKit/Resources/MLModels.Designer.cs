@@ -63,9 +63,29 @@ namespace TradeKit.Resources {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] classification {
+            get {
+                object obj = ResourceManager.GetObject("classification", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] modelsEW_full {
             get {
                 object obj = ResourceManager.GetObject("modelsEW_full", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] regression {
+            get {
+                object obj = ResourceManager.GetObject("regression", resourceCulture);
                 return ((byte[])(obj));
             }
         }

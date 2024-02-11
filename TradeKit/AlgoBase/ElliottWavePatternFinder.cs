@@ -55,8 +55,10 @@ namespace TradeKit.AlgoBase
             DateTime startDate = start.OpenTime;
             DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK;
-            byte[] modelBytes = MLModels.modelsEW_full;
-            byte[] modelRegressionBytes = MLModels.modelsEW_full;//TODO
+
+            Debugger.Launch();
+            byte[] modelBytes = MLModels.classification;
+            byte[] modelRegressionBytes = MLModels.regression;
             List<JsonCandleExport> candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
             if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
                 m_BarsProviderMinorX2 != null)

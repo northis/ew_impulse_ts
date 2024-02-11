@@ -457,9 +457,9 @@ namespace TradeKit.ML
             IDataView trainData = dataSplit.TrainSet;
             IDataView testData = dataSplit.TestSet;
 
-            var regressionPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: ClassInput.CLASS_TYPE_ENCODED, inputColumnName: nameof(ClassInput.Class))
-                .Append(mlContext.Transforms.Categorical.OneHotEncoding(ClassInput.CLASS_TYPE_ENCODED, ClassInput.CLASS_TYPE_ENCODED))
-                .Append(mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, nameof(ClassInput.Vector), ClassInput.CLASS_TYPE_ENCODED))
+            var regressionPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: ModelInput.CLASS_TYPE_ENCODED, inputColumnName: ModelInput.LABEL_COLUMN)
+                .Append(mlContext.Transforms.Categorical.OneHotEncoding(ModelInput.CLASS_TYPE_ENCODED, ModelInput.CLASS_TYPE_ENCODED))
+                .Append(mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN, ModelInput.CLASS_TYPE_ENCODED))
                 .Append(mlContext.Transforms.NormalizeMinMax(ModelInput.FEATURES_COLUMN))
                 .AppendCacheCheckpoint(mlContext)
                 .Append(mlContext.Regression.Trainers.FastTreeTweedie(
@@ -507,7 +507,7 @@ namespace TradeKit.ML
                 mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
 
             RunLearnRegression(
-                mlContext, mlContext.Data.LoadFromEnumerable(learnSet.Select(ClassInput.FromModelInput)), fileToSaveRegression);
+                mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveRegression);
         }
 
         /// <summary>
@@ -598,9 +598,10 @@ namespace TradeKit.ML
         }
 
         private static T Predict<T>(
-            ITransformer model, MLContext mlContext, float[] vector) where T:class, new()
+            ITransformer model, MLContext mlContext, float[] vector) where T : class, new()
         {
-            PredictionEngine<ModelInput, T>? predictionEngine = mlContext.Model.CreatePredictionEngine<ModelInput, T>(model);
+            PredictionEngine<ModelInput, T>? predictionEngine =
+                mlContext.Model.CreatePredictionEngine<ModelInput, T>(model);
 
             ModelInput learnItem = new ModelInput {Vector = vector};
             T predictionResult = predictionEngine.Predict(learnItem);
