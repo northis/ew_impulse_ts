@@ -168,7 +168,7 @@ namespace TradeKit.Impulse
 
             var saveToLog = new ModelInput
             {
-                IsFit = (uint) ElliottModelType.IMPULSE, 
+                ClassType = (uint) ElliottModelType.IMPULSE, 
                 Vector = vector
             };
 

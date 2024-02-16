@@ -82,7 +82,7 @@ namespace TradeKit.Tests
             while (!sr.EndOfStream && !sr.EndOfStream)
             {
                 ModelInput item = ModelInput.FromString(sr.ReadLine());
-                yield return new T {IsFit = item.IsFit, Vector = item.Vector};
+                yield return new T {ClassType = item.ClassType, Vector = item.Vector};
             }
         }
 

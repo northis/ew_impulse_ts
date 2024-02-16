@@ -13,7 +13,7 @@ namespace TradeKit.ML
         public const string CLASS_TYPE_ENCODED = "ClassTypeEncoded";
 
         [ColumnName(LABEL_COLUMN)]
-        public uint IsFit { get; set; }
+        public uint ClassType { get; set; }
         
         [ColumnName(FEATURES_COLUMN)]
         [VectorType(Helper.ML_IMPULSE_VECTOR_RANK)]
@@ -27,7 +27,7 @@ namespace TradeKit.ML
         public override string ToString()
         {
             return
-                $"{(int)IsFit};{(int)Index1};{(int)Index2};{(int)Index3};{(int)Index4};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
+                $"{(int)ClassType};{(int)Index1};{(int)Index2};{(int)Index3};{(int)Index4};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
         }
 
         public static ModelInput FromString(string str)
@@ -35,7 +35,7 @@ namespace TradeKit.ML
             string[] split = str.Split(";", StringSplitOptions.RemoveEmptyEntries);
             return new ModelInput
             {
-                IsFit = uint.Parse(split[0]),
+                ClassType = uint.Parse(split[0]),
                 Index1 = int.Parse(split[1]),
                 Index2 = int.Parse(split[2]),
                 Index3 = int.Parse(split[3]),

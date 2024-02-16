@@ -420,7 +420,9 @@ namespace TradeKit.ML
                     inputColumnName: ModelInput.LABEL_COLUMN)
                 .Append(mlContext.Transforms.Concatenate(
                     ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy(
+                .Append(mlContext.Transforms.NormalizeMinMax(ModelInput.FEATURES_COLUMN))
+                .AppendCacheCheckpoint(mlContext)
+                .Append(mlContext.MulticlassClassification.Trainers.SdcaNonCalibrated(
                     labelColumnName: ModelInput.LABEL_COLUMN,
                     featureColumnName: ModelInput.FEATURES_COLUMN))
                 .Append(mlContext.Transforms.Conversion.MapKeyToValue(
@@ -504,7 +506,7 @@ namespace TradeKit.ML
             // ReSharper disable PossibleMultipleEnumeration
 
             RunLearnClassification(
-                mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
+            mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
 
             RunLearnRegression(
                 mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveRegression);
