@@ -277,7 +277,7 @@ namespace TradeKit.ML
 
             var modelInput = new ModelInput
             {
-                IsFit = (uint) pattern.Model,
+                ClassType = (uint) pattern.Model,
                 Vector = vector,
                 Index1 = -1,
                 Index2 = -1,
@@ -378,7 +378,7 @@ namespace TradeKit.ML
 
                 float[] vectors = GetVectors(stat, data);
                 
-                yield return new ModelInput{IsFit = (uint)(filesItem.IsFit ? ElliottModelType.IMPULSE : ElliottModelType.DOUBLE_ZIGZAG), Vector = vectors };
+                yield return new ModelInput{ ClassType = (uint)(filesItem.IsFit ? ElliottModelType.IMPULSE : ElliottModelType.DOUBLE_ZIGZAG), Vector = vectors };
             }
         }
 
