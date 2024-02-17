@@ -34,8 +34,6 @@ public class PatternGenTests
         var candles = new List<JsonCandleExport>();
         Dictionary<DateTime, List<PatternKeyPoint>>
             patternKeyPoints = new Dictionary<DateTime, List<PatternKeyPoint>>();
-        double? open = null;
-        double? close = null;
         int currentIndex = 0;
         
         NotationItem[] notations = NotationHelper.GetNotation(type, 0);
@@ -84,21 +82,13 @@ public class PatternGenTests
 
             float high = Math.Max(closeVal, farVal);
             float low = Math.Min(closeVal, farVal);
-            float df = Math.Abs(high - low);
-
-            open ??= low + Random.Shared.NextSingle() * df;
-            if (close.HasValue)
-            {
-                open = close;
-            }
-
-            close = low + Random.Shared.NextSingle() * df;
+            
             candles.Add(new JsonCandleExport
             {
                 OpenDate = currentDateTime,
                 H = high,
                 L = low,
-                C = low,
+                C = low,// Don't want to restore this
                 O = low
 
             });

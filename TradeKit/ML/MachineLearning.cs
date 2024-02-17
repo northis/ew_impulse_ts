@@ -446,47 +446,44 @@ namespace TradeKit.ML
         /// Runs the learn for the passed collection.
         /// </summary>
         /// <param name="mlContext">ML context item.</param>
-        /// <param name="trainingDataView">The data set.</param>
+        /// <param name="learnSet"></param>
+        /// <param name="modelType"></param>
         /// <param name="fileToSave">The file to save the result ML model.</param>
         private static void RunLearnRegression(
             MLContext mlContext,
-            IDataView trainingDataView,
+            IEnumerable<ModelInput> learnSet,
+            ElliottModelType modelType,
             string fileToSave)
         {
-            DataOperationsCatalog.TrainTestData dataSplit = mlContext.Data.TrainTestSplit(
-                trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
-            IDataView trainData = dataSplit.TrainSet;
-            IDataView testData = dataSplit.TestSet;
-
-            var regressionPipeline = mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: ModelInput.CLASS_TYPE_ENCODED, inputColumnName: ModelInput.LABEL_COLUMN)
-                .Append(mlContext.Transforms.Categorical.OneHotEncoding(ModelInput.CLASS_TYPE_ENCODED, ModelInput.CLASS_TYPE_ENCODED))
-                .Append(mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN, ModelInput.CLASS_TYPE_ENCODED))
-                .Append(mlContext.Transforms.NormalizeMinMax(ModelInput.FEATURES_COLUMN))
-                .AppendCacheCheckpoint(mlContext)
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
-                    labelColumnName: nameof(ModelInput.Index1),
+            uint modelTypeId = (uint) modelType;
+            IDataView trainingDataView =
+                mlContext.Data.LoadFromEnumerable(learnSet
+                    .Where(a => a.ClassType == modelTypeId));
+            
+            var pipeline = mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index1),
                     featureColumnName: ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
-                    labelColumnName: nameof(ModelInput.Index2),
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index2),
                     featureColumnName: ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
-                    labelColumnName: nameof(ModelInput.Index3),
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index3),
                     featureColumnName: ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
-                    labelColumnName: nameof(ModelInput.Index4),
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index4),
                     featureColumnName: ModelInput.FEATURES_COLUMN));
+            var trainedModel = pipeline.Fit(trainingDataView);
+            mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSave);
 
-            ITransformer regressionModel = regressionPipeline.Fit(trainData);
-            var regressionMetrics1 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index1));
-            var regressionMetrics2 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index2));
-            var regressionMetrics3 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index3));
-            var regressionMetrics4 = mlContext.Regression.Evaluate(regressionModel.Transform(testData), labelColumnName: nameof(ModelInput.Index4));
+            var predictions = trainedModel.Transform(trainingDataView);
+            void Evaluate(string columnName)
+            {
+                var metrics = mlContext.Regression.Evaluate(predictions, labelColumnName: columnName);
+                Logger.Write($@"R^2 {columnName}: {metrics.RSquared:0.##}");
+                Logger.Write($@"RMS error {columnName}: {metrics.RootMeanSquaredError:0.##}");
+            }
 
-            Logger.Write($"Regression, Index1, Mean Squared Error: {regressionMetrics1.MeanSquaredError:#.##}, R^2 {regressionMetrics1.RSquared:#.##}");
-            Logger.Write($"Regression, Index2, Mean Squared Error: {regressionMetrics2.MeanSquaredError:#.##}, R^2 {regressionMetrics2.RSquared:#.##}");
-            Logger.Write($"Regression, Index3, Mean Squared Error: {regressionMetrics3.MeanSquaredError:#.##}, R^2 {regressionMetrics3.RSquared:#.##}");
-            Logger.Write($"Regression, Index4, Mean Squared Error: {regressionMetrics4.MeanSquaredError:#.##}, R^2 {regressionMetrics4.RSquared:#.##}");
-            mlContext.Model.Save(regressionModel, trainingDataView.Schema, fileToSave);
+            Evaluate(nameof(ModelInput.Index1));
+            Evaluate(nameof(ModelInput.Index2));
+            Evaluate(nameof(ModelInput.Index3));
+            Evaluate(nameof(ModelInput.Index4));
             Logger.Write($"{nameof(RunLearnRegression)} end");
         }
         /// <summary>
@@ -500,15 +497,13 @@ namespace TradeKit.ML
         string fileToSaveClassification,
         string fileToSaveRegression) where T: ModelInput, new()
         {
-            Logger.Write($"{nameof(RunLearn)} start");
             var mlContext = new MLContext();
             // ReSharper disable PossibleMultipleEnumeration
 
-            RunLearnClassification(
-            mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
+            //RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
 
             RunLearnRegression(
-                mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveRegression);
+                mlContext, learnSet, ElliottModelType.IMPULSE, fileToSaveRegression);
         }
 
         /// <summary>
