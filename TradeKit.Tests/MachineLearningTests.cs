@@ -82,6 +82,9 @@ namespace TradeKit.Tests
             while (!sr.EndOfStream && !sr.EndOfStream)
             {
                 ModelInput item = ModelInput.FromString(sr.ReadLine());
+                //ModelPattern model = PatternGenTests.GetFromModelInput(item);
+                //ChartGenerator.SaveChart(model, FOLDER_TO_SAVE);
+
                 yield return new T {ClassType = item.ClassType, Vector = item.Vector};
             }
         }

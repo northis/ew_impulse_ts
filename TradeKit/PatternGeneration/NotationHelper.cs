@@ -4,7 +4,7 @@ using TradeKit.Impulse;
 
 namespace TradeKit.PatternGeneration
 {
-    internal static class NotationHelper
+    public static class NotationHelper
     {
         private static readonly Dictionary<string, string> ROME_MAP = new()
         {

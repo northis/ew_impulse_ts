@@ -442,7 +442,6 @@ namespace TradeKit.ML
             Logger.Write($"{nameof(RunLearnClassification)} end");
         }
 
-
         /// <summary>
         /// Runs the learn for the passed collection.
         /// </summary>
