@@ -105,9 +105,7 @@ namespace TradeKit.Tests
         [Test]
         public void RunFullLearningTest()
         {
-            //FastTreeTweedieRegression.Example();
-
-            RunMultipleTasksAsync<ModelInput>(m_VectorsFileToSave, 1, 100, Helper.ML_IMPULSE_VECTOR_RANK);
+            RunMultipleTasksAsync<ModelInput>(m_VectorsFileToSave, 100, 5000, Helper.ML_IMPULSE_VECTOR_RANK);
             //MachineLearning.RunLearn(GetFromFile<ModelInput>(m_VectorsFileToSave), m_ClassificationModelToSave, m_RegressionModelToSave);
         }
     }
