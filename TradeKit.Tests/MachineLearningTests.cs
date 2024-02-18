@@ -11,8 +11,6 @@ namespace TradeKit.Tests
     public class MachineLearningTests
     {
         private PatternGenerator m_PatternGenerator;
-        private string m_ClassificationModelToSave;
-        private string m_RegressionModelToSave;
         private string m_VectorsFileToSave;
         private string m_MarketFileToRead;
 
@@ -30,8 +28,6 @@ namespace TradeKit.Tests
             if (!Directory.Exists(FOLDER_TO_SAVE))
                 Directory.CreateDirectory(FOLDER_TO_SAVE);
             
-            m_ClassificationModelToSave = Path.Join(FOLDER_TO_SAVE, "classification.zip");
-            m_RegressionModelToSave = Path.Join(FOLDER_TO_SAVE, "regression.zip");
             m_VectorsFileToSave = Path.Join(FOLDER_TO_SAVE, "full_ml_ew.csv");
             m_MarketFileToRead = Path.Join(FOLDER_TO_SAVE, "ml.csv");
         }
@@ -79,7 +75,7 @@ namespace TradeKit.Tests
             }
         }
 
-        IEnumerable<T> GetFromFile<T>(string file) where T : ModelInput, new()
+        IEnumerable<ModelInput> GetFromFile(string file)
         {
             using StreamReader sr = new StreamReader(file, true);
             while (!sr.EndOfStream && !sr.EndOfStream)
@@ -88,7 +84,7 @@ namespace TradeKit.Tests
                 //ModelPattern model = PatternGenTests.GetFromModelInput(item);
                 //ChartGenerator.SaveChart(model, FOLDER_TO_SAVE);
 
-                yield return new T {ClassType = item.ClassType, Vector = item.Vector};
+                yield return item;
             }
         }
 
@@ -106,7 +102,7 @@ namespace TradeKit.Tests
         public void RunFullLearningTest()
         {
             RunMultipleTasksAsync<ModelInput>(m_VectorsFileToSave, 100, 5000, Helper.ML_IMPULSE_VECTOR_RANK);
-            //MachineLearning.RunLearn(GetFromFile<ModelInput>(m_VectorsFileToSave), m_ClassificationModelToSave, m_RegressionModelToSave);
+            MachineLearning.RunLearn(GetFromFile(m_VectorsFileToSave), FOLDER_TO_SAVE);
         }
     }
 }

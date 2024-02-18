@@ -29,6 +29,8 @@ namespace TradeKit.ML
             ElliottModelType.TRIANGLE_EXPANDING
         };
 
+        public const string CLASSIFICATION_FILE_NAME = "classification.zip";
+
         private static readonly ElliottModelType[] MODELS = Enum.GetValues<ElliottModelType>();
 
         /// <summary>
@@ -352,54 +354,6 @@ namespace TradeKit.ML
             return modelInput;
         }
 
-        private static IEnumerable<ModelInput> IterateLearn(
-            IEnumerable<LearnFilesItem> filesItems)
-        {
-            foreach (LearnFilesItem filesItem in filesItems)
-            {
-                string statText = File.ReadAllText(filesItem.StatFilePath);
-                JsonSymbolStatExport? stat =
-                    JsonConvert.DeserializeObject<JsonSymbolStatExport>(statText);
-
-                if (stat == null)
-                {
-                    Logger.Write($"Stat JSON is corrupted by the path {filesItem.StatFilePath}");
-                    continue;
-                }
-
-                string dataText = File.ReadAllText(filesItem.DataFilePath);
-                JsonSymbolDataExport? data =
-                    JsonConvert.DeserializeObject<JsonSymbolDataExport>(dataText);
-
-                if (data == null)
-                {
-                    Logger.Write($"Stat JSON is corrupted by the path {filesItem.StatFilePath}");
-                    continue;
-                }
-
-                float[] vectors = GetVectors(stat, data);
-                
-                yield return new ModelInput{ ClassType = (uint)(filesItem.IsFit ? ElliottModelType.IMPULSE : ElliottModelType.DOUBLE_ZIGZAG), Vector = vectors };
-            }
-        }
-
-        /// <summary>
-        /// Runs the learn from the files passed and saves the result model to the file specified.
-        /// </summary>
-        /// <param name="learnFiles">The learn files.</param>
-        /// <param name="fileToSaveClassification">The file to save (classification).</param>
-        /// <param name="fileToSaveRegression">The file to save (regression).</param>
-        /// <param name="filesLimit">The files limit.</param>
-        public static void RunLearn(
-            IEnumerable<LearnFilesItem> learnFiles, 
-            string fileToSaveClassification,
-            string fileToSaveRegression,
-            int filesLimit = Helper.ML_MAX_BATCH_ITEMS)
-        {
-            RunLearn(IterateLearn(learnFiles)
-                .Take(filesLimit), fileToSaveClassification, fileToSaveRegression);
-        }
-
         /// <summary>
         /// Runs the learn for the passed collection.
         /// </summary>
@@ -447,8 +401,8 @@ namespace TradeKit.ML
         /// Runs the learn for the passed collection.
         /// </summary>
         /// <param name="mlContext">ML context item.</param>
-        /// <param name="learnSet"></param>
-        /// <param name="modelType"></param>
+        /// <param name="learnSet">Enumerable for train</param>
+        /// <param name="modelType">EW model type to train</param>
         /// <param name="fileToSave">The file to save the result ML model.</param>
         private static void RunLearnRegression(
             MLContext mlContext,
@@ -459,77 +413,110 @@ namespace TradeKit.ML
             uint modelTypeId = (uint) modelType;
             IDataView trainingDataView =
                 mlContext.Data.LoadFromEnumerable(learnSet
-                    .Where(a => a.ClassType == modelTypeId)
-                    .Select(a =>
-                    {
-                        if (a.Index1 > 0)
-                        {
-
-                        }
-
-                        return new RegressionInput {Vector = a.Vector, Index = a.Index1};
-                    }));
+                    .Where(a => a.ClassType == modelTypeId));
 
             var splitData = mlContext.Data.TrainTestSplit(trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
             var trainData = splitData.TrainSet;
             var testData = splitData.TestSet;
-
-            var pipeline = mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(RegressionInput.Index), featureColumnName: nameof(RegressionInput.Vector));
-
-            //var pipeline = 
-            //    mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
-            //    .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index1),
-            //        featureColumnName: ModelInput.FEATURES_COLUMN));
-            //.Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index2),
-            //    featureColumnName: ModelInput.FEATURES_COLUMN))
-            //.Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index3),
-            //    featureColumnName: ModelInput.FEATURES_COLUMN))
-            //.Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index4),
-            //    featureColumnName: ModelInput.FEATURES_COLUMN));
+            
+            var pipeline =
+                mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index1),
+                    featureColumnName: ModelInput.FEATURES_COLUMN))
+            .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index2),
+                featureColumnName: ModelInput.FEATURES_COLUMN))
+            .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index3),
+                featureColumnName: ModelInput.FEATURES_COLUMN))
+            .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index4),
+                featureColumnName: ModelInput.FEATURES_COLUMN));
             var trainedModel = pipeline.Fit(trainData);
             mlContext.Model.Save(trainedModel, trainData.Schema, fileToSave);
+            
+            var predictions = trainedModel.Transform(testData);
+            void Evaluate(string columnName)
+            {
+                var metrics = mlContext.Regression.Evaluate(predictions,
+                    labelColumnName: columnName);
+                Logger.Write($@"R^2 {columnName}: {metrics.RSquared:0.##}");
+                Logger.Write($@"RMS error {columnName}: {metrics.RootMeanSquaredError:0.##}");
+            }
 
-            //var predictions = trainedModel.Transform(testData);
-            //    var metrics = mlContext.Regression.Evaluate(predictions, 
-            //        labelColumnName: nameof(RegressionInput.Index));
-
-
-            var transformedTestData = trainedModel.Transform(testData);
-            // Convert IDataView object to a list.
-            var predictions = mlContext.Data.CreateEnumerable<Prediction>(
-                transformedTestData, reuseRowObject: false).ToList();
-            foreach (var p in predictions)
-                Console.WriteLine($"Label: {p.Index:F3}, Prediction: {p.Score:F3}");
-            //    Logger.Write($@"R^2 {columnName}: {metrics.RSquared:0.##}");
-            //    Logger.Write($@"RMS error {columnName}: {metrics.RootMeanSquaredError:0.##}");
-            //void Evaluate(string columnName)
-            //{
-            //}
-
-            //Evaluate(nameof(ModelInput.Index1));
-            //Evaluate(nameof(ModelInput.Index2));
-            //Evaluate(nameof(ModelInput.Index3));
-            //Evaluate(nameof(RegressionInput.Index));
+            Evaluate(nameof(ModelInput.Index1));
+            Evaluate(nameof(ModelInput.Index2));
+            Evaluate(nameof(ModelInput.Index3));
+            Evaluate(nameof(ModelInput.Index4));
             Logger.Write($"{nameof(RunLearnRegression)} end");
         }
+
+
+        private static IEnumerable<ModelInput> IterateLearn(
+            IEnumerable<LearnFilesItem> filesItems)
+        {
+            foreach (LearnFilesItem filesItem in filesItems)
+            {
+                string statText = File.ReadAllText(filesItem.StatFilePath);
+                JsonSymbolStatExport? stat =
+                    JsonConvert.DeserializeObject<JsonSymbolStatExport>(statText);
+
+                if (stat == null)
+                {
+                    Logger.Write($"Stat JSON is corrupted by the path {filesItem.StatFilePath}");
+                    continue;
+                }
+
+                string dataText = File.ReadAllText(filesItem.DataFilePath);
+                JsonSymbolDataExport? data =
+                    JsonConvert.DeserializeObject<JsonSymbolDataExport>(dataText);
+
+                if (data == null)
+                {
+                    Logger.Write($"Stat JSON is corrupted by the path {filesItem.StatFilePath}");
+                    continue;
+                }
+
+                float[] vectors = GetVectors(stat, data);
+
+                yield return new ModelInput { ClassType = (uint)(filesItem.IsFit ? ElliottModelType.IMPULSE : ElliottModelType.DOUBLE_ZIGZAG), Vector = vectors };
+            }
+        }
+
+        /// <summary>
+        /// Runs the learn from the files passed and saves the result model to the file specified.
+        /// </summary>
+        /// <param name="learnFiles">The learn files.</param>
+        /// <param name="folderToSaveModels">The folder to save models: classification <see cref="CLASSIFICATION_FILE_NAME"/> + by EW-models.</param>
+        /// <param name="filesLimit">The files limit.</param>
+        public static void RunLearnFiles(
+            IEnumerable<LearnFilesItem> learnFiles,
+            string folderToSaveModels,
+            int filesLimit = Helper.ML_MAX_BATCH_ITEMS)
+        {
+            RunLearn(IterateLearn(learnFiles).Take(filesLimit), folderToSaveModels);
+        }
+
         /// <summary>
         /// Runs the learn for the passed collection.
         /// </summary>
         /// <param name="learnSet">The learn set.</param>
-        /// <param name="fileToSaveClassification">The file to save (classification).</param>
-        /// <param name="fileToSaveRegression">The file to save (regression).</param>
-        public static void RunLearn<T>(
-        IEnumerable<T> learnSet, 
-        string fileToSaveClassification,
-        string fileToSaveRegression) where T: ModelInput, new()
+        /// <param name="folderToSaveModels">The folder to save models: classification <see cref="CLASSIFICATION_FILE_NAME"/> + by EW-models.</param>
+        public static void RunLearn(
+        IEnumerable<ModelInput> learnSet, 
+        string folderToSaveModels)
         {
             var mlContext = new MLContext();
             // ReSharper disable PossibleMultipleEnumeration
 
-            //RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
+            string fileToSaveClassification = Path.Combine(
+                folderToSaveModels, CLASSIFICATION_FILE_NAME);
+            RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
 
-            RunLearnRegression(
-                mlContext, learnSet, ElliottModelType.IMPULSE, fileToSaveRegression);
+            foreach (ElliottModelType model in MODELS)
+            {
+                string fileToSaveModel = Path.Combine(
+                    folderToSaveModels,$"{model}.zip");
+                RunLearnRegression(
+                    mlContext, learnSet, model, fileToSaveModel);
+            }
         }
 
         /// <summary>
