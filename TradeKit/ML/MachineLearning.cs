@@ -13,6 +13,7 @@ using TradeKit.PatternGeneration;
 using TradeKit.Impulse;
 using Microsoft.ML.Data;
 using Microsoft.ML.Trainers.FastTree;
+using System.Data;
 
 namespace TradeKit.ML
 {
@@ -458,32 +459,57 @@ namespace TradeKit.ML
             uint modelTypeId = (uint) modelType;
             IDataView trainingDataView =
                 mlContext.Data.LoadFromEnumerable(learnSet
-                    .Where(a => a.ClassType == modelTypeId));
-            
-            var pipeline = mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index1),
-                    featureColumnName: ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index2),
-                    featureColumnName: ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index3),
-                    featureColumnName: ModelInput.FEATURES_COLUMN))
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index4),
-                    featureColumnName: ModelInput.FEATURES_COLUMN));
-            var trainedModel = pipeline.Fit(trainingDataView);
-            mlContext.Model.Save(trainedModel, trainingDataView.Schema, fileToSave);
+                    .Where(a => a.ClassType == modelTypeId)
+                    .Select(a =>
+                    {
+                        if (a.Index1 > 0)
+                        {
 
-            var predictions = trainedModel.Transform(trainingDataView);
-            void Evaluate(string columnName)
-            {
-                var metrics = mlContext.Regression.Evaluate(predictions, labelColumnName: columnName);
-                Logger.Write($@"R^2 {columnName}: {metrics.RSquared:0.##}");
-                Logger.Write($@"RMS error {columnName}: {metrics.RootMeanSquaredError:0.##}");
-            }
+                        }
 
-            Evaluate(nameof(ModelInput.Index1));
-            Evaluate(nameof(ModelInput.Index2));
-            Evaluate(nameof(ModelInput.Index3));
-            Evaluate(nameof(ModelInput.Index4));
+                        return new RegressionInput {Vector = a.Vector, Index = a.Index1};
+                    }));
+
+            var splitData = mlContext.Data.TrainTestSplit(trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
+            var trainData = splitData.TrainSet;
+            var testData = splitData.TestSet;
+
+            var pipeline = mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(RegressionInput.Index), featureColumnName: nameof(RegressionInput.Vector));
+
+            //var pipeline = 
+            //    mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+            //    .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index1),
+            //        featureColumnName: ModelInput.FEATURES_COLUMN));
+            //.Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index2),
+            //    featureColumnName: ModelInput.FEATURES_COLUMN))
+            //.Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index3),
+            //    featureColumnName: ModelInput.FEATURES_COLUMN))
+            //.Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index4),
+            //    featureColumnName: ModelInput.FEATURES_COLUMN));
+            var trainedModel = pipeline.Fit(trainData);
+            mlContext.Model.Save(trainedModel, trainData.Schema, fileToSave);
+
+            //var predictions = trainedModel.Transform(testData);
+            //    var metrics = mlContext.Regression.Evaluate(predictions, 
+            //        labelColumnName: nameof(RegressionInput.Index));
+
+
+            var transformedTestData = trainedModel.Transform(testData);
+            // Convert IDataView object to a list.
+            var predictions = mlContext.Data.CreateEnumerable<Prediction>(
+                transformedTestData, reuseRowObject: false).ToList();
+            foreach (var p in predictions)
+                Console.WriteLine($"Label: {p.Index:F3}, Prediction: {p.Score:F3}");
+            //    Logger.Write($@"R^2 {columnName}: {metrics.RSquared:0.##}");
+            //    Logger.Write($@"RMS error {columnName}: {metrics.RootMeanSquaredError:0.##}");
+            //void Evaluate(string columnName)
+            //{
+            //}
+
+            //Evaluate(nameof(ModelInput.Index1));
+            //Evaluate(nameof(ModelInput.Index2));
+            //Evaluate(nameof(ModelInput.Index3));
+            //Evaluate(nameof(RegressionInput.Index));
             Logger.Write($"{nameof(RunLearnRegression)} end");
         }
         /// <summary>

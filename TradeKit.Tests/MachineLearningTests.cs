@@ -1,3 +1,6 @@
+using Microsoft.ML.Data;
+using Microsoft.ML.Trainers.FastTree;
+using Microsoft.ML;
 using System.Collections.Concurrent;
 using TradeKit.Core;
 using TradeKit.ML;
@@ -102,8 +105,10 @@ namespace TradeKit.Tests
         [Test]
         public void RunFullLearningTest()
         {
-            //RunMultipleTasksAsync<ModelInput>(m_VectorsFileToSave, 100, 100, Helper.ML_IMPULSE_VECTOR_RANK);
-            MachineLearning.RunLearn(GetFromFile<ModelInput>(m_VectorsFileToSave), m_ClassificationModelToSave, m_RegressionModelToSave);
+            //FastTreeTweedieRegression.Example();
+
+            RunMultipleTasksAsync<ModelInput>(m_VectorsFileToSave, 1, 100, Helper.ML_IMPULSE_VECTOR_RANK);
+            //MachineLearning.RunLearn(GetFromFile<ModelInput>(m_VectorsFileToSave), m_ClassificationModelToSave, m_RegressionModelToSave);
         }
     }
 }

@@ -27,7 +27,7 @@ namespace TradeKit.ML
         public override string ToString()
         {
             return
-                $"{(int)ClassType};{(int)Index1};{(int)Index2};{(int)Index3};{(int)Index4};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
+                $"{ClassType};{(int)Index1};{(int)Index2};{(int)Index3};{(int)Index4};{string.Join(";", Vector.Select(a => a.ToString("", System.Globalization.CultureInfo.InvariantCulture)))}";
         }
 
         public static ModelInput FromString(string str)

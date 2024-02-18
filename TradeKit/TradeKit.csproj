@@ -40,8 +40,9 @@
     <Compile Include="ML\CombinedPrediction.cs" />
     <Compile Include="ML\ModelInput.cs" />
     <Compile Include="ML\ClassPrediction.cs" />
+    <Compile Include="ML\Prediction.cs" />
+    <Compile Include="ML\RegressionInput.cs" />
     <Compile Include="ML\RegressionPrediction.cs" />
-    <Compile Include="ML\TransformedData.cs" />
     <Compile Include="Resources\MLModels.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
