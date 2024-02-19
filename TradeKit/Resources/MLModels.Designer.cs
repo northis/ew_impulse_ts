@@ -73,9 +73,9 @@ namespace TradeKit.Resources {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] modelsEW_full {
+        internal static byte[] COMBINATION {
             get {
-                object obj = ResourceManager.GetObject("modelsEW_full", resourceCulture);
+                object obj = ResourceManager.GetObject("COMBINATION", resourceCulture);
                 return ((byte[])(obj));
             }
         }
@@ -83,9 +83,139 @@ namespace TradeKit.Resources {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] regression {
+        internal static byte[] DIAGONAL_CONTRACTING_ENDING {
             get {
-                object obj = ResourceManager.GetObject("regression", resourceCulture);
+                object obj = ResourceManager.GetObject("DIAGONAL_CONTRACTING_ENDING", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] DIAGONAL_CONTRACTING_INITIAL {
+            get {
+                object obj = ResourceManager.GetObject("DIAGONAL_CONTRACTING_INITIAL", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] DIAGONAL_EXPANDING_ENDING {
+            get {
+                object obj = ResourceManager.GetObject("DIAGONAL_EXPANDING_ENDING", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] DIAGONAL_EXPANDING_INITIAL {
+            get {
+                object obj = ResourceManager.GetObject("DIAGONAL_EXPANDING_INITIAL", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] DOUBLE_ZIGZAG {
+            get {
+                object obj = ResourceManager.GetObject("DOUBLE_ZIGZAG", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] FLAT_EXTENDED {
+            get {
+                object obj = ResourceManager.GetObject("FLAT_EXTENDED", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] FLAT_REGULAR {
+            get {
+                object obj = ResourceManager.GetObject("FLAT_REGULAR", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] FLAT_RUNNING {
+            get {
+                object obj = ResourceManager.GetObject("FLAT_RUNNING", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] IMPULSE {
+            get {
+                object obj = ResourceManager.GetObject("IMPULSE", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] TRIANGLE_CONTRACTING {
+            get {
+                object obj = ResourceManager.GetObject("TRIANGLE_CONTRACTING", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] TRIANGLE_EXPANDING {
+            get {
+                object obj = ResourceManager.GetObject("TRIANGLE_EXPANDING", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] TRIANGLE_RUNNING {
+            get {
+                object obj = ResourceManager.GetObject("TRIANGLE_RUNNING", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] TRIPLE_ZIGZAG {
+            get {
+                object obj = ResourceManager.GetObject("TRIPLE_ZIGZAG", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] ZIGZAG {
+            get {
+                object obj = ResourceManager.GetObject("ZIGZAG", resourceCulture);
                 return ((byte[])(obj));
             }
         }

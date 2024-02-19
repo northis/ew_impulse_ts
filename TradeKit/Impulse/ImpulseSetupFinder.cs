@@ -296,7 +296,8 @@ namespace TradeKit.Impulse
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
 
-                string score = outExtrema.MaxScore.HasValue
+                string score = outExtrema.MaxScore.HasValue && 
+                               !float.IsNaN(outExtrema.MaxScore.Value)
                     ? $"{(int) outExtrema.MaxScore}{Environment.NewLine}"
                 : string.Empty;
 

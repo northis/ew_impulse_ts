@@ -10,7 +10,7 @@ namespace TradeKit.ML
         public const string FEATURES_COLUMN = "Features";
         public const string LABEL_COLUMN = "Label";
         public const string PREDICTED_LABEL_COLUMN = "PredictedLabel";
-        public const string CLASS_TYPE_ENCODED = "ClassTypeEncoded";
+        public const string SCORE = "Score";
 
         [ColumnName(LABEL_COLUMN)]
         public uint ClassType { get; set; }

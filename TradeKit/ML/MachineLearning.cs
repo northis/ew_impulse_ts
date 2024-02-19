@@ -14,6 +14,7 @@ using TradeKit.Impulse;
 using Microsoft.ML.Data;
 using Microsoft.ML.Trainers.FastTree;
 using System.Data;
+using TradeKit.Resources;
 
 namespace TradeKit.ML
 {
@@ -32,6 +33,58 @@ namespace TradeKit.ML
         public const string CLASSIFICATION_FILE_NAME = "classification.zip";
 
         private static readonly ElliottModelType[] MODELS = Enum.GetValues<ElliottModelType>();
+
+        private static readonly Dictionary<ElliottModelType, byte[]>
+            MODEL_BYTES_MAP = new()
+            {
+                {
+                    ElliottModelType.IMPULSE, MLModels.IMPULSE
+                },
+                {
+                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING, MLModels.DIAGONAL_CONTRACTING_ENDING
+                },
+                {
+                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, MLModels.DIAGONAL_CONTRACTING_INITIAL
+                },
+                {
+                    ElliottModelType.DIAGONAL_EXPANDING_ENDING,
+                    MLModels.DIAGONAL_EXPANDING_ENDING
+                },
+                {
+                    ElliottModelType.DIAGONAL_EXPANDING_INITIAL, MLModels.DIAGONAL_EXPANDING_INITIAL
+                },
+                {
+                    ElliottModelType.TRIANGLE_CONTRACTING,
+                    MLModels.TRIANGLE_CONTRACTING
+                },
+                {
+                    ElliottModelType.TRIANGLE_EXPANDING, MLModels.TRIANGLE_EXPANDING
+                },
+                {
+                    ElliottModelType.TRIANGLE_RUNNING, MLModels.TRIANGLE_RUNNING
+                },
+                {
+                    ElliottModelType.ZIGZAG, MLModels.ZIGZAG
+                },
+                {
+                    ElliottModelType.DOUBLE_ZIGZAG, MLModels.DOUBLE_ZIGZAG
+                },
+                {
+                    ElliottModelType.TRIPLE_ZIGZAG, MLModels.TRIPLE_ZIGZAG
+                },
+                {
+                    ElliottModelType.FLAT_EXTENDED, MLModels.FLAT_EXTENDED
+                },
+                {
+                    ElliottModelType.FLAT_REGULAR, MLModels.FLAT_REGULAR
+                },
+                {
+                    ElliottModelType.FLAT_RUNNING, MLModels.FLAT_RUNNING
+                },
+                {
+                    ElliottModelType.COMBINATION, MLModels.COMBINATION
+                }
+            };
 
         /// <summary>
         /// Gets the model vector for ML usage based on the passed candle set.
@@ -403,12 +456,12 @@ namespace TradeKit.ML
         /// <param name="mlContext">ML context item.</param>
         /// <param name="learnSet">Enumerable for train</param>
         /// <param name="modelType">EW model type to train</param>
-        /// <param name="fileToSave">The file to save the result ML model.</param>
+        /// <param name="folderToSave">The folder to save the result ML model.</param>
         private static void RunLearnRegression(
             MLContext mlContext,
             IEnumerable<ModelInput> learnSet,
             ElliottModelType modelType,
-            string fileToSave)
+            string folderToSave)
         {
             uint modelTypeId = (uint) modelType;
             IDataView trainingDataView =
@@ -418,21 +471,39 @@ namespace TradeKit.ML
             var splitData = mlContext.Data.TrainTestSplit(trainingDataView, testFraction: Helper.ML_TEST_SET_PART);
             var trainData = splitData.TrainSet;
             var testData = splitData.TestSet;
-            
-            var pipeline =
-                mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
-                .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index1),
+
+            var pipeline = mlContext.Transforms.Concatenate(
+                    ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                .Append(mlContext.Regression.Trainers.FastTreeTweedie(
+                    labelColumnName: nameof(ModelInput.Index1),
                     featureColumnName: ModelInput.FEATURES_COLUMN))
-            .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index2),
-                featureColumnName: ModelInput.FEATURES_COLUMN))
-            .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index3),
-                featureColumnName: ModelInput.FEATURES_COLUMN))
-            .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index4),
-                featureColumnName: ModelInput.FEATURES_COLUMN));
+                .Append(mlContext.Transforms.CopyColumns(
+                    outputColumnName: nameof(RegressionPrediction.Index1), inputColumnName: ModelInput.SCORE))
+
+                .Append(mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                    .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index2),
+                        featureColumnName: ModelInput.FEATURES_COLUMN)))
+                .Append(mlContext.Transforms.CopyColumns(
+                    outputColumnName: nameof(RegressionPrediction.Index2), inputColumnName: ModelInput.SCORE))
+
+                .Append(mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                    .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index3),
+                        featureColumnName: ModelInput.FEATURES_COLUMN)))
+                .Append(mlContext.Transforms.CopyColumns(
+                    outputColumnName: nameof(RegressionPrediction.Index3), inputColumnName: ModelInput.SCORE))
+
+                .Append(mlContext.Transforms.Concatenate(ModelInput.FEATURES_COLUMN, ModelInput.FEATURES_COLUMN)
+                    .Append(mlContext.Regression.Trainers.FastTreeTweedie(labelColumnName: nameof(ModelInput.Index4),
+                        featureColumnName: ModelInput.FEATURES_COLUMN)))
+                .Append(mlContext.Transforms.CopyColumns(
+                    outputColumnName: nameof(RegressionPrediction.Index4), inputColumnName: ModelInput.SCORE));
+
+
             var trainedModel = pipeline.Fit(trainData);
-            mlContext.Model.Save(trainedModel, trainData.Schema, fileToSave);
-            
+            mlContext.Model.Save(trainedModel, trainData.Schema, Path.Combine(folderToSave, $"{modelType:G}.zip"));
+
             var predictions = trainedModel.Transform(testData);
+
             void Evaluate(string columnName)
             {
                 var metrics = mlContext.Regression.Evaluate(predictions,
@@ -441,10 +512,11 @@ namespace TradeKit.ML
                 Logger.Write($@"RMS error {columnName}: {metrics.RootMeanSquaredError:0.##}");
             }
 
-            Evaluate(nameof(ModelInput.Index1));
-            Evaluate(nameof(ModelInput.Index2));
-            Evaluate(nameof(ModelInput.Index3));
-            Evaluate(nameof(ModelInput.Index4));
+            Evaluate(nameof(RegressionPrediction.Index1));
+            Evaluate(nameof(RegressionPrediction.Index2));
+            Evaluate(nameof(RegressionPrediction.Index3));
+            Evaluate(nameof(RegressionPrediction.Index4));
+
             Logger.Write($"{nameof(RunLearnRegression)} end");
         }
 
@@ -508,14 +580,12 @@ namespace TradeKit.ML
 
             string fileToSaveClassification = Path.Combine(
                 folderToSaveModels, CLASSIFICATION_FILE_NAME);
-            RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
+            //RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
 
             foreach (ElliottModelType model in MODELS)
             {
-                string fileToSaveModel = Path.Combine(
-                    folderToSaveModels,$"{model}.zip");
                 RunLearnRegression(
-                    mlContext, learnSet, model, fileToSaveModel);
+                    mlContext, learnSet, model, folderToSaveModels);
             }
         }
 
@@ -525,8 +595,6 @@ namespace TradeKit.ML
         /// <param name="candles">The candles.</param>
         /// <param name="startValue">The start value.</param>
         /// <param name="endValue">The end value.</param>
-        /// <param name="modelClassBytes">The bytes of the ML classification model.</param>
-        /// <param name="regressionClassBytes">The bytes of the ML regression model.</param>
         /// <param name="rank">The dimension or the ML vector</param>
         /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
@@ -534,8 +602,6 @@ namespace TradeKit.ML
             List<T> candles,
             double startValue,
             double endValue,
-            byte[] modelClassBytes,
-            byte[] regressionClassBytes,
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK,
             int accuracy = Helper.ML_DEF_ACCURACY_PART) where T : ICandle
         {
@@ -549,8 +615,11 @@ namespace TradeKit.ML
             double[] values = vectorResult.Item3;
 
             ClassPrediction classPrediction = Predict<ClassPrediction>(
-                modelClassBytes, vector);
-            RegressionPrediction regressionPrediction = Predict<RegressionPrediction>(
+                MLModels.classification, vector);
+            (ElliottModelType, float) mainModel = classPrediction.GetModelsMap()[0];
+
+            byte[] regressionClassBytes = MODEL_BYTES_MAP[mainModel.Item1];
+            RegressionPrediction regressionPrediction = PredictRegression(
                 regressionClassBytes, vector);
 
             var res = new CombinedPrediction<T>
@@ -603,6 +672,35 @@ namespace TradeKit.ML
             using var ms = new MemoryStream(modelBytes);
             ITransformer trainedModel = mlContext.Model.Load(ms, out _);
             T prediction = Predict<T>(trainedModel, mlContext, vector);
+            return prediction;
+        }
+
+        /// <summary>
+        /// Predicts by the specified model path and the vector.
+        /// </summary>
+        /// <param name="modelBytes">A byte arrays of model indices.</param>
+        /// <param name="vector">The vector.</param>
+        /// <returns>The prediction.</returns>
+        private static RegressionPrediction PredictRegression(byte[]modelBytes, float[] vector)
+        {
+            MLContext mlContext = new MLContext();
+            var prediction = new RegressionPrediction();
+            var inputData = new ModelInput
+            {
+               Vector = vector
+            };
+
+            using var ms = new MemoryStream(modelBytes);
+            ITransformer trainedModel = mlContext.Model.Load(ms, out _);
+
+            var predictionEngine = mlContext.Model.CreatePredictionEngine<ModelInput, RegressionPrediction>(trainedModel);
+
+            predictionEngine.Predict(inputData, ref prediction);
+
+            prediction.Index1 = Math.Clamp(prediction.Index1, 0, vector.Length - 1);
+            prediction.Index2 = Math.Clamp(prediction.Index2, 0, vector.Length - 1);
+            prediction.Index3 = Math.Clamp(prediction.Index3, -1, vector.Length - 1);
+            prediction.Index4 = Math.Clamp(prediction.Index4, -1, vector.Length - 1);
             return prediction;
         }
 

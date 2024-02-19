@@ -140,7 +140,20 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\classification.zip" />
-    <None Include="Resources\modelsEW_full.zip" />
-    <None Include="Resources\regression.zip" />
+    <None Include="Resources\COMBINATION.zip" />
+    <None Include="Resources\DIAGONAL_CONTRACTING_ENDING.zip" />
+    <None Include="Resources\DIAGONAL_CONTRACTING_INITIAL.zip" />
+    <None Include="Resources\DIAGONAL_EXPANDING_ENDING.zip" />
+    <None Include="Resources\DIAGONAL_EXPANDING_INITIAL.zip" />
+    <None Include="Resources\DOUBLE_ZIGZAG.zip" />
+    <None Include="Resources\FLAT_EXTENDED.zip" />
+    <None Include="Resources\FLAT_REGULAR.zip" />
+    <None Include="Resources\FLAT_RUNNING.zip" />
+    <None Include="Resources\IMPULSE.zip" />
+    <None Include="Resources\TRIANGLE_CONTRACTING.zip" />
+    <None Include="Resources\TRIANGLE_EXPANDING.zip" />
+    <None Include="Resources\TRIANGLE_RUNNING.zip" />
+    <None Include="Resources\TRIPLE_ZIGZAG.zip" />
+    <None Include="Resources\ZIGZAG.zip" />
   </ItemGroup>
 </Project>

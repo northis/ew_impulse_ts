@@ -1,6 +1,3 @@
-using Microsoft.ML.Data;
-using Microsoft.ML.Trainers.FastTree;
-using Microsoft.ML;
 using System.Collections.Concurrent;
 using TradeKit.Core;
 using TradeKit.ML;
@@ -101,7 +98,7 @@ namespace TradeKit.Tests
         [Test]
         public void RunFullLearningTest()
         {
-            RunMultipleTasksAsync<ModelInput>(m_VectorsFileToSave, 100, 5000, Helper.ML_IMPULSE_VECTOR_RANK);
+            //RunMultipleTasksAsync<ModelInput>(m_VectorsFileToSave, 100, 5000, Helper.ML_IMPULSE_VECTOR_RANK);
             MachineLearning.RunLearn(GetFromFile(m_VectorsFileToSave), FOLDER_TO_SAVE);
         }
     }

@@ -55,10 +55,7 @@ namespace TradeKit.AlgoBase
             DateTime startDate = start.OpenTime;
             DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
             ushort rank = Helper.ML_IMPULSE_VECTOR_RANK;
-
-            Debugger.Launch();
-            byte[] modelBytes = MLModels.classification;
-            byte[] modelRegressionBytes = MLModels.regression;
+            
             List<JsonCandleExport> candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
             if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
                 m_BarsProviderMinorX2 != null)
@@ -67,7 +64,12 @@ namespace TradeKit.AlgoBase
             }
 
             CombinedPrediction<JsonCandleExport> prediction =
-                MachineLearning.Predict(candles, start.Value, end.Value, modelBytes, modelRegressionBytes, rank);
+                MachineLearning.Predict(candles, start.Value, end.Value, rank);
+
+            if (prediction?.Classification == null)
+            {
+                return false;
+            }
             
             result.Models = prediction.Classification.GetModelsMap();
             (ElliottModelType, float) model = result.Models[0];

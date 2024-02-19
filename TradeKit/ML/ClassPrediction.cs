@@ -14,9 +14,7 @@ namespace TradeKit.ML
 
         public float[] Score { get; set; }
         public float MaxValue { get; set; }
-
-        public ElliottModelType MainModel => (ElliottModelType) (PredictedIsFit - 1);
-
+        
         public (ElliottModelType, float)[] GetModelsMap()
         {
             if (m_ModelsMap != null)
