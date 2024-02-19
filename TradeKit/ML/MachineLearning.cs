@@ -580,7 +580,7 @@ namespace TradeKit.ML
 
             string fileToSaveClassification = Path.Combine(
                 folderToSaveModels, CLASSIFICATION_FILE_NAME);
-            //RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
+            RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
 
             foreach (ElliottModelType model in MODELS)
             {
