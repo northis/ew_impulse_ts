@@ -27,7 +27,7 @@ namespace TradeKit.ML
 
             for (int i = 0; i < Score.Length; i++)
             {
-                res[i] = new ((ElliottModelType)i, (Score[i] - min) / range);
+                res[i] = new ((ElliottModelType)i, Score[i]);
             }
 
             Array.Sort(res, (a, b) => a.Item2 >= b.Item2 ? -1 : 1);

@@ -582,11 +582,11 @@ namespace TradeKit.ML
                 folderToSaveModels, CLASSIFICATION_FILE_NAME);
             RunLearnClassification(mlContext, mlContext.Data.LoadFromEnumerable(learnSet), fileToSaveClassification);
 
-            foreach (ElliottModelType model in MODELS)
-            {
-                RunLearnRegression(
-                    mlContext, learnSet, model, folderToSaveModels);
-            }
+            //foreach (ElliottModelType model in MODELS)
+            //{
+            //    RunLearnRegression(
+            //        mlContext, learnSet, model, folderToSaveModels);
+            //}
         }
 
         /// <summary>
@@ -616,31 +616,30 @@ namespace TradeKit.ML
 
             ClassPrediction classPrediction = Predict<ClassPrediction>(
                 MLModels.classification, vector);
-            (ElliottModelType, float) mainModel = classPrediction.GetModelsMap()[0];
+            //(ElliottModelType, float) mainModel = classPrediction.GetModelsMap()[0];
 
-            byte[] regressionClassBytes = MODEL_BYTES_MAP[mainModel.Item1];
-            RegressionPrediction regressionPrediction = PredictRegression(
-                regressionClassBytes, vector);
+            //byte[] regressionClassBytes = MODEL_BYTES_MAP[mainModel.Item1];
+            //RegressionPrediction regressionPrediction = PredictRegression(regressionClassBytes, vector);
 
             var res = new CombinedPrediction<T>
             {
                 Classification = classPrediction,
-                Regression = regressionPrediction
+                //Regression = regressionPrediction
             };
 
-            int index1 = Convert.ToInt32(regressionPrediction.Index1);
-            int index2 = Convert.ToInt32(regressionPrediction.Index2);
-            res.Wave1 = (candles[indices[index1]], values[index1]);
-            res.Wave2 = (candles[indices[index2]], values[index2]);
+            //int index1 = Convert.ToInt32(regressionPrediction.Index1);
+            //int index2 = Convert.ToInt32(regressionPrediction.Index2);
+            //res.Wave1 = (candles[indices[index1]], values[index1]);
+            //res.Wave2 = (candles[indices[index2]], values[index2]);
 
-            if (regressionPrediction.Index3 >= 0 &&
-                regressionPrediction.Index4 >= 0)
-            {
-                int index3 = Convert.ToInt32(regressionPrediction.Index3);
-                int index4 = Convert.ToInt32(regressionPrediction.Index4);
-                res.Wave3 = (candles[indices[index3]], values[index3]);
-                res.Wave4 = (candles[indices[index4]], values[index4]);
-            }
+            //if (regressionPrediction.Index3 >= 0 &&
+            //    regressionPrediction.Index4 >= 0)
+            //{
+            //    int index3 = Convert.ToInt32(regressionPrediction.Index3);
+            //    int index4 = Convert.ToInt32(regressionPrediction.Index4);
+            //    res.Wave3 = (candles[indices[index3]], values[index3]);
+            //    res.Wave4 = (candles[indices[index4]], values[index4]);
+            //}
 
             return res;
         }

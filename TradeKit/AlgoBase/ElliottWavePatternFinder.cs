@@ -71,33 +71,33 @@ namespace TradeKit.AlgoBase
                 return false;
             }
             
+            var modelMain = (ElliottModelType) prediction.Classification.PredictedIsFit;
             result.Models = prediction.Classification.GetModelsMap();
             (ElliottModelType, float) model = result.Models[0];
             (ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
 
-            if (model.Item1 != ElliottModelType.IMPULSE ||
-                topModels.Any(a => a.Item1 == ElliottModelType.DOUBLE_ZIGZAG))
+            if (modelMain != ElliottModelType.IMPULSE)
             {
                 return false;
             }
 
-            BarPoint GetBarPoint((JsonCandleExport, double) item)
-            {
-                var bp = new BarPoint(item.Item2, item.Item1.OpenDate, m_BarsProviderMain);
-                return bp;
-            }
+            //BarPoint GetBarPoint((JsonCandleExport, double) item)
+            //{
+            //    var bp = new BarPoint(item.Item2, item.Item1.OpenDate, m_BarsProviderMain);
+            //    return bp;
+            //}
 
-            waves.Insert(1, GetBarPoint(prediction.Wave1));
-            waves.Insert(2, GetBarPoint(prediction.Wave2));
+            //waves.Insert(1, GetBarPoint(prediction.Wave1));
+            //waves.Insert(2, GetBarPoint(prediction.Wave2));
 
-            if (prediction.Wave3 != null && prediction.Wave4 != null)
-            {
-                waves.Insert(3, GetBarPoint(prediction.Wave3.Value));
-                waves.Insert(4, GetBarPoint(prediction.Wave4.Value));
-            }
+            //if (prediction.Wave3 != null && prediction.Wave4 != null)
+            //{
+            //    waves.Insert(3, GetBarPoint(prediction.Wave3.Value));
+            //    waves.Insert(4, GetBarPoint(prediction.Wave4.Value));
+            //}
 
-            result.Type = model.Item1;
-            result.MaxScore = prediction.Classification.MaxValue;
+            result.Type = modelMain;
+            result.MaxScore = prediction.Classification.GetModelsMap().First(a=>a.Item1 == ElliottModelType.IMPULSE).Item2;
             return true;
         }
     }

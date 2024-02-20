@@ -301,8 +301,7 @@ namespace TradeKit.Impulse
                     ? $"{(int) outExtrema.MaxScore}{Environment.NewLine}"
                 : string.Empty;
 
-                string comment = score + string.Join(Environment.NewLine,
-                    outExtrema.Models.Select(a => $"{a.Item1}: {a.Item2:F4}").Take(3));
+                string comment = score;
 
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),

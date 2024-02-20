@@ -2080,10 +2080,10 @@ namespace TradeKit.PatternGeneration
             bool is4ThShallow = m_ShallowCorrections.Contains(the4ThModel);
             bool is2NdShallow = m_ShallowCorrections.Contains(the2NdModel);
 
-            int highLimit = 300;
+            int highLimit = 200;
 
-            if (is4ThShallow == is2NdShallow) highLimit = 200;
-            if (is4ThShallow) highLimit = 500;
+            if (is4ThShallow == is2NdShallow) highLimit = 150;
+            if (is4ThShallow) highLimit = 250;
 
             return m_Random.Next(70, highLimit) / 100d;
         }
