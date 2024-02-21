@@ -16,6 +16,7 @@
         FLAT_REGULAR,
         FLAT_EXTENDED,
         FLAT_RUNNING,
-        COMBINATION
+        COMBINATION,
+        SIMPLE_IMPULSE
     }
 }

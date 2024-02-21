@@ -37,12 +37,9 @@
     <Compile Include="Core\ChartGenerator.cs" />
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />
-    <Compile Include="ML\CombinedPrediction.cs" />
     <Compile Include="ML\ModelInput.cs" />
     <Compile Include="ML\ClassPrediction.cs" />
     <Compile Include="ML\Prediction.cs" />
-    <Compile Include="ML\RegressionInput.cs" />
-    <Compile Include="ML\RegressionPrediction.cs" />
     <Compile Include="Resources\MLModels.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -140,20 +137,5 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\classification.zip" />
-    <None Include="Resources\COMBINATION.zip" />
-    <None Include="Resources\DIAGONAL_CONTRACTING_ENDING.zip" />
-    <None Include="Resources\DIAGONAL_CONTRACTING_INITIAL.zip" />
-    <None Include="Resources\DIAGONAL_EXPANDING_ENDING.zip" />
-    <None Include="Resources\DIAGONAL_EXPANDING_INITIAL.zip" />
-    <None Include="Resources\DOUBLE_ZIGZAG.zip" />
-    <None Include="Resources\FLAT_EXTENDED.zip" />
-    <None Include="Resources\FLAT_REGULAR.zip" />
-    <None Include="Resources\FLAT_RUNNING.zip" />
-    <None Include="Resources\IMPULSE.zip" />
-    <None Include="Resources\TRIANGLE_CONTRACTING.zip" />
-    <None Include="Resources\TRIANGLE_EXPANDING.zip" />
-    <None Include="Resources\TRIANGLE_RUNNING.zip" />
-    <None Include="Resources\TRIPLE_ZIGZAG.zip" />
-    <None Include="Resources\ZIGZAG.zip" />
   </ItemGroup>
 </Project>

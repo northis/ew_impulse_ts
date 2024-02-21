@@ -121,49 +121,4 @@
   <data name="classification" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>classification.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="COMBINATION" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>COMBINATION.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="DIAGONAL_CONTRACTING_ENDING" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>DIAGONAL_CONTRACTING_ENDING.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="DIAGONAL_CONTRACTING_INITIAL" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>DIAGONAL_CONTRACTING_INITIAL.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="DIAGONAL_EXPANDING_ENDING" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>DIAGONAL_EXPANDING_ENDING.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="DIAGONAL_EXPANDING_INITIAL" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>DIAGONAL_EXPANDING_INITIAL.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="DOUBLE_ZIGZAG" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>DOUBLE_ZIGZAG.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="FLAT_EXTENDED" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>FLAT_EXTENDED.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="FLAT_REGULAR" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>FLAT_REGULAR.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="FLAT_RUNNING" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>FLAT_RUNNING.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="IMPULSE" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>IMPULSE.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="TRIANGLE_CONTRACTING" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>TRIANGLE_CONTRACTING.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="TRIANGLE_EXPANDING" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>TRIANGLE_EXPANDING.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="TRIANGLE_RUNNING" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>TRIANGLE_RUNNING.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="TRIPLE_ZIGZAG" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>TRIPLE_ZIGZAG.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="ZIGZAG" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>ZIGZAG.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
 </root>

@@ -433,6 +433,10 @@ namespace TradeKit.PatternGeneration
                 }
             };
 
+            ModelRules[ElliottModelType.SIMPLE_IMPULSE] =
+                ModelRules[ElliottModelType.IMPULSE] with
+                { ProbabilityCoefficient = 0.25 };
+
             ModelRules[ElliottModelType.FLAT_REGULAR] =
                 ModelRules[ElliottModelType.FLAT_EXTENDED] with
                 { ProbabilityCoefficient = 0.0005 };
@@ -463,6 +467,7 @@ namespace TradeKit.PatternGeneration
                 Func<PatternArgsItem, ModelPattern>>
             {
                 {ElliottModelType.IMPULSE, GetImpulse},
+                {ElliottModelType.SIMPLE_IMPULSE, GetSimpleImpulse},
                 {ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, GetInitialDiagonal},
                 {ElliottModelType.DIAGONAL_EXPANDING_INITIAL, GetInitialExpandingDiagonal},
                 {ElliottModelType.DIAGONAL_CONTRACTING_ENDING, GetEndingDiagonal},
@@ -674,6 +679,16 @@ namespace TradeKit.PatternGeneration
             }
 
             throw new NotSupportedException($"Not supported model {model}");
+        }
+
+        private ModelPattern GetSimpleImpulse(PatternArgsItem arg)
+        {
+            var modelPattern = new ModelPattern(
+                ElliottModelType.SIMPLE_IMPULSE, arg.Candles);
+
+            double variance = 0.1 + Random.Shared.NextDouble() * 2;
+            GetRandomSet(arg, variance);
+            return modelPattern;
         }
 
         private ModelPattern GetImpulse(PatternArgsItem arg)

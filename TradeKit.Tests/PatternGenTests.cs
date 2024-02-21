@@ -284,4 +284,16 @@ public class PatternGenTests
             paramArgs, ElliottModelType.IMPULSE, true);
         ChartGenerator.SaveResultFiles(model, FOLDER_TO_SAVE, model.Level);
     }
+
+    [Test]
+    public void SimpleImpulseTest()
+    {
+        (DateTime, DateTime) dates = GetDateRange(15);
+
+        PatternArgsItem paramArgs = new PatternArgsItem(
+            40, 60, dates.Item1, dates.Item2, TIME_FRAME);
+        ModelPattern model = m_PatternGenerator.GetPattern(
+            paramArgs, ElliottModelType.SIMPLE_IMPULSE, true);
+        ChartGenerator.SaveResultFiles(model, FOLDER_TO_SAVE, model.Level);
+    }
 }

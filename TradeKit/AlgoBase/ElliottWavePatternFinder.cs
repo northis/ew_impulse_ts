@@ -63,41 +63,21 @@ namespace TradeKit.AlgoBase
                 candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
 
-            CombinedPrediction<JsonCandleExport> prediction =
+            var prediction =
                 MachineLearning.Predict(candles, start.Value, end.Value, rank);
-
-            if (prediction?.Classification == null)
-            {
-                return false;
-            }
             
-            var modelMain = (ElliottModelType) prediction.Classification.PredictedIsFit;
-            result.Models = prediction.Classification.GetModelsMap();
-            (ElliottModelType, float) model = result.Models[0];
-            (ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
+            var modelMain = (ElliottModelType)prediction.PredictedIsFit;
+            //(ElliottModelType, float) model = result.Models[0];
+            //(ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
 
             if (modelMain != ElliottModelType.IMPULSE)
             {
                 return false;
             }
-
-            //BarPoint GetBarPoint((JsonCandleExport, double) item)
-            //{
-            //    var bp = new BarPoint(item.Item2, item.Item1.OpenDate, m_BarsProviderMain);
-            //    return bp;
-            //}
-
-            //waves.Insert(1, GetBarPoint(prediction.Wave1));
-            //waves.Insert(2, GetBarPoint(prediction.Wave2));
-
-            //if (prediction.Wave3 != null && prediction.Wave4 != null)
-            //{
-            //    waves.Insert(3, GetBarPoint(prediction.Wave3.Value));
-            //    waves.Insert(4, GetBarPoint(prediction.Wave4.Value));
-            //}
+            result.Models = prediction.GetModelsMap();
 
             result.Type = modelMain;
-            result.MaxScore = prediction.Classification.GetModelsMap().First(a=>a.Item1 == ElliottModelType.IMPULSE).Item2;
+            result.MaxScore = prediction.GetModelsMap().First(a=>a.Item1 == ElliottModelType.IMPULSE).Item2;
             return true;
         }
     }
