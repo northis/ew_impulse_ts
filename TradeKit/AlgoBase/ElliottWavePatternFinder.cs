@@ -63,22 +63,35 @@ namespace TradeKit.AlgoBase
                 candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
 
-            var prediction =
+            ClassPrediction[] predictions =
                 MachineLearning.Predict(candles, start.Value, end.Value, rank);
-            
-            var modelMain = (ElliottModelType)prediction.PredictedIsFit;
-            //(ElliottModelType, float) model = result.Models[0];
-            //(ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
-
-            if (modelMain != ElliottModelType.IMPULSE)
+            Debugger.Launch();
+            if (predictions == null)
             {
                 return false;
             }
-            result.Models = prediction.GetModelsMap();
 
-            result.Type = modelMain;
-            result.MaxScore = prediction.GetModelsMap().First(a=>a.Item1 == ElliottModelType.IMPULSE).Item2;
-            return true;
+            foreach (ClassPrediction prediction in predictions.Where(a => a != null))
+            {
+                var modelMain = (ElliottModelType) prediction.PredictedIsFit;
+                //(ElliottModelType, float) model = result.Models[0];
+                //(ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
+
+                if (modelMain != ElliottModelType.IMPULSE &&
+                    modelMain != ElliottModelType.SIMPLE_IMPULSE)
+                {
+                    continue;
+                }
+
+                result.Models = prediction.GetModelsMap();
+
+                result.Type = modelMain;
+                result.MaxScore = prediction.GetModelsMap()
+                    .First(a => a.Item1 == ElliottModelType.IMPULSE).Item2;
+                return true;
+            }
+
+            return false;
         }
     }
 }

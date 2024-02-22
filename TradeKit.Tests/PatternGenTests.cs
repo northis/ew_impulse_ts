@@ -1,9 +1,6 @@
 ﻿using cAlgo.API;
-using System.Runtime.InteropServices;
 using TradeKit.Core;
 using TradeKit.Impulse;
-using TradeKit.Json;
-using TradeKit.ML;
 using TradeKit.PatternGeneration;
 
 namespace TradeKit.Tests;

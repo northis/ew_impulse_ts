@@ -409,7 +409,7 @@ namespace TradeKit.ML
         /// <param name="rank">The dimension or the ML vector</param>
         /// <param name="accuracy">Digits count after the dot.</param>
         /// <returns>The prediction.</returns>
-        public static ClassPrediction Predict<T>(
+        public static ClassPrediction[] Predict<T>(
             List<T> candles,
             double startValue,
             double endValue,
@@ -423,10 +423,13 @@ namespace TradeKit.ML
                 candles, startValue, endValue, rank, accuracy);
             float[] vector = vectorResult.Item1;
 
-            ClassPrediction classPrediction = Predict<ClassPrediction>(
-                MLModels.classification, vector);
+            ClassPrediction[] res = {
+                Predict<ClassPrediction>(MLModels.classification_lbfgs_ent, vector),
+                Predict<ClassPrediction>(MLModels.classification_sdca, vector),
+                Predict<ClassPrediction>(MLModels.classification_sdca_ent, vector)
+            };
 
-            return classPrediction;
+            return res;
         }
 
         /// <summary>
