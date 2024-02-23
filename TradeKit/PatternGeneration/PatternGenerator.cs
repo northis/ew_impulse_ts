@@ -685,9 +685,7 @@ namespace TradeKit.PatternGeneration
         {
             var modelPattern = new ModelPattern(
                 ElliottModelType.SIMPLE_IMPULSE, arg.Candles);
-
-            double variance = 0.1 + Random.Shared.NextDouble() * 2;
-            GetRandomSet(arg, variance);
+            GetImpulseRandomSet(arg);
             return modelPattern;
         }
 
