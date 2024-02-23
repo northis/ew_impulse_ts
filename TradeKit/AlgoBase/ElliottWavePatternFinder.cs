@@ -63,22 +63,20 @@ namespace TradeKit.AlgoBase
                 candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
             }
 
-            ClassPrediction[] predictions =
+            var predictions =
                 MachineLearning.Predict(candles, start.Value, end.Value, rank);
-            Debugger.Launch();
-            if (predictions == null)
-            {
-                return false;
-            }
 
-            foreach (ClassPrediction prediction in predictions.Where(a => a != null))
+            List<float> scores = new List<float>();
+
+            string modelType = string.Empty;
+            foreach (string predictionKey in predictions.Keys)
             {
+                ClassPrediction prediction = predictions[predictionKey];
                 var modelMain = (ElliottModelType) prediction.PredictedIsFit;
                 //(ElliottModelType, float) model = result.Models[0];
                 //(ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
 
-                if (modelMain != ElliottModelType.IMPULSE &&
-                    modelMain != ElliottModelType.SIMPLE_IMPULSE)
+                if (modelMain != ElliottModelType.IMPULSE)
                 {
                     continue;
                 }
@@ -86,12 +84,14 @@ namespace TradeKit.AlgoBase
                 result.Models = prediction.GetModelsMap();
 
                 result.Type = modelMain;
-                result.MaxScore = prediction.GetModelsMap()
-                    .First(a => a.Item1 == ElliottModelType.IMPULSE).Item2;
-                return true;
+                scores.Add(result.Models
+                    .First(a => a.Item1 == modelMain).Item2);
+                modelType += $" {predictionKey}";
             }
-
-            return false;
+            
+            result.ModelType = modelType;
+            result.MaxScore = scores.Count > 0 ? scores.Average() : 0;
+            return result.MaxScore > 0;
         }
     }
 }

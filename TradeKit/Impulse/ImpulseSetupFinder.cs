@@ -301,7 +301,7 @@ namespace TradeKit.Impulse
                     ? $"{(int) outExtrema.MaxScore}{Environment.NewLine}"
                 : string.Empty;
 
-                string comment = score;
+                string comment = score + " " + outExtrema.ModelType;
 
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
