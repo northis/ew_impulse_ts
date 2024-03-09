@@ -63,16 +63,6 @@ namespace TradeKit.Resources {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] classification {
-            get {
-                object obj = ResourceManager.GetObject("classification", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
         internal static byte[] classification_lbfgs_ent {
             get {
                 object obj = ResourceManager.GetObject("classification_lbfgs_ent", resourceCulture);

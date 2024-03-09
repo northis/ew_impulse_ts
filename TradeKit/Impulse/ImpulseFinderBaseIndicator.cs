@@ -1,9 +1,10 @@
-﻿using cAlgo.API;
-using System.Collections.Generic;
-using System;
+﻿using System.Diagnostics;
+using cAlgo.API;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.Indicators;
+using cAlgo.API.Indicators;
 
 namespace TradeKit.Impulse
 {
@@ -67,7 +68,7 @@ namespace TradeKit.Impulse
         protected override void OnEnter(object sender, ImpulseSignalEventArgs e)
         {
             int levelIndex = e.Level.BarIndex;
-            var icon = Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
+            Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
             Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
 
             if (e.Model.Extrema is { Count: > 0 })

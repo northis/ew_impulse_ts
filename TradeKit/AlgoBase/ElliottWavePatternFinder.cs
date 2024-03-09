@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
 using TradeKit.ML;
-using TradeKit.Resources;
 
 namespace TradeKit.AlgoBase
 {
@@ -26,7 +24,9 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="mainTimeFrame">The main TF</param>
         /// <param name="barProvidersFactory">The bar provider factory (to get moe info).</param>
-        public ElliottWavePatternFinder(TimeFrame mainTimeFrame, BarProvidersFactory barProvidersFactory)
+        public ElliottWavePatternFinder(
+            TimeFrame mainTimeFrame, 
+            BarProvidersFactory barProvidersFactory)
         {
             m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame];
             m_BarsProviderMain = barProvidersFactory.GetBarsProvider(mainTimeFrame);
@@ -49,7 +49,7 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
-            List<BarPoint> waves = new List<BarPoint> {start, end};
+            List<BarPoint> waves = new List<BarPoint> { start, end };
             result = new ElliottModelResult(ElliottModelType.IMPULSE, waves, null, null);
 
             DateTime startDate = start.OpenTime;
@@ -76,7 +76,8 @@ namespace TradeKit.AlgoBase
                 //(ElliottModelType, float) model = result.Models[0];
                 //(ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
 
-                if (modelMain != ElliottModelType.IMPULSE)
+                if (modelMain != ElliottModelType.IMPULSE &&
+                    modelMain != ElliottModelType.SIMPLE_IMPULSE)
                 {
                     continue;
                 }
@@ -86,12 +87,12 @@ namespace TradeKit.AlgoBase
                 result.Type = modelMain;
                 scores.Add(result.Models
                     .First(a => a.Item1 == modelMain).Item2);
-                modelType += $" {predictionKey}";
+                modelType += $" {(int)modelMain}";
             }
             
             result.ModelType = modelType;
             result.MaxScore = scores.Count > 0 ? scores.Average() : 0;
-            return result.MaxScore > 0;
+            return result.MaxScore > 40;
         }
     }
 }

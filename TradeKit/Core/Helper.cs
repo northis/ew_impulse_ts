@@ -51,7 +51,7 @@ namespace TradeKit.Core
 
         public const int MOVING_AVERAGE_PERIOD = 13;
 
-        public const int PIVOT_PERIOD = 2;// yes
+        public const int PIVOT_PERIOD = 6;
 
         public const int STOCHASTIC_K_PERIODS = 5;
         public const int STOCHASTIC_D_PERIODS = 3;

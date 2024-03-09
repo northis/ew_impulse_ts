@@ -22,12 +22,17 @@ namespace TradeKit.AlgoBase
         /// </summary>
         public SortedDictionary<DateTime, double> LowValues { get; }
 
+        public SortedSet<DateTime> LowExtrema { get; }
+        public SortedSet<DateTime> HighExtrema { get; }
+
         public PivotPointsFinder(int period, IBarsProvider barsProvider)
         {
             SetPeriod(period);
             m_BarsProvider = barsProvider;
             HighValues = new SortedDictionary<DateTime, double>();
             LowValues = new SortedDictionary<DateTime, double>();
+            LowExtrema = new SortedSet<DateTime>();
+            HighExtrema = new SortedSet<DateTime>();
         }
 
         /// <summary>
@@ -138,8 +143,21 @@ namespace TradeKit.AlgoBase
             }
 
             DateTime dt = m_BarsProvider.GetOpenTime(index);
-            HighValues[dt] = gotHigh ? max : DefaultValue;
-            LowValues[dt] = gotLow ? min : DefaultValue;
+            if (gotHigh)
+            {
+                HighValues[dt] = max;
+                HighExtrema.Add(dt);
+            }
+            else
+                HighValues[dt] = DefaultValue;
+
+            if (gotLow)
+            {
+                LowValues[dt] = min;
+                LowExtrema.Add(dt);
+            }
+            else
+                LowValues[dt] = DefaultValue;
 
             return index;
         }

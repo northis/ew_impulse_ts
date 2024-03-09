@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -14,6 +13,7 @@ namespace TradeKit.Impulse
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
         private readonly BarProvidersFactory m_BarProvidersFactory;
+        private readonly PivotPointsFinder m_PivotPointsFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
         private readonly ElliottWavePatternFinder m_PatternFinder;
@@ -52,6 +52,7 @@ namespace TradeKit.Impulse
             : base(mainBarsProvider, mainBarsProvider.Symbol)
         {
             m_BarProvidersFactory = barProvidersFactory;
+            m_PivotPointsFinder = new PivotPointsFinder(Helper.PIVOT_PERIOD, BarsProvider);
 
             for (int i = Helper.MIN_IMPULSE_SCALE;
                  i <= Helper.MAX_IMPULSE_SCALE;
@@ -123,6 +124,75 @@ namespace TradeKit.Impulse
             }
 
             return isInitialMove;
+        }
+
+        private DateTime? GetPrevious(SortedSet<DateTime> sortedSet, DateTime currentDt)
+        {
+            using IEnumerator<DateTime> enumerator = sortedSet.Reverse().GetEnumerator();
+            while (enumerator.Current > currentDt)
+            {
+                if (!enumerator.MoveNext())
+                    return null;
+            }
+
+            if (enumerator.Current == currentDt)
+            {
+                enumerator.MoveNext();
+            }
+
+            DateTime prevLowDt = enumerator.Current;
+            return prevLowDt;
+        }
+
+        private bool CheckChannel(BarPoint impulseStart, BarPoint impulseEnd)
+        {
+            bool isUp = impulseEnd > impulseStart;
+            
+            if (isUp)
+            {
+                if (!m_PivotPointsFinder.LowValues.ContainsKey(impulseStart.OpenTime))
+                    return false;
+
+            }
+            else
+            {
+                if (!m_PivotPointsFinder.HighValues.ContainsKey(impulseStart.OpenTime))
+                    return false;
+            }
+
+            DateTime? prevLowDt = GetPrevious(
+                m_PivotPointsFinder.LowExtrema, impulseStart.OpenTime);
+            if (prevLowDt == null)
+                return false;
+
+            DateTime? prevHighDt = GetPrevious(
+                m_PivotPointsFinder.HighExtrema, impulseStart.OpenTime);
+            if (prevHighDt == null)
+                return false;
+
+
+            double k = 1;
+            if (isUp)
+            {
+                int prevLowBarIndex = BarsProvider.GetIndexByTime(prevLowDt.Value);
+                k = (impulseStart.Value - m_PivotPointsFinder.LowValues[prevLowDt.Value]) 
+                    / (prevLowBarIndex - impulseStart.BarIndex);
+            }
+            else
+            {
+                int prevHighBarIndex = BarsProvider.GetIndexByTime(prevHighDt.Value);
+                k = (impulseStart.Value - m_PivotPointsFinder.HighValues[prevLowDt.Value])
+                    / (prevHighBarIndex - impulseStart.BarIndex);
+            }
+
+            double b = impulseStart.Value - impulseStart.BarIndex * k;
+            double edgeChannel = k * impulseEnd.BarIndex + b;
+
+            bool res = isUp 
+                ? impulseEnd.Value > edgeChannel 
+                : impulseEnd.Value < edgeChannel;
+
+            return res;
         }
         
         /// <summary>
@@ -224,6 +294,11 @@ namespace TradeKit.Impulse
                 {
                     // The move is not an impulse.
                     // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
+                    return;
+                }
+
+                if (!CheckChannel(startItem.Value, endItem.Value))
+                {
                     return;
                 }
 
@@ -390,6 +465,7 @@ namespace TradeKit.Impulse
         /// <param name="currentPriceBid">The current price (Bid).</param>
         protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
+            m_PivotPointsFinder.Calculate(index);
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.Calculate(index);

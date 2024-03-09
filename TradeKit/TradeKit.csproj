@@ -136,7 +136,6 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\classification.zip" />
     <None Include="Resources\classification_lbfgs_ent.zip" />
     <None Include="Resources\classification_sdca.zip" />
     <None Include="Resources\classification_sdca_ent.zip" />

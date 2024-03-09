@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using cAlgo.API;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -48,11 +47,17 @@ namespace TradeKit.Indicators
 
             double max = m_PivotPointsFinder.HighValues[dt];
             double min = m_PivotPointsFinder.LowValues[dt];
+
+
             if (max is not double.NaN)
+            {
                 Chart.DrawText($"{HIGH}{index}", HIGH, index, max, m_BearColorFill).ChartTextAlign(true);
+            }
 
             if (min is not double.NaN)
+            {
                 Chart.DrawText($"{LOW}{index}", LOW, index, min, m_BullColorFill).ChartTextAlign(false);
+            }
         }
     }
 }
