@@ -72,6 +72,8 @@ namespace TradeKit.AlgoBase
         {
             HighValues.Clear();
             LowValues.Clear();
+            HighExtrema.Clear();
+            LowExtrema.Clear();
             DefaultValue = double.NaN;
         }
 

@@ -8,12 +8,14 @@ namespace TradeKit.EventArgs
     public class ImpulseSignalEventArgs : SignalEventArgs
     {
         public ElliottModelResult Model { get; }
+        public BarPoint[] ChannelBarPoints { get; }
 
         public ImpulseSignalEventArgs(
-            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, ElliottModelResult model, DateTime startViewBarIndex, string comment)
+            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, ElliottModelResult model, DateTime startViewBarIndex, string comment, BarPoint[] channelBarPoints)
             : base(level, takeProfit, stopLoss, startViewBarIndex,null, comment)
         {
             Model = model;
+            ChannelBarPoints = channelBarPoints;
         }
     }
 }

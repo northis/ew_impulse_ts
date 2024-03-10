@@ -85,6 +85,11 @@ namespace TradeKit.Impulse
                 }
             }
 
+            foreach (BarPoint channelBarPoint in e.ChannelBarPoints)
+            {
+                Chart.DrawIcon($"Ch{levelIndex}-{channelBarPoint.BarIndex}", ChartIconType.Square, channelBarPoint.BarIndex, channelBarPoint.Value, Color.Yellow);
+            }
+
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
             Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
         }

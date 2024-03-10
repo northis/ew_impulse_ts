@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -126,28 +127,74 @@ namespace TradeKit.Impulse
             return isInitialMove;
         }
 
-        private DateTime? GetPrevious(SortedSet<DateTime> sortedSet, DateTime currentDt)
+        private DateTime? GetPrevious(
+            SortedSet<DateTime> sortedSet,
+            DateTime currentDt)
         {
-            using IEnumerator<DateTime> enumerator = sortedSet.Reverse().GetEnumerator();
-            while (enumerator.Current > currentDt)
+            DateTime? prevDt = null;
+
+            foreach (DateTime dt in sortedSet.Reverse())
             {
-                if (!enumerator.MoveNext())
-                    return null;
+                if (dt < currentDt)
+                {
+                    prevDt = dt;
+                    break;
+                }
             }
 
-            if (enumerator.Current == currentDt)
-            {
-                enumerator.MoveNext();
-            }
+            if (prevDt == null)
+                return null;
 
-            DateTime prevLowDt = enumerator.Current;
-            return prevLowDt;
+            return prevDt;
         }
 
-        private bool CheckChannel(BarPoint impulseStart, BarPoint impulseEnd)
+        void PreparePivotPointsFinder(
+            DateTime startDate, DateTime endDate, DateTime endImpulseDate, bool isUp)
+        {
+            int endIndex = BarsProvider.GetIndexByTime(endDate);
+            int endImpulseIndex = BarsProvider.GetIndexByTime(endImpulseDate);
+            int startIndex = BarsProvider.GetIndexByTime(startDate);
+            double period = endIndex - startIndex;
+
+            period /= 1.5;
+            for (;;)
+            {
+                m_PivotPointsFinder.Reset((int)period);
+                m_PivotPointsFinder.Calculate(startIndex, endImpulseIndex);
+
+                if (period < Helper.PIVOT_PERIOD)
+                    return;
+
+                if (isUp)
+                {
+                    if (m_PivotPointsFinder.LowExtrema.Count > 1 &&
+                        m_PivotPointsFinder.LowExtrema.Contains(endDate) &&
+                        m_PivotPointsFinder.HighExtrema.Count > 0)
+                        return;
+                }
+                else
+                {
+                    if (m_PivotPointsFinder.HighExtrema.Count > 1 &&
+                        m_PivotPointsFinder.HighExtrema.Contains(endDate) &&
+                        m_PivotPointsFinder.LowExtrema.Count > 0)
+                        return;
+                }
+
+                period /= 1.5;
+            }
+        }
+
+        private bool CheckChannel(
+            BarPoint impulseStart, BarPoint impulseEnd, DateTime viewDt, out BarPoint[] bars)
         {
             bool isUp = impulseEnd > impulseStart;
-            
+
+            // We want to discover view zone (before the impulse) + the impulse itself
+            // to be able to calculate extremum points.
+            PreparePivotPointsFinder(
+                viewDt, impulseStart.OpenTime, impulseEnd.OpenTime, isUp);
+            bars = Array.Empty<BarPoint>();
+
             if (isUp)
             {
                 if (!m_PivotPointsFinder.LowValues.ContainsKey(impulseStart.OpenTime))
@@ -161,36 +208,52 @@ namespace TradeKit.Impulse
             }
 
             DateTime? prevLowDt = GetPrevious(
-                m_PivotPointsFinder.LowExtrema, impulseStart.OpenTime);
+                m_PivotPointsFinder.LowExtrema,
+                impulseStart.OpenTime);
             if (prevLowDt == null)
                 return false;
 
             DateTime? prevHighDt = GetPrevious(
-                m_PivotPointsFinder.HighExtrema, impulseStart.OpenTime);
+                m_PivotPointsFinder.HighExtrema,
+                impulseStart.OpenTime);
             if (prevHighDt == null)
                 return false;
-
-
-            double k = 1;
+            
+            int prevLowBarIndex = BarsProvider.GetIndexByTime(prevLowDt.Value);
+            int prevHighBarIndex = BarsProvider.GetIndexByTime(prevHighDt.Value);
+            double prevLowBarValue = m_PivotPointsFinder.LowValues[prevLowDt.Value];
+            double prevHighBarValue = m_PivotPointsFinder.HighValues[prevHighDt.Value];
+            
+            double k;
+            double b;
             if (isUp)
             {
-                int prevLowBarIndex = BarsProvider.GetIndexByTime(prevLowDt.Value);
-                k = (impulseStart.Value - m_PivotPointsFinder.LowValues[prevLowDt.Value]) 
-                    / (prevLowBarIndex - impulseStart.BarIndex);
+                k = (impulseStart.Value - prevLowBarValue)
+                    / ( impulseStart.BarIndex - prevLowBarIndex);
+                b = prevHighBarValue - prevHighBarIndex * k;
             }
             else
             {
-                int prevHighBarIndex = BarsProvider.GetIndexByTime(prevHighDt.Value);
-                k = (impulseStart.Value - m_PivotPointsFinder.HighValues[prevLowDt.Value])
-                    / (prevHighBarIndex - impulseStart.BarIndex);
+                k = (impulseStart.Value - prevHighBarValue)
+                    / (impulseStart.BarIndex - prevHighBarIndex);
+                b = prevLowBarValue - prevLowBarIndex * k;
             }
-
-            double b = impulseStart.Value - impulseStart.BarIndex * k;
+            
             double edgeChannel = k * impulseEnd.BarIndex + b;
 
             bool res = isUp 
                 ? impulseEnd.Value > edgeChannel 
                 : impulseEnd.Value < edgeChannel;
+
+            if (res)
+            {
+                bars = new[]
+                {
+                    new BarPoint(prevHighBarValue, prevHighBarIndex, BarsProvider),
+                    new BarPoint(prevLowBarValue, prevLowBarIndex, BarsProvider),
+                    impulseStart
+                };
+            }
 
             return res;
         }
@@ -297,7 +360,8 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                if (!CheckChannel(startItem.Value, endItem.Value))
+                if (!CheckChannel(startItem.Value, endItem.Value, edgeExtremum.OpenTime,
+                        out BarPoint[] channelBarPoints))
                 {
                     return;
                 }
@@ -384,7 +448,8 @@ namespace TradeKit.Impulse
                     slArg,
                     outExtrema,
                     viewDateTime,
-                    comment));
+                    comment, 
+                    channelBarPoints));
                 // Here we should give a trade signal.
             }
 
@@ -465,7 +530,6 @@ namespace TradeKit.Impulse
         /// <param name="currentPriceBid">The current price (Bid).</param>
         protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
-            m_PivotPointsFinder.Calculate(index);
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.Calculate(index);
