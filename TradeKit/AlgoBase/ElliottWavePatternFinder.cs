@@ -92,7 +92,7 @@ namespace TradeKit.AlgoBase
             
             result.ModelType = modelType;
             result.MaxScore = scores.Count > 0 ? scores.Average() : 0;
-            return result.MaxScore > 40;
+            return result.MaxScore >= 40;
         }
     }
 }
