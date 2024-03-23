@@ -5,8 +5,10 @@ using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
+using Microsoft.FSharp.Core;
 using Plotly.NET;
 using Plotly.NET.LayoutObjects;
+using Plotly.NET.TraceObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
@@ -56,18 +58,52 @@ namespace TradeKit.Impulse
             double sl = signalEventArgs.StopLoss.Value;
             double tp = signalEventArgs.TakeProfit.Value;
             DateTime startView = signalEventArgs.StartViewBarTime;
+
+            bool useChannel = signalEventArgs.ChannelBarPoints.Length == 4;
+            GenericChart.GenericChart[] result =
+                new GenericChart.GenericChart[2 + (useChannel ? 2 : 0)];
+
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
                 LineColor: ChartGenerator.LONG_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
+            result[0] = tpLine;
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
                 LineColor: ChartGenerator.SHORT_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
+            result[1] = slLine;
 
-            return new[] {tpLine, slLine};
+            if (useChannel)
+            {
+                BarPoint channelBottom1 = signalEventArgs.ChannelBarPoints[0];
+                BarPoint channelBottom2 = signalEventArgs.ChannelBarPoints[1];
+                
+                result[2] = Chart2D.Chart.Line<DateTime, double, string>(
+                    new Tuple<DateTime, double>[]
+                    {
+                        new(channelBottom1.OpenTime, channelBottom1.Value),
+                        new(channelBottom2.OpenTime, channelBottom2.Value)
+                    },
+                    LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
+                    ShowLegend: false.ToFSharp(),
+                    LineDash: DrawingStyle.Dot.ToFSharp());
+
+
+                BarPoint channelTop1 = signalEventArgs.ChannelBarPoints[2];
+                BarPoint channelTop2 = signalEventArgs.ChannelBarPoints[3];
+
+                result[3] = Chart2D.Chart.Line<DateTime, double, string>(
+                    new Tuple<DateTime, double>[]
+                        {new(channelTop1.OpenTime, channelTop1.Value), new(channelTop2.OpenTime, channelTop2.Value)},
+                    LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
+                    ShowLegend: false.ToFSharp(),
+                    LineDash: DrawingStyle.Dot.ToFSharp());
+            }
+
+            return result;
         }
 
         /// <summary>

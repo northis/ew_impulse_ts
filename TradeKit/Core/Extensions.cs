@@ -280,6 +280,34 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Gets the high price.
+        /// </summary>
+        /// <param name="barProvider">The bar provider.</param>
+        /// <param name="dateTime">The date time.</param>
+        public static double GetHighPrice(
+            this IBarsProvider barProvider, DateTime dateTime)
+        {
+            int index = barProvider.GetIndexByTime(dateTime);
+            double res = barProvider.GetHighPrice(index);
+
+            return res;
+        }
+
+        /// <summary>
+        /// Gets the low price.
+        /// </summary>
+        /// <param name="barProvider">The bar provider.</param>
+        /// <param name="dateTime">The date time.</param>
+        public static double GetLowPrice(
+            this IBarsProvider barProvider, DateTime dateTime)
+        {
+            int index = barProvider.GetIndexByTime(dateTime);
+            double res = barProvider.GetLowPrice(index);
+
+            return res;
+        }
+
+        /// <summary>
         /// Initializes the IsHighFirst property. This can be costy, we do this on-demand only.
         /// </summary>
         /// <param name="candle">The candle we should check</param>

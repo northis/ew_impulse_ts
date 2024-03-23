@@ -152,7 +152,6 @@ namespace TradeKit.Impulse
             DateTime startDate, DateTime endDate, DateTime endImpulseDate, bool isUp)
         {
             int endIndex = BarsProvider.GetIndexByTime(endDate);
-            int endImpulseIndex = BarsProvider.GetIndexByTime(endImpulseDate);
             int startIndex = BarsProvider.GetIndexByTime(startDate);
             double period = endIndex - startIndex;
 
@@ -160,7 +159,7 @@ namespace TradeKit.Impulse
             for (;;)
             {
                 m_PivotPointsFinder.Reset((int)period);
-                m_PivotPointsFinder.Calculate(startIndex, endImpulseIndex);
+                m_PivotPointsFinder.Calculate(startDate, endImpulseDate);
 
                 if (period < Helper.PIVOT_PERIOD)
                     return;
@@ -247,15 +246,15 @@ namespace TradeKit.Impulse
 
             if (res)
             {
-                bars = new[]
-                {
-                    new BarPoint(prevHighBarValue, prevHighBarIndex, BarsProvider),
-                    new BarPoint(prevLowBarValue, prevLowBarIndex, BarsProvider),
-                    impulseStart
-                };
+                bars = new BarPoint[4];
+
+                bars[isUp ? 2 : 0] = new BarPoint(prevHighBarValue, prevHighBarIndex, BarsProvider);
+                bars[1] = impulseStart;
+                bars[isUp ? 0 : 2] = new BarPoint(prevLowBarValue, prevLowBarIndex, BarsProvider);
+                bars[3] = new BarPoint(edgeChannel, impulseEnd.BarIndex, BarsProvider);
             }
 
-            return res;
+            return true;// TODO use this value
         }
         
         /// <summary>
