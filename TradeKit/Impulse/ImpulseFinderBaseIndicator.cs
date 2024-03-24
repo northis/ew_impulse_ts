@@ -78,9 +78,8 @@ namespace TradeKit.Impulse
                 BarPoint[] rest = e.Model.Extrema.Skip(1).ToArray();
                 foreach (BarPoint wave in rest)
                 {
-                    int endIndex = wave.BarIndex;
                     Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
-                        currentBar.BarIndex, currentBar.Value, endIndex, wave.Value, Color.LightBlue);
+                        currentBar.OpenTime, currentBar.Value, wave.OpenTime, wave.Value, Color.LightBlue);
                     currentBar = wave;
                 }
             }
