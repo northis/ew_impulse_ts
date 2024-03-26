@@ -5,8 +5,6 @@ using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Impulse;
-using TradeKit.Json;
-using TradeKit.ML;
 
 namespace TradeKit.AlgoBase
 {
@@ -23,6 +21,7 @@ namespace TradeKit.AlgoBase
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
         private const int MIN_PERIOD = 1;
+        private const int SMOOTH_MIN_PERIOD = 2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
@@ -45,7 +44,7 @@ namespace TradeKit.AlgoBase
             m_PivotPointsFinder = new PivotPointsFinder(
                 MIN_PERIOD, m_BarsProviderMain);//min val
 
-            m_TimeSpanMinPeriod = m_MainFrameInfo.TimeSpan.Multiply(MIN_PERIOD + 1);
+            m_TimeSpanMinPeriod = m_MainFrameInfo.TimeSpan;
         }
 
         private SortedDictionary<DateTime, int> GetExtremaScored(
@@ -61,7 +60,7 @@ namespace TradeKit.AlgoBase
                     continue;
 
                 double currentPrice = values[dt];
-                int rewindScore = MIN_PERIOD;
+                int rewindScore = 0;
 
                 //rewind
                 DateTime currentDateTime = dt.Subtract(m_TimeSpanMinPeriod);
@@ -94,7 +93,9 @@ namespace TradeKit.AlgoBase
                     currentDateTime = currentDateTime.Add(m_MainFrameInfo.TimeSpan);
                 }
 
-                scores[dt] = Math.Min(fastForwardScore, rewindScore);
+                int res = Math.Min(fastForwardScore, rewindScore);
+                if (res > 0)
+                    scores[dt] = res;
             }
 
             return scores;
@@ -127,6 +128,16 @@ namespace TradeKit.AlgoBase
                 !isUp && wave4 >= wave1)
                 return false;
 
+            TimeSpan wave2Len = wave2.OpenTime - wave1.OpenTime;
+            TimeSpan wave4Len = wave4.OpenTime - wave3.OpenTime;
+
+            if(wave2Len == TimeSpan.Zero)
+                return false;
+
+            double ratio = wave4Len / wave2Len;
+            if (ratio is > 3.5 or < 0.75)
+                return false;
+
             return true;
         }
 
@@ -141,16 +152,24 @@ namespace TradeKit.AlgoBase
                 start.OpenTime.Subtract(m_TimeSpanMinPeriod),
                 end.OpenTime.Add(m_TimeSpanMinPeriod));
 
-            SortedDictionary<DateTime, int> highs = GetExtremaScored(m_PivotPointsFinder.HighValues, start.OpenTime, end.OpenTime,
-                (d,p)=> m_BarsProviderMain.GetHighPrice(d) >= p);
+            SortedDictionary<DateTime, int> highs = GetExtremaScored(m_PivotPointsFinder.HighValues, start.OpenTime,
+                end.OpenTime,
+                (d, p) => m_BarsProviderMain.GetHighPrice(d) >= p);
             SortedDictionary<DateTime, int> lows = GetExtremaScored(
                 m_PivotPointsFinder.LowValues, start.OpenTime, end.OpenTime,
-                (d, p) => m_BarsProviderMain.GetHighPrice(d) <= p);
-
-            if (highs.Count == 0 || lows.Count == 0)
-                return false;
+                (d, p) => m_BarsProviderMain.GetLowPrice(d) <= p);
+            
+            if (highs.Count == 0 && lows.Count == 0)
+                return true;//really smooth movement
 
             bool isUp = end > start;
+            //SortedDictionary<DateTime, int> counterPeaks = isUp ? lows : highs;
+            //int maxScore = counterPeaks.Values.Max();
+            //if (maxScore <= SMOOTH_MIN_PERIOD && counterPeaks.Count > 1)
+            //{
+            //    return true; //got many shallow counter-peaks
+            //}
+
             TimeSpan halfLength = (end.OpenTime - start.OpenTime) / 2.5;
             DateTime middleDate = start.OpenTime.Add(halfLength);
 
@@ -185,6 +204,7 @@ namespace TradeKit.AlgoBase
             // Or wave A of a triangle (check)
 
             // Find the end of the wave 1 using found 3rd one
+            // may be it is better to find the 2nd one first TODO
             List<KeyValuePair<DateTime, int>> wave0To3 = (isUp ? highs : lows)
                 .TakeWhile(a => a.Key < wave3EndScore.Key)
                 .ToList();
