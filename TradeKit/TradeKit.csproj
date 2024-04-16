@@ -30,6 +30,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AlgoBase\CandleTransformer.cs" />
+    <Compile Include="AlgoBase\ElliottWavePatternHelper.cs" />
     <Compile Include="AlgoBase\ExactExtremumFinder.cs" />
     <Compile Include="AlgoBase\ExtremumFinderBase.cs" />
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />

@@ -5,6 +5,7 @@ using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Impulse;
 using TradeKit.Json;
+using HelperEw = TradeKit.AlgoBase.ElliottWavePatternHelper;
 
 namespace TradeKit.PatternGeneration
 {
@@ -20,24 +21,7 @@ namespace TradeKit.PatternGeneration
         private const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
         private const double MAIN_ALLOWANCE_MAX_RATIO_INVERT = 1- MAIN_ALLOWANCE_MAX_RATIO;
         private const double MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS = 1 + MAIN_ALLOWANCE_MAX_RATIO;
-
-        public const string IMPULSE_ONE = "1";
-        public const string IMPULSE_TWO = "2";
-        public const string IMPULSE_THREE = "3";
-        public const string IMPULSE_FOUR = "4";
-        public const string IMPULSE_FIVE = "5";
         
-        public const string CORRECTION_A = "a";
-        public const string CORRECTION_B = "b";
-        public const string CORRECTION_C = "c";
-        public const string CORRECTION_D = "d";
-        public const string CORRECTION_E = "e";
-        public const string CORRECTION_W = "w";
-        public const string CORRECTION_X = "x";
-        public const string CORRECTION_Y = "y";
-        public const string CORRECTION_XX = "xx";
-        public const string CORRECTION_Z = "z";
-
         public static Dictionary<ElliottModelType, ModelRules> ModelRules 
         { get; private set; }
 
@@ -56,12 +40,7 @@ namespace TradeKit.PatternGeneration
         private ElliottModelType[] m_ImpulseOnly;
         
         #endregion
-
-        static PatternGenerator()
-        {
-            InitModelRulesStatic();
-        }
-
+        
         public PatternGenerator(bool generateExtraInfo)
         {
             m_GenerateExtraInfo = generateExtraInfo;
@@ -70,396 +49,6 @@ namespace TradeKit.PatternGeneration
         }
 
         #region Models init
-
-        private static void InitModelRulesStatic()
-        {
-            ModelRules = new Dictionary<ElliottModelType, ModelRules>
-            {
-                {
-                    ElliottModelType.IMPULSE, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                IMPULSE_ONE, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
-                                    ElliottModelType.DIAGONAL_EXPANDING_INITIAL
-                                }
-                            },
-                            {
-                                IMPULSE_TWO, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING
-                                }
-                            },
-                            {
-                                IMPULSE_THREE, new[] {ElliottModelType.IMPULSE}
-                            },
-                            {
-                                IMPULSE_FOUR, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                    ElliottModelType.TRIANGLE_CONTRACTING,
-                                    ElliottModelType.TRIANGLE_RUNNING
-                                }
-                            },
-                            {
-                                IMPULSE_FIVE, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
-                                    ElliottModelType.DIAGONAL_EXPANDING_ENDING
-                                }
-                            },
-                        })
-                },
-                {
-                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                IMPULSE_ONE, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                }
-                            },
-                            {
-                                IMPULSE_TWO, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                IMPULSE_THREE, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                }
-                            },
-                            {
-                                IMPULSE_FOUR, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                IMPULSE_FIVE, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                }
-                            },
-                        }, 0.03)
-                },
-                {
-                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                IMPULSE_ONE, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                }
-                            },
-                            {
-                                IMPULSE_TWO, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                IMPULSE_THREE, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                }
-                            },
-                            {
-                                IMPULSE_FOUR, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                IMPULSE_FIVE, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                }
-                            },
-                        })
-                },
-                {
-                    ElliottModelType.ZIGZAG, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                CORRECTION_A, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
-                                    ElliottModelType.DIAGONAL_EXPANDING_INITIAL
-                                }
-                            },
-                            {
-                                CORRECTION_B, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                    ElliottModelType.TRIPLE_ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                    ElliottModelType.FLAT_REGULAR,
-                                    ElliottModelType.TRIANGLE_CONTRACTING,
-                                    ElliottModelType.TRIANGLE_RUNNING,
-                                    ElliottModelType.TRIANGLE_EXPANDING
-                                }
-                            },
-                            {
-                                CORRECTION_C, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
-                                    ElliottModelType.DIAGONAL_EXPANDING_ENDING
-                                }
-                            },
-                        })
-                },
-                {
-                    ElliottModelType.DOUBLE_ZIGZAG, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                CORRECTION_W, new[]
-                                {
-                                    ElliottModelType.ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_X, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                    ElliottModelType.TRIPLE_ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                    ElliottModelType.FLAT_REGULAR,
-                                    ElliottModelType.TRIANGLE_CONTRACTING,
-                                    ElliottModelType.TRIANGLE_RUNNING,
-                                    ElliottModelType.TRIANGLE_EXPANDING
-                                }
-                            },
-                            {
-                                CORRECTION_Y, new[]
-                                {
-                                    ElliottModelType.ZIGZAG
-                                }
-                            },
-                        })
-                },
-                {
-                    ElliottModelType.TRIPLE_ZIGZAG, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                CORRECTION_W, new[]
-                                {
-                                    ElliottModelType.ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_X, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                    ElliottModelType.TRIPLE_ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                    ElliottModelType.FLAT_REGULAR
-                                }
-                            },
-                            {
-                                CORRECTION_Y, new[]
-                                {
-                                    ElliottModelType.ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_XX, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                    ElliottModelType.TRIPLE_ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                    ElliottModelType.FLAT_REGULAR,
-                                    ElliottModelType.TRIANGLE_CONTRACTING,
-                                    ElliottModelType.TRIANGLE_RUNNING,
-                                    ElliottModelType.TRIANGLE_EXPANDING
-                                }
-                            },
-                            {
-                                CORRECTION_Z, new[]
-                                {
-                                    ElliottModelType.ZIGZAG
-                                }
-                            }
-                        }, 0.001)
-                },
-                {
-                    ElliottModelType.COMBINATION, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                CORRECTION_W, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                }
-                            },
-                            {
-                                CORRECTION_X, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG,
-                                    ElliottModelType.TRIPLE_ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                    ElliottModelType.FLAT_REGULAR,
-                                    ElliottModelType.TRIANGLE_CONTRACTING,
-                                    ElliottModelType.TRIANGLE_RUNNING,
-                                    ElliottModelType.TRIANGLE_EXPANDING
-                                }
-                            },
-                            {
-                                CORRECTION_Y, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING,
-                                    ElliottModelType.TRIANGLE_CONTRACTING,
-                                    ElliottModelType.TRIANGLE_RUNNING
-                                }
-                            },
-                        })
-                },
-                {
-                    ElliottModelType.TRIANGLE_CONTRACTING, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                CORRECTION_A, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_B, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_C, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_D, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_E, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            }
-                        })
-                },
-                {
-                    ElliottModelType.FLAT_EXTENDED, new ModelRules(
-                        new Dictionary<string, ElliottModelType[]>
-                        {
-                            {
-                                CORRECTION_A, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_B, new[]
-                                {
-                                    ElliottModelType.ZIGZAG,
-                                    ElliottModelType.DOUBLE_ZIGZAG
-                                }
-                            },
-                            {
-                                CORRECTION_C, new[]
-                                {
-                                    ElliottModelType.IMPULSE,
-                                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
-                                    ElliottModelType.DIAGONAL_EXPANDING_ENDING
-                                }
-                            }
-                        })
-                }
-            };
-
-            ModelRules[ElliottModelType.SIMPLE_IMPULSE] =
-                ModelRules[ElliottModelType.IMPULSE] with
-                { ProbabilityCoefficient = 0.25 };
-
-            ModelRules[ElliottModelType.FLAT_REGULAR] =
-                ModelRules[ElliottModelType.FLAT_EXTENDED] with
-                { ProbabilityCoefficient = 0.0005 };
-
-            ModelRules[ElliottModelType.FLAT_RUNNING] =
-                ModelRules[ElliottModelType.FLAT_EXTENDED];
-
-            ModelRules[ElliottModelType.TRIANGLE_EXPANDING] =
-                ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
-                { ProbabilityCoefficient = 0.001 };
-
-            ModelRules[ElliottModelType.DIAGONAL_EXPANDING_INITIAL] =
-                ModelRules[ElliottModelType.DIAGONAL_CONTRACTING_INITIAL] with
-                { ProbabilityCoefficient = 0.01 };
-
-            ModelRules[ElliottModelType.DIAGONAL_EXPANDING_ENDING] =
-                ModelRules[ElliottModelType.DIAGONAL_CONTRACTING_ENDING] with
-                { ProbabilityCoefficient = 0.0001 };
-
-            ModelRules[ElliottModelType.TRIANGLE_RUNNING] =
-                ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
-                { ProbabilityCoefficient = 0.1 };
-        }
 
         private void InitModelRules()
         {
@@ -512,10 +101,10 @@ namespace TradeKit.PatternGeneration
             };
 
             ModelRules impulse = ModelRules[ElliottModelType.IMPULSE];
-            m_Wave1Impulse = impulse.Models[IMPULSE_ONE].ToHashSet();
-            m_Wave2Impulse = impulse.Models[IMPULSE_TWO].ToHashSet();
-            m_Wave4Impulse = impulse.Models[IMPULSE_FOUR].ToHashSet();
-            m_Wave5Impulse = impulse.Models[IMPULSE_FIVE].ToHashSet();
+            m_Wave1Impulse = impulse.Models[HelperEw.IMPULSE_ONE].ToHashSet();
+            m_Wave2Impulse = impulse.Models[HelperEw.IMPULSE_TWO].ToHashSet();
+            m_Wave4Impulse = impulse.Models[HelperEw.IMPULSE_FOUR].ToHashSet();
+            m_Wave5Impulse = impulse.Models[HelperEw.IMPULSE_FIVE].ToHashSet();
 
             m_ImpulseOnly = new[] { ElliottModelType.IMPULSE };
             m_TimeFrames = new Dictionary<TimeFrameInfo, Func<DateTime, DateTime>>()
@@ -552,7 +141,7 @@ namespace TradeKit.PatternGeneration
         #endregion
 
         /// <summary>
-        /// Gets the pattern according by the passed data.
+        /// Gets the pattern according to the passed data.
         /// </summary>
         /// <param name="args">The arguments.</param>
         /// <param name="model">The model type.</param>
@@ -865,18 +454,18 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(IMPULSE_THREE, IMPULSE_ONE, 
+                    new LengthRatio(HelperEw.IMPULSE_THREE, HelperEw.IMPULSE_ONE, 
                         wave3Len / wave1Len),
-                    new LengthRatio(IMPULSE_FIVE, IMPULSE_ONE, 
+                    new LengthRatio(HelperEw.IMPULSE_FIVE, HelperEw.IMPULSE_ONE, 
                         wave5Len / wave1Len),
-                    new LengthRatio(IMPULSE_TWO, IMPULSE_ONE,
+                    new LengthRatio(HelperEw.IMPULSE_TWO, HelperEw.IMPULSE_ONE,
                         Math.Abs(wave1 - wave2) / wave1Len),
-                    new LengthRatio(IMPULSE_FOUR, IMPULSE_THREE,
+                    new LengthRatio(HelperEw.IMPULSE_FOUR, HelperEw.IMPULSE_THREE,
                         Math.Abs(wave3 - wave4) / wave3Len),
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(IMPULSE_FOUR, IMPULSE_TWO, wave4Dur / wave2Dur));
+                new DurationRatio(HelperEw.IMPULSE_FOUR, HelperEw.IMPULSE_TWO, wave4Dur / wave2Dur));
             return modelPattern;
         }
 
@@ -931,14 +520,14 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_C, CORRECTION_A, 
+                    new LengthRatio(HelperEw.CORRECTION_C, HelperEw.CORRECTION_A, 
                         waveCLength / waveALength),
-                    new LengthRatio(CORRECTION_B, CORRECTION_A, 
+                    new LengthRatio(HelperEw.CORRECTION_B, HelperEw.CORRECTION_A, 
                         waveBLength / waveALength)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_B, CORRECTION_A,
+                new DurationRatio(HelperEw.CORRECTION_B, HelperEw.CORRECTION_A,
                     (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
@@ -978,12 +567,12 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_C, CORRECTION_A,
+                    new LengthRatio(HelperEw.CORRECTION_C, HelperEw.CORRECTION_A,
                         waveCLen / waveALen)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_B, CORRECTION_A,
+                new DurationRatio(HelperEw.CORRECTION_B, HelperEw.CORRECTION_A,
                     (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
@@ -1003,9 +592,9 @@ namespace TradeKit.PatternGeneration
             Dictionary<string, ElliottModelType[]> models
                 = ModelRules[modelPattern.Model].Models;
             ElliottModelType theModelX =
-                WeightedRandomlySelectModel(models[CORRECTION_X]);
+                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_X]);
             ElliottModelType theModelXx =
-                WeightedRandomlySelectModel(models[CORRECTION_XX]);
+                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_XX]);
 
             double waveZ = arg.EndValue;
             double xzToW = SelectRandomly(ZIGZAG_X_Z_TO_W);
@@ -1040,11 +629,11 @@ namespace TradeKit.PatternGeneration
                 new[] {arg.StartValue, waveY, waveX, waveZ, waveZ},
                 new[]
                 {
-                    WeightedRandomlySelectModel(models[CORRECTION_W]), 
+                    WeightedRandomlySelectModel(models[HelperEw.CORRECTION_W]), 
                     theModelX,
-                    WeightedRandomlySelectModel(models[CORRECTION_Y]),
+                    WeightedRandomlySelectModel(models[HelperEw.CORRECTION_Y]),
                     theModelXx,
-                    WeightedRandomlySelectModel(models[CORRECTION_Z])
+                    WeightedRandomlySelectModel(models[HelperEw.CORRECTION_Z])
                 });
 
             if (!m_GenerateExtraInfo)
@@ -1053,13 +642,13 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_X, CORRECTION_W, xToW)
+                    new LengthRatio(HelperEw.CORRECTION_X, HelperEw.CORRECTION_W, xToW)
                 });
 
             modelPattern.DurationRatios.AddRange(
                 new[]
                 {
-                    new DurationRatio(CORRECTION_X, CORRECTION_W,
+                    new DurationRatio(HelperEw.CORRECTION_X, HelperEw.CORRECTION_W,
                         (double) bars4Gen[1] / bars4Gen[0])
                 });
 
@@ -1133,12 +722,12 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_E, CORRECTION_A,
+                    new LengthRatio(HelperEw.CORRECTION_E, HelperEw.CORRECTION_A,
                         eWaveLen / waveALen)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_E, CORRECTION_A,
+                new DurationRatio(HelperEw.CORRECTION_E, HelperEw.CORRECTION_A,
                     (double)bars4Gen[4] / bars4Gen[0]));
 
             return modelPattern;
@@ -1184,9 +773,12 @@ namespace TradeKit.PatternGeneration
             Dictionary<string, ElliottModelType[]> models =
                 ModelRules[modelPattern.Model].Models;
 
-            ElliottModelType modelW = WeightedRandomlySelectModel(models[CORRECTION_W]);
-            ElliottModelType modelX = WeightedRandomlySelectModel(models[CORRECTION_X]);
-            ElliottModelType modelY = WeightedRandomlySelectModel(models[CORRECTION_Y]);
+            ElliottModelType modelW = WeightedRandomlySelectModel(
+                models[HelperEw.CORRECTION_W]);
+            ElliottModelType modelX = WeightedRandomlySelectModel(
+                models[HelperEw.CORRECTION_X]);
+            ElliottModelType modelY = WeightedRandomlySelectModel(
+                models[HelperEw.CORRECTION_Y]);
 
             int[] bars4Gen = PatternGenKit.SplitNumber(
                 arg.BarsCount, new[]
@@ -1209,12 +801,14 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_Y, CORRECTION_W, waveYLen / waveWLen),
-                    new LengthRatio(CORRECTION_X, CORRECTION_W, waveXLen / waveWLen)
+                    new LengthRatio(HelperEw.CORRECTION_Y, 
+                        HelperEw.CORRECTION_W, waveYLen / waveWLen),
+                    new LengthRatio(HelperEw.CORRECTION_X, 
+                        HelperEw.CORRECTION_W, waveXLen / waveWLen)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_Y, CORRECTION_W,
+                new DurationRatio(HelperEw.CORRECTION_Y, HelperEw.CORRECTION_W,
                     (double) bars4Gen[2] / bars4Gen[0]));
 
             return modelPattern;
@@ -1234,7 +828,8 @@ namespace TradeKit.PatternGeneration
             // TODO o-x line?
             Dictionary<string, ElliottModelType[]> models
                 = ModelRules[modelPattern.Model].Models;
-            ElliottModelType theModelX = WeightedRandomlySelectModel(models[CORRECTION_X]);
+            ElliottModelType theModelX = WeightedRandomlySelectModel(
+                models[HelperEw.CORRECTION_X]);
 
             // use the same ratios from zz
             double yToW = SelectRandomly(ZIGZAG_C_TO_A);
@@ -1257,9 +852,9 @@ namespace TradeKit.PatternGeneration
                 new[] {waveW, arg.StartValue, waveX},
                 new[] {arg.StartValue, waveY, waveY}, new[]
                 {
-                    WeightedRandomlySelectModel(models[CORRECTION_W]),
+                    WeightedRandomlySelectModel(models[HelperEw.CORRECTION_W]),
                     theModelX,
-                    WeightedRandomlySelectModel(models[CORRECTION_Y])
+                    WeightedRandomlySelectModel(models[HelperEw.CORRECTION_Y])
                 });
 
             if (!m_GenerateExtraInfo)
@@ -1268,12 +863,12 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_Y, CORRECTION_W, yToW),
-                    new LengthRatio(CORRECTION_X, CORRECTION_W, xToW)
+                    new LengthRatio(HelperEw.CORRECTION_Y, HelperEw.CORRECTION_W, yToW),
+                    new LengthRatio(HelperEw.CORRECTION_X, HelperEw.CORRECTION_W, xToW)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_Y, CORRECTION_W,
+                new DurationRatio(HelperEw.CORRECTION_Y, HelperEw.CORRECTION_W,
                     (double)bars4Gen[2] / bars4Gen[0]));
 
             return modelPattern;
@@ -1292,7 +887,8 @@ namespace TradeKit.PatternGeneration
 
             Dictionary<string, ElliottModelType[]> models 
                 = ModelRules[modelPattern.Model].Models;
-            ElliottModelType theModelB = WeightedRandomlySelectModel(models[CORRECTION_B]);
+            ElliottModelType theModelB = WeightedRandomlySelectModel(
+                models[HelperEw.CORRECTION_B]);
 
             double cToA = SelectRandomly(ZIGZAG_C_TO_A);
 
@@ -1311,19 +907,19 @@ namespace TradeKit.PatternGeneration
             int[] bars4Gen = SplitByTree(arg.BarsCount);
 
             ElliottModelType theAModel =
-                WeightedRandomlySelectModel(models[CORRECTION_A]);
+                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_A]);
 
             ElliottModelType[] modelsForC;
             if (m_Random.NextDouble() > 0.2)// impulse/diagonal change in 80% cases
             {
                 modelsForC = (theAModel == ElliottModelType.IMPULSE
-                        ? models[CORRECTION_C].Except(m_ImpulseOnly)
+                        ? models[HelperEw.CORRECTION_C].Except(m_ImpulseOnly)
                         : m_ImpulseOnly)
                     .ToArray();
             }
             else
             {
-                modelsForC = models[CORRECTION_C];
+                modelsForC = models[HelperEw.CORRECTION_C];
             }
 
             ElliottModelType theCModel = WeightedRandomlySelectModel(modelsForC);
@@ -1341,12 +937,12 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_C, CORRECTION_A, cToA),
-                    new LengthRatio(CORRECTION_B, CORRECTION_A, bToA)
+                    new LengthRatio(HelperEw.CORRECTION_C, HelperEw.CORRECTION_A, cToA),
+                    new LengthRatio(HelperEw.CORRECTION_B, HelperEw.CORRECTION_A, bToA)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_B, CORRECTION_A,
+                new DurationRatio(HelperEw.CORRECTION_B, HelperEw.CORRECTION_A,
                     (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
@@ -1468,13 +1064,13 @@ namespace TradeKit.PatternGeneration
             bool allowTriangleInE = m_Random.NextDouble() < 0.01;
             ElliottModelType[] patterns = 
             {
-                WeightedRandomlySelectModel(models[CORRECTION_A]),
-                WeightedRandomlySelectModel(models[CORRECTION_B]),
-                WeightedRandomlySelectModel(models[CORRECTION_C]),
-                WeightedRandomlySelectModel(models[CORRECTION_D]),
+                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_A]),
+                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_B]),
+                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_C]),
+                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_D]),
                 allowTriangleInE
                     ? ElliottModelType.TRIANGLE_CONTRACTING
-                    : WeightedRandomlySelectModel(models[CORRECTION_E]),
+                    : WeightedRandomlySelectModel(models[HelperEw.CORRECTION_E]),
             }; // We can allow only one dzz here, but looks like we don't need to.
 
             FillPattern(arg, modelPattern, bars4Gen,
@@ -1490,12 +1086,12 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_E, CORRECTION_A,
+                    new LengthRatio(HelperEw.CORRECTION_E, HelperEw.CORRECTION_A,
                         eWaveLen / aWaveLen)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_E, CORRECTION_A,
+                new DurationRatio(HelperEw.CORRECTION_E, HelperEw.CORRECTION_A,
                     (double) bars4Gen[4] / bars4Gen[0]));
 
             return modelPattern;
@@ -1556,14 +1152,14 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(CORRECTION_C, CORRECTION_A,
+                    new LengthRatio(HelperEw.CORRECTION_C, HelperEw.CORRECTION_A,
                         waveCLen / waveALen),
-                    new LengthRatio(CORRECTION_B, CORRECTION_A,
+                    new LengthRatio(HelperEw.CORRECTION_B, HelperEw.CORRECTION_A,
                         waveBLen / waveALen)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(CORRECTION_B, CORRECTION_A,
+                new DurationRatio(HelperEw.CORRECTION_B, HelperEw.CORRECTION_A,
                     (double)bars4Gen[1] / bars4Gen[0]));
 
             return modelPattern;
@@ -1645,12 +1241,12 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(IMPULSE_THREE, IMPULSE_ONE,
+                    new LengthRatio(HelperEw.IMPULSE_THREE, HelperEw.IMPULSE_ONE,
                         wave3Len / wave1Len)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(IMPULSE_THREE, IMPULSE_ONE,
+                new DurationRatio(HelperEw.IMPULSE_THREE, HelperEw.IMPULSE_ONE,
                     (double) bars4Gen[2] / bars4Gen[1]));
 
             return modelPattern;
@@ -1724,12 +1320,12 @@ namespace TradeKit.PatternGeneration
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
-                    new LengthRatio(IMPULSE_FIVE, IMPULSE_ONE,
+                    new LengthRatio(HelperEw.IMPULSE_FIVE, HelperEw.IMPULSE_ONE,
                         wave5Len / wave1Len)
                 });
 
             modelPattern.DurationRatios.Add(
-                new DurationRatio(IMPULSE_FIVE, IMPULSE_ONE,
+                new DurationRatio(HelperEw.IMPULSE_FIVE, HelperEw.IMPULSE_ONE,
                     (double)bars4Gen[4] / bars4Gen[0]));
             return modelPattern;
         }

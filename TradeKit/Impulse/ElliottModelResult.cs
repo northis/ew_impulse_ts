@@ -11,5 +11,10 @@ namespace TradeKit.Impulse
         public ElliottModelType Type { get; set; } = Type;
 
         public string ModelType { get; set; }
+
+        public ElliottModelType Wave2 { get; set; }
+        public List<BarPoint> ExtremaWave2 { get; set; }
+        public ElliottModelType Wave4 { get; set; }
+        public List<BarPoint> ExtremaWave4 { get; set; }
     }
 }
