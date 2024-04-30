@@ -42,9 +42,9 @@ namespace TradeKit.AlgoBase
 
         private record CheckParams(
             bool IsUp,
-            SortedDictionary<DateTime, int> Highs,
-            SortedDictionary<DateTime, int> Lows,
-            List<BarPoint> Waves);
+            SortedDictionary<DateTime, (int, double)> Highs,
+            SortedDictionary<DateTime, (int, double)> Lows,
+            List<ImpulseElliottModelResult> WavesResults);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElliottWavePatternFinder"/> class.
@@ -70,13 +70,13 @@ namespace TradeKit.AlgoBase
             m_TimeSpanMinPeriod = m_MainFrameInfo.TimeSpan;
         }
 
-        private SortedDictionary<DateTime, int> GetExtremaScored(
+        private SortedDictionary<DateTime, (int, double)> GetExtremaScored(
             SortedDictionary<DateTime, double> values,
             DateTime startDate,
             DateTime endDate,
             Func<DateTime, double, bool> isStopPrice)
         {
-            SortedDictionary<DateTime, int> scores = new SortedDictionary<DateTime, int>();
+            var scores = new SortedDictionary<DateTime, (int, double)>();
             foreach (DateTime dt in values.Keys)
             {
                 if (dt <= startDate || dt >= endDate || double.IsNaN(values[dt]))
@@ -118,7 +118,7 @@ namespace TradeKit.AlgoBase
 
                 int res = Math.Min(fastForwardScore, rewindScore);
                 if (res > 0)
-                    scores[dt] = res;
+                    scores[dt] = (res, currentPrice);
             }
 
             return scores;
@@ -165,59 +165,54 @@ namespace TradeKit.AlgoBase
         }
 
         private List<BarPoint> SelectPeaks(
-            List<KeyValuePair<DateTime, int>> dateScorePairs, 
+            List<KeyValuePair<DateTime, (int, double)>> dateScorePairs, 
             bool isUp)
         {
-            SortedDictionary<DateTime, double> valueDatePairs = isUp
-                ? m_PivotPointsFinder.HighValues
-                : m_PivotPointsFinder.LowValues;
-
-            List<KeyValuePair<DateTime, int>> sorted = dateScorePairs
-                .Where(a => valueDatePairs.ContainsKey(a.Key))
-                .OrderByDescending(a => a.Value)
+            List<KeyValuePair<DateTime, (int, double)>> sorted = dateScorePairs
+                .OrderByDescending(a => a.Value.Item1)
                 .ToList();
 
             var result = new List<BarPoint>();
             if (sorted.Count == 0)
                 return result;
 
-            KeyValuePair<DateTime, int> first = sorted.First();
+            KeyValuePair<DateTime, (int, double)> first = sorted.First();
             if (sorted.Count == 1)
             {
                 result.Add(new BarPoint(
-                    valueDatePairs[first.Key], first.Key, m_BarsProviderMain));
+                    first.Value.Item2, first.Key, m_BarsProviderMain));
                 return result;
             }
 
-            double topThreshold = first.Value * 0.85; // To separate big peaks and the rest ones.
-            IOrderedEnumerable<KeyValuePair<DateTime, int>> tops = sorted
-                .Where(a => a.Value >= topThreshold)
+            double topThreshold = first.Value.Item1 * 0.85; // To separate big peaks and the rest ones.
+            IOrderedEnumerable<KeyValuePair<DateTime, (int, double)>> tops = sorted
+                .Where(a => a.Value.Item1 >= topThreshold)
                 .OrderByDescending(a => a.Value);
 
             result = (isUp
-                ? tops.ThenByDescending(a => valueDatePairs[a.Key])
-                : tops.ThenBy(a => valueDatePairs[a.Key]))
+                ? tops.ThenByDescending(a => a.Value.Item2)
+                : tops.ThenBy(a => a.Value.Item2))
                 .Take(2)
-                .Select(a => new BarPoint(valueDatePairs[a.Key], a.Key, m_BarsProviderMain))
+                .Select(a => new BarPoint(a.Value.Item2, a.Key, m_BarsProviderMain))
                 .ToList();
             return result;
         }
 
         private bool IsImpulseByPivots(
-            BarPoint start, BarPoint end, out ElliottModelResult result)
+            BarPoint start, BarPoint end, out ImpulseElliottModelResult result)
         {
-            List<BarPoint> waves = new List<BarPoint> { start, end };
-            result = new ElliottModelResult(ElliottModelType.IMPULSE, waves, null, null);
+            var waveResults = new List<ImpulseElliottModelResult>();
+            result = new ImpulseElliottModelResult {Wave0 = start, Wave5 = end};
 
             m_PivotPointsFinder.Reset();
             m_PivotPointsFinder.Calculate(
                 start.OpenTime.Subtract(m_TimeSpanMinPeriod),
                 end.OpenTime.Add(m_TimeSpanMinPeriod));
 
-            SortedDictionary<DateTime, int> highs = GetExtremaScored(m_PivotPointsFinder.HighValues, start.OpenTime,
+            SortedDictionary<DateTime, (int, double)> highs = GetExtremaScored(m_PivotPointsFinder.HighValues, start.OpenTime,
                 end.OpenTime,
                 (d, p) => m_BarsProviderMain.GetHighPrice(d) >= p);
-            SortedDictionary<DateTime, int> lows = GetExtremaScored(
+            SortedDictionary<DateTime, (int, double)> lows = GetExtremaScored(
                 m_PivotPointsFinder.LowValues, start.OpenTime, end.OpenTime,
                 (d, p) => m_BarsProviderMain.GetLowPrice(d) <= p);
             
@@ -230,7 +225,7 @@ namespace TradeKit.AlgoBase
             DateTime middleDate = start.OpenTime.Add(halfLength);
 
             //Let's find the end of the 3rd wave in the second part of the movement
-            List<KeyValuePair<DateTime, int>> wave3And5 = (isUp ? highs : lows)
+            List<KeyValuePair<DateTime, (int, double)>> wave3And5 = (isUp ? highs : lows)
                 .SkipWhile(a => a.Key < middleDate)
                 .ToList();
 
@@ -238,101 +233,160 @@ namespace TradeKit.AlgoBase
             if (peaks3To4To5.Count == 0)
                 return false;
 
-            var checkParams = new CheckParams(isUp, highs, lows, waves);
+            var checkParams = new CheckParams(isUp, highs, lows, waveResults);
+            if (peaks3To4To5.Count > 1)
+            {
+                CheckWith3RdWave(checkParams,
+                    result with { Wave3 = peaks3To4To5[0] }, peaks3To4To5[1]);
+                CheckWith3RdWave(checkParams,
+                    result with { Wave3 = peaks3To4To5[1] }, peaks3To4To5[0]);
+            }
 
-            if (peaks3To4To5.Count == 1)
-                return CheckWith3RdWave(checkParams, peaks3To4To5[0]);
-
-            return CheckWith3RdWave(checkParams, peaks3To4To5[0], peaks3To4To5[1]) ||
-                   CheckWith3RdWave(checkParams, peaks3To4To5[1], peaks3To4To5[0]);
+            CheckWith3RdWave(checkParams, result with { Wave3 = peaks3To4To5[0] });
+            return checkParams.WavesResults.Any();
         }
 
-        private bool CheckWith3RdWave(
-            CheckParams checkParams, BarPoint wave3, BarPoint waveBof4 = null)
+        private void CheckWith1stWave(
+            CheckParams checkParams, ImpulseElliottModelResult result, BarPoint bOf2 = null)
         {
-            double wave3EndValue = wave3.Value;
-            bool useRunning4 = waveBof4 != null;
-
-            if (useRunning4)
-            {
-                if (waveBof4.OpenTime <= wave3.OpenTime)
-                    return false;
-
-                if (checkParams.IsUp && waveBof4 < wave3 ||//not-running peak?
-                    !checkParams.IsUp && waveBof4 > wave3)
-                    return false;
-            }
+            if (result.Wave1 == null)
+                return;
             
-            // If this is real 3rd wave ending
-            // Wave B (X) of 4 (check)
-            // Find the opposite extremum after this one
-            List<KeyValuePair<DateTime, double>> wave4And5 = (checkParams.IsUp
-                    ? m_PivotPointsFinder.LowValues
-                    : m_PivotPointsFinder.HighValues)
-                .SkipWhile(a => a.Key <= (waveBof4?.OpenTime ?? wave3.OpenTime))
-                .Where(a => checkParams.IsUp
-                    ? checkParams.Lows.ContainsKey(a.Key)
-                    : checkParams.Highs.ContainsKey(a.Key))
-                .ToList();
-            if (wave4And5.Count == 0)
-                return false;
-
-            //useRunning4
-
-            // This is the end of wave 4 (zz or dzz or fl)
-            KeyValuePair<DateTime, double> wave4End = checkParams.IsUp
-                ? wave4And5.MinBy(a => a.Value)
-                : wave4And5.MaxBy(a => a.Value);
-            // Or wave A of a triangle (check)
-
-            // Find the end of the wave 1 using found 3rd one
-            // may be it is better to find the 2nd one first TODO
-            List<KeyValuePair<DateTime, int>> wave0To3 = (checkParams.IsUp ? checkParams.Highs : checkParams.Lows)
-                .TakeWhile(a => a.Key < wave3.OpenTime)
-                .ToList();
-            if (wave0To3.Count == 0)
-                return false;
-
-            KeyValuePair<DateTime, int> wave1EndScore = wave0To3.MaxBy(a => a.Value);
-            double wave1EndValue = checkParams.IsUp
-                ? m_PivotPointsFinder.HighValues[wave1EndScore.Key]
-                : m_PivotPointsFinder.LowValues[wave1EndScore.Key];
-
-            // This is real 1st wave
-            // Or wave B (X) of wave 2 (check)
-            List<KeyValuePair<DateTime, double>> wave2And3 = (checkParams.IsUp
-                    ? m_PivotPointsFinder.LowValues
-                    : m_PivotPointsFinder.HighValues)
-                .SkipWhile(a => a.Key <= wave1EndScore.Key)
-                .TakeWhile(a => a.Key < wave3.OpenTime)
-                .Where(a => checkParams.IsUp
-                    ? checkParams.Lows.ContainsKey(a.Key)
-                    : checkParams.Highs.ContainsKey(a.Key))
+            List<KeyValuePair<DateTime, (int, double)>> wave2And3 = (checkParams.IsUp
+                    ? checkParams.Lows
+                    : checkParams.Highs)
+                .SkipWhile(a => a.Key <= (bOf2?.OpenTime ?? result.Wave1.OpenTime))
+                .TakeWhile(a => a.Key < result.Wave3.OpenTime &&
+                                checkParams.IsUp
+                    ? a.Value.Item2 < result.Wave1.Value
+                    : a.Value.Item2 > result.Wave1.Value)
                 .ToList();
 
             if (wave2And3.Count == 0)
-                return false;
+                return;
 
             // This is the end of wave 2 (zz or dzz or fl)
-            KeyValuePair<DateTime, double> wave2End = checkParams.IsUp
-                ? wave2And3.MinBy(a => a.Value)
-                : wave2And3.MaxBy(a => a.Value);
+            KeyValuePair<DateTime, (int, double)> wave2End = checkParams.IsUp
+                ? wave2And3.MinBy(a => a.Value.Item2)
+                : wave2And3.MaxBy(a => a.Value.Item2);
 
-            checkParams.Waves.Insert(
-                1, new BarPoint(wave1EndValue, wave1EndScore.Key, m_BarsProviderMain));
-            checkParams.Waves.Insert(
-                2, new BarPoint(wave2End.Value, wave2End.Key, m_BarsProviderMain));
-            checkParams.Waves.Insert(
-                3, new BarPoint(wave3EndValue, wave3.OpenTime, m_BarsProviderMain));
-            checkParams.Waves.Insert(
-                4, new BarPoint(wave4End.Value, wave4End.Key, m_BarsProviderMain));
+            result.Wave2 = new BarPoint(wave2End.Value.Item2, wave2End.Key, m_BarsProviderMain);
+            if (bOf2 == null)
+            {
+                result.ExtremaWave2 = new List<BarPoint> { result.Wave1, result.Wave2 };
+                result.Wave2Type = ElliottModelType.ZIGZAG;
+                // TODO detect dzz?
+            }
+            else
+            {
+                if (result.Wave1.OpenTime >= bOf2.OpenTime)
+                    return;// foolproof
 
+                if (checkParams.IsUp && bOf2 < result.Wave1 ||
+                    !checkParams.IsUp && bOf2 > result.Wave1 ||
+                    result.Wave1.OpenTime >= bOf2.OpenTime)
+                    return;// exclude a regular flat
+
+                BarPoint waveA = m_BarsProviderMain.GetExtremumBetween(result.Wave1.OpenTime, result.Wave2.OpenTime, !checkParams.IsUp);
+                if (waveA == null)
+                    return;
+
+                result.ExtremaWave2 = new List<BarPoint> {result.Wave1, waveA, bOf2, result.Wave2};
+
+                if (checkParams.IsUp && waveA < result.Wave2 ||
+                    !checkParams.IsUp && waveA > result.Wave2)
+                    result.Wave2Type = ElliottModelType.FLAT_RUNNING;
+                else
+                    result.Wave2Type = ElliottModelType.FLAT_EXTENDED;
+            }
+            
             bool isValid = ValidateImpulse(
-                checkParams.Waves[0], checkParams.Waves[1],
-                checkParams.Waves[2], checkParams.Waves[3],
-                checkParams.Waves[4], checkParams.Waves[5]);
+                result.Wave0, result.Wave1,
+                result.Wave2, result.Wave3,
+                result.Wave4, result.Wave5);
 
-            return isValid;
+            if (!isValid)
+                return;
+
+            checkParams.WavesResults.Add(result);
+        }
+
+        private void CheckWith1st2ndWave(
+            CheckParams checkParams, ImpulseElliottModelResult result)
+        {
+            List<KeyValuePair<DateTime, (int, double)>> wave1And3 = (
+                    checkParams.IsUp ? checkParams.Highs : checkParams.Lows)
+                .TakeWhile(a => a.Key < result.Wave3.OpenTime)
+                .ToList();
+
+            List<BarPoint> peaks1To3 = SelectPeaks(wave1And3, checkParams.IsUp);
+            if (peaks1To3.Count == 0)
+                return;
+
+            if (peaks1To3.Count > 1)
+            {
+                CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[0] }, peaks1To3[1]);
+                CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[1] }, peaks1To3[0]);
+            }
+
+            CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[0] });
+        }
+
+        private void CheckWith3RdWave(
+            CheckParams checkParams, ImpulseElliottModelResult result, BarPoint bOf4 = null)
+        {
+            bool useRunning4 = bOf4 != null;
+
+            if (useRunning4)
+            {
+                if (bOf4.OpenTime <= result.Wave3.OpenTime)
+                    return;
+
+                if (checkParams.IsUp && bOf4 < result.Wave3 ||//not-running peak?
+                    !checkParams.IsUp && bOf4 > result.Wave3)
+                    return;
+
+                BarPoint waveAof4 =
+                    m_BarsProviderMain.GetExtremumBetween(
+                        result.Wave3.OpenTime, bOf4.OpenTime, !checkParams.IsUp);
+                if (waveAof4 == null)
+                    return;
+                
+                BarPoint waveCof4 =
+                    m_BarsProviderMain.GetExtremumBetween(
+                        bOf4.OpenTime, result.Wave5.OpenTime, !checkParams.IsUp);
+
+                if (waveCof4 == null)
+                    return;
+
+                // Now we got a flat or a triangle, lets check it out
+                List<KeyValuePair<DateTime, (int, double)>> wave4DeAnd5 = (checkParams.IsUp ? checkParams.Lows : checkParams.Highs)
+                    .SkipWhile(a => a.Key <= waveCof4.OpenTime)
+                    .TakeWhile(a => checkParams.IsUp
+                        ? a.Value.Item2 > waveCof4 && a.Value.Item2 < bOf4.Value
+                        : a.Value.Item2 < waveCof4 && a.Value.Item2 > bOf4.Value)
+                    .ToList();
+
+                if (wave4DeAnd5.Any())
+                {
+                    result.Wave4Type = ElliottModelType.TRIANGLE_CONTRACTING;
+                    //result.ExtremaWave4 = new List<BarPoint>{ result.Wave3 , waveAof4, bOf4, waveCof4; }
+                }
+                else
+                {
+                    result.Wave4Type = ElliottModelType.FLAT_EXTENDED;
+                }
+
+                CheckWith1st2ndWave(checkParams,
+                    result with
+                    {
+                        Wave4 = waveCof4,
+                        ExtremaWave4 = new List<BarPoint>
+                        {
+                            result.Wave3, waveAof4, bOf4, waveCof4
+                        }
+                    });
+            }
         }
 
         /// <summary>
@@ -346,7 +400,9 @@ namespace TradeKit.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
         {
-            bool isImpulse = IsImpulseByPivots(start, end, out result);
+            result = null;
+            bool isImpulse = IsImpulseByPivots(start, end,
+                out ImpulseElliottModelResult resultInner);//replace
 
             //List<BarPoint> waves = new List<BarPoint> { start, end };
             //result = new ElliottModelResult(ElliottModelType.IMPULSE, waves, null, null);

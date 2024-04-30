@@ -280,6 +280,43 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Gets the extremum between two dates.
+        /// The start and end candles ARE NOT included.
+        /// </summary>
+        /// <param name="barProvider">The bar provider.</param>
+        /// <param name="dateTimeStart">The start date time.</param>
+        /// <param name="dateTimeEnd">The end date time.</param>
+        /// <param name="isHigh">True if we want to find a high, false - if a low.</param>
+        public static BarPoint GetExtremumBetween(
+            this IBarsProvider barProvider, 
+            DateTime dateTimeStart, 
+            DateTime dateTimeEnd, 
+            bool isHigh)
+        {
+            int startIndex = barProvider.GetIndexByTime(dateTimeStart) + 1;//! +1
+            int endIndex = barProvider.GetIndexByTime(dateTimeEnd);
+
+            double currentValue = isHigh
+                ? barProvider.GetHighPrice(startIndex)
+                : barProvider.GetLowPrice(startIndex);
+            int currentIndex = startIndex;
+
+            for (int i = startIndex; i < endIndex; i++)//! <
+            {
+                if (isHigh && barProvider.GetHighPrice(i) >= currentValue ||
+                    !isHigh && barProvider.GetLowPrice(i) <= currentValue)
+                {
+                    currentValue = isHigh
+                        ? barProvider.GetHighPrice(i)
+                        : barProvider.GetLowPrice(startIndex);
+                    currentIndex = i;
+                }
+            }
+
+            return endIndex <= currentIndex ? null : new BarPoint(currentIndex, barProvider);
+        }
+
+        /// <summary>
         /// Gets the high price.
         /// </summary>
         /// <param name="barProvider">The bar provider.</param>
