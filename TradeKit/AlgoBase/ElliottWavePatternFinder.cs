@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
@@ -222,7 +223,7 @@ namespace TradeKit.AlgoBase
             bool isUp = end > start;
 
             TimeSpan halfLength = (end.OpenTime - start.OpenTime) / 2.5;
-            DateTime middleDate = start.OpenTime.Add(halfLength);
+            DateTime middleDate = end.OpenTime.Subtract(halfLength);
 
             //Let's find the end of the 3rd wave in the second part of the movement
             List<KeyValuePair<DateTime, (int, double)>> wave3And5 = (isUp ? highs : lows)
@@ -243,7 +244,12 @@ namespace TradeKit.AlgoBase
             }
 
             CheckWith3RdWave(checkParams, result with { Wave3 = peaks3To4To5[0] });
-            return checkParams.WavesResults.Any();
+
+            bool hasOptions = checkParams.WavesResults.Any();
+            if (hasOptions)
+                result = checkParams.WavesResults.First();
+
+            return hasOptions;
         }
 
         private void CheckWith1stWave(
@@ -316,7 +322,7 @@ namespace TradeKit.AlgoBase
         {
             List<KeyValuePair<DateTime, (int, double)>> wave1And3 = (
                     checkParams.IsUp ? checkParams.Highs : checkParams.Lows)
-                .TakeWhile(a => a.Key < result.Wave3.OpenTime)
+                .Where(a => a.Key < result.Wave3.OpenTime)
                 .ToList();
 
             List<BarPoint> peaks1To3 = SelectPeaks(wave1And3, checkParams.IsUp);

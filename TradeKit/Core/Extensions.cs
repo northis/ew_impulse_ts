@@ -313,7 +313,7 @@ namespace TradeKit.Core
                 }
             }
 
-            return endIndex <= currentIndex ? null : new BarPoint(currentIndex, barProvider);
+            return endIndex <= currentIndex ? null : new BarPoint(currentValue, currentIndex, barProvider);
         }
 
         /// <summary>

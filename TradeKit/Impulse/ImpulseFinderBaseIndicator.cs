@@ -71,7 +71,7 @@ namespace TradeKit.Impulse
 
             BarPoint start = e.Model.Wave0;
             BarPoint currentBar = start;
-            foreach (BarPoint wave in e.WavePoints)
+            foreach (BarPoint wave in e.WavePoints.Where(a => a != null))
             {
                 Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
                     currentBar.OpenTime, currentBar.Value, wave.OpenTime, wave.Value, Color.LightBlue);
