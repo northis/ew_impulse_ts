@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using TradeKit.Core;
 using TradeKit.Impulse;
 
@@ -7,15 +6,18 @@ namespace TradeKit.EventArgs
 {
     public class ImpulseSignalEventArgs : SignalEventArgs
     {
-        public ElliottModelResult Model { get; }
+        public ImpulseElliottModelResult Model { get; }
         public BarPoint[] ChannelBarPoints { get; }
 
+        public BarPoint[] WavePoints { get; }
+
         public ImpulseSignalEventArgs(
-            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, ElliottModelResult model, DateTime startViewBarIndex, string comment, BarPoint[] channelBarPoints)
+            BarPoint level, BarPoint takeProfit, BarPoint stopLoss, ImpulseElliottModelResult model, DateTime startViewBarIndex, string comment, BarPoint[] channelBarPoints)
             : base(level, takeProfit, stopLoss, startViewBarIndex,null, comment)
         {
             Model = model;
             ChannelBarPoints = channelBarPoints;
+            WavePoints = new[] {model.Wave1, model.Wave2, model.Wave3, model.Wave4, model.Wave5};
         }
     }
 }

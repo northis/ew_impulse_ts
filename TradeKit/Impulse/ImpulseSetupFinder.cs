@@ -352,7 +352,7 @@ namespace TradeKit.Impulse
                 }
 
                 m_PreFinder = null;
-                if (!m_PatternFinder.IsImpulse(startItem.Value, endItem.Value, out ElliottModelResult outExtrema))
+                if (!m_PatternFinder.IsImpulse(startItem.Value, endItem.Value, out ImpulseElliottModelResult outExtrema))
                 {
                     // The move is not an impulse.
                     // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
@@ -434,12 +434,8 @@ namespace TradeKit.Impulse
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
 
-                string score = outExtrema.MaxScore.HasValue && 
-                               !float.IsNaN(outExtrema.MaxScore.Value)
-                    ? $"{(int) outExtrema.MaxScore}{Environment.NewLine}"
-                : string.Empty;
-
-                string comment = score + " " + outExtrema.ModelType;
+                string waves = $"Wave 2 {outExtrema.Wave2Type}, wave 4 {outExtrema.Wave4Type}";
+                string comment = waves;
 
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),

@@ -20,25 +20,25 @@ namespace TradeKit.AlgoBase
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
         private const int MIN_PERIOD = 1;
-        private const int SMOOTH_MIN_PERIOD = 2;
+        //private const int SMOOTH_MIN_PERIOD = 2;
 
-        private HashSet<ElliottModelType> m_Wave4Patterns = new List<ElliottModelType>
-        {
-            ElliottModelType.ZIGZAG,
-            ElliottModelType.DOUBLE_ZIGZAG,
-            ElliottModelType.TRIANGLE_RUNNING,
-            ElliottModelType.TRIANGLE_CONTRACTING,
-            ElliottModelType.FLAT_EXTENDED,
-            ElliottModelType.FLAT_RUNNING,
-        }.ToHashSet();
+        //private HashSet<ElliottModelType> m_Wave4Patterns = new List<ElliottModelType>
+        //{
+        //    ElliottModelType.ZIGZAG,
+        //    ElliottModelType.DOUBLE_ZIGZAG,
+        //    ElliottModelType.TRIANGLE_RUNNING,
+        //    ElliottModelType.TRIANGLE_CONTRACTING,
+        //    ElliottModelType.FLAT_EXTENDED,
+        //    ElliottModelType.FLAT_RUNNING,
+        //}.ToHashSet();
 
-        private HashSet<ElliottModelType> m_Wave2Patterns = new List<ElliottModelType>
-        {
-            ElliottModelType.ZIGZAG,
-            ElliottModelType.DOUBLE_ZIGZAG,
-            ElliottModelType.FLAT_EXTENDED,
-            ElliottModelType.FLAT_RUNNING,
-        }.ToHashSet();
+        //private HashSet<ElliottModelType> m_Wave2Patterns = new List<ElliottModelType>
+        //{
+        //    ElliottModelType.ZIGZAG,
+        //    ElliottModelType.DOUBLE_ZIGZAG,
+        //    ElliottModelType.FLAT_EXTENDED,
+        //    ElliottModelType.FLAT_RUNNING,
+        //}.ToHashSet();
 
         private record CheckParams(
             bool IsUp,
@@ -336,7 +336,6 @@ namespace TradeKit.AlgoBase
             CheckParams checkParams, ImpulseElliottModelResult result, BarPoint bOf4 = null)
         {
             bool useRunning4 = bOf4 != null;
-
             if (useRunning4)
             {
                 if (bOf4.OpenTime <= result.Wave3.OpenTime)
@@ -369,24 +368,54 @@ namespace TradeKit.AlgoBase
 
                 if (wave4DeAnd5.Any())
                 {
+                    KeyValuePair<DateTime, (int, double)> waveE = checkParams.IsUp
+                        ? wave4DeAnd5.MinBy(a => a.Value.Item2)
+                        : wave4DeAnd5.MaxBy(a => a.Value.Item2);
+
+                    BarPoint waveDof4 =
+                        m_BarsProviderMain.GetExtremumBetween(
+                            waveCof4.OpenTime, waveE.Key, checkParams.IsUp);
+                    if (waveDof4 == null)
+                        return;
+
                     result.Wave4Type = ElliottModelType.TRIANGLE_CONTRACTING;
-                    //result.ExtremaWave4 = new List<BarPoint>{ result.Wave3 , waveAof4, bOf4, waveCof4; }
+                    result.ExtremaWave4 = new List<BarPoint>
+                    {
+                        result.Wave3, waveAof4, bOf4, waveCof4, waveDof4,
+                        new(waveE.Value.Item2, waveE.Key, m_BarsProviderMain)
+                    };
                 }
                 else
                 {
-                    result.Wave4Type = ElliottModelType.FLAT_EXTENDED;
-                }
-
-                CheckWith1st2ndWave(checkParams,
-                    result with
+                    result.Wave4 = waveCof4;
+                    result.ExtremaWave4 = new List<BarPoint>
                     {
-                        Wave4 = waveCof4,
-                        ExtremaWave4 = new List<BarPoint>
-                        {
-                            result.Wave3, waveAof4, bOf4, waveCof4
-                        }
-                    });
+                        result.Wave3, waveAof4, bOf4, waveCof4
+                    };
+
+                    if (checkParams.IsUp && waveCof4 > waveAof4 ||
+                        !checkParams.IsUp && waveCof4 < waveAof4)
+                        result.Wave4Type = ElliottModelType.FLAT_RUNNING;
+                    else
+                        result.Wave4Type = ElliottModelType.FLAT_EXTENDED;
+                }
             }
+            else
+            {
+                BarPoint waveCorYof4 =
+                    m_BarsProviderMain.GetExtremumBetween(
+                        result.Wave3.OpenTime, result.Wave5.OpenTime, !checkParams.IsUp);
+                if (waveCorYof4 == null)
+                    return;
+
+                result.Wave4Type = ElliottModelType.ZIGZAG;
+                result.ExtremaWave4 = new List<BarPoint>
+                {
+                    result.Wave3, waveCorYof4
+                };
+            }
+
+            CheckWith1st2ndWave(checkParams, result);
         }
 
         /// <summary>
@@ -398,49 +427,9 @@ namespace TradeKit.AlgoBase
         /// <returns>
         ///   <c>true</c> if the interval is impulse; otherwise, <c>false</c>.
         /// </returns>
-        public bool IsImpulse(BarPoint start, BarPoint end, out ElliottModelResult result)
+        public bool IsImpulse(BarPoint start, BarPoint end, out ImpulseElliottModelResult result)
         {
-            result = null;
-            bool isImpulse = IsImpulseByPivots(start, end,
-                out ImpulseElliottModelResult resultInner);//replace
-
-            //List<BarPoint> waves = new List<BarPoint> { start, end };
-            //result = new ElliottModelResult(ElliottModelType.IMPULSE, waves, null, null);
-
-            //DateTime startDate = start.OpenTime;
-            //DateTime endDate = end.OpenTime.Add(m_MainFrameInfo.TimeSpan);
-            //ushort rank = Helper.ML_IMPULSE_VECTOR_RANK;
-
-            //List<JsonCandleExport> candles = Helper.GetCandles(m_BarsProviderMinor, startDate, endDate);
-            //if (candles.Count < Helper.ML_MIN_BARS_COUNT &&
-            //    m_BarsProviderMinorX2 != null)
-            //{
-            //    candles = Helper.GetCandles(m_BarsProviderMinorX2, startDate, endDate);
-            //}
-
-            //var predictions =
-            //    MachineLearning.Predict(candles, start.Value, end.Value, rank);
-
-            //foreach (string predictionKey in predictions.Keys)
-            //{
-            //    ClassPrediction prediction = predictions[predictionKey];
-            //    var modelMain = (ElliottModelType) prediction.PredictedIsFit;
-            //    //(ElliottModelType, float) model = result.Models[0];
-            //    //(ElliottModelType, float)[] topModels = result.Models.Take(2).ToArray();
-
-            //    if (modelMain != ElliottModelType.IMPULSE &&
-            //        modelMain != ElliottModelType.SIMPLE_IMPULSE)
-            //    {
-            //        continue;
-            //    }
-
-            //    result.Models = prediction.GetModelsMap();
-            //    result.Type = modelMain;
-            //    result.ModelType = ((int)modelMain).ToString();
-            //    result.MaxScore = result.Models.First(a => a.Item1 == modelMain).Item2;
-            //    return true;
-            //}
-
+            bool isImpulse = IsImpulseByPivots(start, end, out result);//replace
             return isImpulse;
         }
     }

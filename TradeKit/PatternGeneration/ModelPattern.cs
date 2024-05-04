@@ -52,7 +52,7 @@ namespace TradeKit.PatternGeneration
         public byte Level { get; set; }
 
         /// <summary>
-        /// Gets or sets the pattern arguments this model was generate from.
+        /// Gets or sets the pattern arguments this model was generated from.
         /// </summary>
         public PatternArgsItem PatternArgs { get; set; }
 

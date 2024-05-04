@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using TradeKit.AlgoBase;
 using TradeKit.Impulse;
 
 namespace TradeKit.PatternGeneration
@@ -8,11 +9,11 @@ namespace TradeKit.PatternGeneration
     {
         private static readonly Dictionary<string, string> ROME_MAP = new()
         {
-            {PatternGenerator.IMPULSE_ONE, "i"},
-            {PatternGenerator.IMPULSE_TWO, "ii"},
-            {PatternGenerator.IMPULSE_THREE, "iii"},
-            {PatternGenerator.IMPULSE_FOUR, "iv"},
-            {PatternGenerator.IMPULSE_FIVE, "v"},
+            {ElliottWavePatternHelper.IMPULSE_ONE, "i"},
+            {ElliottWavePatternHelper.IMPULSE_TWO, "ii"},
+            {ElliottWavePatternHelper.IMPULSE_THREE, "iii"},
+            {ElliottWavePatternHelper.IMPULSE_FOUR, "iv"},
+            {ElliottWavePatternHelper.IMPULSE_FIVE, "v"},
         };
 
         /// <summary>

@@ -3,15 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using cAlgo.API;
-using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
-using Microsoft.FSharp.Core;
 using Plotly.NET;
 using Plotly.NET.LayoutObjects;
-using Plotly.NET.TraceObjects;
 using TradeKit.Core;
 using TradeKit.EventArgs;
-using TradeKit.Indicators;
 using TradeKit.Json;
 using TradeKit.ML;
 using static Plotly.NET.StyleParam;
@@ -34,13 +30,13 @@ namespace TradeKit.Impulse
         protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
         {
-            string[] waveNotations = PatternGeneration.PatternGenerator.ModelRules[signalEventArgs.Model.Type].Models
+            string[] waveNotations = PatternGeneration.PatternGenerator.ModelRules[ElliottModelType.IMPULSE].Models
                 .Keys.ToArray();
             
-            for (int i = 0; i < signalEventArgs.Model.Extrema.Count; i++)
+            for (int i = 0; i < signalEventArgs.WavePoints.Length; i++)
             {
                 string notation = waveNotations[i];
-                BarPoint bp = signalEventArgs.Model.Extrema[i];
+                BarPoint bp = signalEventArgs.WavePoints[i];
                 var ann = ChartGenerator.GetAnnotation(bp.OpenTime, bp.Value, ChartGenerator.SEMI_WHITE_COLOR, 16,
                     Color.fromARGB(0, 0, 0, 0), notation);
                 candlestickChart.WithAnnotation(ann);
@@ -181,8 +177,8 @@ namespace TradeKit.Impulse
 
             var candlesForExport = new List<JsonCandleExport>();
 
-            BarPoint startWave = signalEventArgs.Model.Extrema[0];
-            BarPoint endWave = signalEventArgs.Model.Extrema[^1];
+            BarPoint startWave = signalEventArgs.Model.Wave0;
+            BarPoint endWave = signalEventArgs.Model.Wave5;
 
             for (int i = 0; i < barsCount; i++)
             {

@@ -345,7 +345,7 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Initializes the IsHighFirst property. This can be costy, we do this on-demand only.
+        /// Initializes the IsHighFirst property. This can be costly, we do this on-demand only.
         /// </summary>
         /// <param name="candle">The candle we should check</param>
         /// <param name="barsFunc">The time frame to bars provider function.</param>

@@ -1,10 +1,8 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Generic;
 using cAlgo.API;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.EventArgs;
-using TradeKit.Indicators;
-using cAlgo.API.Indicators;
 
 namespace TradeKit.Impulse
 {
@@ -71,17 +69,13 @@ namespace TradeKit.Impulse
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
             Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
 
-            if (e.Model.Extrema is { Count: > 0 })
+            BarPoint start = e.Model.Wave0;
+            BarPoint currentBar = start;
+            foreach (BarPoint wave in e.WavePoints)
             {
-                BarPoint start = e.Model.Extrema[0];
-                BarPoint currentBar = start;
-                BarPoint[] rest = e.Model.Extrema.Skip(1).ToArray();
-                foreach (BarPoint wave in rest)
-                {
-                    Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
-                        currentBar.OpenTime, currentBar.Value, wave.OpenTime, wave.Value, Color.LightBlue);
-                    currentBar = wave;
-                }
+                Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
+                    currentBar.OpenTime, currentBar.Value, wave.OpenTime, wave.Value, Color.LightBlue);
+                currentBar = wave;
             }
 
             foreach (BarPoint channelBarPoint in e.ChannelBarPoints)
