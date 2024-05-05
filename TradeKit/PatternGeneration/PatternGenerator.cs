@@ -73,32 +73,10 @@ namespace TradeKit.PatternGeneration
                 {ElliottModelType.COMBINATION, GetCombination}
             };
 
-            m_ShallowCorrections = new HashSet<ElliottModelType>
-            {
-                ElliottModelType.COMBINATION, 
-                ElliottModelType.FLAT_EXTENDED, 
-                ElliottModelType.FLAT_RUNNING,
-                ElliottModelType.TRIANGLE_CONTRACTING,
-                ElliottModelType.TRIANGLE_RUNNING
-            };
-
-            m_DeepCorrections = new HashSet<ElliottModelType>
-            {
-                ElliottModelType.ZIGZAG,
-                ElliottModelType.DOUBLE_ZIGZAG
-            };
-
-            m_DiagonalImpulses = new HashSet<ElliottModelType>
-            {
-                ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
-                ElliottModelType.DIAGONAL_CONTRACTING_ENDING
-            };
-
-            m_TruncatedImpulses = new HashSet<ElliottModelType>
-            {
-                ElliottModelType.IMPULSE,
-                ElliottModelType.DIAGONAL_CONTRACTING_ENDING
-            };
+            m_ShallowCorrections = HelperEw.ShallowCorrections;
+            m_DeepCorrections = HelperEw.DeepCorrections;
+            m_DiagonalImpulses = HelperEw.DiagonalImpulses;
+            m_TruncatedImpulses = HelperEw.TruncatedImpulses;
 
             ModelRules impulse = ModelRules[ElliottModelType.IMPULSE];
             m_Wave1Impulse = impulse.Models[HelperEw.IMPULSE_ONE].ToHashSet();

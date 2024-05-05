@@ -22,10 +22,44 @@ namespace TradeKit.AlgoBase
         public const string CORRECTION_XX = "xx";
         public const string CORRECTION_Z = "z";
 
+        public static HashSet<ElliottModelType> ShallowCorrections { get; }
+        public static HashSet<ElliottModelType> DeepCorrections { get; }
+        public static HashSet<ElliottModelType> DiagonalImpulses { get; }
+        public static HashSet<ElliottModelType> TruncatedImpulses { get; }
+
         static ElliottWavePatternHelper()
         {
             InitModelRulesStatic();
+
+            ShallowCorrections = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.COMBINATION,
+                ElliottModelType.FLAT_EXTENDED,
+                ElliottModelType.FLAT_RUNNING,
+                ElliottModelType.TRIANGLE_CONTRACTING,
+                ElliottModelType.TRIANGLE_RUNNING
+            };
+
+            DeepCorrections = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.ZIGZAG,
+                ElliottModelType.DOUBLE_ZIGZAG
+            };
+
+            DiagonalImpulses = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
+                ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+            };
+
+            TruncatedImpulses = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.IMPULSE,
+                ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+            };
         }
+
+        
 
         public static Dictionary<ElliottModelType, ModelRules> ModelRules
         { get; private set; }

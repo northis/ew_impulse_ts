@@ -148,8 +148,8 @@ namespace TradeKit.AlgoBase
             if(wave3Len<= wave1Len && wave3Len<= wave5Len)
                 return false;
 
-            if (isUp && wave4 <= wave1 ||
-                !isUp && wave4 >= wave1)
+            if (isUp && (wave4 <= wave1 || wave4 > wave3) ||
+                !isUp && (wave4 >= wave1 || wave4 < wave3))
                 return false;
 
             TimeSpan wave2Len = wave2.OpenTime - wave1.OpenTime;
@@ -219,7 +219,7 @@ namespace TradeKit.AlgoBase
             
             if (highs.Count == 0 && lows.Count == 0)
                 return true;//really smooth movement
-
+            
             bool isUp = end > start;
 
             TimeSpan halfLength = (end.OpenTime - start.OpenTime) / 2.5;
@@ -247,7 +247,15 @@ namespace TradeKit.AlgoBase
 
             bool hasOptions = checkParams.WavesResults.Any();
             if (hasOptions)
-                result = checkParams.WavesResults.First();
+            {
+                ImpulseElliottModelResult properImpulse = checkParams.WavesResults
+                    .FirstOrDefault(a =>
+                        ElliottWavePatternHelper.DeepCorrections.Contains(a.Wave2Type) &&
+                        ElliottWavePatternHelper.ShallowCorrections.Contains(a.Wave4Type) ||
+                        ElliottWavePatternHelper.DeepCorrections.Contains(a.Wave4Type) &&
+                        ElliottWavePatternHelper.ShallowCorrections.Contains(a.Wave2Type));
+                result = properImpulse ?? checkParams.WavesResults.First();
+            }
 
             return hasOptions;
         }
@@ -257,10 +265,11 @@ namespace TradeKit.AlgoBase
         {
             if (result.Wave1 == null)
                 return;
-            
+
             List<KeyValuePair<DateTime, (int, double)>> wave2And3 = (checkParams.IsUp
                     ? checkParams.Lows
                     : checkParams.Highs)
+                .OrderBy(a => a.Key)
                 .SkipWhile(a => a.Key <= (bOf2?.OpenTime ?? result.Wave1.OpenTime))
                 .TakeWhile(a => a.Key < result.Wave3.OpenTime &&
                                 checkParams.IsUp
@@ -329,13 +338,23 @@ namespace TradeKit.AlgoBase
             if (peaks1To3.Count == 0)
                 return;
 
-            if (peaks1To3.Count > 1)
+            BarPoint firstExtrema2Check = peaks1To3[0];
+            BarPoint pre1Extrema = m_BarsProviderMain.GetExtremumBetween(
+                result.Wave0.OpenTime, firstExtrema2Check.OpenTime, checkParams.IsUp);
+
+            if (checkParams.IsUp && pre1Extrema >= firstExtrema2Check ||
+                !checkParams.IsUp && pre1Extrema <= firstExtrema2Check)
             {
-                CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[0] }, peaks1To3[1]);
-                CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[1] }, peaks1To3[0]);
+                firstExtrema2Check = pre1Extrema;
             }
 
-            CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[0] });
+            if (peaks1To3.Count > 1)
+            {
+                CheckWith1stWave(checkParams, result with { Wave1 = firstExtrema2Check }, peaks1To3[1]);
+                CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[1] }, firstExtrema2Check);
+            }
+
+            CheckWith1stWave(checkParams, result with { Wave1 = firstExtrema2Check });
         }
 
         private void CheckWith3RdWave(
@@ -365,7 +384,9 @@ namespace TradeKit.AlgoBase
                     return;
 
                 // Now we got a flat or a triangle, lets check it out
-                List<KeyValuePair<DateTime, (int, double)>> wave4DeAnd5 = (checkParams.IsUp ? checkParams.Lows : checkParams.Highs)
+                List<KeyValuePair<DateTime, (int, double)>> wave4DeAnd5 =
+                    (checkParams.IsUp ? checkParams.Lows : checkParams.Highs)
+                    .OrderBy(a => a.Key)
                     .SkipWhile(a => a.Key <= waveCof4.OpenTime)
                     .TakeWhile(a => checkParams.IsUp
                         ? a.Value.Item2 > waveCof4 && a.Value.Item2 < bOf4.Value
@@ -385,10 +406,10 @@ namespace TradeKit.AlgoBase
                         return;
 
                     result.Wave4Type = ElliottModelType.TRIANGLE_CONTRACTING;
+                    result.Wave4 = new BarPoint(waveE.Value.Item2, waveE.Key, m_BarsProviderMain);
                     result.ExtremaWave4 = new List<BarPoint>
                     {
-                        result.Wave3, waveAof4, bOf4, waveCof4, waveDof4,
-                        new(waveE.Value.Item2, waveE.Key, m_BarsProviderMain)
+                        result.Wave3, waveAof4, bOf4, waveCof4, waveDof4,result.Wave4
                     };
                 }
                 else

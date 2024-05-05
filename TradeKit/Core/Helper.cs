@@ -20,7 +20,7 @@ namespace TradeKit.Core
 
         
         public const double MINIMUM_BARS_IN_IMPULSE = 10;
-        public const double BARS_DEPTH = 10000;
+        public const double BARS_DEPTH = 30000;
         public const int EXTREMA_MAX = 200;
         public const double PERCENT_ALLOWANCE_SL = 2;
         public const double PERCENT_ALLOWANCE_TP = 0;
