@@ -227,6 +227,7 @@ namespace TradeKit.AlgoBase
 
             //Let's find the end of the 3rd wave in the second part of the movement
             List<KeyValuePair<DateTime, (int, double)>> wave3And5 = (isUp ? highs : lows)
+                .OrderBy(a => a.Key)
                 .SkipWhile(a => a.Key < middleDate)
                 .ToList();
 
@@ -342,19 +343,25 @@ namespace TradeKit.AlgoBase
             BarPoint pre1Extrema = m_BarsProviderMain.GetExtremumBetween(
                 result.Wave0.OpenTime, firstExtrema2Check.OpenTime, checkParams.IsUp);
 
+            BarPoint waveBof2 = null;
             if (checkParams.IsUp && pre1Extrema >= firstExtrema2Check ||
                 !checkParams.IsUp && pre1Extrema <= firstExtrema2Check)
             {
+                waveBof2 = firstExtrema2Check;
                 firstExtrema2Check = pre1Extrema;
             }
 
-            if (peaks1To3.Count > 1)
+            if (waveBof2 == null && peaks1To3.Count > 1)
             {
-                CheckWith1stWave(checkParams, result with { Wave1 = firstExtrema2Check }, peaks1To3[1]);
-                CheckWith1stWave(checkParams, result with { Wave1 = peaks1To3[1] }, firstExtrema2Check);
+                waveBof2 = peaks1To3[1];
             }
 
-            CheckWith1stWave(checkParams, result with { Wave1 = firstExtrema2Check });
+            if (waveBof2 != null)
+            {
+                CheckWith1stWave(checkParams, result with {Wave1 = firstExtrema2Check}, waveBof2);
+            }
+
+            CheckWith1stWave(checkParams, result with { Wave1 = firstExtrema2Check }, waveBof2);
         }
 
         private void CheckWith3RdWave(

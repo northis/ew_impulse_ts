@@ -308,7 +308,7 @@ namespace TradeKit.Core
                 {
                     currentValue = isHigh
                         ? barProvider.GetHighPrice(i)
-                        : barProvider.GetLowPrice(startIndex);
+                        : barProvider.GetLowPrice(i);
                     currentIndex = i;
                 }
             }
