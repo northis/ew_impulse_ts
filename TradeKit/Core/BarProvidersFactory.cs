@@ -33,7 +33,7 @@ namespace TradeKit.Core
                 return prov;
             }
 
-            prov = new CTraderBarsProvider(m_MarketData.GetBars(timeFrame), Symbol);
+            prov = new CTraderBarsProvider(m_MarketData.GetBars(timeFrame, Symbol.Name), Symbol);
             m_Providers[timeFrame] = prov;
             return prov;
         }

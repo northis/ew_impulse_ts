@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;
 using Plotly.NET.LayoutObjects;
+using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Json;
@@ -30,13 +32,16 @@ namespace TradeKit.Impulse
         protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
         {
-            string[] waveNotations = PatternGeneration.PatternGenerator.ModelRules[ElliottModelType.IMPULSE].Models
+            string[] waveNotations = ElliottWavePatternHelper.ModelRules[ElliottModelType.IMPULSE].Models
                 .Keys.ToArray();
             
             for (int i = 0; i < signalEventArgs.WavePoints.Length; i++)
             {
                 string notation = waveNotations[i];
                 BarPoint bp = signalEventArgs.WavePoints[i];
+                if (bp == null)
+                    continue;
+
                 var ann = ChartGenerator.GetAnnotation(bp.OpenTime, bp.Value, ChartGenerator.SEMI_WHITE_COLOR, 16,
                     Color.fromARGB(0, 0, 0, 0), notation);
                 candlestickChart.WithAnnotation(ann);
@@ -56,50 +61,75 @@ namespace TradeKit.Impulse
             DateTime startView = signalEventArgs.StartViewBarTime;
 
             bool useChannel = signalEventArgs.ChannelBarPoints.Length == 4;
-            GenericChart.GenericChart[] result =
-                new GenericChart.GenericChart[2 + (useChannel ? 2 : 0)];
+            var result = new List<GenericChart.GenericChart>();
 
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
                 LineColor: ChartGenerator.LONG_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
-            result[0] = tpLine;
+            result.Add(tpLine);
             GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
                 LineColor: ChartGenerator.SHORT_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
-            result[1] = slLine;
+            result.Add(slLine);
 
-            if (useChannel)
+            BarPoint start = signalEventArgs.Model.Wave0;
+            if (start != null)
             {
-                BarPoint channelBottom1 = signalEventArgs.ChannelBarPoints[0];
-                BarPoint channelBottom2 = signalEventArgs.ChannelBarPoints[1];
-                
-                result[2] = Chart2D.Chart.Line<DateTime, double, string>(
-                    new Tuple<DateTime, double>[]
-                    {
-                        new(channelBottom1.OpenTime, channelBottom1.Value),
-                        new(channelBottom2.OpenTime, channelBottom2.Value)
-                    },
-                    LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
-                    ShowLegend: false.ToFSharp(),
-                    LineDash: DrawingStyle.Dot.ToFSharp());
+                BarPoint currentBar = start;
+                foreach (BarPoint wave in signalEventArgs.WavePoints)
+                {
+                    if (wave == null)
+                        continue;
 
-
-                BarPoint channelTop1 = signalEventArgs.ChannelBarPoints[2];
-                BarPoint channelTop2 = signalEventArgs.ChannelBarPoints[3];
-
-                result[3] = Chart2D.Chart.Line<DateTime, double, string>(
-                    new Tuple<DateTime, double>[]
-                        {new(channelTop1.OpenTime, channelTop1.Value), new(channelTop2.OpenTime, channelTop2.Value)},
-                    LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
-                    ShowLegend: false.ToFSharp(),
-                    LineDash: DrawingStyle.Dot.ToFSharp());
+                    GenericChart.GenericChart waveLine =
+                        Chart2D.Chart.Line<DateTime, double, string>(
+                            new Tuple<DateTime, double>[]
+                            {
+                                new(currentBar.OpenTime, currentBar.Value),
+                                new(wave.OpenTime, wave.Value)
+                            },
+                            LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
+                            ShowLegend: false.ToFSharp(),
+                            LineDash: DrawingStyle.Dot.ToFSharp());
+                    result.Add(waveLine);
+                    currentBar = wave;
+                }
             }
 
-            return result;
+            if (!useChannel)
+            {
+                return result.ToArray();
+            }
+
+            BarPoint channelBottom1 = signalEventArgs.ChannelBarPoints[0];
+            BarPoint channelBottom2 = signalEventArgs.ChannelBarPoints[1];
+                
+            result.Add(Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[]
+                {
+                    new(channelBottom1.OpenTime, channelBottom1.Value),
+                    new(channelBottom2.OpenTime, channelBottom2.Value)
+                },
+                LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
+                ShowLegend: false.ToFSharp(),
+                LineDash: DrawingStyle.DashDot.ToFSharp()));
+
+
+            BarPoint channelTop1 = signalEventArgs.ChannelBarPoints[2];
+            BarPoint channelTop2 = signalEventArgs.ChannelBarPoints[3];
+
+            result.Add(Chart2D.Chart.Line<DateTime, double, string>(
+                new Tuple<DateTime, double>[]
+                    {new(channelTop1.OpenTime, channelTop1.Value), new(channelTop2.OpenTime, channelTop2.Value)},
+                LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
+                ShowLegend: false.ToFSharp(),
+                LineDash: DrawingStyle.Dot.ToFSharp()));
+
+            return result.ToArray();
         }
 
         /// <summary>
@@ -120,8 +150,9 @@ namespace TradeKit.Impulse
         /// <param name="symbolEntity">The symbol entity.</param>
         protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
+            Debugger.Launch();
             var barsProvider = GetBarsProvider(bars, symbolEntity);
-            var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
+            var barProvidersFactory = new BarProvidersFactory(symbolEntity, MarketData);
             var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
             return sf;
         }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
@@ -21,25 +20,6 @@ namespace TradeKit.AlgoBase
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
         private const int MIN_PERIOD = 1;
-        //private const int SMOOTH_MIN_PERIOD = 2;
-
-        //private HashSet<ElliottModelType> m_Wave4Patterns = new List<ElliottModelType>
-        //{
-        //    ElliottModelType.ZIGZAG,
-        //    ElliottModelType.DOUBLE_ZIGZAG,
-        //    ElliottModelType.TRIANGLE_RUNNING,
-        //    ElliottModelType.TRIANGLE_CONTRACTING,
-        //    ElliottModelType.FLAT_EXTENDED,
-        //    ElliottModelType.FLAT_RUNNING,
-        //}.ToHashSet();
-
-        //private HashSet<ElliottModelType> m_Wave2Patterns = new List<ElliottModelType>
-        //{
-        //    ElliottModelType.ZIGZAG,
-        //    ElliottModelType.DOUBLE_ZIGZAG,
-        //    ElliottModelType.FLAT_EXTENDED,
-        //    ElliottModelType.FLAT_RUNNING,
-        //}.ToHashSet();
 
         private record CheckParams(
             bool IsUp,
@@ -443,6 +423,7 @@ namespace TradeKit.AlgoBase
                     return;
 
                 result.Wave4Type = ElliottModelType.ZIGZAG;
+                result.Wave4 = waveCorYof4;
                 result.ExtremaWave4 = new List<BarPoint>
                 {
                     result.Wave3, waveCorYof4
