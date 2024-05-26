@@ -36,6 +36,7 @@
     <Compile Include="AlgoBase\GartleyPatternFinder.cs" />
     <Compile Include="AlgoBase\CandlePatternFinder.cs" />
     <Compile Include="Core\ChartGenerator.cs" />
+    <Compile Include="Gartley\GartleyProjection.cs" />
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />
     <Compile Include="ML\ModelInput.cs" />

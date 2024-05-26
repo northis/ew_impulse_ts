@@ -16,7 +16,6 @@ namespace TradeKit.Gartley
     public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     {
         private readonly IBarsProvider m_MainBarsProvider;
-        private int m_BarsDepth;
         private bool m_FilterByDivergence;
         private SuperTrendItem m_SuperTrendItem;
         private readonly MacdCrossOverIndicator m_MacdCrossOver;
@@ -25,7 +24,7 @@ namespace TradeKit.Gartley
         private readonly GartleyPatternFinder m_PatternFinder;
         private readonly GartleyItemComparer m_GartleyItemComparer = new();
         private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
         /// </summary>
@@ -56,7 +55,6 @@ namespace TradeKit.Gartley
             m_SuperTrendItem = superTrendItem;
             m_SuperTrendItem = superTrendItem;
             m_FilterByDivergence = filterByDivergence;
-            m_BarsDepth = barsDepth;
 
             if (useAutoSettings)
             {
@@ -68,7 +66,8 @@ namespace TradeKit.Gartley
 
             }
 
-            m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, wickAllowance, patterns);
+            m_PatternFinder = new GartleyPatternFinder(
+                m_MainBarsProvider, wickAllowance, barsDepth, patterns);
 
             var comparer = new GartleyItemComparer();
             m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
@@ -140,7 +139,7 @@ namespace TradeKit.Gartley
         /// <param name="currentPriceBid">The current price (Bid).</param>
         protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
-            int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - m_BarsDepth);
+            //int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - m_BarsDepth);
 
             HashSet<GartleyItem> localPatterns = null;
             double close;
@@ -157,7 +156,7 @@ namespace TradeKit.Gartley
             }
             else
             {
-                localPatterns = m_PatternFinder.FindGartleyPatterns(startIndex, index);
+                localPatterns = m_PatternFinder.FindGartleyPatterns(index);
                 if (localPatterns == null && noOpenedPatterns)
                 {
                     return;

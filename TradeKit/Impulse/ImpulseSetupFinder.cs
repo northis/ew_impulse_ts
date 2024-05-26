@@ -359,11 +359,11 @@ namespace TradeKit.Impulse
                     return;
                 }
 
-                //if (!CheckChannel(startItem.Value, endItem.Value, edgeExtremum.OpenTime,
-                //        out BarPoint[] channelBarPoints))
-                //{
-                //    return;
-                //}
+                if (!CheckChannel(startItem.Value, endItem.Value, edgeExtremum.OpenTime,
+                        out BarPoint[] channelBarPoints))
+                {
+                    //return;
+                }
 
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)
@@ -443,7 +443,8 @@ namespace TradeKit.Impulse
                     slArg,
                     outExtrema,
                     viewDateTime,
-                    comment, Array.Empty<BarPoint>()));
+                    comment, 
+                    channelBarPoints));
                 // Here we should give a trade signal.
             }
 

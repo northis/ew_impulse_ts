@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using TradeKit.Core;
 
 namespace TradeKit.AlgoBase
@@ -9,30 +11,57 @@ namespace TradeKit.AlgoBase
         private int m_Period;
         private int m_PeriodX2;
         private readonly IBarsProvider m_BarsProvider;
-        
+        private readonly int m_BarsDepthCleanOld;
+
         public double DefaultValue = double.NaN;
 
         /// <summary>
-        /// Gets the collection of pivot points (high) found.
+        /// Gets the collection of pivot points (highs) found.
         /// </summary>
         public SortedDictionary<DateTime, double> HighValues { get; }
+
+        /// <summary>
+        /// Gets the reversed dictionary of pivot points (highs) found.
+        /// </summary>
+        public SortedDictionary<double, List<DateTime>> HighValuesReversed { get; }
+        /// <summary>
+        /// Gets the reversed dictionary of pivot points (lows) found.
+        /// </summary>
+        public SortedDictionary<double, List<DateTime>> LowValuesReversed { get; }
 
         /// <summary>
         /// Gets the collection of pivot points (lows) found.
         /// </summary>
         public SortedDictionary<DateTime, double> LowValues { get; }
 
+        /// <summary>
+        /// Gets the low extrema.
+        /// </summary>
         public SortedSet<DateTime> LowExtrema { get; }
+
+        /// <summary>
+        /// Gets the high extrema.
+        /// </summary>
         public SortedSet<DateTime> HighExtrema { get; }
 
-        public PivotPointsFinder(int period, IBarsProvider barsProvider)
+        /// <summary>
+        /// Gets all extrema.
+        /// </summary>
+        public SortedSet<DateTime> AllExtrema { get; }
+
+        public PivotPointsFinder(int period, IBarsProvider barsProvider, 
+            int barsDepthCleanOld = 1000)
         {
+            m_BarsDepthCleanOld = barsDepthCleanOld;
             SetPeriod(period);
             m_BarsProvider = barsProvider;
             HighValues = new SortedDictionary<DateTime, double>();
+            HighValuesReversed = new SortedDictionary<double, List<DateTime>>();
             LowValues = new SortedDictionary<DateTime, double>();
+            LowValuesReversed = new SortedDictionary<double, List<DateTime>>();
             LowExtrema = new SortedSet<DateTime>();
             HighExtrema = new SortedSet<DateTime>();
+            AllExtrema = new SortedSet<DateTime>();
         }
 
         /// <summary>
@@ -71,9 +100,12 @@ namespace TradeKit.AlgoBase
         public void Reset()
         {
             HighValues.Clear();
+            HighValuesReversed.Clear();
             LowValues.Clear();
+            LowValuesReversed.Clear();
             HighExtrema.Clear();
             LowExtrema.Clear();
+            AllExtrema.Clear();
             DefaultValue = double.NaN;
         }
 
@@ -112,6 +144,57 @@ namespace TradeKit.AlgoBase
             Calculate(startIndex, endIndex);
         }
 
+        private static void AddToReversed(
+            double value,
+            DateTime dt,
+            SortedDictionary<double, List<DateTime>> reversed)
+        {
+            if (!reversed.TryGetValue(value, out List<DateTime> list)) 
+                list = new List<DateTime>{ dt };
+
+            reversed.Add(value, list);
+        }
+
+        private void CleanCollection(
+            DateTime currentBarDateTime,
+            SortedDictionary<DateTime, double> collection,
+            SortedDictionary<double, List<DateTime>> collectionReversed)
+        {
+            foreach (KeyValuePair<DateTime, double> hV in
+                     collection.TakeWhile(a => a.Key < currentBarDateTime))
+            {
+                collection.Remove(hV.Key);
+                if (collectionReversed.TryGetValue(hV.Value, out List<DateTime> vals))
+                {
+                    vals.Remove(hV.Key);
+                    if (vals.Count == 0)
+                        collectionReversed.Remove(hV.Value);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Cleans the collections - maintenance every <see cref="m_BarsDepthCleanOld"/> bars.
+        /// </summary>
+        /// <param name="currentBarIndex">Index of the current bar.</param>
+        private void CleanCollections(int currentBarIndex)
+        {
+            if (currentBarIndex <= 0 || currentBarIndex % m_BarsDepthCleanOld != 0)
+                return;
+
+            int ancientIndex = currentBarIndex - m_BarsDepthCleanOld;
+            if (ancientIndex <= 0)
+                return;
+
+            DateTime currentBarDateTime = m_BarsProvider.GetOpenTime(currentBarIndex);
+
+            AllExtrema.RemoveWhere(a => a < currentBarDateTime);
+            HighExtrema.RemoveWhere(a => a < currentBarDateTime);
+            LowExtrema.RemoveWhere(a => a < currentBarDateTime);
+            CleanCollection(currentBarDateTime, HighValues, HighValuesReversed);
+            CleanCollection(currentBarDateTime, LowValues, LowValuesReversed);
+        }
+
         /// <summary>
         /// Calculates the extrema for the specified <see cref="indexLast"/>.
         /// </summary>
@@ -145,10 +228,13 @@ namespace TradeKit.AlgoBase
             }
 
             DateTime dt = m_BarsProvider.GetOpenTime(index);
+            CleanCollections(index);
             if (gotHigh)
             {
                 HighValues[dt] = max;
                 HighExtrema.Add(dt);
+                AllExtrema.Add(dt);
+                AddToReversed(max, dt, HighValuesReversed);
             }
             else
                 HighValues[dt] = DefaultValue;
@@ -157,6 +243,8 @@ namespace TradeKit.AlgoBase
             {
                 LowValues[dt] = min;
                 LowExtrema.Add(dt);
+                AllExtrema.Add(dt);
+                AddToReversed(min, dt, LowValuesReversed);
             }
             else
                 LowValues[dt] = DefaultValue;

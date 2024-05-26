@@ -5,6 +5,7 @@ using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Gartley;
+using TradeKit.AlgoBase;
 
 #if !GARTLEY_PROD
 using TradeKit.PriceAction;
@@ -342,6 +343,53 @@ namespace TradeKit.Core
             double res = barProvider.GetLowPrice(index);
 
             return res;
+        }
+
+        /// <summary>
+        /// Removes according to the func.
+        /// </summary>
+        /// <typeparam name="TK">The type of the key.</typeparam>
+        /// <typeparam name="TV">The type of the value.</typeparam>
+        /// <param name="sortedList">The sorted list.</param>
+        /// <param name="compareFunc">The function for comparing.</param>
+        /// <returns>Removed items count.</returns>
+        public static int RemoveWhere<TK, TV>(
+            this SortedList<TK, TV> sortedList, Func<TK, bool> compareFunc)
+        {
+            int removed = 0;
+            while (sortedList.Count > 0 &&
+                   compareFunc(sortedList.Keys[0]))
+            {
+                sortedList.RemoveAt(0);
+                removed++;
+            }
+
+            return removed;
+        }
+        
+        /// <summary>
+        /// Removes according to the func.
+        /// </summary>
+        /// <typeparam name="TK">The type of the key.</typeparam>
+        /// <typeparam name="TV">The type of the value.</typeparam>
+        /// <param name="sortedList">The sorted list.</param>
+        /// <param name="compareFunc">The function for comparing.</param>
+        /// <returns>Removed items count.</returns>
+        public static int RemoveWhere<TK, TV>(
+            this SortedDictionary<TK, TV> sortedList, Func<TK, bool> compareFunc)
+        {
+            int removed = 0;
+
+
+            sortedList.TakeWhile(a => a.Key < low);
+            while (sortedList.Count > 0 &&
+                   compareFunc(sortedList.Keys[0]))
+            {
+                sortedList.RemoveAt(0);
+                removed++;
+            }
+
+            return removed;
         }
 
         /// <summary>

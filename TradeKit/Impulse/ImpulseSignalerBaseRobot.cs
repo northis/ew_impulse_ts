@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using cAlgo.API;
@@ -150,7 +149,6 @@ namespace TradeKit.Impulse
         /// <param name="symbolEntity">The symbol entity.</param>
         protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
         {
-            Debugger.Launch();
             var barsProvider = GetBarsProvider(bars, symbolEntity);
             var barProvidersFactory = new BarProvidersFactory(symbolEntity, MarketData);
             var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);

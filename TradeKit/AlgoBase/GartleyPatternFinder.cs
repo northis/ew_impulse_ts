@@ -1,6 +1,8 @@
-﻿using System;
+﻿using cAlgo.API;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using TradeKit.Core;
 using TradeKit.Gartley;
 
@@ -8,8 +10,24 @@ namespace TradeKit.AlgoBase
 {
     internal class GartleyPatternFinder
     {
+        private class BorderPoint
+        {
+            internal DateTime? DatePoint { get; set; }
+            internal BarPoint BarPoint { get; set; }
+
+            internal void UpdateDate(DateTime date)
+            {
+                if (DatePoint == null || DatePoint < date)
+                {
+                    DatePoint = date;
+                    BarPoint = null;
+                }
+            }
+        }
+
         private readonly double m_WickAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
+        private readonly int m_BarsDepth;
         private const int GARTLEY_EXTREMA_COUNT = 6;
         private const int PRE_X_EXTREMA_BARS_COUNT = 7;
 //#if GARTLEY_PROD
@@ -23,116 +41,125 @@ namespace TradeKit.AlgoBase
         private const double TP2_RATIO = 0.618;
         private const double MAX_SL_TP_RATIO_ALLOWED = 2;
 
-        private static readonly double[] LEVELS =
-        {
-            0.236,
-            0.382,
-            0.5,
-            0.618,
-            0.707,
-            0.786,
-            0.886,
-            1,
-            1.13,
-            1.272,
-            1.41,
-            1.618,
-            2,
-            2.24,
-            2.618,
-            3.14,
-            3.618
-        };
-
-        static GartleyPatternFinder()
-        {
-            PATTERNS = new GartleyPattern[]
-            {
-                new(GartleyPatternType.GARTLEY,
-                    XBValues: new[] {0.618},
-                    XDValues: new[] {0.786},
-                    BDValues: LEVELS.RangeVal(1.13, 1.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.BUTTERFLY,
-                    XBValues: new[] {0.786},
-                    XDValues: LEVELS.RangeVal(1.27, 1.414),
-                    BDValues: LEVELS.RangeVal(1.618, 2.24),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.SHARK,
-                    XBValues: Array.Empty<double>(),
-                    XDValues: LEVELS.RangeVal(0.886, 1.13),
-                    BDValues: LEVELS.RangeVal(1.618, 2.24),
-                    ACValues: LEVELS.RangeVal(1.13, 1.618)),
-                new(GartleyPatternType.CRAB,
-                    XBValues: LEVELS.RangeVal(0.382, 0.618),
-                    XDValues: new[] {1.618},
-                    BDValues: LEVELS.RangeVal(2.618, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.DEEP_CRAB,
-                    XBValues: new[] {0.886},
-                    XDValues: new[] {1.618},
-                    BDValues: LEVELS.RangeVal(2, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.BAT,
-                    XBValues: LEVELS.RangeVal(0.382, 0.5),
-                    XDValues: new[] {1.618},
-                    BDValues: LEVELS.RangeVal(1.618, 2.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.ALT_BAT,
-                    XBValues: new[] {0.382},
-                    XDValues: new[] {1.13},
-                    BDValues: LEVELS.RangeVal(2, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
-                new(GartleyPatternType.CYPHER,
-                    XBValues: LEVELS.RangeVal(0.382, 0.618),
-                    XDValues: new[] {0.786},
-                    BDValues: LEVELS.RangeVal(1.272, 2),
-                    ACValues: LEVELS.RangeVal(1.13, 1.41),
-                    SetupType: GartleySetupType.CD)
-            };
-        }
-
-        private static readonly GartleyPattern[] PATTERNS;
         private readonly GartleyPattern[] m_RealPatterns;
-        
+        private readonly SortedList<DateTime, GartleyProjection> m_ActiveProjections;
+        private readonly SortedSet<DateTime> m_WastedLows;
+        private readonly SortedSet<DateTime> m_WastedHighs;
+
+        private readonly PivotPointsFinder m_PivotPointsFinder;
+
+        private const int MIN_PERIOD = 1;
+
+        private readonly BorderPoint m_BorderPointAHigh = new();
+        private readonly BorderPoint m_BorderPointALow = new();
+        private DateTime? m_BorderDateTime;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
         /// </summary>
         /// <param name="wickAllowance">The correction allowance percent.</param>
-        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="barsProvider">The bar provider.</param>
+        /// <param name="barsDepth">How many bars we should analyze backwards.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             IBarsProvider barsProvider, 
-            double wickAllowance, 
+            double wickAllowance,
+            int barsDepth,
             HashSet<GartleyPatternType> patterns = null)
         {
             if (wickAllowance is < 0 or > 100)
                 throw new IndexOutOfRangeException(
                     $"{nameof(wickAllowance)} should be between 0 and 100");
 
+            m_PivotPointsFinder = new PivotPointsFinder(MIN_PERIOD, barsProvider);
             m_WickAllowanceRatio = wickAllowance / 100;
             m_BarsProvider = barsProvider;
+            m_BarsDepth = barsDepth;
             m_RealPatterns = patterns == null
-                ? PATTERNS
-                : PATTERNS.Where(a => patterns.Contains(a.PatternType))
+                ? GartleyProjection.PATTERNS
+                : GartleyProjection.PATTERNS.Where(a => patterns.Contains(a.PatternType))
                     .ToArray();
+            m_ActiveProjections = new SortedList<DateTime, GartleyProjection>();
+            m_WastedLows = new SortedSet<DateTime>();
+            m_WastedHighs = new SortedSet<DateTime>();
+        }
+
+        private void InitDatesIfNeeded(int startIndex)
+        {
+            DateTime currentDt = m_BarsProvider.GetOpenTime(startIndex);
+
+            int prevIndex = startIndex - m_BarsDepth;
+            m_BorderDateTime = prevIndex < 0
+                ? currentDt.Add(-TimeFrameHelper.GetTimeFrameInfo(m_BarsProvider.TimeFrame).TimeSpan)
+                : m_BarsProvider.GetOpenTime(prevIndex);
+            m_BorderPointAHigh.UpdateDate(m_BorderDateTime.Value);
+            m_BorderPointALow.UpdateDate(m_BorderDateTime.Value);
+        }
+
+        private void UpdateProjectionsCache()
+        {
+            if (!m_BorderDateTime.HasValue) 
+                return;
+
+            m_ActiveProjections.RemoveWhere(a => a < m_BorderDateTime);
+            m_WastedLows.RemoveWhere(a => a < m_BorderDateTime);
+            m_WastedHighs.RemoveWhere(a => a < m_BorderDateTime);
+        }
+
+        private void UpdateWasted(int index)
+        {
+            var low = m_BarsProvider.GetHighPrice(index);
+            m_PivotPointsFinder.LowValuesReversed.TakeWhile(a => a.Key < low);
+
+            var high = m_BarsProvider.GetHighPrice(index);
         }
 
         /// <summary>
         /// Finds the gartley patterns or null if not found.
         /// </summary>
-        /// <param name="startIndex">The point we want to start the search from.</param>
-        /// <param name="endIndex">The point we want to end the search from.</param>
+        /// <param name="index">The point we want to start the search from.</param>
         /// <returns>Gartley pattern or null</returns>
-        public HashSet<GartleyItem> FindGartleyPatterns(int startIndex, int endIndex)
+        public HashSet<GartleyItem> FindGartleyPatterns(int index)
         {
-            if (endIndex - startIndex < GARTLEY_EXTREMA_COUNT)
+            m_PivotPointsFinder.Calculate(index);
+            InitDatesIfNeeded(index);
+            UpdateProjectionsCache();
+
+            if (!m_BorderPointAHigh.DatePoint.HasValue ||
+                !m_BorderPointALow.DatePoint.HasValue)
                 return null;
 
-            double max = m_BarsProvider.GetHighPrice(endIndex);
-            double min = m_BarsProvider.GetLowPrice(endIndex);
-            bool isBull = false;
-            
+            DateTime? pointDateTimeAHigh = null;
+            DateTime? pointDateTimeALow = null;
+            foreach (DateTime pointDateTimeX in
+                     m_PivotPointsFinder.AllExtrema.SkipWhile(a => a < m_BorderDateTime))
+            {
+                if (!m_WastedLows.Contains(pointDateTimeX) &&
+                    m_PivotPointsFinder.LowValues.TryGetValue(pointDateTimeX, out double lowX))
+                {
+                    foreach (KeyValuePair<DateTime, double> pointA 
+                             in m_PivotPointsFinder.HighValues
+                                 // m_BorderPointAHigh.DatePoint always > m_BorderDateTime
+                                 .SkipWhile(a => a.Key <= m_BorderPointAHigh.DatePoint))
+                    {
+                        pointDateTimeAHigh = pointA.Key;
+
+                        if (lowX >= pointA.Value)
+                            continue;
+                    }
+                }
+
+                double highX = m_PivotPointsFinder.HighValues[pointDateTimeX];
+
+            }
+
+            if (pointDateTimeAHigh.HasValue)
+                m_BorderPointAHigh.UpdateDate(pointDateTimeAHigh.Value);
+            if (pointDateTimeALow.HasValue)
+                m_BorderPointALow.UpdateDate(pointDateTimeALow.Value);
+
+            UpdateWasted(index);
+
             BarPoint pointD = null;
             HashSet<GartleyItem> patterns = null;
             int nextDIndex = endIndex - 1;
@@ -530,7 +557,7 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
-            double actualSize = Math.Max(cD, aD);
+            double actualSize = pattern.SetupType == GartleySetupType.AD ? aD : cD;
 
             double slLen = actualSize * SL_RATIO;
             double tp1Len = actualSize * TP1_RATIO;

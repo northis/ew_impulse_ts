@@ -199,7 +199,7 @@ namespace TradeKit.AlgoBase
             
             if (highs.Count == 0 && lows.Count == 0)
                 return true;//really smooth movement
-            
+
             bool isUp = end > start;
 
             TimeSpan halfLength = (end.OpenTime - start.OpenTime) / 2.5;
