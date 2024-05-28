@@ -76,10 +76,8 @@ namespace TradeKit.Gartley
 
         internal static readonly GartleyPattern[] PATTERNS;
 
-        public GartleyProjection(
-            int accuracyPercent, GartleyPatternType patternType, BarPoint itemX, BarPoint itemA)
+        public GartleyProjection(GartleyPatternType patternType, BarPoint itemX, BarPoint itemA)
         {
-            AccuracyPercent = accuracyPercent;
             PatternType = patternType;
             ItemX = itemX;
             ItemA = itemA;
@@ -87,7 +85,6 @@ namespace TradeKit.Gartley
 
         internal bool IsBull => ItemX.Value < ItemA.Value;
 
-        internal int AccuracyPercent { get; }
         internal GartleyPatternType PatternType { get; }
         internal BarPoint ItemX { get; }
         internal BarPoint ItemA { get; }

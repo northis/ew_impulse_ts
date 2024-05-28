@@ -42,9 +42,7 @@ namespace TradeKit.AlgoBase
         private const double MAX_SL_TP_RATIO_ALLOWED = 2;
 
         private readonly GartleyPattern[] m_RealPatterns;
-        private readonly SortedList<DateTime, GartleyProjection> m_ActiveProjections;
-        private readonly SortedSet<DateTime> m_WastedLows;
-        private readonly SortedSet<DateTime> m_WastedHighs;
+        private readonly SortedDictionary<DateTime, List<GartleyProjection>> m_ActiveProjections;
 
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
@@ -79,9 +77,8 @@ namespace TradeKit.AlgoBase
                 ? GartleyProjection.PATTERNS
                 : GartleyProjection.PATTERNS.Where(a => patterns.Contains(a.PatternType))
                     .ToArray();
-            m_ActiveProjections = new SortedList<DateTime, GartleyProjection>();
-            m_WastedLows = new SortedSet<DateTime>();
-            m_WastedHighs = new SortedSet<DateTime>();
+
+            m_ActiveProjections = new SortedDictionary<DateTime, List<GartleyProjection>>();
         }
 
         private void InitDatesIfNeeded(int startIndex)
@@ -101,17 +98,57 @@ namespace TradeKit.AlgoBase
             if (!m_BorderDateTime.HasValue) 
                 return;
 
-            m_ActiveProjections.RemoveWhere(a => a < m_BorderDateTime);
-            m_WastedLows.RemoveWhere(a => a < m_BorderDateTime);
-            m_WastedHighs.RemoveWhere(a => a < m_BorderDateTime);
+            m_ActiveProjections.RemoveLeft(a => a < m_BorderDateTime);
         }
 
-        private void UpdateWasted(int index)
+        private void UpdateProjections(int index)
         {
-            var low = m_BarsProvider.GetHighPrice(index);
-            m_PivotPointsFinder.LowValuesReversed.TakeWhile(a => a.Key < low);
+        }
 
-            var high = m_BarsProvider.GetHighPrice(index);
+        private void UpdateReversed(int index)
+        {
+            double low = m_BarsProvider.GetHighPrice(index);
+            m_PivotPointsFinder.LowValuesReversed.RemoveLeft(a => a <= low);
+
+            double high = m_BarsProvider.GetHighPrice(index);
+            m_PivotPointsFinder.HighValuesReversed.RemoveRight(a => a >= high);
+        }
+
+        private void ProcessProjections(
+            DateTime pointDateTimeX, 
+            BorderPoint border,
+            SortedDictionary<DateTime, double> values,
+            SortedDictionary<DateTime, double> counterValues,
+            SortedDictionary<double, List<DateTime>> valuesReversed)
+        {
+            if (!values.TryGetValue(pointDateTimeX, out double valX) ||
+                !valuesReversed.ContainsKey(valX)) return;
+
+            BarPoint aBarPoint = null;
+            foreach (KeyValuePair<DateTime, double> pointA in counterValues
+                         // m_BorderPointAHigh.DatePoint always > m_BorderDateTime
+                         .SkipWhile(a => a.Key <= border.DatePoint))
+            {
+                if (valX >= pointA.Value)
+                    continue;
+
+                aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
+                var xBarPoint = new BarPoint(valX, pointDateTimeX, m_BarsProvider);
+                foreach (GartleyPattern realPattern in m_RealPatterns)
+                {
+                    var projection = new GartleyProjection(
+                        realPattern.PatternType,
+                        xBarPoint,
+                        aBarPoint);
+
+                    m_ActiveProjections.AddValue(pointDateTimeX, projection);
+                }
+            }
+
+            if (aBarPoint == null) return;
+
+            border.UpdateDate(aBarPoint.OpenTime);
+            border.BarPoint = aBarPoint;
         }
 
         /// <summary>
@@ -129,107 +166,100 @@ namespace TradeKit.AlgoBase
                 !m_BorderPointALow.DatePoint.HasValue)
                 return null;
 
-            DateTime? pointDateTimeAHigh = null;
-            DateTime? pointDateTimeALow = null;
             foreach (DateTime pointDateTimeX in
                      m_PivotPointsFinder.AllExtrema.SkipWhile(a => a < m_BorderDateTime))
             {
-                if (!m_WastedLows.Contains(pointDateTimeX) &&
-                    m_PivotPointsFinder.LowValues.TryGetValue(pointDateTimeX, out double lowX))
-                {
-                    foreach (KeyValuePair<DateTime, double> pointA 
-                             in m_PivotPointsFinder.HighValues
-                                 // m_BorderPointAHigh.DatePoint always > m_BorderDateTime
-                                 .SkipWhile(a => a.Key <= m_BorderPointAHigh.DatePoint))
-                    {
-                        pointDateTimeAHigh = pointA.Key;
+                ProcessProjections(pointDateTimeX,
+                    m_BorderPointAHigh,
+                    m_PivotPointsFinder.LowValues,
+                    m_PivotPointsFinder.HighValues,
+                    m_PivotPointsFinder.LowValuesReversed);
 
-                        if (lowX >= pointA.Value)
-                            continue;
-                    }
-                }
-
-                double highX = m_PivotPointsFinder.HighValues[pointDateTimeX];
-
+                ProcessProjections(pointDateTimeX,
+                    m_BorderPointALow,
+                    m_PivotPointsFinder.HighValues,
+                    m_PivotPointsFinder.LowValues,
+                    m_PivotPointsFinder.HighValuesReversed);
             }
 
-            if (pointDateTimeAHigh.HasValue)
-                m_BorderPointAHigh.UpdateDate(pointDateTimeAHigh.Value);
-            if (pointDateTimeALow.HasValue)
-                m_BorderPointALow.UpdateDate(pointDateTimeALow.Value);
+            //if (pointDateTimeAHigh.HasValue)
+            //    m_BorderPointAHigh.UpdateDate(pointDateTimeAHigh.Value);
+            //if (pointDateTimeALow.HasValue)
+            //    m_BorderPointALow.UpdateDate(pointDateTimeALow.Value);
 
-            UpdateWasted(index);
+            UpdateReversed(index);
+            UpdateProjections(index);
 
-            BarPoint pointD = null;
+            //BarPoint pointD = null;
             HashSet<GartleyItem> patterns = null;
-            int nextDIndex = endIndex - 1;
-            double cMax = m_BarsProvider.GetHighPrice(nextDIndex);
-            double cMin = m_BarsProvider.GetLowPrice(nextDIndex);
-            for (int i = nextDIndex; i > startIndex; i--)
-            {
-                double lMax = m_BarsProvider.GetHighPrice(i);
-                double lMin = m_BarsProvider.GetLowPrice(i);
+            //int nextDIndex = endIndex - 1;
+            //double cMax = m_BarsProvider.GetHighPrice(nextDIndex);
+            //double cMin = m_BarsProvider.GetLowPrice(nextDIndex);
+            //for (int i = nextDIndex; i > startIndex; i--)
+            //{
+            //    double lMax = m_BarsProvider.GetHighPrice(i);
+            //    double lMin = m_BarsProvider.GetLowPrice(i);
 
-                if (pointD is null)
-                {
-                    isBull = lMax > max;
-                    bool isBear = lMin < min;
+            //    if (pointD is null)
+            //    {
+            //        isBull = lMax > max;
+            //        bool isBear = lMin < min;
 
-                    if (isBull && isBear || !isBull && !isBear)
-                    {
-                        //Logger.Write("Candle is too big");
-                        return null;
-                    }
+            //        if (isBull && isBear || !isBull && !isBear)
+            //        {
+            //            //Logger.Write("Candle is too big");
+            //            return null;
+            //        }
 
-                    pointD = new BarPoint(isBull ? min : max, endIndex, m_BarsProvider);
-                    continue;
-                }
+            //        pointD = new BarPoint(isBull ? min : max, endIndex, m_BarsProvider);
+            //        continue;
+            //    }
 
-                double cValue;
-                if (isBull)
-                {
-                    if (lMin < pointD)
-                    {
-                        //Logger.Write($"Min ({lMin}) < D ({pointD.Value})");
-                        return patterns;
-                    }
+            //    double cValue;
+            //    if (isBull)
+            //    {
+            //        if (lMin < pointD)
+            //        {
+            //            //Logger.Write($"Min ({lMin}) < D ({pointD.Value})");
+            //            return patterns;
+            //        }
 
-                    if (cMax > lMax)
-                        continue;
-                    cValue = lMax;
-                }
-                else
-                {
-                    if (lMax > pointD)
-                    {
-                        //Logger.Write($"Min ({lMax}) > D ({pointD.Value})");
-                        return patterns;
-                    }
+            //        if (cMax > lMax)
+            //            continue;
+            //        cValue = lMax;
+            //    }
+            //    else
+            //    {
+            //        if (lMax > pointD)
+            //        {
+            //            //Logger.Write($"Min ({lMax}) > D ({pointD.Value})");
+            //            return patterns;
+            //        }
 
-                    if (cMin < lMin)
-                        continue;
-                    cValue = lMin;
-                }
+            //        if (cMin < lMin)
+            //            continue;
+            //        cValue = lMin;
+            //    }
 
-                var pointC = new BarPoint(cValue, i, m_BarsProvider);
-                List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull, startIndex);
-                if (patternsIn != null)
-                {
-                    patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
-                    foreach (GartleyItem patternIn in patternsIn)
-                    {
-                        if (patterns.Add(patternIn))
-                        {
-                            continue;
-                        }
+            //    var pointC = new BarPoint(cValue, i, m_BarsProvider);
+            //    List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull, startIndex);
+            //    if (patternsIn != null)
+            //    {
+            //        patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
+            //        foreach (GartleyItem patternIn in patternsIn)
+            //        {
+            //            if (patterns.Add(patternIn))
+            //            {
+            //                continue;
+            //            }
 
-                        //Logger.Write("Got the same Gartley pattern, ignore it");
-                    }
-                }
+            //            //Logger.Write("Got the same Gartley pattern, ignore it");
+            //        }
+            //    }
 
-                cMax = Math.Max(cMax, lMax);
-                cMin = Math.Min(cMin, lMin);
-            }
+            //    cMax = Math.Max(cMax, lMax);
+            //    cMin = Math.Min(cMin, lMin);
+            //}
 
             return patterns;
         }

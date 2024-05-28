@@ -6,6 +6,7 @@ using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Gartley;
 using TradeKit.AlgoBase;
+using System.Collections;
 
 #if !GARTLEY_PROD
 using TradeKit.PriceAction;
@@ -346,50 +347,76 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Removes according to the func.
+        /// Adds the value to the sorted dict with list-backed value.
         /// </summary>
         /// <typeparam name="TK">The type of the key.</typeparam>
         /// <typeparam name="TV">The type of the value.</typeparam>
-        /// <param name="sortedList">The sorted list.</param>
-        /// <param name="compareFunc">The function for comparing.</param>
-        /// <returns>Removed items count.</returns>
-        public static int RemoveWhere<TK, TV>(
-            this SortedList<TK, TV> sortedList, Func<TK, bool> compareFunc)
+        /// <param name="sortedDictionary">The sorted dict.</param>
+        /// <param name="key">The key.</param>
+        /// <param name="value">The value.</param>
+        public static void AddValue<TK, TV>(
+            this SortedDictionary<TK, List<TV>> sortedDictionary, TK key, TV value)
         {
-            int removed = 0;
-            while (sortedList.Count > 0 &&
-                   compareFunc(sortedList.Keys[0]))
+            if (!sortedDictionary.TryGetValue(key, out List<TV> valList))
             {
-                sortedList.RemoveAt(0);
-                removed++;
+                valList = new List<TV>();
+                sortedDictionary[key] = valList;
             }
 
-            return removed;
+            valList.Add(value);
         }
         
         /// <summary>
-        /// Removes according to the func.
+        /// Removes according to the func (left part of the dictionary).
         /// </summary>
         /// <typeparam name="TK">The type of the key.</typeparam>
         /// <typeparam name="TV">The type of the value.</typeparam>
         /// <param name="sortedList">The sorted list.</param>
         /// <param name="compareFunc">The function for comparing.</param>
         /// <returns>Removed items count.</returns>
-        public static int RemoveWhere<TK, TV>(
+        public static int RemoveLeft<TK, TV>(
             this SortedDictionary<TK, TV> sortedList, Func<TK, bool> compareFunc)
         {
-            int removed = 0;
+            return RemoveWhere(sortedList, sortedList.Keys.TakeWhile(compareFunc));
+        }
 
+        /// <summary>
+        /// Removes according to the func (right part of the dictionary).
+        /// </summary>
+        /// <typeparam name="TK">The type of the key.</typeparam>
+        /// <typeparam name="TV">The type of the value.</typeparam>
+        /// <param name="sortedList">The sorted list.</param>
+        /// <param name="compareFunc">The function for comparing.</param>
+        /// <returns>Removed items count.</returns>
+        public static int RemoveRight<TK, TV>(
+            this SortedDictionary<TK, TV> sortedList, Func<TK, bool> compareFunc)
+        {
+            return RemoveWhere(sortedList, sortedList.Keys.SkipWhile(compareFunc));
+        }
 
-            sortedList.TakeWhile(a => a.Key < low);
-            while (sortedList.Count > 0 &&
-                   compareFunc(sortedList.Keys[0]))
+        /// <summary>
+        /// Removes according to the enumerable.
+        /// </summary>
+        /// <typeparam name="TK">The type of the key.</typeparam>
+        /// <typeparam name="TV">The type of the value.</typeparam>
+        /// <param name="sortedList">The sorted list.</param>
+        /// <param name="toDeleteEnumerable">The enumerable to delete.</param>
+        /// <returns>Removed items count.</returns>
+        public static int RemoveWhere<TK, TV>(
+            this SortedDictionary<TK, TV> sortedList, IEnumerable<TK> toDeleteEnumerable)
+        {
+            var keysToRemove = new List<TK>();
+            foreach (TK key in toDeleteEnumerable)
             {
-                sortedList.RemoveAt(0);
-                removed++;
+                keysToRemove.Add(key);
             }
 
-            return removed;
+            foreach (TK key in keysToRemove)
+            {
+                sortedList.Remove(key);
+            }
+
+            return keysToRemove.Count;
         }
 
         /// <summary>
