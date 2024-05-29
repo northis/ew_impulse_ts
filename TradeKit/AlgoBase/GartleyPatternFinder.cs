@@ -12,16 +12,27 @@ namespace TradeKit.AlgoBase
     {
         private class BorderPoint
         {
-            internal DateTime? DatePoint { get; set; }
-            internal BarPoint BarPoint { get; set; }
+            private BarPoint m_BarPoint;
+            internal DateTime? DatePoint { get; private set; }
+
+            internal BarPoint BarPoint
+            {
+                get => m_BarPoint;
+                set
+                {
+                    if (value == null)
+                        return;
+
+                    m_BarPoint = value;
+                    DatePoint = value.OpenTime;
+                }
+            }
 
             internal void UpdateDate(DateTime date)
             {
-                if (DatePoint == null || DatePoint < date)
-                {
-                    DatePoint = date;
-                    BarPoint = null;
-                }
+                if (DatePoint != null && !(DatePoint < date)) return;
+                DatePoint = date;
+                BarPoint = null;
             }
         }
 
@@ -101,8 +112,15 @@ namespace TradeKit.AlgoBase
             m_ActiveProjections.RemoveLeft(a => a < m_BorderDateTime);
         }
 
-        private void UpdateProjections(int index)
+        private void UpdateProjections(double max, double min)
         {
+            foreach (List<GartleyProjection> activeProjections in m_ActiveProjections.Values)
+            {
+                foreach (GartleyProjection activeProjection in activeProjections)
+                {
+                    activeProjection.Update(max, min);
+                }
+            }
         }
 
         private void UpdateReversed(int index)
@@ -119,7 +137,8 @@ namespace TradeKit.AlgoBase
             BorderPoint border,
             SortedDictionary<DateTime, double> values,
             SortedDictionary<DateTime, double> counterValues,
-            SortedDictionary<double, List<DateTime>> valuesReversed)
+            SortedDictionary<double, List<DateTime>> valuesReversed,
+            bool isUp)
         {
             if (!values.TryGetValue(pointDateTimeX, out double valX) ||
                 !valuesReversed.ContainsKey(valX)) return;
@@ -129,7 +148,7 @@ namespace TradeKit.AlgoBase
                          // m_BorderPointAHigh.DatePoint always > m_BorderDateTime
                          .SkipWhile(a => a.Key <= border.DatePoint))
             {
-                if (valX >= pointA.Value)
+                if (isUp ? valX >= pointA.Value : valX <= pointA.Value)
                     continue;
 
                 aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
@@ -137,6 +156,7 @@ namespace TradeKit.AlgoBase
                 foreach (GartleyPattern realPattern in m_RealPatterns)
                 {
                     var projection = new GartleyProjection(
+                        m_PivotPointsFinder,
                         realPattern.PatternType,
                         xBarPoint,
                         aBarPoint);
@@ -145,10 +165,8 @@ namespace TradeKit.AlgoBase
                 }
             }
 
-            if (aBarPoint == null) return;
-
-            border.UpdateDate(aBarPoint.OpenTime);
-            border.BarPoint = aBarPoint;
+            if (aBarPoint != null)
+                border.BarPoint = aBarPoint;
         }
 
         /// <summary>
@@ -173,22 +191,23 @@ namespace TradeKit.AlgoBase
                     m_BorderPointAHigh,
                     m_PivotPointsFinder.LowValues,
                     m_PivotPointsFinder.HighValues,
-                    m_PivotPointsFinder.LowValuesReversed);
+                    m_PivotPointsFinder.LowValuesReversed,
+                    true);
 
                 ProcessProjections(pointDateTimeX,
                     m_BorderPointALow,
                     m_PivotPointsFinder.HighValues,
                     m_PivotPointsFinder.LowValues,
-                    m_PivotPointsFinder.HighValuesReversed);
+                    m_PivotPointsFinder.HighValuesReversed,
+                    false);
             }
-
-            //if (pointDateTimeAHigh.HasValue)
-            //    m_BorderPointAHigh.UpdateDate(pointDateTimeAHigh.Value);
-            //if (pointDateTimeALow.HasValue)
-            //    m_BorderPointALow.UpdateDate(pointDateTimeALow.Value);
-
+            
             UpdateReversed(index);
-            UpdateProjections(index);
+
+
+            double max = m_BarsProvider.GetHighPrice(index);
+            double min = m_BarsProvider.GetLowPrice(index);
+            UpdateProjections(max, min);
 
             //BarPoint pointD = null;
             HashSet<GartleyItem> patterns = null;
