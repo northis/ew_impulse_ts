@@ -156,10 +156,13 @@ namespace TradeKit.AlgoBase
                 foreach (GartleyPattern realPattern in m_RealPatterns)
                 {
                     var projection = new GartleyProjection(
+                        m_BarsProvider,
                         m_PivotPointsFinder,
                         realPattern.PatternType,
                         xBarPoint,
-                        aBarPoint);
+                        aBarPoint, 
+                        CancelGartleyProjection,
+                        m_WickAllowanceRatio);
 
                     m_ActiveProjections.AddValue(pointDateTimeX, projection);
                 }
@@ -167,6 +170,11 @@ namespace TradeKit.AlgoBase
 
             if (aBarPoint != null)
                 border.BarPoint = aBarPoint;
+        }
+
+        private void CancelGartleyProjection(GartleyProjection obj)
+        {
+
         }
 
         /// <summary>

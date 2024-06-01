@@ -23,9 +23,15 @@ namespace TradeKit.Gartley
             D
         }
 
+        private readonly IBarsProvider m_BarsProvider;
         private readonly PivotPointsFinder m_ExtremaFinder;
         private readonly Action<GartleyProjection> m_CancelAction;
+        private readonly double m_WickAllowanceZeroToOne;
+        private readonly int m_IsUpK;
         private readonly DateTime m_BorderDateTime;
+        private readonly (double, double, double)[] m_RatioToAcLevelsMap;
+        private readonly (double, double, double)[] m_RatioToXbLevelsMap;
+        private readonly (double, double, double)[] m_RatioToXdLevelsMap;
 
         internal static readonly double[] LEVELS =
         {
@@ -102,19 +108,55 @@ namespace TradeKit.Gartley
         internal static readonly Dictionary<GartleyPatternType, GartleyPattern> PATTERNS_MAP;
 
         public GartleyProjection(
+            IBarsProvider barsProvider,
             PivotPointsFinder extremaFinder,
             GartleyPatternType patternType, 
             BarPoint itemX, 
             BarPoint itemA,
-            Action<GartleyProjection> cancelAction)
+            Action<GartleyProjection> cancelAction,
+            double wickAllowanceZeroToOne)
         {
+            m_BarsProvider = barsProvider;
             m_ExtremaFinder = extremaFinder;
             m_CancelAction = cancelAction;
+            m_WickAllowanceZeroToOne = wickAllowanceZeroToOne;
             PatternType = PATTERNS_MAP[patternType];
             ItemX = itemX;
             ItemA = itemA;
             IsBull = itemX < itemA;
             m_BorderDateTime = itemA.OpenTime;
+            LengthAtoX = Math.Abs(ItemA - ItemX);
+            m_IsUpK = IsBull ? 1 : -1;
+            m_RatioToAcLevelsMap = InitPriceRanges(PatternType.ACValues, false);
+            m_RatioToXbLevelsMap = InitPriceRanges(PatternType.XBValues, true);
+            m_RatioToXdLevelsMap = InitPriceRanges(PatternType.XDValues, false);
+            //We cannot initialize BD ranges until point B is calculated.
+        }
+
+        /// <summary>
+        /// Initializes the actual price ranges from the ratio values given.
+        /// Let's assume we have XA from 100 to 105, this is a bull pattern. L=LengthAtoX=(105-100). We use XB=0.618, so the point B = A-L*0.618 (useCounterPoint=true). If we use AC=0.382, the point A = X+L*0.382 (useCounterPoint=false). 
+        /// </summary>
+        /// <param name="ratios">The ratios.</param>
+        /// <param name="useCounterPoint">if set to <c>true</c> we should use the counter-point (for instance, if XA is up, so AB is down, and we should use low extrema instead of high ones; AC is up again, so we use the highs).</param>
+        /// <returns>The ratios with actual prices with allowance (initial relative ratio, actual price level, actual price level with allowance).</returns>
+        private (double, double, double)[] InitPriceRanges(double[] ratios, bool useCounterPoint)
+        {
+            var resValues = new (double, double, double)[ratios.Length];
+            int isUpLocal = useCounterPoint ? -1 * m_IsUpK : m_IsUpK;
+            double countPoint = useCounterPoint ? ItemA.Value : ItemX.Value;
+            for (int i = 0; i < ratios.Length; i++)
+            {
+                double val = ratios[i];
+                double xLength = LengthAtoX * val;
+                double xLengthAllowance = xLength * (1 + m_WickAllowanceZeroToOne);
+                double xPoint = countPoint + isUpLocal * xLength;
+                double xPointLimit = countPoint + isUpLocal * xLengthAllowance;
+
+                resValues[i] = (val, xPoint, xPointLimit);
+            }
+
+            return resValues;
         }
 
         public void Update(double lastCandleMax, double lastCandleMin)
@@ -142,10 +184,49 @@ namespace TradeKit.Gartley
                 case CalculationState.A_TO_B:
                     if (IsBull && value > ItemA || !IsBull && value < ItemA)
                         return false;
+
+                    if (IsBull == isHigh)// counter-extrema needed only
+                        return true;
+
+                    foreach ((double, double, double) levelRange in m_RatioToXbLevelsMap)
+                    {
+                        if (IsBull)
+                        {
+                            if (value > levelRange.Item2 || value < levelRange.Item3) continue;
+                            if (ItemB != null && ItemB.Value < value) continue;
+                        }
+                        else
+                        {
+                            if(value < levelRange.Item2 || value > levelRange.Item3) continue;
+                            if (ItemB != null && ItemB.Value > value) continue;
+                        }
+
+                        ItemB = new BarPoint(value, dt, m_BarsProvider);
+                        ActualXtoB = levelRange.Item1;
+                    }
+
                     break;
                 case CalculationState.B_TO_C:
+                    if (IsBull != isHigh)// direct extrema needed only
+                        return true;
+
+
                     break;
                 case CalculationState.A_TO_C:
+                    if (IsBull != isHigh)// direct extrema needed only
+                        return true;
+
+                    foreach (double aC in PatternType.ACValues)
+                    {
+                        double cLength = LengthAtoX * aC;
+                        double cLengthAllowance = cLength * (1 + m_WickAllowanceZeroToOne);
+                        double cPoint = ItemX.Value + m_IsUpK * cLength;
+                        double cbPointLimit = ItemX.Value + m_IsUpK * cLengthAllowance;
+                        if (value < cPoint || value > cbPointLimit) continue;
+
+                        ItemC = new BarPoint(value, dt, m_BarsProvider);
+                        break;
+                    }
                     break;
                 case CalculationState.C_TO_D:
                     break;
@@ -207,6 +288,7 @@ namespace TradeKit.Gartley
         }
 
         internal bool IsBull { get; private set; }
+        internal double LengthAtoX { get; private set; }
 
         internal ProjectionState State { get; private set; }
 
@@ -221,5 +303,9 @@ namespace TradeKit.Gartley
         Tuple<double, double>[] AtoC { get; set; }
         Tuple<double, double>[] BtoD { get; set; }
         Tuple<double, double>[] XtoB { get; set; }
+        internal double ActualXtoD { get; set; }
+        internal double ActualAtoC { get; set; }
+        internal double ActualBtoD { get; set; }
+        internal double ActualXtoB { get; set; }
     }
 }
