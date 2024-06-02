@@ -32,6 +32,8 @@ namespace TradeKit.Gartley
         private readonly (double, double, double)[] m_RatioToAcLevelsMap;
         private readonly (double, double, double)[] m_RatioToXbLevelsMap;
         private readonly (double, double, double)[] m_RatioToXdLevelsMap;
+        private (double, double, double)[] m_RatioToBdLevelsMap;//TODO handle intersections with XD
+        private BarPoint m_ItemB;
 
         internal static readonly double[] LEVELS =
         {
@@ -135,12 +137,15 @@ namespace TradeKit.Gartley
 
         /// <summary>
         /// Initializes the actual price ranges from the ratio values given.
-        /// Let's assume we have XA from 100 to 105, this is a bull pattern. L=LengthAtoX=(105-100). We use XB=0.618, so the point B = A-L*0.618 (useCounterPoint=true). If we use AC=0.382, the point A = X+L*0.382 (useCounterPoint=false). 
+        /// Let's assume we have XA from 100 to 105, this is a bull pattern. L=LengthAtoX=(105-100). We use XB=0.618, so the point B = A-L*0.618 (useCounterPoint=true). If we use AC=0.382, the point A = X+L*0.382 (useCounterPoint=false).
+        /// NOTE. Order in the result array is important! It should always go in X->A|A->B|A->C|A->D|B->D directions.
         /// </summary>
         /// <param name="ratios">The ratios.</param>
         /// <param name="useCounterPoint">if set to <c>true</c> we should use the counter-point (for instance, if XA is up, so AB is down, and we should use low extrema instead of high ones; AC is up again, so we use the highs).</param>
+        /// <param name="baseLength">The basic value we should calculate the ranges against.</param>
         /// <returns>The ratios with actual prices with allowance (initial relative ratio, actual price level, actual price level with allowance).</returns>
-        private (double, double, double)[] InitPriceRanges(double[] ratios, bool useCounterPoint)
+        private (double, double, double)[] InitPriceRanges(
+            double[] ratios, bool useCounterPoint, double baseLength)
         {
             var resValues = new (double, double, double)[ratios.Length];
             int isUpLocal = useCounterPoint ? -1 * m_IsUpK : m_IsUpK;
@@ -148,7 +153,7 @@ namespace TradeKit.Gartley
             for (int i = 0; i < ratios.Length; i++)
             {
                 double val = ratios[i];
-                double xLength = LengthAtoX * val;
+                double xLength = baseLength * val;
                 double xLengthAllowance = xLength * (1 + m_WickAllowanceZeroToOne);
                 double xPoint = countPoint + isUpLocal * xLength;
                 double xPointLimit = countPoint + isUpLocal * xLengthAllowance;
@@ -159,9 +164,74 @@ namespace TradeKit.Gartley
             return resValues;
         }
 
+        private (double, double, double)[] InitPriceRanges(
+            double[] ratios, bool useCounterPoint)
+        {
+            return InitPriceRanges(ratios, useCounterPoint, LengthAtoX);
+        }
+
         public void Update(double lastCandleMax, double lastCandleMin)
         {
             Update();
+        }
+
+        private void UpdateC(DateTime dt, double value)
+        {
+            foreach ((double, double, double) levelRange in m_RatioToAcLevelsMap)
+            {
+                if (IsBull && (value < levelRange.Item2 || value > levelRange.Item3) ||
+                    !IsBull && (value > levelRange.Item2 || value < levelRange.Item3))
+                {
+                    continue;
+                }
+
+                ItemC = new BarPoint(value, dt, m_BarsProvider);
+                ActualAtoC = levelRange.Item1;
+            }
+        }
+
+        private void UpdateD(DateTime dt, double value)
+        {
+            foreach ((double, double, double) levelRange in m_RatioToXdLevelsMap)
+            {
+                if (IsBull && (value > levelRange.Item2 || value < levelRange.Item3) ||
+                    !IsBull && (value < levelRange.Item2 || value > levelRange.Item3))
+                {
+                    continue;
+                }
+
+                ItemD = new BarPoint(value, dt, m_BarsProvider);
+                ActualXtoD = levelRange.Item1;
+            }
+        }
+
+        private void UpdateB(DateTime dt, double value)
+        {
+            if (m_RatioToXbLevelsMap.Length == 0 &&
+                (ItemB == null ||
+                 IsBull && value < ItemB ||
+                 !IsBull && value > ItemB))
+            {
+                ItemB = new BarPoint(value, dt, m_BarsProvider);
+                return;
+            }
+
+            foreach ((double, double, double) levelRange in m_RatioToXbLevelsMap)
+            {
+                if (IsBull)
+                {
+                    if (value > levelRange.Item2 || value < levelRange.Item3) continue;
+                    if (ItemB != null && ItemB.Value < value) continue;
+                }
+                else
+                {
+                    if (value < levelRange.Item2 || value > levelRange.Item3) continue;
+                    if (ItemB != null && ItemB.Value > value) continue;
+                }
+
+                ItemB = new BarPoint(value, dt, m_BarsProvider);
+                ActualXtoB = levelRange.Item1;
+            }
         }
 
         /// <summary>
@@ -174,6 +244,7 @@ namespace TradeKit.Gartley
         private bool CheckPoint(DateTime dt, double value, bool isHigh)
         {
             CalculationState state = CalculateState();
+            bool isStraightExtrema = IsBull == isHigh;
 
             if (state is CalculationState.A_TO_B or CalculationState.A_TO_C)
                 if (IsBull && value < ItemX || !IsBull && value > ItemX)
@@ -185,50 +256,45 @@ namespace TradeKit.Gartley
                     if (IsBull && value > ItemA || !IsBull && value < ItemA)
                         return false;
 
-                    if (IsBull == isHigh)// counter-extrema needed only
+                    if (isStraightExtrema)// counter-extrema needed only
                         return true;
 
-                    foreach ((double, double, double) levelRange in m_RatioToXbLevelsMap)
-                    {
-                        if (IsBull)
-                        {
-                            if (value > levelRange.Item2 || value < levelRange.Item3) continue;
-                            if (ItemB != null && ItemB.Value < value) continue;
-                        }
-                        else
-                        {
-                            if(value < levelRange.Item2 || value > levelRange.Item3) continue;
-                            if (ItemB != null && ItemB.Value > value) continue;
-                        }
-
-                        ItemB = new BarPoint(value, dt, m_BarsProvider);
-                        ActualXtoB = levelRange.Item1;
-                    }
+                    UpdateB(dt, value);
 
                     break;
                 case CalculationState.B_TO_C:
-                    if (IsBull != isHigh)// direct extrema needed only
-                        return true;
-
-
-                    break;
                 case CalculationState.A_TO_C:
-                    if (IsBull != isHigh)// direct extrema needed only
-                        return true;
-
-                    foreach (double aC in PatternType.ACValues)
+                    if (!isStraightExtrema)// direct extrema needed only
                     {
-                        double cLength = LengthAtoX * aC;
-                        double cLengthAllowance = cLength * (1 + m_WickAllowanceZeroToOne);
-                        double cPoint = ItemX.Value + m_IsUpK * cLength;
-                        double cbPointLimit = ItemX.Value + m_IsUpK * cLengthAllowance;
-                        if (value < cPoint || value > cbPointLimit) continue;
-
-                        ItemC = new BarPoint(value, dt, m_BarsProvider);
-                        break;
+                        UpdateB(dt, value);
+                        return true;
                     }
+
+                    UpdateC(dt, value);
                     break;
                 case CalculationState.C_TO_D:
+                    if (!isStraightExtrema)
+                    {
+                        UpdateD(dt, value);
+                    }
+
+                    // Here we can re-calculate B and C points.
+                    if (IsBull && ItemC > ItemA || !IsBull && ItemC > ItemA)
+                    {
+                        // Since then, we no longer can move the point B.
+                        if (!isStraightExtrema)
+                            return true;
+
+                        UpdateC(dt, value);
+                    }
+                    else
+                    {
+                        if (isStraightExtrema)
+                            UpdateC(dt, value);
+                        else
+                            UpdateB(dt, value);
+                    }
+
                     break;
                 case CalculationState.D:
                     break;
@@ -272,19 +338,6 @@ namespace TradeKit.Gartley
                 m_CancelAction(this);
                 return;
             }
-
-            if (ItemB == null)
-            {
-
-            }
-
-            if (IsBull)
-            {
-            }
-            else
-            {
-                
-            }
         }
 
         internal bool IsBull { get; private set; }
@@ -295,7 +348,18 @@ namespace TradeKit.Gartley
         internal GartleyPattern PatternType { get; }
         internal BarPoint ItemX { get; }
         internal BarPoint ItemA { get; }
-        internal BarPoint ItemB { get; set; }
+
+        internal BarPoint ItemB
+        {
+            get => m_ItemB;
+            set
+            {
+                m_ItemB = value;
+                m_RatioToBdLevelsMap = InitPriceRanges(
+                    PatternType.BDValues, true, Math.Abs(ItemA - value));
+            }
+        }
+
         internal BarPoint ItemC { get; set; }
         internal BarPoint ItemD { get; set; }
 
