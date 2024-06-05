@@ -20,14 +20,16 @@ namespace TradeKit.Gartley
             B_TO_C,
             A_TO_C,
             C_TO_D,
-            D
+            D,
+            NONE
         }
 
         private readonly IBarsProvider m_BarsProvider;
+        private CalculationState m_CalculationStateCache;
         private readonly PivotPointsFinder m_ExtremaFinder;
-        private readonly Action<GartleyProjection> m_CancelAction;
         private readonly double m_WickAllowanceZeroToOne;
         private readonly int m_IsUpK;
+        private bool m_PatternIsReady = false;
         private readonly DateTime m_BorderDateTime;
         private readonly (double, double, double)[] m_RatioToAcLevelsMap;
         private readonly (double, double, double)[] m_RatioToXbLevelsMap;
@@ -115,12 +117,10 @@ namespace TradeKit.Gartley
             GartleyPatternType patternType, 
             BarPoint itemX, 
             BarPoint itemA,
-            Action<GartleyProjection> cancelAction,
             double wickAllowanceZeroToOne)
         {
             m_BarsProvider = barsProvider;
             m_ExtremaFinder = extremaFinder;
-            m_CancelAction = cancelAction;
             m_WickAllowanceZeroToOne = wickAllowanceZeroToOne;
             PatternType = PATTERNS_MAP[patternType];
             ItemX = itemX;
@@ -200,8 +200,12 @@ namespace TradeKit.Gartley
                     continue;
                 }
 
+                //We won't update the same ratio range
+                if (Math.Abs(ActualXtoD - levelRange.Item1) < double.Epsilon) continue;
+
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
                 ActualXtoD = levelRange.Item1;
+                m_PatternIsReady = true;
             }
         }
 
@@ -243,14 +247,14 @@ namespace TradeKit.Gartley
         /// <returns>True if we can continue the calculation, false if the projection should be cancelled.</returns>
         private bool CheckPoint(DateTime dt, double value, bool isHigh)
         {
-            CalculationState state = CalculateState();
+            UpdateCalculateState();
             bool isStraightExtrema = IsBull == isHigh;
 
-            if (state is CalculationState.A_TO_B or CalculationState.A_TO_C)
+            if (m_CalculationStateCache is CalculationState.A_TO_B or CalculationState.A_TO_C)
                 if (IsBull && value < ItemX || !IsBull && value > ItemX)
                     return false;
 
-            switch (state)
+            switch (m_CalculationStateCache)
             {
                 case CalculationState.A_TO_B:
                     if (IsBull && value > ItemA || !IsBull && value < ItemA)
@@ -297,7 +301,11 @@ namespace TradeKit.Gartley
 
                     break;
                 case CalculationState.D:
+                    if (!isStraightExtrema)
+                        UpdateD(dt, value);
                     break;
+                case CalculationState.NONE:
+                    return false;
                 default:
                     Logger.Write($"{nameof(CheckPoint)}: invalid state, check it");
                     break;
@@ -306,22 +314,36 @@ namespace TradeKit.Gartley
             return true;
         }
 
-        private CalculationState CalculateState()
+        private void UpdateCalculateState()
         {
+            if(m_CalculationStateCache == CalculationState.NONE)
+                return;
+            
             if (ItemC == null && !PatternType.XBValues.Any())//for shark
-                return CalculationState.A_TO_C;
+                m_CalculationStateCache = CalculationState.A_TO_C;
 
             if (ItemB == null)
-                return CalculationState.A_TO_B;
+            {
+                m_CalculationStateCache = CalculationState.A_TO_B;
+                return;
+            }
 
             if (ItemC == null)
-                return CalculationState.B_TO_C;
-            
-            return ItemD == null ? CalculationState.C_TO_D : CalculationState.D;
+            {
+                m_CalculationStateCache = CalculationState.B_TO_C;
+                return;
+            }
+
+            m_CalculationStateCache = ItemD == null ? CalculationState.C_TO_D : CalculationState.D;
         }
 
+        /// <summary>
+        /// Updates the projections based on new extrema.
+        /// </summary>
         public void Update()
         {
+            bool prevPatternIsReady = m_PatternIsReady;
+            m_PatternIsReady = false;
             foreach (DateTime extremaDt in 
                      m_ExtremaFinder.AllExtrema.SkipWhile(a => a <= m_BorderDateTime))
             {
@@ -334,10 +356,18 @@ namespace TradeKit.Gartley
 
                 if (result) continue;
 
-                State = ProjectionState.NoProjection;
-                m_CancelAction(this);
+                m_CalculationStateCache = CalculationState.NONE;
                 return;
             }
+
+            //TODO update D based on latest candles
+
+            if (!m_PatternIsReady)
+                return;
+
+            State = prevPatternIsReady
+                ? ProjectionState.ProjectionChanged
+                : ProjectionState.PatternFormed;
         }
 
         internal bool IsBull { get; private set; }

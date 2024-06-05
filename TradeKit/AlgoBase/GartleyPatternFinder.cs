@@ -161,7 +161,6 @@ namespace TradeKit.AlgoBase
                         realPattern.PatternType,
                         xBarPoint,
                         aBarPoint, 
-                        CancelGartleyProjection,
                         m_WickAllowanceRatio);
 
                     m_ActiveProjections.AddValue(pointDateTimeX, projection);
@@ -171,12 +170,7 @@ namespace TradeKit.AlgoBase
             if (aBarPoint != null)
                 border.BarPoint = aBarPoint;
         }
-
-        private void CancelGartleyProjection(GartleyProjection obj)
-        {
-
-        }
-
+        
         /// <summary>
         /// Finds the gartley patterns or null if not found.
         /// </summary>
