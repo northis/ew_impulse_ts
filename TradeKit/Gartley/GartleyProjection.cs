@@ -50,13 +50,14 @@ namespace TradeKit.Gartley
         private readonly double m_WickAllowanceZeroToOne;
         private readonly int m_IsUpK;
         private bool m_PatternIsReady = false;
-        private readonly DateTime m_BorderDateTime;
+        private DateTime m_BorderExtremaDateTime; // (slow)
+        private DateTime m_BorderCandleDateTime; // (false)
         private readonly RealLevel[] m_RatioToAcLevelsMap;
         private readonly RealLevel[] m_RatioToXbLevelsMap;
         private readonly RealLevel[] m_RatioToXdLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
 
-        private List<RealLevelCombo> m_XdToDbMapSortedItems;
+        private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
 
         //TODO handle intersections with XD
         private BarPoint m_ItemB;
@@ -150,7 +151,7 @@ namespace TradeKit.Gartley
             ItemX = itemX;
             ItemA = itemA;
             IsBull = itemX < itemA;
-            m_BorderDateTime = itemA.OpenTime;
+            m_BorderExtremaDateTime = itemA.OpenTime;
             LengthAtoX = Math.Abs(ItemA - ItemX);
             m_IsUpK = IsBull ? 1 : -1;
             m_RatioToAcLevelsMap = InitPriceRanges(PatternType.ACValues, false);
@@ -218,16 +219,12 @@ namespace TradeKit.Gartley
                     if (minMax < maxMin)
                         continue;// No intersection for this pair, skip the ratio
 
-                    if (IsBull)
-                    {
-                        
-                    }
-                    else
-                    {
-                        
-                    }
+                    RealLevelCombo toAdd = IsBull
+                        ? new RealLevelCombo(mapXd.Ratio, mapBd.Ratio, minMax, maxMin)
+                        : new RealLevelCombo(mapXd.Ratio, mapBd.Ratio, maxMin, minMax);
+
+                    m_XdToDbMapSortedItems.Add(toAdd);
                 }
-                //m_XdToDbMapSortedItems
             }
         }
 
@@ -372,7 +369,7 @@ namespace TradeKit.Gartley
 
         private void UpdateCalculateState()
         {
-            if(m_CalculationStateCache == CalculationState.NONE)
+            if (m_CalculationStateCache == CalculationState.NONE)
                 return;
             
             if (ItemC == null && !PatternType.XBValues.Any())//for shark
@@ -396,14 +393,18 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Updates the projections based on new extrema.
         /// </summary>
-        public void Update()
+        /// <returns>Result of the Update process</returns>
+        public ProjectionState Update()
         {
             bool prevPatternIsReady = m_PatternIsReady;
             m_PatternIsReady = false;
-            foreach (DateTime extremaDt in 
-                     m_ExtremaFinder.AllExtrema.SkipWhile(a => a <= m_BorderDateTime))
+
+            DateTime borderExtremaDateTimeLocal = m_BorderExtremaDateTime;
+            foreach (DateTime extremaDt in
+                     m_ExtremaFinder.AllExtrema.SkipWhile(a => a <= borderExtremaDateTimeLocal))
             {
                 bool result = true;
+                m_BorderExtremaDateTime = extremaDt;
                 if (m_ExtremaFinder.HighExtrema.Contains(extremaDt))
                     result = CheckPoint(extremaDt, m_ExtremaFinder.HighValues[extremaDt], true);
 
@@ -413,24 +414,44 @@ namespace TradeKit.Gartley
                 if (result) continue;
 
                 m_CalculationStateCache = CalculationState.NONE;
-                return;
+                return ProjectionState.NoProjection;
             }
 
-            //TODO update D based on latest candles
+            m_BorderCandleDateTime = m_BorderExtremaDateTime;
 
-            if (!m_PatternIsReady)
-                return;
+            //update D based on latest candles
+            if (m_CalculationStateCache is CalculationState.C_TO_D or CalculationState.D)
+            {
+                int lastUsedIndex = m_BarsProvider.GetIndexByTime(m_BorderCandleDateTime);
+                for (int i = lastUsedIndex + 1; i < m_BarsProvider.Count; i++)
+                {
+                    DateTime currentDt = m_BarsProvider.GetOpenTime(i);
 
-            State = prevPatternIsReady
-                ? ProjectionState.ProjectionChanged
-                : ProjectionState.PatternFormed;
+                    //TODO check counter-peaks to decide if we should cancel the whole pattern
+                    m_BorderCandleDateTime = currentDt;
+                    if (CheckPoint(currentDt, IsBull
+                            ? m_BarsProvider.GetLowPrice(i)
+                            : m_BarsProvider.GetHighPrice(i), !IsBull))
+                        continue;
+
+                    m_CalculationStateCache = CalculationState.NONE;
+                    return ProjectionState.NoProjection;
+                }
+            }
+
+            if (m_PatternIsReady)
+                return prevPatternIsReady
+                    ? ProjectionState.ProjectionChanged
+                    : ProjectionState.PatternFormed;
+
+            return prevPatternIsReady
+                ? ProjectionState.PatternFormed
+                : ProjectionState.NoProjection;
         }
 
         internal bool IsBull { get; private set; }
         internal double LengthAtoX { get; private set; }
-
-        internal ProjectionState State { get; private set; }
-
+        
         internal GartleyPattern PatternType { get; }
         internal BarPoint ItemX { get; }
         internal BarPoint ItemA { get; }
