@@ -10,19 +10,34 @@ namespace TradeKit.Gartley
     {
         private record RealLevelBase(double StartValue, double EndValue)
         {
-            public double Max = Math.Max(StartValue, EndValue);
-            public double Min = Math.Min(StartValue, EndValue);
+            public readonly double Max = Math.Max(StartValue, EndValue);
+            public readonly double Min = Math.Min(StartValue, EndValue);
 
             public double StartValue { get; } = StartValue;
             public double EndValue { get; } = EndValue;
         }
 
-        private record RealLevelCombo(
-            double RatioXd, 
-            double RatioBd, 
-            double StartValue, 
-            double EndValue) 
-            : RealLevelBase(StartValue, EndValue);
+        private record RealLevelCombo
+        {
+            public RealLevelCombo(RealLevel xD, RealLevel bD)
+            {
+                Xd = xD;
+                Bd = bD;
+                Max = Math.Min(xD.Max, bD.Max);
+                Min = Math.Max(xD.Min, bD.Min);
+                IsMaxXd = Math.Abs(xD.Max - Max) < double.Epsilon;
+                IsMinXd = Math.Abs(xD.Min - Min) < double.Epsilon;
+            }
+
+            public bool IsMaxXd { get; init; }
+            public bool IsMinXd { get; init; }
+
+            public RealLevel Xd { get; init; }
+            public RealLevel Bd { get; init; }
+            public double Max { get; init; }
+            public double Min { get; init; }
+        }
+
 
         private record RealLevel(double Ratio, double StartValue, double EndValue)
             : RealLevelBase(StartValue, EndValue);
@@ -58,8 +73,6 @@ namespace TradeKit.Gartley
         private RealLevel[] m_RatioToBdLevelsMap;
 
         private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
-
-        //TODO handle intersections with XD
         private BarPoint m_ItemB;
 
         internal static readonly double[] LEVELS =
@@ -213,15 +226,9 @@ namespace TradeKit.Gartley
             {
                 foreach (RealLevel mapXd in m_RatioToXdLevelsMap.OrderBy(a => a.Ratio))
                 {
-                    double minMax = Math.Min(mapXd.Max, mapBd.Max);
-                    double maxMin = Math.Max(mapXd.Min, mapBd.Min);
-
-                    if (minMax < maxMin)
+                    RealLevelCombo toAdd = new RealLevelCombo(mapXd, mapBd);
+                    if (toAdd.Max < toAdd.Min)
                         continue;// No intersection for this pair, skip the ratio
-
-                    RealLevelCombo toAdd = IsBull
-                        ? new RealLevelCombo(mapXd.Ratio, mapBd.Ratio, minMax, maxMin)
-                        : new RealLevelCombo(mapXd.Ratio, mapBd.Ratio, maxMin, minMax);
 
                     m_XdToDbMapSortedItems.Add(toAdd);
                 }
@@ -245,20 +252,64 @@ namespace TradeKit.Gartley
 
         private void UpdateD(DateTime dt, double value)
         {
-            foreach (RealLevel levelRange in m_RatioToXdLevelsMap)
+            List<RealLevel> toLevelsToDelete = null;
+
+            void RemoveMin(RealLevelCombo levelRangeCombo)
             {
-                if (IsBull && (value > levelRange.StartValue || value < levelRange.EndValue) ||
-                    !IsBull && (value < levelRange.StartValue || value > levelRange.EndValue))
+                toLevelsToDelete ??= new List<RealLevel>();
+                toLevelsToDelete.Add(levelRangeCombo.IsMinXd
+                    ? levelRangeCombo.Xd
+                    : levelRangeCombo.Bd);
+            }
+
+            void RemoveMax(RealLevelCombo levelRangeCombo)
+            {
+                toLevelsToDelete ??= new List<RealLevel>();
+                toLevelsToDelete.Add(levelRangeCombo.IsMaxXd
+                    ? levelRangeCombo.Xd
+                    : levelRangeCombo.Bd);
+            }
+
+            foreach (RealLevelCombo levelRangeCombo in
+                     m_XdToDbMapSortedItems.OrderBy(a => a.Xd.Ratio))
+            {
+                if (IsBull)
                 {
-                    continue;
+                    if (value > levelRangeCombo.Max)
+                        continue;
+
+                    RemoveMin(levelRangeCombo);
+
+                    //the price goes beyond the range, we should remove the corresponding ratios.
+                    if (value < levelRangeCombo.Min)
+                        continue;
+                }
+                else
+                {
+                    if (value < levelRangeCombo.Min)
+                        continue;
+
+                    RemoveMax(levelRangeCombo);
+                    if (value > levelRangeCombo.Max)
+                        continue;
                 }
 
                 //We won't update the same ratio range
-                if (Math.Abs(ActualXtoD - levelRange.Ratio) < double.Epsilon) continue;
+                if (Math.Abs(ActualXtoD - levelRangeCombo.Xd.Ratio) < double.Epsilon) continue;
 
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
-                ActualXtoD = levelRange.Ratio;
+                ActualXtoD = levelRangeCombo.Xd.Ratio;
                 m_PatternIsReady = true;
+            }
+
+            if (toLevelsToDelete == null)
+                return;
+
+            foreach (RealLevel levelsToDelete in toLevelsToDelete)
+            {
+                // If the level is used, we should remove the whole level from the combos collection
+                m_XdToDbMapSortedItems.RemoveAll(
+                    a => levelsToDelete == a.Bd || levelsToDelete == a.Xd);
             }
         }
 
@@ -426,14 +477,33 @@ namespace TradeKit.Gartley
                 for (int i = lastUsedIndex + 1; i < m_BarsProvider.Count; i++)
                 {
                     DateTime currentDt = m_BarsProvider.GetOpenTime(i);
+                    double low = m_BarsProvider.GetLowPrice(i);
+                    double high = m_BarsProvider.GetLowPrice(i);
 
-                    //TODO check counter-peaks to decide if we should cancel the whole pattern
+                    if (IsBull)
+                    {
+                        if (high > ItemA)
+                        {
+                            m_CalculationStateCache = CalculationState.NONE;
+                            return ProjectionState.NoProjection;
+                        }
+
+                        if (CheckPoint(currentDt, low, false))
+                            continue;
+                    }
+                    else
+                    {
+                        if (low < ItemA)
+                        {
+                            m_CalculationStateCache = CalculationState.NONE;
+                            return ProjectionState.NoProjection;
+                        }
+
+                        if (CheckPoint(currentDt, high, true))
+                            continue;
+                    }
+
                     m_BorderCandleDateTime = currentDt;
-                    if (CheckPoint(currentDt, IsBull
-                            ? m_BarsProvider.GetLowPrice(i)
-                            : m_BarsProvider.GetHighPrice(i), !IsBull))
-                        continue;
-
                     m_CalculationStateCache = CalculationState.NONE;
                     return ProjectionState.NoProjection;
                 }
