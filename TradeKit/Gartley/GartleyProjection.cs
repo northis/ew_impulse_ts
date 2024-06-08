@@ -8,12 +8,32 @@ namespace TradeKit.Gartley
 {
     internal class GartleyProjection
     {
+        private record RealLevelBase(double StartValue, double EndValue)
+        {
+            public double Max = Math.Max(StartValue, EndValue);
+            public double Min = Math.Min(StartValue, EndValue);
+
+            public double StartValue { get; } = StartValue;
+            public double EndValue { get; } = EndValue;
+        }
+
+        private record RealLevelCombo(
+            double RatioXd, 
+            double RatioBd, 
+            double StartValue, 
+            double EndValue) 
+            : RealLevelBase(StartValue, EndValue);
+
+        private record RealLevel(double Ratio, double StartValue, double EndValue)
+            : RealLevelBase(StartValue, EndValue);
+
         internal enum ProjectionState
         {
             NoProjection,
             ProjectionChanged,
             PatternFormed
         }
+
         internal enum CalculationState
         {
             A_TO_B,
@@ -31,10 +51,14 @@ namespace TradeKit.Gartley
         private readonly int m_IsUpK;
         private bool m_PatternIsReady = false;
         private readonly DateTime m_BorderDateTime;
-        private readonly (double, double, double)[] m_RatioToAcLevelsMap;
-        private readonly (double, double, double)[] m_RatioToXbLevelsMap;
-        private readonly (double, double, double)[] m_RatioToXdLevelsMap;
-        private (double, double, double)[] m_RatioToBdLevelsMap;//TODO handle intersections with XD
+        private readonly RealLevel[] m_RatioToAcLevelsMap;
+        private readonly RealLevel[] m_RatioToXbLevelsMap;
+        private readonly RealLevel[] m_RatioToXdLevelsMap;
+        private RealLevel[] m_RatioToBdLevelsMap;
+
+        private List<RealLevelCombo> m_XdToDbMapSortedItems;
+
+        //TODO handle intersections with XD
         private BarPoint m_ItemB;
 
         internal static readonly double[] LEVELS =
@@ -133,6 +157,8 @@ namespace TradeKit.Gartley
             m_RatioToXbLevelsMap = InitPriceRanges(PatternType.XBValues, true);
             m_RatioToXdLevelsMap = InitPriceRanges(PatternType.XDValues, false);
             //We cannot initialize BD ranges until point B is calculated.
+
+            m_XdToDbMapSortedItems = new List<RealLevelCombo>();
         }
 
         /// <summary>
@@ -144,10 +170,10 @@ namespace TradeKit.Gartley
         /// <param name="useCounterPoint">if set to <c>true</c> we should use the counter-point (for instance, if XA is up, so AB is down, and we should use low extrema instead of high ones; AC is up again, so we use the highs).</param>
         /// <param name="baseLength">The basic value we should calculate the ranges against.</param>
         /// <returns>The ratios with actual prices with allowance (initial relative ratio, actual price level, actual price level with allowance).</returns>
-        private (double, double, double)[] InitPriceRanges(
+        private RealLevel[] InitPriceRanges(
             double[] ratios, bool useCounterPoint, double baseLength)
         {
-            var resValues = new (double, double, double)[ratios.Length];
+            var resValues = new RealLevel[ratios.Length];
             int isUpLocal = useCounterPoint ? -1 * m_IsUpK : m_IsUpK;
             double countPoint = useCounterPoint ? ItemA.Value : ItemX.Value;
             for (int i = 0; i < ratios.Length; i++)
@@ -158,13 +184,13 @@ namespace TradeKit.Gartley
                 double xPoint = countPoint + isUpLocal * xLength;
                 double xPointLimit = countPoint + isUpLocal * xLengthAllowance;
 
-                resValues[i] = (val, xPoint, xPointLimit);
+                resValues[i] = new (val, xPoint, xPointLimit);
             }
 
             return resValues;
         }
 
-        private (double, double, double)[] InitPriceRanges(
+        private RealLevel[] InitPriceRanges(
             double[] ratios, bool useCounterPoint)
         {
             return InitPriceRanges(ratios, useCounterPoint, LengthAtoX);
@@ -175,36 +201,66 @@ namespace TradeKit.Gartley
             Update();
         }
 
+        private void UpdateXdToDbMaps()
+        {
+            if (m_RatioToBdLevelsMap == null)
+                return;
+
+            m_XdToDbMapSortedItems.Clear();// Reset the previous map
+
+            foreach (RealLevel mapBd in m_RatioToBdLevelsMap.OrderBy(a => a.Ratio))
+            {
+                foreach (RealLevel mapXd in m_RatioToXdLevelsMap.OrderBy(a => a.Ratio))
+                {
+                    double minMax = Math.Min(mapXd.Max, mapBd.Max);
+                    double maxMin = Math.Max(mapXd.Min, mapBd.Min);
+
+                    if (minMax < maxMin)
+                        continue;// No intersection for this pair, skip the ratio
+
+                    if (IsBull)
+                    {
+                        
+                    }
+                    else
+                    {
+                        
+                    }
+                }
+                //m_XdToDbMapSortedItems
+            }
+        }
+
         private void UpdateC(DateTime dt, double value)
         {
-            foreach ((double, double, double) levelRange in m_RatioToAcLevelsMap)
+            foreach (RealLevel levelRange in m_RatioToAcLevelsMap)
             {
-                if (IsBull && (value < levelRange.Item2 || value > levelRange.Item3) ||
-                    !IsBull && (value > levelRange.Item2 || value < levelRange.Item3))
+                if (IsBull && (value < levelRange.StartValue || value > levelRange.EndValue) ||
+                    !IsBull && (value > levelRange.StartValue || value < levelRange.EndValue))
                 {
                     continue;
                 }
 
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
-                ActualAtoC = levelRange.Item1;
+                ActualAtoC = levelRange.Ratio;
             }
         }
 
         private void UpdateD(DateTime dt, double value)
         {
-            foreach ((double, double, double) levelRange in m_RatioToXdLevelsMap)
+            foreach (RealLevel levelRange in m_RatioToXdLevelsMap)
             {
-                if (IsBull && (value > levelRange.Item2 || value < levelRange.Item3) ||
-                    !IsBull && (value < levelRange.Item2 || value > levelRange.Item3))
+                if (IsBull && (value > levelRange.StartValue || value < levelRange.EndValue) ||
+                    !IsBull && (value < levelRange.StartValue || value > levelRange.EndValue))
                 {
                     continue;
                 }
 
                 //We won't update the same ratio range
-                if (Math.Abs(ActualXtoD - levelRange.Item1) < double.Epsilon) continue;
+                if (Math.Abs(ActualXtoD - levelRange.Ratio) < double.Epsilon) continue;
 
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
-                ActualXtoD = levelRange.Item1;
+                ActualXtoD = levelRange.Ratio;
                 m_PatternIsReady = true;
             }
         }
@@ -220,21 +276,21 @@ namespace TradeKit.Gartley
                 return;
             }
 
-            foreach ((double, double, double) levelRange in m_RatioToXbLevelsMap)
+            foreach (RealLevel levelRange in m_RatioToXbLevelsMap)
             {
                 if (IsBull)
                 {
-                    if (value > levelRange.Item2 || value < levelRange.Item3) continue;
+                    if (value > levelRange.StartValue || value < levelRange.EndValue) continue;
                     if (ItemB != null && ItemB.Value < value) continue;
                 }
                 else
                 {
-                    if (value < levelRange.Item2 || value > levelRange.Item3) continue;
+                    if (value < levelRange.StartValue || value > levelRange.EndValue) continue;
                     if (ItemB != null && ItemB.Value > value) continue;
                 }
 
                 ItemB = new BarPoint(value, dt, m_BarsProvider);
-                ActualXtoB = levelRange.Item1;
+                ActualXtoB = levelRange.Ratio;
             }
         }
 
@@ -387,6 +443,7 @@ namespace TradeKit.Gartley
                 m_ItemB = value;
                 m_RatioToBdLevelsMap = InitPriceRanges(
                     PatternType.BDValues, true, Math.Abs(ItemA - value));
+                UpdateXdToDbMaps();
             }
         }
 
