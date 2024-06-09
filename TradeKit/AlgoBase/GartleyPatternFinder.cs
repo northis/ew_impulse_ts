@@ -112,17 +112,6 @@ namespace TradeKit.AlgoBase
             m_ActiveProjections.RemoveLeft(a => a < m_BorderDateTime);
         }
 
-        private void UpdateProjections(double max, double min)
-        {
-            foreach (List<GartleyProjection> activeProjections in m_ActiveProjections.Values)
-            {
-                foreach (GartleyProjection activeProjection in activeProjections)
-                {
-                    activeProjection.Update(max, min);
-                }
-            }
-        }
-
         private void UpdateReversed(int index)
         {
             double low = m_BarsProvider.GetHighPrice(index);
@@ -206,13 +195,27 @@ namespace TradeKit.AlgoBase
             
             UpdateReversed(index);
 
+            HashSet<GartleyItem> patterns = null;
+            foreach (List<GartleyProjection> activeProjections in m_ActiveProjections.Values)
+            {
+                foreach (GartleyProjection activeProjection in activeProjections)
+                {
+                    GartleyProjection.ProjectionState updateResult = activeProjection.Update();
+                    if (updateResult == GartleyProjection.ProjectionState.PROJECTION_FORMED)
+                    {
+                        // Here we can fire a projection event
+                    }
 
-            double max = m_BarsProvider.GetHighPrice(index);
-            double min = m_BarsProvider.GetLowPrice(index);
-            UpdateProjections(max, min);
+                    if (updateResult != GartleyProjection.ProjectionState.PATTERN_FORMED)
+                        continue;// Got only new patterns (not projections)
+
+                    patterns ??= new HashSet<GartleyItem>();
+                    // convert GartleyProjection to GartleyItem
+
+                }
+            }
 
             //BarPoint pointD = null;
-            HashSet<GartleyItem> patterns = null;
             //int nextDIndex = endIndex - 1;
             //double cMax = m_BarsProvider.GetHighPrice(nextDIndex);
             //double cMin = m_BarsProvider.GetLowPrice(nextDIndex);
