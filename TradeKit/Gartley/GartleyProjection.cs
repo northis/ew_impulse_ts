@@ -49,7 +49,7 @@ namespace TradeKit.Gartley
             3.14,
             3.618
         };
-
+        
         static GartleyProjection()
         {
             PATTERNS = new GartleyPattern[]
@@ -221,20 +221,11 @@ namespace TradeKit.Gartley
         private void UpdateD(DateTime dt, double value)
         {
             List<RealLevel> levelsToDelete = null;
-            void RemoveMin(RealLevelCombo levelRangeCombo)
-            {
-                levelsToDelete ??= new List<RealLevel>();
-                levelsToDelete.Add(levelRangeCombo.IsMinXd
-                    ? levelRangeCombo.Xd
-                    : levelRangeCombo.Bd);
-            }
 
-            void RemoveMax(RealLevelCombo levelRangeCombo)
+            void Remove(RealLevel levelRange)
             {
                 levelsToDelete ??= new List<RealLevel>();
-                levelsToDelete.Add(levelRangeCombo.IsMaxXd
-                    ? levelRangeCombo.Xd
-                    : levelRangeCombo.Bd);
+                levelsToDelete.Add(levelRange);
             }
 
             foreach (RealLevelCombo levelRangeCombo in
@@ -245,21 +236,34 @@ namespace TradeKit.Gartley
                     if (value > levelRangeCombo.Max)
                         continue;
 
-                    RemoveMin(levelRangeCombo);
-
-                    //the price goes beyond the range, we should remove the corresponding ratios.
                     if (value < levelRangeCombo.Min)
+                    {
+                        if (value < levelRangeCombo.Bd.Min)
+                            Remove(levelRangeCombo.Bd);
+
+                        if (value < levelRangeCombo.Xd.Min)
+                            Remove(levelRangeCombo.Xd);
                         continue;
+                    }
                 }
                 else
                 {
                     if (value < levelRangeCombo.Min)
                         continue;
 
-                    RemoveMax(levelRangeCombo);
                     if (value > levelRangeCombo.Max)
+                    {
+                        if (value > levelRangeCombo.Bd.Max)
+                            Remove(levelRangeCombo.Bd);
+
+                        if (value > levelRangeCombo.Xd.Max)
+                            Remove(levelRangeCombo.Xd);
                         continue;
+                    }
                 }
+
+                Remove(levelRangeCombo.Bd);
+                Remove(levelRangeCombo.Xd);
 
                 //We won't update the same ratio range
                 if (Math.Abs(ActualXtoD - levelRangeCombo.Xd.Ratio) < double.Epsilon) continue;
@@ -267,6 +271,7 @@ namespace TradeKit.Gartley
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
                 ActualXtoD = levelRangeCombo.Xd.Ratio;
                 m_PatternIsReady = true;
+                m_ProjectionIsReady = false;// Stop use the projection when we got the whole pattern
             }
 
             if (levelsToDelete == null)
@@ -372,7 +377,9 @@ namespace TradeKit.Gartley
 
                     break;
                 case CalculationState.D:
-                    if (!isStraightExtrema)
+                    if (isStraightExtrema)
+                        UpdateC(dt, value);
+                    else
                         UpdateD(dt, value);
                     break;
                 case CalculationState.NONE:
@@ -415,6 +422,8 @@ namespace TradeKit.Gartley
         public ProjectionState Update()
         {
             bool prevPatternIsReady = m_PatternIsReady;
+            bool prevProjectionIsReady = m_ProjectionIsReady;
+            m_ProjectionIsReady = false;
             m_PatternIsReady = false;
 
             DateTime borderExtremaDateTimeLocal = m_BorderExtremaDateTime;
@@ -478,14 +487,22 @@ namespace TradeKit.Gartley
 
             if (m_PatternIsReady)
                 return ProjectionState.PATTERN_FORMED;
+            m_PatternIsReady = prevPatternIsReady;
 
-            return prevPatternIsReady
-                ? ProjectionState.PATTERN_SAME
+            if (m_ProjectionIsReady)
+                return ProjectionState.PROJECTION_FORMED;
+            m_ProjectionIsReady = prevProjectionIsReady;
+
+            if (prevPatternIsReady)
+                return ProjectionState.PATTERN_SAME;
+
+            return prevProjectionIsReady 
+                ? ProjectionState.PROJECTION_SAME 
                 : ProjectionState.NO_PROJECTION;
         }
 
-        internal bool IsBull { get; private set; }
-        internal double LengthAtoX { get; private set; }
+        internal bool IsBull { get; }
+        internal double LengthAtoX { get; }
         
         internal GartleyPattern PatternType { get; }
         internal BarPoint ItemX { get; }

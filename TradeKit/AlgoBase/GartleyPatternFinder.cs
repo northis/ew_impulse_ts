@@ -200,321 +200,37 @@ namespace TradeKit.AlgoBase
             {
                 foreach (GartleyProjection activeProjection in activeProjections)
                 {
-                    GartleyProjection.ProjectionState updateResult = activeProjection.Update();
-                    if (updateResult == GartleyProjection.ProjectionState.PROJECTION_FORMED)
+                    ProjectionState updateResult = activeProjection.Update();
+                    if (updateResult == ProjectionState.PROJECTION_FORMED)
                     {
                         // Here we can fire a projection event
                     }
 
-                    if (updateResult != GartleyProjection.ProjectionState.PATTERN_FORMED)
+                    if (updateResult != ProjectionState.PATTERN_FORMED)
                         continue;// Got only new patterns (not projections)
 
-                    patterns ??= new HashSet<GartleyItem>();
-                    // convert GartleyProjection to GartleyItem
-
+                    patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
+                    patterns.Add(CreatePattern(activeProjection));
                 }
             }
-
-            //BarPoint pointD = null;
-            //int nextDIndex = endIndex - 1;
-            //double cMax = m_BarsProvider.GetHighPrice(nextDIndex);
-            //double cMin = m_BarsProvider.GetLowPrice(nextDIndex);
-            //for (int i = nextDIndex; i > startIndex; i--)
-            //{
-            //    double lMax = m_BarsProvider.GetHighPrice(i);
-            //    double lMin = m_BarsProvider.GetLowPrice(i);
-
-            //    if (pointD is null)
-            //    {
-            //        isBull = lMax > max;
-            //        bool isBear = lMin < min;
-
-            //        if (isBull && isBear || !isBull && !isBear)
-            //        {
-            //            //Logger.Write("Candle is too big");
-            //            return null;
-            //        }
-
-            //        pointD = new BarPoint(isBull ? min : max, endIndex, m_BarsProvider);
-            //        continue;
-            //    }
-
-            //    double cValue;
-            //    if (isBull)
-            //    {
-            //        if (lMin < pointD)
-            //        {
-            //            //Logger.Write($"Min ({lMin}) < D ({pointD.Value})");
-            //            return patterns;
-            //        }
-
-            //        if (cMax > lMax)
-            //            continue;
-            //        cValue = lMax;
-            //    }
-            //    else
-            //    {
-            //        if (lMax > pointD)
-            //        {
-            //            //Logger.Write($"Min ({lMax}) > D ({pointD.Value})");
-            //            return patterns;
-            //        }
-
-            //        if (cMin < lMin)
-            //            continue;
-            //        cValue = lMin;
-            //    }
-
-            //    var pointC = new BarPoint(cValue, i, m_BarsProvider);
-            //    List<GartleyItem> patternsIn = FindPatternAgainstC(pointD, pointC, isBull, startIndex);
-            //    if (patternsIn != null)
-            //    {
-            //        patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
-            //        foreach (GartleyItem patternIn in patternsIn)
-            //        {
-            //            if (patterns.Add(patternIn))
-            //            {
-            //                continue;
-            //            }
-
-            //            //Logger.Write("Got the same Gartley pattern, ignore it");
-            //        }
-            //    }
-
-            //    cMax = Math.Max(cMax, lMax);
-            //    cMin = Math.Min(cMin, lMin);
-            //}
 
             return patterns;
         }
-
-        private List<GartleyItem> FindPatternAgainstC(
-            BarPoint pointD, BarPoint pointC, bool isBull, int startIndex)
+        
+        /// <summary>
+        /// Creates the pattern if it is possible
+        /// </summary>
+        /// <param name="projection">The Gartley projection with ready pattern state</param>
+        /// <returns><see cref="GartleyItem"/> if it is valid or null if it doesn't</returns>
+        private GartleyItem CreatePattern(GartleyProjection projection)
         {
-            if (pointC is null || pointD is null)
-                return null;
-
-            double valCtoD = Math.Abs(pointC.Value - pointD.Value);
-            double allowance = valCtoD * m_WickAllowanceRatio;
-            double varC = pointC.Value;
-            List<GartleyItem> res = null;
-
-            foreach (GartleyPattern pattern in m_RealPatterns)
-            {
-                double[] pointsB = new double[pattern.BDValues.Length];
-                for (int i = 0; i < pattern.BDValues.Length; i++)
-                {
-                    double varBtoD = pattern.BDValues[i];
-                    double ratio = valCtoD / varBtoD;
-                    double varB = varC + ratio * (isBull ? -1 : 1);
-                    pointsB[i] = varB;
-                }
-                
-                double[] pointsX = new double[pattern.XDValues.Length];
-                HashSet<double> pointsA = new HashSet<double>();
-                for (int i = 0; i < pattern.XDValues.Length; i++)
-                {
-                    double varXtoD = pattern.XDValues[i];
-                    double ratio = valCtoD / varXtoD;
-                    double varX = varC + ratio * (isBull ? -1 : 1);
-                    pointsX[i] = varX;
-
-                    double valXtoC = Math.Abs(pointC.Value - varX);
-                    foreach (double varAtoC in pattern.ACValues)
-                    {
-                        double ratioA = valXtoC / varAtoC;
-                        double varA = varX + ratioA * (isBull ? 1 : -1);
-                        pointsA.Add(varA);
-                    }
-                }
-
-                int nextCIndex = pointC.BarIndex - 1;
-                double bMax = m_BarsProvider.GetHighPrice(nextCIndex);
-                double bMin = m_BarsProvider.GetLowPrice(nextCIndex);
-
-                for (int i = nextCIndex; i >= startIndex; i--)
-                {
-                    double lMax = m_BarsProvider.GetHighPrice(i);
-                    double lMin = m_BarsProvider.GetLowPrice(i);
-
-                    bool isBullBreak = isBull && (lMax > pointC || lMin < pointD);
-                    bool isBearishBreak = !isBull && (lMax > pointD || lMin < pointC);
-                    if (isBullBreak || isBearishBreak)
-                    {
-                        // No B points are possible beyond this point
-                        break;
-                    }
-
-                    HashSet<BarPoint> bExtrema = null;
-                    foreach (double pointB in pointsB)
-                    {
-                        if (isBull)
-                        {
-                            if (lMin <= bMin && lMin <= pointB && lMin >= pointB - allowance)
-                            {
-                                bExtrema ??= new HashSet<BarPoint>();
-                                bExtrema.Add(new BarPoint(lMin, i, m_BarsProvider));
-                                // Got good B point
-                            }
-                        }
-                        else if (lMax >= bMax && lMax >= pointB && lMin <= pointB + allowance)
-                        {
-                            bExtrema ??= new HashSet<BarPoint>();
-                            bExtrema.Add(new BarPoint(lMax, i, m_BarsProvider));
-                            // Got good B point
-                        }
-                    }
-                    
-                    bMax = Math.Max(bMax, lMax);
-                    bMin = Math.Min(bMin, lMin);
-
-                    if (bExtrema == null)
-                    {
-                        // No B points were found
-                        continue;
-                    }
-
-                    double maxAPossible = pointsA.Max();
-                    double minAPossible = pointsA.Min();
-
-                    foreach (BarPoint pointB in bExtrema)
-                    {
-                        int nextBIndex = pointB.BarIndex - 1;
-                        double aMax = m_BarsProvider.GetHighPrice(nextBIndex);
-                        double aMin = m_BarsProvider.GetLowPrice(nextBIndex);
-                        for (int j = nextBIndex; j >= 0; j--)
-                        {
-                            HashSet<BarPoint> aExtrema = null;
-                            lMax = m_BarsProvider.GetHighPrice(j);
-                            lMin = m_BarsProvider.GetLowPrice(j);
-
-                            isBullBreak = isBull && 
-                                          (lMax > maxAPossible + allowance || lMin < pointB);
-                            isBearishBreak = !isBull && 
-                                             (lMin < minAPossible - allowance || lMax > pointB);
-                            if (isBullBreak || isBearishBreak)
-                            {
-                                // No A points are possible beyond this point
-                                break;
-                            }
-
-                            foreach (double pointA in pointsA)
-                            {
-                                if (isBull)
-                                {
-                                    if (lMax >= aMax && lMax >= pointA && lMax <= pointA + allowance)
-                                    {
-                                        aExtrema ??= new HashSet<BarPoint>();
-                                        aExtrema.Add(new BarPoint(lMax, j, m_BarsProvider));
-                                        // Got good A point
-                                    }
-                                }
-                                else if (lMin <= aMin && lMin <= pointA && lMin >= pointA - allowance)
-                                {
-                                    aExtrema ??= new HashSet<BarPoint>();
-                                    aExtrema.Add(new BarPoint(lMin, j, m_BarsProvider));
-                                    // Got good A point
-                                }
-                            }
-                            
-                            aMax = Math.Max(aMax, lMax);
-                            aMin = Math.Min(aMin, lMin);
-
-                            if (aExtrema == null)
-                            {
-                                // No A points were found
-                                continue;
-                            }
-
-                            double maxXPossible = pointsX.Max();
-                            double minXPossible = pointsX.Min();
-
-                            foreach (BarPoint pointA in aExtrema)
-                            {
-                                int nextXIndex = pointA.BarIndex - 1;
-                                double xMax = m_BarsProvider.GetHighPrice(nextXIndex);
-                                double xMin = m_BarsProvider.GetLowPrice(nextXIndex);
-                                for (int k = nextXIndex; k >= startIndex; k--)
-                                {
-                                    HashSet<BarPoint> xExtrema = null;
-                                    lMax = m_BarsProvider.GetHighPrice(k);
-                                    lMin = m_BarsProvider.GetLowPrice(k);
-
-                                    isBullBreak = isBull &&
-                                                  (lMin < minXPossible - allowance ||
-                                                   lMax > pointA);
-                                    isBearishBreak = !isBull &&
-                                                     (lMax > maxXPossible + allowance ||
-                                                      lMin < pointA);
-                                    if (isBullBreak || isBearishBreak)
-                                    {
-                                        // No X points are possible beyond this point
-                                        break;
-                                    }
-
-                                    foreach (double pointX in pointsX)
-                                    {
-                                        if (isBull)
-                                        {
-                                            if (lMin <= xMin && lMin <= pointX && lMin >= pointX - allowance)
-                                            {
-                                                xExtrema ??= new HashSet<BarPoint>();
-                                                xExtrema.Add(new BarPoint(lMin, k, m_BarsProvider));
-                                                // Got good X point
-                                            }
-                                        }
-                                        else if (lMax >= xMax && lMax >= pointX && lMax <= pointX + allowance)
-                                        {
-                                            xExtrema ??= new HashSet<BarPoint>();
-                                            xExtrema.Add(new BarPoint(lMax, k, m_BarsProvider));
-                                            // Got good X point
-                                        }
-                                    }
-                                    
-                                    xMax = Math.Max(xMax, lMax);
-                                    xMin = Math.Min(xMin, lMin);
-
-                                    if (xExtrema == null)
-                                    {
-                                        // No X points were found
-                                        continue;
-                                    }
-                                    
-                                    foreach (BarPoint pointX in xExtrema)
-                                    {
-                                        bool xNotExtrema = false;
-                                        for (int l = k;
-                                             l >= Math.Max(k - PRE_X_EXTREMA_BARS_COUNT, 0);
-                                             l--)
-                                        {
-                                            if (isBull && m_BarsProvider.GetLowPrice(l) < pointX ||
-                                                !isBull && m_BarsProvider.GetHighPrice(l) > pointX)
-                                            {
-                                                xNotExtrema = true;
-                                                break;
-                                            }
-                                        }
-                                        
-                                        if (xNotExtrema)
-                                            continue;
-
-                                        GartleyItem patternFound = CreatePattern(
-                                            pattern, pointX, pointA, pointB, pointC, pointD);
-
-                                        if (patternFound == null)
-                                            continue;
-
-                                        res ??= new List<GartleyItem>();
-                                        res.Add(patternFound);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            return res;
+            GartleyItem item = CreatePattern(projection.PatternType, 
+                projection.ItemX, 
+                projection.ItemA, 
+                projection.ItemB,
+                projection.ItemC, 
+                projection.ItemD);
+            return item;
         }
 
         /// <summary>

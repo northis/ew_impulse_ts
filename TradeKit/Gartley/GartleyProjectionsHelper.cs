@@ -48,24 +48,9 @@ namespace TradeKit.Gartley
     internal record RealLevel(double Ratio, double StartValue, double EndValue)
         : RealLevelBase(StartValue, EndValue);
     
-    internal record RealLevelCombo
+    internal record RealLevelCombo(RealLevel Xd, RealLevel Bd)
     {
-        public RealLevelCombo(RealLevel xD, RealLevel bD)
-        {
-            Xd = xD;
-            Bd = bD;
-            Max = Math.Min(xD.Max, bD.Max);
-            Min = Math.Max(xD.Min, bD.Min);
-            IsMaxXd = Math.Abs(xD.Max - Max) < double.Epsilon;
-            IsMinXd = Math.Abs(xD.Min - Min) < double.Epsilon;
-        }
-
-        public bool IsMaxXd { get; init; }
-        public bool IsMinXd { get; init; }
-
-        public RealLevel Xd { get; init; }
-        public RealLevel Bd { get; init; }
-        public double Max { get; init; }
-        public double Min { get; init; }
+        public double Max { get; init; } = Math.Min(Xd.Max, Bd.Max);
+        public double Min { get; init; } = Math.Max(Xd.Min, Bd.Min);
     }
 }
