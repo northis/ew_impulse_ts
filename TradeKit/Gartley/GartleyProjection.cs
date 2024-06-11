@@ -17,8 +17,8 @@ namespace TradeKit.Gartley
         private readonly PivotPointsFinder m_ExtremaFinder;
         private readonly double m_WickAllowanceZeroToOne;
         private readonly int m_IsUpK;
-        private bool m_PatternIsReady = false;
-        private bool m_ProjectionIsReady = false;
+        private bool m_PatternIsReady;
+        private bool m_ProjectionIsReady;
         private DateTime m_BorderExtremaDateTime; // (slow)
         private DateTime m_BorderCandleDateTime; // (false)
         private readonly RealLevel[] m_RatioToAcLevelsMap;
@@ -188,7 +188,7 @@ namespace TradeKit.Gartley
             {
                 // The price goes beyond the existing C, we should reset it
                 ItemC = null;
-                ActualAtoC = 0d;
+                AtoC = 0d;
                 m_ProjectionIsReady = false;
             }
 
@@ -201,7 +201,7 @@ namespace TradeKit.Gartley
                 }
 
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
-                ActualAtoC = levelRange.Ratio;
+                AtoC = levelRange.Ratio;
                 m_ProjectionIsReady = true;
             }
         }
@@ -266,10 +266,12 @@ namespace TradeKit.Gartley
                 Remove(levelRangeCombo.Xd);
 
                 //We won't update the same ratio range
-                if (Math.Abs(ActualXtoD - levelRangeCombo.Xd.Ratio) < double.Epsilon) continue;
+                if (Math.Abs(XtoD - levelRangeCombo.Xd.Ratio) < double.Epsilon) continue;
 
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
-                ActualXtoD = levelRangeCombo.Xd.Ratio;
+                XtoD = levelRangeCombo.Xd.Ratio;
+                BtoD = levelRangeCombo.Bd.Ratio;
+
                 m_PatternIsReady = true;
                 m_ProjectionIsReady = false;// Stop use the projection when we got the whole pattern
             }
@@ -310,7 +312,7 @@ namespace TradeKit.Gartley
                 }
 
                 ItemB = new BarPoint(value, dt, m_BarsProvider);
-                ActualXtoB = levelRange.Ratio;
+                XtoB = levelRange.Ratio;
             }
         }
 
@@ -491,6 +493,7 @@ namespace TradeKit.Gartley
 
             if (m_ProjectionIsReady)
                 return ProjectionState.PROJECTION_FORMED;
+
             m_ProjectionIsReady = prevProjectionIsReady;
 
             if (prevPatternIsReady)
@@ -517,24 +520,30 @@ namespace TradeKit.Gartley
             {
                 m_ItemC = value;
 
-                m_RatioToBdLevelsMap = InitPriceRanges(
-                    PatternType.BDValues, true, Math.Abs(ItemA - ItemB), m_ItemC.Value);
+                if (value == null)
+                {
+                    m_RatioToBdLevelsMap = Array.Empty<RealLevel>();
+                    m_RatioToXdLevelsMap = Array.Empty<RealLevel>();
+                    m_XdToDbMapSortedItems?.Clear();
+                    m_PatternIsReady = false;
+                }
+                else
+                {
+                    m_RatioToBdLevelsMap = InitPriceRanges(
+                        PatternType.BDValues, true, Math.Abs(ItemA - ItemB), m_ItemC.Value);
 
-                m_RatioToXdLevelsMap = InitPriceRanges(
-                    PatternType.XDValues, true, LengthAtoX, m_ItemC.Value);
+                    m_RatioToXdLevelsMap = InitPriceRanges(
+                        PatternType.XDValues, true, LengthAtoX, m_ItemC.Value);
+                }
+
                 UpdateXdToDbMaps();
             }
         }
 
         internal BarPoint ItemD { get; set; }
-
-        Tuple<double,double>[] XtoD { get; set; }
-        Tuple<double, double>[] AtoC { get; set; }
-        Tuple<double, double>[] BtoD { get; set; }
-        Tuple<double, double>[] XtoB { get; set; }
-        internal double ActualXtoD { get; set; }
-        internal double ActualAtoC { get; set; }
-        internal double ActualBtoD { get; set; }
-        internal double ActualXtoB { get; set; }
+        internal double XtoD { get; set; }
+        internal double AtoC { get; set; }
+        internal double BtoD { get; set; }
+        internal double XtoB { get; set; }
     }
 }

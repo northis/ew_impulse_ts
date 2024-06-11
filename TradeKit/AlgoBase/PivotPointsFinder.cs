@@ -149,10 +149,13 @@ namespace TradeKit.AlgoBase
             DateTime dt,
             SortedDictionary<double, List<DateTime>> reversed)
         {
-            if (!reversed.TryGetValue(value, out List<DateTime> list)) 
-                list = new List<DateTime>{ dt };
+            if (!reversed.TryGetValue(value, out List<DateTime> list))
+            {
+                list = new List<DateTime> { dt };
+                reversed.Add(value, list);
+            }
 
-            reversed.Add(value, list);
+            list.Add(dt);
         }
 
         private void CleanCollection(
@@ -160,10 +163,12 @@ namespace TradeKit.AlgoBase
             SortedDictionary<DateTime, double> collection,
             SortedDictionary<double, List<DateTime>> collectionReversed)
         {
+            List<DateTime> toRemoveList = null;
             foreach (KeyValuePair<DateTime, double> hV in
                      collection.TakeWhile(a => a.Key < currentBarDateTime))
             {
-                collection.Remove(hV.Key);
+                toRemoveList ??= new List<DateTime>();
+                toRemoveList.Add(hV.Key);
                 if (collectionReversed.TryGetValue(hV.Value, out List<DateTime> vals))
                 {
                     vals.Remove(hV.Key);
@@ -171,6 +176,11 @@ namespace TradeKit.AlgoBase
                         collectionReversed.Remove(hV.Value);
                 }
             }
+
+            if (toRemoveList == null)
+                return;
+
+            foreach (DateTime toRemove in toRemoveList) collection.Remove(toRemove);
         }
 
         /// <summary>

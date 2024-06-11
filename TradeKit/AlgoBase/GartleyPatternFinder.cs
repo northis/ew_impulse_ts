@@ -1,10 +1,13 @@
 ﻿using cAlgo.API;
+using Plotly.NET.TraceObjects;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using TradeKit.Core;
 using TradeKit.Gartley;
+using static Plotly.NET.StyleParam.LinearAxisId;
 
 namespace TradeKit.AlgoBase
 {
@@ -90,6 +93,7 @@ namespace TradeKit.AlgoBase
                     .ToArray();
 
             m_ActiveProjections = new SortedDictionary<DateTime, List<GartleyProjection>>();
+            Debugger.Launch();
         }
 
         private void InitDatesIfNeeded(int startIndex)
@@ -129,15 +133,21 @@ namespace TradeKit.AlgoBase
             SortedDictionary<double, List<DateTime>> valuesReversed,
             bool isUp)
         {
-            if (!values.TryGetValue(pointDateTimeX, out double valX) ||
-                !valuesReversed.ContainsKey(valX)) return;
+            if (!values.TryGetValue(pointDateTimeX, out double valX))
+                return;
+
+            if (!valuesReversed.ContainsKey(valX) || double.IsNaN(valX))
+                return;
 
             BarPoint aBarPoint = null;
             foreach (KeyValuePair<DateTime, double> pointA in counterValues
                          // m_BorderPointAHigh.DatePoint always > m_BorderDateTime
                          .SkipWhile(a => a.Key <= border.DatePoint))
             {
-                if (isUp ? valX >= pointA.Value : valX <= pointA.Value)
+                if (double.IsNaN(pointA.Value) ||
+                    (isUp
+                        ? valX >= pointA.Value
+                        : valX <= pointA.Value))
                     continue;
 
                 aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
@@ -209,6 +219,10 @@ namespace TradeKit.AlgoBase
                     if (updateResult != ProjectionState.PATTERN_FORMED)
                         continue;// Got only new patterns (not projections)
 
+                    GartleyItem pattern = CreatePattern(activeProjection);
+                    if (pattern == null)
+                        continue;
+
                     patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
                     patterns.Add(CreatePattern(activeProjection));
                 }
@@ -224,37 +238,26 @@ namespace TradeKit.AlgoBase
         /// <returns><see cref="GartleyItem"/> if it is valid or null if it doesn't</returns>
         private GartleyItem CreatePattern(GartleyProjection projection)
         {
-            GartleyItem item = CreatePattern(projection.PatternType, 
-                projection.ItemX, 
-                projection.ItemA, 
-                projection.ItemB,
-                projection.ItemC, 
-                projection.ItemD);
-            return item;
-        }
-
-        /// <summary>
-        /// Creates the pattern if it is possible
-        /// </summary>
-        /// <param name="pattern">The Gartley pattern</param>
-        /// <param name="x">Point X</param>
-        /// <param name="a">Point A</param>
-        /// <param name="b">Point B</param>
-        /// <param name="c">Point C</param>
-        /// <param name="d">Point D</param>
-        /// <returns><see cref="GartleyItem"/> if it is valid or null if it doesn't</returns>
-        private GartleyItem CreatePattern(
-            GartleyPattern pattern, BarPoint x, BarPoint a, BarPoint b, BarPoint c, BarPoint d)
-        {
-            if (0d == x || 0d == a || 0d == b || 0d == c || 0d == d)
+            if (projection.ItemX == null ||
+                projection.ItemA == null ||
+                projection.ItemB == null ||
+                projection.ItemC == null ||
+                projection.ItemD == null)
                 return null;
 
-            double xA = Math.Abs(a - x);
-            double aB = Math.Abs(b - a);
-            double cB = Math.Abs(c - b);
-            double cD = Math.Abs(c - d);
-            double xC = Math.Abs(c - x);
-            double aD = Math.Abs(a - d);
+            if (0d == projection.ItemX.Value || 
+                0d == projection.ItemA.Value || 
+                0d == projection.ItemB.Value || 
+                0d == projection.ItemC.Value || 
+                0d == projection.ItemD.Value)
+                return null;
+
+            double xA = Math.Abs(projection.ItemA - projection.ItemX);
+            double aB = Math.Abs(projection.ItemB - projection.ItemA);
+            double cB = Math.Abs(projection.ItemC - projection.ItemB);
+            double cD = Math.Abs(projection.ItemC - projection.ItemD);
+            double xC = Math.Abs(projection.ItemC - projection.ItemX);
+            double aD = Math.Abs(projection.ItemA - projection.ItemD);
 
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
@@ -264,77 +267,31 @@ namespace TradeKit.AlgoBase
             double bD = cD / cB;
             double aC = xC / xA;
 
-            var accuracyList = new List<double>();
-            double FetchCloseValue(double[] values, double similarValue)
-            {
-                double fetched = (from val in values
-                    let allowance = val * m_WickAllowanceRatio
-                    where Math.Abs(similarValue - val) < allowance
-                    select val).FirstOrDefault();
+            bool isBull = projection.IsBull;
+            double closeD = m_BarsProvider.GetClosePrice(projection.ItemD.BarIndex);
 
-                if (similarValue != 0 && fetched != 0)
-                {
-                    double maxAccuracy = Math.Max(similarValue, fetched);
-                    double minAccuracy = Math.Min(similarValue, fetched);
-                    double accuracy = minAccuracy / maxAccuracy;
-                    accuracyList.Add(accuracy);
-                }
-
-                return fetched;
-            }
-
-            double valAc = FetchCloseValue(pattern.ACValues, aC);
-            if (valAc == 0)
-                return null;
-
-            double valBd = FetchCloseValue(pattern.BDValues, bD);
-            if (valBd == 0)
-                return null;
-
-            double valXd = FetchCloseValue(pattern.XDValues, xD);
-            if (valXd == 0)
-                return null;
-
-            double valXb = 0;
-            if (pattern.XBValues.Length > 0)
-            {
-                valXb = FetchCloseValue(pattern.XBValues, xB);
-                if (valXb == 0)
-                    return null;
-            }
-
-            bool isBull = x < a;
-            double closeD = m_BarsProvider.GetClosePrice(d.BarIndex);
-            double dLevel = (isBull ? -1 : 1) * xA / xD + a;
-
-            if (isBull && closeD < dLevel || !isBull && closeD > dLevel)
-            {
-                //Logger.Write("Candle body doesn't fit."); // allowance?
-                return null;
-            }
-
-            double barLen = Math.Abs(m_BarsProvider.GetHighPrice(d.BarIndex) -
-                                     m_BarsProvider.GetLowPrice(d.BarIndex));
+            double barLen = Math.Abs(m_BarsProvider.GetHighPrice(projection.ItemD.BarIndex) -
+                                     m_BarsProvider.GetLowPrice(projection.ItemD.BarIndex));
             double wickAllowRange = barLen / 3;
 
             if (barLen <= 0)
                 return null;
 
-            if (isBull && closeD - d.Value < wickAllowRange ||
-                !isBull && d.Value - closeD < wickAllowRange)
+            if (isBull && closeD - projection.ItemD < wickAllowRange ||
+                !isBull && projection.ItemD.Value - closeD < wickAllowRange)
             {
                 //Logger.Write("Candle body is too full.");
                 return null;
             }
 
-            double actualSize = pattern.SetupType == GartleySetupType.AD ? aD : cD;
+            double actualSize = projection.PatternType.SetupType == GartleySetupType.AD ? aD : cD;
 
             double slLen = actualSize * SL_RATIO;
             double tp1Len = actualSize * TP1_RATIO;
-            double sl = isBull ? -slLen + d : slLen + d;
+            double sl = isBull ? -slLen + projection.ItemD : slLen + projection.ItemD;
             //double tp1Len = Math.Abs(sl - closeD);
 
-            double tp1 = isBull ? tp1Len + d : -tp1Len + d;
+            double tp1 = isBull ? tp1Len + projection.ItemD : -tp1Len + projection.ItemD;
             if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
             {
                 //Logger.Write("TP is already hit.");
@@ -342,19 +299,27 @@ namespace TradeKit.AlgoBase
             }
 
             double tp2Len = actualSize * TP2_RATIO;
-            double tp2 = isBull ? tp2Len + d : -tp2Len + d;
+            double tp2 = isBull ? tp2Len + projection.ItemD : -tp2Len + projection.ItemD;
 
-            double def = Math.Abs(closeD - sl)/ Math.Abs(closeD - tp1);
+            double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
             if (def > MAX_SL_TP_RATIO_ALLOWED)
             {
                 //Logger.Write("SL/TP is too big.");
                 return null;
             }
 
-            return new GartleyItem(
-                Convert.ToInt32(accuracyList.Average() * 100),
-                pattern.PatternType,
-                x, a, b, c, d, sl, tp1, tp2, xD, valXd, aC, valAc, bD, valBd, xB, valXb);
+            GartleyItem item = new GartleyItem(0, 
+                projection.PatternType.PatternType, projection.ItemX,
+                projection.ItemA, 
+                projection.ItemB, 
+                projection.ItemC, 
+                projection.ItemD,
+                sl, tp1, tp2, 
+                xD, projection.XtoD,
+                aC, projection.AtoC, 
+                bD, projection.BtoD, 
+                xB, projection.BtoD);
+            return item;
         }
     }
 }
