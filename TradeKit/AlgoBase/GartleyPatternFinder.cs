@@ -1,19 +1,15 @@
-﻿using cAlgo.API;
-using Plotly.NET.TraceObjects;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using TradeKit.Core;
 using TradeKit.Gartley;
-using static Plotly.NET.StyleParam.LinearAxisId;
 
 namespace TradeKit.AlgoBase
 {
     internal class GartleyPatternFinder
     {
-        private class BorderPoint
+        private record BorderPoint
         {
             private BarPoint m_BarPoint;
             internal DateTime? DatePoint { get; private set; }
@@ -142,15 +138,16 @@ namespace TradeKit.AlgoBase
             BarPoint aBarPoint = null;
             foreach (KeyValuePair<DateTime, double> pointA in counterValues
                          // m_BorderPointAHigh.DatePoint always > m_BorderDateTime
-                         .SkipWhile(a => a.Key <= border.DatePoint))
+                         .SkipWhile(a => a.Key <= pointDateTimeX))
             {
-                if (double.IsNaN(pointA.Value) ||
-                    (isUp
-                        ? valX >= pointA.Value
-                        : valX <= pointA.Value))
+                if (double.IsNaN(pointA.Value))
                     continue;
 
                 aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
+                if (isUp && valX >= pointA.Value ||
+                    !isUp && valX <= pointA.Value)
+                    break;
+
                 var xBarPoint = new BarPoint(valX, pointDateTimeX, m_BarsProvider);
                 foreach (GartleyPattern realPattern in m_RealPatterns)
                 {
@@ -185,6 +182,9 @@ namespace TradeKit.AlgoBase
                 !m_BorderPointALow.DatePoint.HasValue)
                 return null;
 
+            BorderPoint borderPointAHighLocal = m_BorderPointAHigh;
+            BorderPoint borderPointALowLocal = m_BorderPointALow;
+
             foreach (DateTime pointDateTimeX in
                      m_PivotPointsFinder.AllExtrema.SkipWhile(a => a < m_BorderDateTime))
             {
@@ -202,7 +202,10 @@ namespace TradeKit.AlgoBase
                     m_PivotPointsFinder.HighValuesReversed,
                     false);
             }
-            
+
+            m_BorderPointAHigh.BarPoint = borderPointAHighLocal.BarPoint;
+            m_BorderPointALow.BarPoint = borderPointALowLocal.BarPoint;
+
             UpdateReversed(index);
 
             HashSet<GartleyItem> patterns = null;
@@ -230,7 +233,7 @@ namespace TradeKit.AlgoBase
 
             return patterns;
         }
-        
+
         /// <summary>
         /// Creates the pattern if it is possible
         /// </summary>
@@ -263,8 +266,8 @@ namespace TradeKit.AlgoBase
                 return null;
 
             double xB = aB / xA;
-            double xD = cD / xC;
-            double bD = cD / cB;
+            double xD = aD / xA;
+            double bD = cD / aB;
             double aC = xC / xA;
 
             bool isBull = projection.IsBull;
@@ -272,17 +275,17 @@ namespace TradeKit.AlgoBase
 
             double barLen = Math.Abs(m_BarsProvider.GetHighPrice(projection.ItemD.BarIndex) -
                                      m_BarsProvider.GetLowPrice(projection.ItemD.BarIndex));
-            double wickAllowRange = barLen / 3;
+            //double wickAllowRange = barLen / 3;
 
             if (barLen <= 0)
                 return null;
 
-            if (isBull && closeD - projection.ItemD < wickAllowRange ||
-                !isBull && projection.ItemD.Value - closeD < wickAllowRange)
-            {
-                //Logger.Write("Candle body is too full.");
-                return null;
-            }
+            //if (isBull && closeD - projection.ItemD < wickAllowRange ||
+            //    !isBull && projection.ItemD.Value - closeD < wickAllowRange)
+            //{
+            //    //Logger.Write("Candle body is too full.");
+            //    return null;
+            //}
 
             double actualSize = projection.PatternType.SetupType == GartleySetupType.AD ? aD : cD;
 
@@ -292,21 +295,21 @@ namespace TradeKit.AlgoBase
             //double tp1Len = Math.Abs(sl - closeD);
 
             double tp1 = isBull ? tp1Len + projection.ItemD : -tp1Len + projection.ItemD;
-            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
-            {
-                //Logger.Write("TP is already hit.");
-                return null;
-            }
+            //if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
+            //{
+            //    //Logger.Write("TP is already hit.");
+            //    return null;
+            //}
 
             double tp2Len = actualSize * TP2_RATIO;
             double tp2 = isBull ? tp2Len + projection.ItemD : -tp2Len + projection.ItemD;
 
             double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
-            if (def > MAX_SL_TP_RATIO_ALLOWED)
-            {
-                //Logger.Write("SL/TP is too big.");
-                return null;
-            }
+            //if (def > MAX_SL_TP_RATIO_ALLOWED)
+            //{
+            //    //Logger.Write("SL/TP is too big.");
+            //    return null;
+            //}
 
             GartleyItem item = new GartleyItem(0, 
                 projection.PatternType.PatternType, projection.ItemX,
@@ -318,7 +321,7 @@ namespace TradeKit.AlgoBase
                 xD, projection.XtoD,
                 aC, projection.AtoC, 
                 bD, projection.BtoD, 
-                xB, projection.BtoD);
+                xB, projection.XtoB);
             return item;
         }
     }

@@ -196,6 +196,12 @@ namespace TradeKit.Gartley
             {
                 if (IsBull && (value < levelRange.StartValue || value > levelRange.EndValue) ||
                     !IsBull && (value > levelRange.StartValue || value < levelRange.EndValue))
+                    continue;
+
+                if (ItemB == null)
+                    continue;
+
+                if (dt <= ItemB.OpenTime)
                 {
                     continue;
                 }
@@ -268,6 +274,10 @@ namespace TradeKit.Gartley
                 //We won't update the same ratio range
                 if (Math.Abs(XtoD - levelRangeCombo.Xd.Ratio) < double.Epsilon) continue;
 
+                if (ItemD != null && (IsBull && ItemD.Value < value ||
+                                      !IsBull && ItemD.Value > value))
+                    continue;
+
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
                 XtoD = levelRangeCombo.Xd.Ratio;
                 BtoD = levelRangeCombo.Bd.Ratio;
@@ -332,6 +342,10 @@ namespace TradeKit.Gartley
                 if (IsBull && value < ItemX || !IsBull && value > ItemX)
                     return false;
 
+            if (m_CalculationStateCache is CalculationState.A_TO_B or CalculationState.D)
+                if (IsBull && value > ItemA || !IsBull && value < ItemA)
+                    return false;
+
             switch (m_CalculationStateCache)
             {
                 case CalculationState.A_TO_B:
@@ -344,8 +358,8 @@ namespace TradeKit.Gartley
                     UpdateB(dt, value);
 
                     break;
-                case CalculationState.B_TO_C:
                 case CalculationState.A_TO_C:
+                case CalculationState.B_TO_C:
                     if (!isStraightExtrema)// direct extrema needed only
                     {
                         UpdateB(dt, value);
@@ -355,26 +369,21 @@ namespace TradeKit.Gartley
                     UpdateC(dt, value);
                     break;
                 case CalculationState.C_TO_D:
+                    // Since then, we no longer can move the point B.
+                    if (isStraightExtrema)
+                        UpdateC(dt, value);
+
+                    if (ItemC == null || ItemC.OpenTime == dt)
+                        return true;
+
+                    if (ItemC.BarIndex < ItemB.BarIndex)
+                    {
+
+                    }
+
                     if (!isStraightExtrema)
                     {
                         UpdateD(dt, value);
-                    }
-
-                    // Here we can re-calculate B and C points.
-                    if (IsBull && ItemC > ItemA || !IsBull && ItemC > ItemA)
-                    {
-                        // Since then, we no longer can move the point B.
-                        if (!isStraightExtrema)
-                            return true;
-
-                        UpdateC(dt, value);
-                    }
-                    else
-                    {
-                        if (isStraightExtrema)
-                            UpdateC(dt, value);
-                        else
-                            UpdateB(dt, value);
                     }
 
                     break;
@@ -398,13 +407,15 @@ namespace TradeKit.Gartley
         {
             if (m_CalculationStateCache == CalculationState.NONE)
                 return;
-            
-            if (ItemC == null && !PatternType.XBValues.Any())//for shark
-                m_CalculationStateCache = CalculationState.A_TO_C;
 
-            if (ItemB == null)
+            if (ItemB == null && PatternType.XBValues.Any())
             {
                 m_CalculationStateCache = CalculationState.A_TO_B;
+            }
+            
+            if (ItemC == null && !PatternType.XBValues.Any())//for shark{
+            {
+                m_CalculationStateCache = CalculationState.A_TO_C;
                 return;
             }
 
@@ -439,14 +450,17 @@ namespace TradeKit.Gartley
 
                 if (m_ExtremaFinder.LowExtrema.Contains(extremaDt))
                     result &= CheckPoint(extremaDt, m_ExtremaFinder.LowValues[extremaDt], false);
-
+                
                 if (result) continue;
 
+                m_PatternIsReady = false;
+                m_PatternIsReady = false;
                 m_CalculationStateCache = CalculationState.NONE;
                 return ProjectionState.NO_PROJECTION;
             }
 
             m_BorderCandleDateTime = m_BorderExtremaDateTime;
+            UpdateCalculateState();
 
             //update D based on latest candles
             if (m_CalculationStateCache is CalculationState.C_TO_D or CalculationState.D)

@@ -48,7 +48,6 @@ namespace TradeKit.Indicators
             double max = m_PivotPointsFinder.HighValues[dt];
             double min = m_PivotPointsFinder.LowValues[dt];
 
-
             if (max is not double.NaN)
             {
                 Chart.DrawText($"{HIGH}{index}", HIGH, index, max, m_BearColorFill).ChartTextAlign(true);
