@@ -4,10 +4,11 @@ using System.Diagnostics;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.Gartley;
+using static Microsoft.FSharp.Core.ByRefKinds;
 
 namespace TradeKit.AlgoBase
 {
-    internal class GartleyPatternFinder
+    public class GartleyPatternFinder
     {
         private record BorderPoint
         {
@@ -35,6 +36,12 @@ namespace TradeKit.AlgoBase
             }
         }
 
+        public class ItemsXtoAEventHandler : System.EventArgs
+        {
+            public BarPoint X { get; set; }
+            public BarPoint A { get; set; }
+        }
+
         private readonly double m_WickAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
         private readonly int m_BarsDepth;
@@ -53,13 +60,16 @@ namespace TradeKit.AlgoBase
 
         private readonly GartleyPattern[] m_RealPatterns;
         private readonly SortedDictionary<DateTime, List<GartleyProjection>> m_ActiveProjections;
+        private readonly SortedDictionary<DateTime, HashSet<DateTime>> m_BullXtoA;
+        private readonly SortedDictionary<DateTime, HashSet<DateTime>> m_BearXtoA;
+        private readonly HashSet<DateTime> m_BullWastedX;
+        private readonly HashSet<DateTime> m_BearWastedX;
+        private readonly SortedDictionary<DateTime, double> m_BullAMax;
+        private readonly SortedDictionary<DateTime, double> m_BearAMin;
 
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
         private const int MIN_PERIOD = 1;
-
-        private readonly BorderPoint m_BorderPointAHigh = new();
-        private readonly BorderPoint m_BorderPointALow = new();
         private DateTime? m_BorderDateTime;
 
         /// <summary>
@@ -89,19 +99,20 @@ namespace TradeKit.AlgoBase
                     .ToArray();
 
             m_ActiveProjections = new SortedDictionary<DateTime, List<GartleyProjection>>();
-            Debugger.Launch();
+            m_BullXtoA = new SortedDictionary<DateTime, HashSet<DateTime>>();
+            m_BearXtoA = new SortedDictionary<DateTime, HashSet<DateTime>>();
+            m_BullWastedX = new HashSet<DateTime>();
+            m_BearWastedX = new HashSet<DateTime>();
+            m_BullAMax = new SortedDictionary<DateTime, double>();
+            m_BearAMin = new SortedDictionary<DateTime, double>();
         }
 
-        private void InitDatesIfNeeded(int startIndex)
+        private void InitDatesIfNeeded(int index)
         {
-            DateTime currentDt = m_BarsProvider.GetOpenTime(startIndex);
-
-            int prevIndex = startIndex - m_BarsDepth;
+            int prevIndex = index - m_BarsDepth;
             m_BorderDateTime = prevIndex < 0
-                ? currentDt.Add(-TimeFrameHelper.GetTimeFrameInfo(m_BarsProvider.TimeFrame).TimeSpan)
+                ? m_BarsProvider.GetOpenTime(0)
                 : m_BarsProvider.GetOpenTime(prevIndex);
-            m_BorderPointAHigh.UpdateDate(m_BorderDateTime.Value);
-            m_BorderPointALow.UpdateDate(m_BorderDateTime.Value);
         }
 
         private void UpdateProjectionsCache()
@@ -110,45 +121,109 @@ namespace TradeKit.AlgoBase
                 return;
 
             m_ActiveProjections.RemoveLeft(a => a < m_BorderDateTime);
+            m_BullXtoA.RemoveLeft(a => a < m_BorderDateTime);
+            m_BearXtoA.RemoveLeft(a => a < m_BorderDateTime);
+            m_BullWastedX.RemoveWhere(a => a < m_BorderDateTime);
+            m_BearWastedX.RemoveWhere(a => a < m_BorderDateTime);
+            m_BullAMax.RemoveLeft(a => a < m_BorderDateTime);
+            m_BearAMin.RemoveLeft(a => a < m_BorderDateTime);
         }
 
-        private void UpdateReversed(int index)
+        private void UpdateWasted(int index)
         {
-            double low = m_BarsProvider.GetHighPrice(index);
-            m_PivotPointsFinder.LowValuesReversed.RemoveLeft(a => a <= low);
+            double min = m_BarsProvider.GetLowPrice(index);
+            double max = m_BarsProvider.GetHighPrice(index);
 
-            double high = m_BarsProvider.GetHighPrice(index);
-            m_PivotPointsFinder.HighValuesReversed.RemoveRight(a => a >= high);
+            foreach (DateTime bullXtoADate in m_BullXtoA.Keys)
+            {
+                if (m_BullWastedX.Contains(bullXtoADate))
+                    continue;
+
+                if (!m_PivotPointsFinder.LowValues.TryGetValue(bullXtoADate, out double value) ||
+                    double.IsNaN(value))
+                    continue;
+
+                if (value > min)
+                    m_BullWastedX.Add(bullXtoADate);
+            }
+
+            foreach (DateTime bearXtoADate in m_BearXtoA.Keys)
+            {
+                if (m_BearWastedX.Contains(bearXtoADate))
+                    continue;
+
+                if (!m_PivotPointsFinder.HighValues.TryGetValue(bearXtoADate, out double value) ||
+                    double.IsNaN(value))
+                    continue;
+
+                if (value < max)
+                    m_BearWastedX.Add(bearXtoADate);
+            }
         }
+
+        public event EventHandler<ItemsXtoAEventHandler> OnItemXtoA;
 
         private void ProcessProjections(
             DateTime pointDateTimeX, 
-            BorderPoint border,
             SortedDictionary<DateTime, double> values,
             SortedDictionary<DateTime, double> counterValues,
-            SortedDictionary<double, List<DateTime>> valuesReversed,
             bool isUp)
         {
+            HashSet<DateTime> wastedValues = isUp
+                ? m_BullWastedX
+                : m_BearWastedX;
+
+            if (wastedValues.Contains(pointDateTimeX))
+                return;
+
             if (!values.TryGetValue(pointDateTimeX, out double valX))
                 return;
 
-            if (!valuesReversed.ContainsKey(valX) || double.IsNaN(valX))
+            if (double.IsNaN(valX))
                 return;
 
-            BarPoint aBarPoint = null;
+            SortedDictionary<DateTime, double> aRanges = isUp
+                ? m_BullAMax
+                : m_BearAMin;
+            if (!aRanges.TryGetValue(pointDateTimeX, out double aExtrema))
+            {
+                aExtrema = isUp ? double.NegativeInfinity : double.PositiveInfinity;
+                aRanges[pointDateTimeX] = aExtrema;
+            }
+
+            SortedDictionary<DateTime, HashSet<DateTime>> processedValues = isUp 
+                ? m_BullXtoA 
+                : m_BearXtoA;
+
+            if (!processedValues.ContainsKey(pointDateTimeX))
+                processedValues.Add(pointDateTimeX, new HashSet<DateTime>());
+            HashSet<DateTime> processedA = processedValues[pointDateTimeX];
+
             foreach (KeyValuePair<DateTime, double> pointA in counterValues
-                         // m_BorderPointAHigh.DatePoint always > m_BorderDateTime
                          .SkipWhile(a => a.Key <= pointDateTimeX))
             {
                 if (double.IsNaN(pointA.Value))
                     continue;
 
-                aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
                 if (isUp && valX >= pointA.Value ||
                     !isUp && valX <= pointA.Value)
-                    break;
+                {
+                    wastedValues.Add(pointDateTimeX);
+                    return;
+                }
 
+                if (!processedA.Add(pointA.Key))
+                    continue;
+
+                if (isUp && aExtrema > pointA.Value ||
+                    !isUp && aExtrema < pointA.Value)
+                    continue;
+
+                aRanges[pointDateTimeX] = pointA.Value;
+
+                var aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
                 var xBarPoint = new BarPoint(valX, pointDateTimeX, m_BarsProvider);
+
                 foreach (GartleyPattern realPattern in m_RealPatterns)
                 {
                     var projection = new GartleyProjection(
@@ -162,9 +237,6 @@ namespace TradeKit.AlgoBase
                     m_ActiveProjections.AddValue(pointDateTimeX, projection);
                 }
             }
-
-            if (aBarPoint != null)
-                border.BarPoint = aBarPoint;
         }
         
         /// <summary>
@@ -177,36 +249,25 @@ namespace TradeKit.AlgoBase
             m_PivotPointsFinder.Calculate(index);
             InitDatesIfNeeded(index);
             UpdateProjectionsCache();
-
-            if (!m_BorderPointAHigh.DatePoint.HasValue ||
-                !m_BorderPointALow.DatePoint.HasValue)
-                return null;
-
-            BorderPoint borderPointAHighLocal = m_BorderPointAHigh;
-            BorderPoint borderPointALowLocal = m_BorderPointALow;
+            UpdateWasted(index);
 
             foreach (DateTime pointDateTimeX in
-                     m_PivotPointsFinder.AllExtrema.SkipWhile(a => a < m_BorderDateTime))
+                     m_PivotPointsFinder.LowExtrema.SkipWhile(a => a < m_BorderDateTime))
             {
                 ProcessProjections(pointDateTimeX,
-                    m_BorderPointAHigh,
-                    m_PivotPointsFinder.LowValues,
-                    m_PivotPointsFinder.HighValues,
-                    m_PivotPointsFinder.LowValuesReversed,
+                    values: m_PivotPointsFinder.LowValues,
+                    counterValues: m_PivotPointsFinder.HighValues,
                     true);
-
-                ProcessProjections(pointDateTimeX,
-                    m_BorderPointALow,
-                    m_PivotPointsFinder.HighValues,
-                    m_PivotPointsFinder.LowValues,
-                    m_PivotPointsFinder.HighValuesReversed,
-                    false);
             }
 
-            m_BorderPointAHigh.BarPoint = borderPointAHighLocal.BarPoint;
-            m_BorderPointALow.BarPoint = borderPointALowLocal.BarPoint;
-
-            UpdateReversed(index);
+            foreach (DateTime pointDateTimeX in
+                     m_PivotPointsFinder.HighExtrema.SkipWhile(a => a < m_BorderDateTime))
+            {
+                ProcessProjections(pointDateTimeX,
+                    values: m_PivotPointsFinder.HighValues,
+                    counterValues: m_PivotPointsFinder.LowValues,
+                    false);
+            }
 
             HashSet<GartleyItem> patterns = null;
             foreach (List<GartleyProjection> activeProjections in m_ActiveProjections.Values)
