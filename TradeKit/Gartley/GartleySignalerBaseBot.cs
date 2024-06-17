@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;

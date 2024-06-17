@@ -175,15 +175,7 @@ namespace TradeKit.Gartley
             
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
                 BarDepthCount, UseDivergences, UseAutoSettings, superTrendItem, patternTypes, macdCrossover);
-            m_SetupFinder.OnItemXtoA += OnItemXtoA;
             Subscribe(m_SetupFinder);
-        }
-
-        private void OnItemXtoA(object sender,
-            AlgoBase.GartleyPatternFinder.ItemsXtoAEventHandler e)
-        {
-            Chart.DrawTrendLine($"XA->{e.X.BarIndex}-{e.A.BarIndex}", e.X.BarIndex, e.X.Value, e.A.BarIndex, e.A.Value,
-                Color.LightBlue, 2);
         }
 
         /// <summary>

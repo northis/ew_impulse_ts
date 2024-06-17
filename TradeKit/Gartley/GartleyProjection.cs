@@ -16,11 +16,13 @@ namespace TradeKit.Gartley
         private CalculationState m_CalculationStateCache;
         private readonly PivotPointsFinder m_ExtremaFinder;
         private readonly double m_WickAllowanceZeroToOne;
+        private double m_LastMin;
+        private double m_LastMax;
         private readonly int m_IsUpK;
         private bool m_PatternIsReady;
         private bool m_ProjectionIsReady;
         private DateTime m_BorderExtremaDateTime; // (slow)
-        private DateTime m_BorderCandleDateTime; // (false)
+        private DateTime m_BorderCandleDateTime; // (fast)
         private readonly RealLevel[] m_RatioToAcLevelsMap;
         private readonly RealLevel[] m_RatioToXbLevelsMap;
         private RealLevel[] m_RatioToXdLevelsMap;
@@ -120,8 +122,19 @@ namespace TradeKit.Gartley
             IsBull = itemX < itemA;
             m_BorderExtremaDateTime = itemA.OpenTime;
             LengthAtoX = Math.Abs(ItemA - ItemX);
-            m_IsUpK = IsBull ? 1 : -1;
-            
+            if (IsBull)
+            {
+                m_LastMin = itemX.Value;
+                m_LastMax = itemA.Value;
+                m_IsUpK = 1;
+            }
+            else
+            {
+                m_LastMax = itemX.Value;
+                m_LastMin = itemA.Value;
+                m_IsUpK = -1;
+            }
+
             m_RatioToAcLevelsMap = InitPriceRanges(
                 PatternType.ACValues, false, LengthAtoX, ItemX.Value);
             m_RatioToXbLevelsMap = InitPriceRanges(
@@ -183,6 +196,10 @@ namespace TradeKit.Gartley
 
         private void UpdateC(DateTime dt, double value)
         {
+            if (IsBull && value < m_LastMax ||
+                !IsBull && value > m_LastMin)
+                return;
+
             if (ItemC != null &&
                 (IsBull && value > ItemC || !IsBull && value < ItemC))
             {
@@ -202,9 +219,8 @@ namespace TradeKit.Gartley
                     continue;
 
                 if (dt <= ItemB.OpenTime)
-                {
                     continue;
-                }
+
 
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
                 AtoC = levelRange.Ratio;
@@ -299,14 +315,17 @@ namespace TradeKit.Gartley
 
         private void UpdateB(DateTime dt, double value)
         {
+            bool isOutRange = IsBull && value < ItemB || !IsBull && value > ItemB;
+
             if (m_RatioToXbLevelsMap.Length == 0 &&
-                (ItemB == null ||
-                 IsBull && value < ItemB ||
-                 !IsBull && value > ItemB))
+                (ItemB == null || isOutRange))
             {
                 ItemB = new BarPoint(value, dt, m_BarsProvider);
                 return;
             }
+
+            if (ItemB != null && isOutRange)
+                ItemB = null;
 
             foreach (RealLevel levelRange in m_RatioToXbLevelsMap)
             {
@@ -338,20 +357,33 @@ namespace TradeKit.Gartley
             UpdateCalculateState();
             bool isStraightExtrema = IsBull == isHigh;
 
+            if (isHigh && value > m_LastMax)
+                m_LastMax = value;
+            if (!isHigh && value < m_LastMin)
+                m_LastMin = value;
+
             if (m_CalculationStateCache is CalculationState.A_TO_B or CalculationState.A_TO_C)
+            {
                 if (IsBull && value < ItemX || !IsBull && value > ItemX)
                     return false;
+            }
+
+            if (m_CalculationStateCache is 
+                CalculationState.A_TO_B or 
+                CalculationState.A_TO_C or 
+                CalculationState.B_TO_C)
+            {
+                if (IsBull && m_LastMin < ItemX.Value || !IsBull && m_LastMax > ItemX.Value)
+                    return false;
+            }
 
             if (m_CalculationStateCache is CalculationState.A_TO_B or CalculationState.D)
                 if (IsBull && value > ItemA || !IsBull && value < ItemA)
                     return false;
-
+            
             switch (m_CalculationStateCache)
             {
                 case CalculationState.A_TO_B:
-                    if (IsBull && value > ItemA || !IsBull && value < ItemA)
-                        return false;
-
                     if (isStraightExtrema)// counter-extrema needed only
                         return true;
 
@@ -376,15 +408,7 @@ namespace TradeKit.Gartley
                     if (ItemC == null || ItemC.OpenTime == dt)
                         return true;
 
-                    if (ItemC.BarIndex < ItemB.BarIndex)
-                    {
-
-                    }
-
-                    if (!isStraightExtrema)
-                    {
-                        UpdateD(dt, value);
-                    }
+                    if (!isStraightExtrema) UpdateD(dt, value);
 
                     break;
                 case CalculationState.D:
@@ -471,7 +495,7 @@ namespace TradeKit.Gartley
                     DateTime currentDt = m_BarsProvider.GetOpenTime(i);
                     double low = m_BarsProvider.GetLowPrice(i);
                     double high = m_BarsProvider.GetLowPrice(i);
-
+                    
                     if (IsBull)
                     {
                         if (high > ItemA)

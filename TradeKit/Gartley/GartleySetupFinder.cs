@@ -64,20 +64,16 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
             SetAutoSettings(out wickAllowance);
             patterns = null;
-
         }
 
         m_PatternFinder = new GartleyPatternFinder(
             m_MainBarsProvider, wickAllowance, barsDepth, patterns);
-        m_PatternFinder.OnItemXtoA += (o,e)=> OnItemXtoA?.Invoke(o, e);
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
         m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
     }
-
-    public event EventHandler<ItemsXtoAEventHandler> OnItemXtoA;
-
+    
     private void SetAutoSettings(out double wickAllowance)
     {
         TimeFrame tf = m_MainBarsProvider.TimeFrame;

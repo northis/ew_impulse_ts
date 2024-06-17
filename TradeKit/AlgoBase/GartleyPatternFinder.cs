@@ -1,52 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.Gartley;
-using static Microsoft.FSharp.Core.ByRefKinds;
 
 namespace TradeKit.AlgoBase
 {
     public class GartleyPatternFinder
     {
-        private record BorderPoint
-        {
-            private BarPoint m_BarPoint;
-            internal DateTime? DatePoint { get; private set; }
-
-            internal BarPoint BarPoint
-            {
-                get => m_BarPoint;
-                set
-                {
-                    if (value == null)
-                        return;
-
-                    m_BarPoint = value;
-                    DatePoint = value.OpenTime;
-                }
-            }
-
-            internal void UpdateDate(DateTime date)
-            {
-                if (DatePoint != null && !(DatePoint < date)) return;
-                DatePoint = date;
-                BarPoint = null;
-            }
-        }
-
-        public class ItemsXtoAEventHandler : System.EventArgs
-        {
-            public BarPoint X { get; set; }
-            public BarPoint A { get; set; }
-        }
-
         private readonly double m_WickAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
         private readonly int m_BarsDepth;
-        private const int GARTLEY_EXTREMA_COUNT = 6;
-        private const int PRE_X_EXTREMA_BARS_COUNT = 7;
 //#if GARTLEY_PROD
         private const double SL_RATIO = 0.272;
         private const double TP1_RATIO = 0.382;
@@ -60,8 +24,8 @@ namespace TradeKit.AlgoBase
 
         private readonly GartleyPattern[] m_RealPatterns;
         private readonly SortedDictionary<DateTime, List<GartleyProjection>> m_ActiveProjections;
-        private readonly SortedDictionary<DateTime, HashSet<DateTime>> m_BullXtoA;
-        private readonly SortedDictionary<DateTime, HashSet<DateTime>> m_BearXtoA;
+        private readonly SortedDictionary<DateTime, DateTime> m_BullXtoA;
+        private readonly SortedDictionary<DateTime, DateTime> m_BearXtoA;
         private readonly HashSet<DateTime> m_BullWastedX;
         private readonly HashSet<DateTime> m_BearWastedX;
         private readonly SortedDictionary<DateTime, double> m_BullAMax;
@@ -99,8 +63,8 @@ namespace TradeKit.AlgoBase
                     .ToArray();
 
             m_ActiveProjections = new SortedDictionary<DateTime, List<GartleyProjection>>();
-            m_BullXtoA = new SortedDictionary<DateTime, HashSet<DateTime>>();
-            m_BearXtoA = new SortedDictionary<DateTime, HashSet<DateTime>>();
+            m_BullXtoA = new SortedDictionary<DateTime, DateTime>();
+            m_BearXtoA = new SortedDictionary<DateTime, DateTime>();
             m_BullWastedX = new HashSet<DateTime>();
             m_BearWastedX = new HashSet<DateTime>();
             m_BullAMax = new SortedDictionary<DateTime, double>();
@@ -161,8 +125,6 @@ namespace TradeKit.AlgoBase
             }
         }
 
-        public event EventHandler<ItemsXtoAEventHandler> OnItemXtoA;
-
         private void ProcessProjections(
             DateTime pointDateTimeX, 
             SortedDictionary<DateTime, double> values,
@@ -191,17 +153,19 @@ namespace TradeKit.AlgoBase
                 aRanges[pointDateTimeX] = aExtrema;
             }
 
-            SortedDictionary<DateTime, HashSet<DateTime>> processedValues = isUp 
+            SortedDictionary<DateTime, DateTime> processedValues = isUp 
                 ? m_BullXtoA 
                 : m_BearXtoA;
 
-            if (!processedValues.ContainsKey(pointDateTimeX))
-                processedValues.Add(pointDateTimeX, new HashSet<DateTime>());
-            HashSet<DateTime> processedA = processedValues[pointDateTimeX];
+            processedValues.TryAdd(pointDateTimeX, pointDateTimeX);
+            DateTime processedA = processedValues[pointDateTimeX];
 
             foreach (KeyValuePair<DateTime, double> pointA in counterValues
-                         .SkipWhile(a => a.Key <= pointDateTimeX))
+                         .Where(a => a.Key > processedA))
             {
+                if (pointA.Key > processedA)
+                    processedValues[pointDateTimeX] = pointA.Key;
+
                 if (double.IsNaN(pointA.Value))
                     continue;
 
@@ -212,14 +176,11 @@ namespace TradeKit.AlgoBase
                     return;
                 }
 
-                if (!processedA.Add(pointA.Key))
-                    continue;
-
                 if (isUp && aExtrema > pointA.Value ||
                     !isUp && aExtrema < pointA.Value)
                     continue;
 
-                aRanges[pointDateTimeX] = pointA.Value;
+                aExtrema = aRanges[pointDateTimeX] = pointA.Value;
 
                 var aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
                 var xBarPoint = new BarPoint(valX, pointDateTimeX, m_BarsProvider);
@@ -252,7 +213,7 @@ namespace TradeKit.AlgoBase
             UpdateWasted(index);
 
             foreach (DateTime pointDateTimeX in
-                     m_PivotPointsFinder.LowExtrema.SkipWhile(a => a < m_BorderDateTime))
+                     m_PivotPointsFinder.LowExtrema.Where(a => a >= m_BorderDateTime))
             {
                 ProcessProjections(pointDateTimeX,
                     values: m_PivotPointsFinder.LowValues,
@@ -261,7 +222,7 @@ namespace TradeKit.AlgoBase
             }
 
             foreach (DateTime pointDateTimeX in
-                     m_PivotPointsFinder.HighExtrema.SkipWhile(a => a < m_BorderDateTime))
+                     m_PivotPointsFinder.HighExtrema.Where(a => a >= m_BorderDateTime))
             {
                 ProcessProjections(pointDateTimeX,
                     values: m_PivotPointsFinder.HighValues,
@@ -333,21 +294,7 @@ namespace TradeKit.AlgoBase
 
             bool isBull = projection.IsBull;
             double closeD = m_BarsProvider.GetClosePrice(projection.ItemD.BarIndex);
-
-            double barLen = Math.Abs(m_BarsProvider.GetHighPrice(projection.ItemD.BarIndex) -
-                                     m_BarsProvider.GetLowPrice(projection.ItemD.BarIndex));
-            //double wickAllowRange = barLen / 3;
-
-            if (barLen <= 0)
-                return null;
-
-            //if (isBull && closeD - projection.ItemD < wickAllowRange ||
-            //    !isBull && projection.ItemD.Value - closeD < wickAllowRange)
-            //{
-            //    //Logger.Write("Candle body is too full.");
-            //    return null;
-            //}
-
+            
             double actualSize = projection.PatternType.SetupType == GartleySetupType.AD ? aD : cD;
 
             double slLen = actualSize * SL_RATIO;
@@ -356,24 +303,25 @@ namespace TradeKit.AlgoBase
             //double tp1Len = Math.Abs(sl - closeD);
 
             double tp1 = isBull ? tp1Len + projection.ItemD : -tp1Len + projection.ItemD;
-            //if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
-            //{
-            //    //Logger.Write("TP is already hit.");
-            //    return null;
-            //}
+            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
+            {
+                //Logger.Write("TP is already hit.");
+                return null;
+            }
 
             double tp2Len = actualSize * TP2_RATIO;
             double tp2 = isBull ? tp2Len + projection.ItemD : -tp2Len + projection.ItemD;
 
             double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
-            //if (def > MAX_SL_TP_RATIO_ALLOWED)
-            //{
-            //    //Logger.Write("SL/TP is too big.");
-            //    return null;
-            //}
+            if (def > MAX_SL_TP_RATIO_ALLOWED)
+            {
+                //Logger.Write("SL/TP is too big.");
+                return null;
+            }
 
-            GartleyItem item = new GartleyItem(0, 
-                projection.PatternType.PatternType, projection.ItemX,
+            var item = new GartleyItem(0, 
+                projection.PatternType.PatternType, 
+                projection.ItemX,
                 projection.ItemA, 
                 projection.ItemB, 
                 projection.ItemC, 
