@@ -220,8 +220,7 @@ namespace TradeKit.Gartley
 
                 if (dt <= ItemB.OpenTime)
                     continue;
-
-
+                
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
                 AtoC = levelRange.Ratio;
                 m_ProjectionIsReady = true;
@@ -313,7 +312,7 @@ namespace TradeKit.Gartley
             }
         }
 
-        private void UpdateB(DateTime dt, double value)
+        private bool UpdateB(DateTime dt, double value)
         {
             bool isOutRange = IsBull && value < ItemB || !IsBull && value > ItemB;
 
@@ -321,11 +320,15 @@ namespace TradeKit.Gartley
                 (ItemB == null || isOutRange))
             {
                 ItemB = new BarPoint(value, dt, m_BarsProvider);
-                return;
+                return true;
             }
 
             if (ItemB != null && isOutRange)
+            {
                 ItemB = null;
+                if (IsBull && m_LastMax > ItemA || !IsBull && m_LastMin < ItemA)
+                    return false;
+            }
 
             foreach (RealLevel levelRange in m_RatioToXbLevelsMap)
             {
@@ -343,6 +346,8 @@ namespace TradeKit.Gartley
                 ItemB = new BarPoint(value, dt, m_BarsProvider);
                 XtoB = levelRange.Ratio;
             }
+
+            return true;
         }
 
         /// <summary>
@@ -380,22 +385,21 @@ namespace TradeKit.Gartley
             if (m_CalculationStateCache is CalculationState.A_TO_B or CalculationState.D)
                 if (IsBull && value > ItemA || !IsBull && value < ItemA)
                     return false;
-            
+
             switch (m_CalculationStateCache)
             {
                 case CalculationState.A_TO_B:
                     if (isStraightExtrema)// counter-extrema needed only
                         return true;
 
-                    UpdateB(dt, value);
+                    return UpdateB(dt, value);
 
                     break;
                 case CalculationState.A_TO_C:
                 case CalculationState.B_TO_C:
                     if (!isStraightExtrema)// direct extrema needed only
                     {
-                        UpdateB(dt, value);
-                        return true;
+                        return UpdateB(dt, value);
                     }
 
                     UpdateC(dt, value);
@@ -494,7 +498,7 @@ namespace TradeKit.Gartley
                 {
                     DateTime currentDt = m_BarsProvider.GetOpenTime(i);
                     double low = m_BarsProvider.GetLowPrice(i);
-                    double high = m_BarsProvider.GetLowPrice(i);
+                    double high = m_BarsProvider.GetHighPrice(i);
                     
                     if (IsBull)
                     {

@@ -161,7 +161,7 @@ namespace TradeKit.AlgoBase
             DateTime processedA = processedValues[pointDateTimeX];
 
             foreach (KeyValuePair<DateTime, double> pointA in counterValues
-                         .Where(a => a.Key > processedA))
+                         .SkipWhile(a => a.Key <= processedA))
             {
                 if (pointA.Key > processedA)
                     processedValues[pointDateTimeX] = pointA.Key;
@@ -174,6 +174,13 @@ namespace TradeKit.AlgoBase
                 {
                     wastedValues.Add(pointDateTimeX);
                     return;
+                }
+
+                if (values.SkipWhile(a => a.Key <= pointDateTimeX)
+                    .TakeWhile(a => a.Key < pointA.Key)
+                    .Any(a => isUp ? a.Value < valX : a.Value > valX))
+                {
+                    return; // other sides of the candles can also reach X point
                 }
 
                 if (isUp && aExtrema > pointA.Value ||
@@ -213,7 +220,7 @@ namespace TradeKit.AlgoBase
             UpdateWasted(index);
 
             foreach (DateTime pointDateTimeX in
-                     m_PivotPointsFinder.LowExtrema.Where(a => a >= m_BorderDateTime))
+                     m_PivotPointsFinder.LowExtrema.SkipWhile(a => a < m_BorderDateTime))
             {
                 ProcessProjections(pointDateTimeX,
                     values: m_PivotPointsFinder.LowValues,
@@ -222,7 +229,7 @@ namespace TradeKit.AlgoBase
             }
 
             foreach (DateTime pointDateTimeX in
-                     m_PivotPointsFinder.HighExtrema.Where(a => a >= m_BorderDateTime))
+                     m_PivotPointsFinder.HighExtrema.SkipWhile(a => a < m_BorderDateTime))
             {
                 ProcessProjections(pointDateTimeX,
                     values: m_PivotPointsFinder.HighValues,
