@@ -11,6 +11,7 @@ namespace TradeKit.AlgoBase
         private int m_Period;
         private int m_PeriodX2;
         private readonly IBarsProvider m_BarsProvider;
+        private readonly bool m_FillWithNans;
         private readonly int m_BarsDepthCleanOld;
 
         public double DefaultValue = double.NaN;
@@ -40,12 +41,13 @@ namespace TradeKit.AlgoBase
         /// </summary>
         public SortedSet<DateTime> AllExtrema { get; }
 
-        public PivotPointsFinder(int period, IBarsProvider barsProvider, 
+        public PivotPointsFinder(int period, IBarsProvider barsProvider, bool fillWithNans = true,
             int barsDepthCleanOld = 1000)
         {
             m_BarsDepthCleanOld = barsDepthCleanOld;
             SetPeriod(period);
             m_BarsProvider = barsProvider;
+            m_FillWithNans = fillWithNans;
             HighValues = new SortedDictionary<DateTime, double>();
             LowValues = new SortedDictionary<DateTime, double>();
             LowExtrema = new SortedSet<DateTime>();
@@ -130,32 +132,7 @@ namespace TradeKit.AlgoBase
             int endIndex = m_BarsProvider.GetIndexByTime(endDate);
             Calculate(startIndex, endIndex);
         }
-
-        private void CleanCollection(
-            DateTime currentBarDateTime,
-            SortedDictionary<DateTime, double> collection,
-            SortedDictionary<double, List<DateTime>> collectionReversed)
-        {
-            List<DateTime> toRemoveList = null;
-            foreach (KeyValuePair<DateTime, double> hV in
-                     collection.TakeWhile(a => a.Key < currentBarDateTime))
-            {
-                toRemoveList ??= new List<DateTime>();
-                toRemoveList.Add(hV.Key);
-                if (collectionReversed.TryGetValue(hV.Value, out List<DateTime> vals))
-                {
-                    vals.Remove(hV.Key);
-                    if (vals.Count == 0)
-                        collectionReversed.Remove(hV.Value);
-                }
-            }
-
-            if (toRemoveList == null)
-                return;
-
-            foreach (DateTime toRemove in toRemoveList) collection.Remove(toRemove);
-        }
-
+        
         /// <summary>
         /// Cleans the collections - maintenance every <see cref="m_BarsDepthCleanOld"/> bars.
         /// </summary>
@@ -174,6 +151,8 @@ namespace TradeKit.AlgoBase
             AllExtrema.RemoveWhere(a => a < currentBarDateTime);
             HighExtrema.RemoveWhere(a => a < currentBarDateTime);
             LowExtrema.RemoveWhere(a => a < currentBarDateTime);
+            HighValues.RemoveLeft(a => a < currentBarDateTime);
+            LowValues.RemoveLeft(a => a < currentBarDateTime);
         }
 
         /// <summary>
@@ -216,7 +195,7 @@ namespace TradeKit.AlgoBase
                 HighExtrema.Add(dt);
                 AllExtrema.Add(dt);
             }
-            else
+            else if(m_FillWithNans)
                 HighValues[dt] = DefaultValue;
 
             if (gotLow)
@@ -225,7 +204,7 @@ namespace TradeKit.AlgoBase
                 LowExtrema.Add(dt);
                 AllExtrema.Add(dt);
             }
-            else
+            else if (m_FillWithNans)
                 LowValues[dt] = DefaultValue;
 
             return index;

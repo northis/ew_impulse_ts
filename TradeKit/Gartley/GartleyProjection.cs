@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -13,20 +14,19 @@ namespace TradeKit.Gartley
     internal class GartleyProjection
     {
         private readonly IBarsProvider m_BarsProvider;
-        private CalculationState m_CalculationStateCache;
-        private readonly PivotPointsFinder m_ExtremaFinder;
         private readonly double m_WickAllowanceZeroToOne;
-        private double m_LastMin;
-        private double m_LastMax;
+        private readonly double m_ItemACancelPrice;
+        private double m_ItemDCancelPrice = double.NaN;
         private readonly int m_IsUpK;
         private bool m_PatternIsReady;
         private bool m_ProjectionIsReady;
-        private DateTime m_BorderExtremaDateTime; // (slow)
-        private DateTime m_BorderCandleDateTime; // (fast)
+        private bool m_IsInvalid;
         private readonly RealLevel[] m_RatioToAcLevelsMap;
         private readonly RealLevel[] m_RatioToXbLevelsMap;
         private RealLevel[] m_RatioToXdLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
+        private bool m_IsBItemLocked = false;
+        private readonly RealLevelBase m_ItemBRange;
 
         private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
         private BarPoint m_ItemC;
@@ -107,42 +107,53 @@ namespace TradeKit.Gartley
 
         public GartleyProjection(
             IBarsProvider barsProvider,
-            PivotPointsFinder extremaFinder,
             GartleyPatternType patternType, 
             BarPoint itemX, 
             BarPoint itemA,
             double wickAllowanceZeroToOne)
         {
             m_BarsProvider = barsProvider;
-            m_ExtremaFinder = extremaFinder;
             m_WickAllowanceZeroToOne = wickAllowanceZeroToOne;
             PatternType = PATTERNS_MAP[patternType];
             ItemX = itemX;
             ItemA = itemA;
             IsBull = itemX < itemA;
-            m_BorderExtremaDateTime = itemA.OpenTime;
             LengthAtoX = Math.Abs(ItemA - ItemX);
             if (IsBull)
             {
-                m_LastMin = itemX.Value;
-                m_LastMax = itemA.Value;
                 m_IsUpK = 1;
             }
             else
             {
-                m_LastMax = itemX.Value;
-                m_LastMin = itemA.Value;
                 m_IsUpK = -1;
             }
 
             m_RatioToAcLevelsMap = InitPriceRanges(
                 PatternType.ACValues, false, LengthAtoX, ItemX.Value);
-            m_RatioToXbLevelsMap = InitPriceRanges(
-                PatternType.XBValues, true,LengthAtoX, ItemA.Value);
-            //We cannot initialize BD/XD ranges until points B/C is calculated.
 
+            m_ItemACancelPrice =
+                IsBull
+                    ? m_RatioToAcLevelsMap.MaxBy(a => a.Max).Max
+                    : m_RatioToAcLevelsMap.MinBy(a => a.Min).Min;
+
+            m_RatioToXbLevelsMap = InitPriceRanges(
+                PatternType.XBValues, true, LengthAtoX, ItemA.Value);
+
+            if (PatternType.XBValues.Any())
+            {
+                IEnumerable<double> bEnd = m_RatioToXbLevelsMap.Select(a => IsBull ? a.Min : a.Max);
+                m_ItemBRange = new RealLevelBase(itemA.Value, IsBull ? bEnd.Min() : bEnd.Max());
+            }
+            else// 4 shark
+            {
+                m_ItemBRange = new RealLevelBase(itemA.Value, itemX.Value);
+            }
+
+            //We cannot initialize BD/XD ranges until points B/C is calculated.
             m_XdToDbMapSortedItems = new List<RealLevelCombo>();
         }
+
+        private bool UseSecondItemB => ItemBSecond != null;
 
         /// <summary>
         /// Initializes the actual price ranges from the ratio values given.
@@ -163,12 +174,14 @@ namespace TradeKit.Gartley
             for (int i = 0; i < ratios.Length; i++)
             {
                 double val = ratios[i];
-                double xLength = baseLength * val;
-                double xLengthAllowance = xLength * (1 + m_WickAllowanceZeroToOne);
-                double xPoint = countPoint + isUpLocal * xLength;
-                double xPointLimit = countPoint + isUpLocal * xLengthAllowance;
+                double ratioStart = val * (1 - m_WickAllowanceZeroToOne);
+                double ratioEnd = val * (1 + m_WickAllowanceZeroToOne);
+                double xLengthStart = baseLength * ratioStart;
+                double xLengthEnd = baseLength * ratioEnd;
+                double xPointStart = countPoint + isUpLocal * xLengthStart;
+                double xPointEnd = countPoint + isUpLocal * xLengthEnd;
 
-                resValues[i] = new (val, xPoint, xPointLimit);
+                resValues[i] = new (val, xPointStart, xPointEnd);
             }
 
             return resValues;
@@ -192,12 +205,18 @@ namespace TradeKit.Gartley
                     m_XdToDbMapSortedItems.Add(toAdd);
                 }
             }
+
+            if (!m_XdToDbMapSortedItems.Any())
+                return;
+
+            m_ItemDCancelPrice = IsBull 
+                ? m_XdToDbMapSortedItems.MinBy(a => a.Min).Min 
+                : m_XdToDbMapSortedItems.MaxBy(a => a.Max).Max;
         }
 
         private void UpdateC(DateTime dt, double value)
         {
-            if (IsBull && value < m_LastMax ||
-                !IsBull && value > m_LastMin)
+            if (ItemB == null)
                 return;
 
             if (ItemC != null &&
@@ -215,15 +234,13 @@ namespace TradeKit.Gartley
                     !IsBull && (value > levelRange.StartValue || value < levelRange.EndValue))
                     continue;
 
-                if (ItemB == null)
-                    continue;
-
                 if (dt <= ItemB.OpenTime)
-                    continue;
+                    break;
                 
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
                 AtoC = levelRange.Ratio;
                 m_ProjectionIsReady = true;
+                break;
             }
         }
 
@@ -299,6 +316,7 @@ namespace TradeKit.Gartley
 
                 m_PatternIsReady = true;
                 m_ProjectionIsReady = false;// Stop use the projection when we got the whole pattern
+                break;
             }
 
             if (levelsToDelete == null)
@@ -312,22 +330,40 @@ namespace TradeKit.Gartley
             }
         }
 
-        private bool UpdateB(DateTime dt, double value)
+        private void UpdateB(DateTime dt, double value)
         {
-            bool isOutRange = IsBull && value < ItemB || !IsBull && value > ItemB;
+            bool IsOutRange() => IsBull && value < ItemB || !IsBull && value > ItemB;
+            bool isNoXb = !PatternType.XBValues.Any();
 
-            if (m_RatioToXbLevelsMap.Length == 0 &&
-                (ItemB == null || isOutRange))
+            bool useSecondItemB = false;
+            if (ItemC == null)
             {
-                ItemB = new BarPoint(value, dt, m_BarsProvider);
-                return true;
+                if (isNoXb && (ItemB == null || IsOutRange()))
+                {
+                    ItemB = new BarPoint(value, dt, m_BarsProvider);
+                    return;
+                }
+
+                if (ItemB != null && IsOutRange())
+                    ItemB = null;
             }
-
-            if (ItemB != null && isOutRange)
+            else
             {
-                ItemB = null;
-                if (IsBull && m_LastMax > ItemA || !IsBull && m_LastMin < ItemA)
-                    return false;
+                if (ItemB == null)
+                {
+                    // TODO, do we heed this? Find an extremum between A and C.
+                }
+
+                if (IsBull && ItemC < ItemA || !IsBull && ItemC > ItemA)
+                {
+                    if (isNoXb && IsOutRange())
+                    {
+                        ItemB = new BarPoint(value, dt, m_BarsProvider);
+                        return;
+                    }
+
+                    useSecondItemB = true;
+                }
             }
 
             foreach (RealLevel levelRange in m_RatioToXbLevelsMap)
@@ -343,11 +379,25 @@ namespace TradeKit.Gartley
                     if (ItemB != null && ItemB.Value > value) continue;
                 }
 
-                ItemB = new BarPoint(value, dt, m_BarsProvider);
-                XtoB = levelRange.Ratio;
-            }
+                if (ItemX.OpenTime is { Day: 2, Month: 10, Year: 2023 } &&
+                    ItemA.OpenTime is { Day: 27, Month: 12, Year: 2023 })
+                {
+                    Debugger.Launch();
+                }
 
-            return true;
+                if (useSecondItemB)
+                {
+                    ItemBSecond = new BarPoint(value, dt, m_BarsProvider);
+                    XtoBSecond = levelRange.Ratio;
+                }
+                else
+                {
+                    ItemB = new BarPoint(value, dt, m_BarsProvider);
+                    XtoB = levelRange.Ratio;
+                }
+
+                break;
+            }
         }
 
         /// <summary>
@@ -359,174 +409,96 @@ namespace TradeKit.Gartley
         /// <returns>True if we can continue the calculation, false if the projection should be cancelled.</returns>
         private bool CheckPoint(DateTime dt, double value, bool isHigh)
         {
-            UpdateCalculateState();
             bool isStraightExtrema = IsBull == isHigh;
-
-            if (isHigh && value > m_LastMax)
-                m_LastMax = value;
-            if (!isHigh && value < m_LastMin)
-                m_LastMin = value;
-
-            if (m_CalculationStateCache is CalculationState.A_TO_B or CalculationState.A_TO_C)
+            if (m_ItemBRange.Min > value || m_ItemBRange.Max < value)
             {
-                if (IsBull && value < ItemX || !IsBull && value > ItemX)
+                if (ItemB == null)
                     return false;
+
+                if (!m_IsBItemLocked)
+                    m_IsBItemLocked = true;
             }
 
-            if (m_CalculationStateCache is 
-                CalculationState.A_TO_B or 
-                CalculationState.A_TO_C or 
-                CalculationState.B_TO_C)
-            {
-                if (IsBull && m_LastMin < ItemX.Value || !IsBull && m_LastMax > ItemX.Value)
-                    return false;
-            }
+            if (!isStraightExtrema && !m_IsBItemLocked)
+                UpdateB(dt, value);
+            
+            if (isStraightExtrema)
+                UpdateC(dt, value);
 
-            if (m_CalculationStateCache is CalculationState.A_TO_B or CalculationState.D)
-                if (IsBull && value > ItemA || !IsBull && value < ItemA)
-                    return false;
-
-            switch (m_CalculationStateCache)
-            {
-                case CalculationState.A_TO_B:
-                    if (isStraightExtrema)// counter-extrema needed only
-                        return true;
-
-                    return UpdateB(dt, value);
-
-                    break;
-                case CalculationState.A_TO_C:
-                case CalculationState.B_TO_C:
-                    if (!isStraightExtrema)// direct extrema needed only
-                    {
-                        return UpdateB(dt, value);
-                    }
-
-                    UpdateC(dt, value);
-                    break;
-                case CalculationState.C_TO_D:
-                    // Since then, we no longer can move the point B.
-                    if (isStraightExtrema)
-                        UpdateC(dt, value);
-
-                    if (ItemC == null || ItemC.OpenTime == dt)
-                        return true;
-
-                    if (!isStraightExtrema) UpdateD(dt, value);
-
-                    break;
-                case CalculationState.D:
-                    if (isStraightExtrema)
-                        UpdateC(dt, value);
-                    else
-                        UpdateD(dt, value);
-                    break;
-                case CalculationState.NONE:
-                    return false;
-                default:
-                    Logger.Write($"{nameof(CheckPoint)}: invalid state, check it");
-                    break;
-            }
+            if (!isStraightExtrema)
+                UpdateD(dt, value);
 
             return true;
-        }
-
-        private void UpdateCalculateState()
-        {
-            if (m_CalculationStateCache == CalculationState.NONE)
-                return;
-
-            if (ItemB == null && PatternType.XBValues.Any())
-            {
-                m_CalculationStateCache = CalculationState.A_TO_B;
-            }
-            
-            if (ItemC == null && !PatternType.XBValues.Any())//for shark{
-            {
-                m_CalculationStateCache = CalculationState.A_TO_C;
-                return;
-            }
-
-            if (ItemC == null)
-            {
-                m_CalculationStateCache = CalculationState.B_TO_C;
-                return;
-            }
-
-            m_CalculationStateCache = ItemD == null ? CalculationState.C_TO_D : CalculationState.D;
         }
 
         /// <summary>
         /// Updates the projections based on new extrema.
         /// </summary>
+        /// <param name="index">The point we want to calculate against.</param>
         /// <returns>Result of the Update process</returns>
-        public ProjectionState Update()
+        public ProjectionState Update(int index)
         {
+            if(m_PatternIsReady)
+                return ProjectionState.PATTERN_SAME;
+
+            if (m_IsInvalid)
+                return ProjectionState.NO_PROJECTION;
+
             bool prevPatternIsReady = m_PatternIsReady;
             bool prevProjectionIsReady = m_ProjectionIsReady;
             m_ProjectionIsReady = false;
             m_PatternIsReady = false;
 
-            DateTime borderExtremaDateTimeLocal = m_BorderExtremaDateTime;
-            foreach (DateTime extremaDt in
-                     m_ExtremaFinder.AllExtrema.SkipWhile(a => a <= borderExtremaDateTimeLocal))
+            double high = m_BarsProvider.GetHighPrice(index);
+            double low = m_BarsProvider.GetLowPrice(index);
+            
+            if (IsBull && high > m_ItemACancelPrice ||
+                !IsBull && low < m_ItemACancelPrice)
             {
-                bool result = true;
-                m_BorderExtremaDateTime = extremaDt;
-                if (m_ExtremaFinder.HighExtrema.Contains(extremaDt))
-                    result = CheckPoint(extremaDt, m_ExtremaFinder.HighValues[extremaDt], true);
-
-                if (m_ExtremaFinder.LowExtrema.Contains(extremaDt))
-                    result &= CheckPoint(extremaDt, m_ExtremaFinder.LowValues[extremaDt], false);
-                
-                if (result) continue;
-
-                m_PatternIsReady = false;
-                m_PatternIsReady = false;
-                m_CalculationStateCache = CalculationState.NONE;
+                m_IsInvalid = true;
                 return ProjectionState.NO_PROJECTION;
             }
 
-            m_BorderCandleDateTime = m_BorderExtremaDateTime;
-            UpdateCalculateState();
-
-            //update D based on latest candles
-            if (m_CalculationStateCache is CalculationState.C_TO_D or CalculationState.D)
+            // if the price squeezes through all the levels without a pattern
+            if (!double.IsNaN(m_ItemDCancelPrice) && !m_PatternIsReady)
             {
-                int lastUsedIndex = m_BarsProvider.GetIndexByTime(m_BorderCandleDateTime);
-                for (int i = lastUsedIndex + 1; i < m_BarsProvider.Count; i++)
+                if (IsBull && low < m_ItemDCancelPrice ||
+                    !IsBull && high > m_ItemDCancelPrice)
                 {
-                    DateTime currentDt = m_BarsProvider.GetOpenTime(i);
-                    double low = m_BarsProvider.GetLowPrice(i);
-                    double high = m_BarsProvider.GetHighPrice(i);
-                    
-                    if (IsBull)
-                    {
-                        if (high > ItemA)
-                        {
-                            m_CalculationStateCache = CalculationState.NONE;
-                            return ProjectionState.NO_PROJECTION;
-                        }
-
-                        if (CheckPoint(currentDt, low, false))
-                            continue;
-                    }
-                    else
-                    {
-                        if (low < ItemA)
-                        {
-                            m_CalculationStateCache = CalculationState.NONE;
-                            return ProjectionState.NO_PROJECTION;
-                        }
-
-                        if (CheckPoint(currentDt, high, true))
-                            continue;
-                    }
-
-                    m_BorderCandleDateTime = currentDt;
-                    m_CalculationStateCache = CalculationState.NONE;
+                    m_IsInvalid = true;
                     return ProjectionState.NO_PROJECTION;
                 }
+            }
+
+            if (ItemB == null)
+            {
+                if (IsBull && (low < ItemX || high > ItemA) ||
+                    !IsBull && (high > ItemX || high < ItemA))
+                {
+                    m_IsInvalid = true;
+                    return ProjectionState.NO_PROJECTION;
+                }
+            }
+
+            if (ItemC == null)
+            {
+                if (IsBull && low < ItemX || !IsBull && high > ItemX)
+                {
+                    m_IsInvalid = true;
+                    return ProjectionState.NO_PROJECTION;
+                }
+            }
+            
+            DateTime currentDt = m_BarsProvider.GetOpenTime(index);
+            bool result = CheckPoint(currentDt, high, true);
+            result &= CheckPoint(currentDt, low, false);
+
+            if (!result)
+            {
+                m_PatternIsReady = false;
+                m_ProjectionIsReady = false;
+                m_IsInvalid = true;
+                return ProjectionState.NO_PROJECTION;
             }
 
             if (m_PatternIsReady)
@@ -554,6 +526,7 @@ namespace TradeKit.Gartley
         internal BarPoint ItemA { get; }
 
         internal BarPoint ItemB { get; set; }
+        internal BarPoint ItemBSecond { get; set; }
 
         internal BarPoint ItemC
         {
@@ -568,6 +541,7 @@ namespace TradeKit.Gartley
                     m_RatioToXdLevelsMap = Array.Empty<RealLevel>();
                     m_XdToDbMapSortedItems?.Clear();
                     m_PatternIsReady = false;
+                    m_ItemDCancelPrice = double.NaN;
                 }
                 else
                 {
@@ -576,9 +550,9 @@ namespace TradeKit.Gartley
 
                     m_RatioToXdLevelsMap = InitPriceRanges(
                         PatternType.XDValues, true, LengthAtoX, m_ItemC.Value);
-                }
 
-                UpdateXdToDbMaps();
+                    UpdateXdToDbMaps();
+                }
             }
         }
 
@@ -587,5 +561,6 @@ namespace TradeKit.Gartley
         internal double AtoC { get; set; }
         internal double BtoD { get; set; }
         internal double XtoB { get; set; }
+        internal double XtoBSecond { get; set; }
     }
 }

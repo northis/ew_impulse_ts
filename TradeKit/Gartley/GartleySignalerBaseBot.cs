@@ -29,18 +29,6 @@ namespace TradeKit.Gartley
         #region Input parameters
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should set the parameters automatically.
-        /// </summary>
-        [Parameter(nameof(UseAutoSettings), DefaultValue = true)]
-        public bool UseAutoSettings { get; set; }
-
-        ///// <summary>
-        ///// Gets or sets a value indicating whether we should filter by flat part of the trend.
-        ///// </summary>
-        //[Parameter(nameof(UseFlatFilter), DefaultValue = true, Group = Helper.GARTLEY_SETTINGS_NAME)]
-        //public bool UseFlatFilter { get; set; }
-
-        /// <summary>
         /// Gets or sets the value how deep should we analyze the candles.
         /// </summary>
         [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -261,7 +249,7 @@ namespace TradeKit.Gartley
             MacdCrossOverIndicator macdCrossover = Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS);
             
             SuperTrendItem superTrendItem = null;
-            if (UseTrendOnly || UseAutoSettings)
+            if (UseTrendOnly)
             {
                 superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
             }
@@ -272,7 +260,7 @@ namespace TradeKit.Gartley
 
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity, 
-                BarAllowancePercent, BarDepthCount, UseDivergences, UseAutoSettings,
+                BarAllowancePercent, BarDepthCount, UseDivergences,
                 superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;

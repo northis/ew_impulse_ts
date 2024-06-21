@@ -39,7 +39,7 @@ namespace TradeKit.Core
         public const string TELEGRAM_SETTINGS_NAME = "➤ Telegram Settings";
         public const string TRADE_SETTINGS_NAME = "⚖ Trade Settings (manual)";
         public const string SYMBOL_SETTINGS_NAME = "€ Symbol Settings";
-        public const int GARTLEY_BARS_COUNT = 29;
+        public const int GARTLEY_BARS_COUNT = 200;
         public const int GARTLEY_CANDLE_ALLOWANCE_PERCENT = 25;
 
         public const int MACD_LONG_CYCLE = 26;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.Gartley;
@@ -53,7 +54,7 @@ namespace TradeKit.AlgoBase
                 throw new IndexOutOfRangeException(
                     $"{nameof(wickAllowance)} should be between 0 and 100");
 
-            m_PivotPointsFinder = new PivotPointsFinder(MIN_PERIOD, barsProvider);
+            m_PivotPointsFinder = new PivotPointsFinder(MIN_PERIOD, barsProvider, false);
             m_WickAllowanceRatio = wickAllowance / 100;
             m_BarsProvider = barsProvider;
             m_BarsDepth = barsDepth;
@@ -149,7 +150,7 @@ namespace TradeKit.AlgoBase
                 : m_BearAMin;
             if (!aRanges.TryGetValue(pointDateTimeX, out double aExtrema))
             {
-                aExtrema = isUp ? double.NegativeInfinity : double.PositiveInfinity;
+                aExtrema = valX;
                 aRanges[pointDateTimeX] = aExtrema;
             }
 
@@ -191,12 +192,11 @@ namespace TradeKit.AlgoBase
 
                 var aBarPoint = new BarPoint(pointA.Value, pointA.Key, m_BarsProvider);
                 var xBarPoint = new BarPoint(valX, pointDateTimeX, m_BarsProvider);
-
+                
                 foreach (GartleyPattern realPattern in m_RealPatterns)
                 {
                     var projection = new GartleyProjection(
                         m_BarsProvider,
-                        m_PivotPointsFinder,
                         realPattern.PatternType,
                         xBarPoint,
                         aBarPoint, 
@@ -210,7 +210,7 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Finds the gartley patterns or null if not found.
         /// </summary>
-        /// <param name="index">The point we want to start the search from.</param>
+        /// <param name="index">The point we want to calculate against.</param>
         /// <returns>Gartley pattern or null</returns>
         public HashSet<GartleyItem> FindGartleyPatterns(int index)
         {
@@ -242,7 +242,7 @@ namespace TradeKit.AlgoBase
             {
                 foreach (GartleyProjection activeProjection in activeProjections)
                 {
-                    ProjectionState updateResult = activeProjection.Update();
+                    ProjectionState updateResult = activeProjection.Update(index);
                     if (updateResult == ProjectionState.PROJECTION_FORMED)
                     {
                         // Here we can fire a projection event
@@ -295,7 +295,7 @@ namespace TradeKit.AlgoBase
                 return null;
 
             double xB = aB / xA;
-            double xD = aD / xA;
+            double xD = cD / xA;
             double bD = cD / aB;
             double aC = xC / xA;
 
@@ -326,7 +326,13 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
-            var item = new GartleyItem(0, 
+            int accuracy = Convert.ToInt32(GetRatio(projection.XtoD, xD) +
+                                           GetRatio(projection.AtoC, aC) +
+                                           GetRatio(projection.BtoD, bD) +
+                                           GetRatio(projection.XtoB, xB)) /
+                (projection.XtoB == 0 ? 3 : 4) * 100;
+
+            var item = new GartleyItem(accuracy, 
                 projection.PatternType.PatternType, 
                 projection.ItemX,
                 projection.ItemA, 
@@ -339,6 +345,11 @@ namespace TradeKit.AlgoBase
                 bD, projection.BtoD, 
                 xB, projection.XtoB);
             return item;
+        }
+
+        private double GetRatio(double val1, double val2)
+        {
+            return Math.Min(val1, val2) / Math.Max(val1, val2);
         }
     }
 }

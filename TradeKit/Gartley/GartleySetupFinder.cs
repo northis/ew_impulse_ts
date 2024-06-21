@@ -44,7 +44,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         double wickAllowance,
         int barsDepth,
         bool filterByDivergence,
-        bool useAutoSettings = false,
         SuperTrendItem superTrendItem = null,
         HashSet<GartleyPatternType> patterns = null,
         MacdCrossOverIndicator macdCrossOver = null,
@@ -57,72 +56,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_SuperTrendItem = superTrendItem;
         m_FilterByDivergence = filterByDivergence;
 
-        if (useAutoSettings)
-        {
-            if (macdCrossOver == null || m_SuperTrendItem == null)
-                throw new NotSupportedException("MACD & Supertrend indicators are required for auto mode");
-
-            SetAutoSettings(out wickAllowance);
-            patterns = null;
-        }
-
         m_PatternFinder = new GartleyPatternFinder(
-            m_MainBarsProvider, wickAllowance, barsDepth, patterns);
+            m_MainBarsProvider, wickAllowance, barsDepth, new HashSet<GartleyPatternType>{ GartleyPatternType.GARTLEY });
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
         m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
-    }
-    
-    private void SetAutoSettings(out double wickAllowance)
-    {
-        TimeFrame tf = m_MainBarsProvider.TimeFrame;
-
-        if (tf == TimeFrame.Weekly || tf == TimeFrame.Monthly)
-        {
-            wickAllowance = 19;
-            m_SuperTrendItem = null;
-            m_FilterByDivergence = false;
-        }
-        else if (tf == TimeFrame.Daily)
-        {
-            wickAllowance = 15;
-            m_SuperTrendItem = null;
-            m_FilterByDivergence = false;
-        }
-        else if (tf == TimeFrame.Hour4)
-        {
-            wickAllowance = 21;
-            m_FilterByDivergence = false;
-
-        }
-        else if (tf == TimeFrame.Hour2)
-        {
-            wickAllowance = 16;
-            m_FilterByDivergence = false;
-
-        }
-        else if (tf == TimeFrame.Hour)
-        {
-            wickAllowance = 18;
-            m_FilterByDivergence = false;
-
-        }
-        else if (tf == TimeFrame.Minute45)
-        {
-            wickAllowance = 6;
-            m_FilterByDivergence = false;
-        }
-        else if (tf == TimeFrame.Minute30)
-        {
-            wickAllowance = 10;
-            m_FilterByDivergence = true;
-        }
-        else
-        {
-            m_FilterByDivergence = true;
-            wickAllowance = 1;
-        }
     }
 
     /// <summary>

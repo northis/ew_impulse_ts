@@ -208,7 +208,10 @@ namespace TradeKit.Core
         public static double[] RangeVal(
             this double[] inDoubles, double startValue, double endValue)
         {
-            return inDoubles.SkipWhile(a => a < startValue).TakeWhile(a => a <= endValue).ToArray();
+            return inDoubles
+                .SkipWhile(a => a < startValue)
+                .TakeWhile(a => a <= endValue)
+                .ToArray();
         }
 
         /// <summary>

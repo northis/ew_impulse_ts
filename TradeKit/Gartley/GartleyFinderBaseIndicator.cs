@@ -27,18 +27,6 @@ namespace TradeKit.Gartley
         private const int DIV_LINE_WIDTH = 3;
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should set the parameters automatically.
-        /// </summary>
-        [Parameter("Use auto settings", DefaultValue = false)]
-        public bool UseAutoSettings { get; set; }
-
-        ///// <summary>
-        ///// Gets or sets a value indicating whether we should filter by flat part of the trend.
-        ///// </summary>
-        //[Parameter(nameof(UseFlatFilter), DefaultValue = true)]
-        //public bool UseFlatFilter { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether we should show ratio values on patterns.
         /// </summary>
         [Parameter("Show ratio values", DefaultValue = false, Group = Helper.VIEW_SETTINGS_NAME)]
@@ -174,7 +162,7 @@ namespace TradeKit.Gartley
                 superTrendItem = SuperTrendItem.Create(TimeFrame, this, Symbol.Name);
             
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
-                BarDepthCount, UseDivergences, UseAutoSettings, superTrendItem, patternTypes, macdCrossover);
+                BarDepthCount, UseDivergences, superTrendItem, patternTypes, macdCrossover);
             Subscribe(m_SetupFinder);
         }
 
