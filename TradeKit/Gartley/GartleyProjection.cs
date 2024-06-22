@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using TradeKit.AlgoBase;
 using TradeKit.Core;
 
 namespace TradeKit.Gartley
@@ -16,6 +15,10 @@ namespace TradeKit.Gartley
         private readonly IBarsProvider m_BarsProvider;
         private readonly double m_WickAllowanceZeroToOne;
         private readonly double m_ItemACancelPrice;
+        private double m_Min;
+        private DateTime m_MinDate;
+        private double m_Max;
+        private DateTime m_MaxDate;
         private double m_ItemDCancelPrice = double.NaN;
         private readonly int m_IsUpK;
         private bool m_PatternIsReady;
@@ -25,11 +28,11 @@ namespace TradeKit.Gartley
         private readonly RealLevel[] m_RatioToXbLevelsMap;
         private readonly RealLevel[] m_RatioToXdLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
-        private bool m_IsBItemLocked = false;
         private readonly RealLevelBase m_ItemBRange;
 
         private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
         private BarPoint m_ItemC;
+        private BarPoint m_ItemB;
 
         internal static readonly double[] LEVELS =
         {
@@ -119,14 +122,13 @@ namespace TradeKit.Gartley
             ItemA = itemA;
             IsBull = itemX < itemA;
             LengthAtoX = Math.Abs(ItemA - ItemX);
-            if (IsBull)
-            {
-                m_IsUpK = 1;
-            }
-            else
-            {
-                m_IsUpK = -1;
-            }
+
+            m_Min = double.PositiveInfinity;
+            m_Max = double.NegativeInfinity;
+            m_MinDate = itemA.OpenTime;
+            m_MaxDate = itemA.OpenTime;
+
+            m_IsUpK = IsBull ? 1 : -1;
 
             m_RatioToAcLevelsMap = InitPriceRanges(
                 PatternType.ACValues, false, LengthAtoX, ItemX.Value);
@@ -221,12 +223,6 @@ namespace TradeKit.Gartley
             if (ItemB == null)
                 return;
 
-            //if (ItemBSecond != null && (IsBull && value > ItemA || !IsBull && value < ItemA))
-            //{
-            //    ItemBSecond = null;
-            //    XtoBSecond = 0;
-            //}
-
             if (ItemC != null &&
                 (IsBull && value > ItemC || !IsBull && value < ItemC))
             {
@@ -249,6 +245,13 @@ namespace TradeKit.Gartley
 
                 if (dt <= ItemB.OpenTime)//TODO do we need this?
                     break;
+                
+                if (IsBull && m_Min < ItemB && m_MinDate > ItemB.OpenTime ||
+                    !IsBull && m_Max > ItemB && m_MaxDate > ItemB.OpenTime)
+                {
+                    ItemB = null;
+                    break;
+                }
 
                 if (ItemBSecond != null)
                 {
@@ -352,7 +355,10 @@ namespace TradeKit.Gartley
 
         private void UpdateB(DateTime dt, double value)
         {
-            if (m_IsBItemLocked)
+            //if (m_IsBItemLocked)
+            //    return;
+
+            if (ItemC != null && ItemB != null && ItemC.OpenTime <= dt)
                 return;
 
             bool isNoXb = !PatternType.XBValues.Any();
@@ -365,9 +371,6 @@ namespace TradeKit.Gartley
                     ItemB = new BarPoint(value, dt, m_BarsProvider);
                     return;
                 }
-
-                if (ItemB != null && IsBOutRange(value))
-                    ItemB = null;
             }
             else
             {
@@ -387,7 +390,7 @@ namespace TradeKit.Gartley
                     useSecondItemB = true;
                 }
             }
-
+            
             foreach (RealLevel levelRange in m_RatioToXbLevelsMap)
             {
                 if (IsBull)
@@ -416,7 +419,8 @@ namespace TradeKit.Gartley
             }
         }
 
-        private bool IsBOutRange(double value) => IsBull && value < ItemB || !IsBull && value > ItemB;
+        private bool IsBOutRange(double value) => 
+            IsBull && value < ItemB || !IsBull && value > ItemB;
 
         /// <summary>
         /// Checks the point.
@@ -430,20 +434,12 @@ namespace TradeKit.Gartley
             bool isStraightExtrema = IsBull == isHigh;
             if (m_ItemBRange.Min > value || m_ItemBRange.Max < value)
             {
-                if (ItemB == null)
+                if (ItemB == null || ItemC == null)
                     return false;
-
-                if (!m_IsBItemLocked)
-                    m_IsBItemLocked = true;
             }
 
-            if (!isStraightExtrema)
-            {
-                //if (m_IsBItemLocked && IsBOutRange(value))
-                //    return false;
-
+            if (!isStraightExtrema) 
                 UpdateB(dt, value);
-            }
 
             if (isStraightExtrema)
                 UpdateC(dt, value);
@@ -467,14 +463,35 @@ namespace TradeKit.Gartley
             if (m_IsInvalid)
                 return ProjectionState.NO_PROJECTION;
 
+            DateTime currentDt = m_BarsProvider.GetOpenTime(index);
+            //if (ItemX.OpenTime is { Day: 12, Month: 6, Year: 2024, Hour:13 } &&
+            //    ItemA.OpenTime is { Day: 13, Month: 6, Year: 2024, Hour: 13 } &&
+            //    m_BarsProvider.GetOpenTime(index) is { Day: 17, Month: 6, Year: 2024, Hour: 21 } &&
+            //    PatternType.PatternType == GartleyPatternType.CYPHER)
+            //{
+            //    Debugger.Launch();
+            //}
+
             bool prevPatternIsReady = m_PatternIsReady;
             bool prevProjectionIsReady = m_ProjectionIsReady;
             m_ProjectionIsReady = false;
             m_PatternIsReady = false;
-
+            
             double high = m_BarsProvider.GetHighPrice(index);
             double low = m_BarsProvider.GetLowPrice(index);
-            
+
+            if (low < m_Min)
+            {
+                m_Min = low;
+                m_MinDate = currentDt;
+            }
+
+            if (high > m_Max)
+            {
+                m_Max = high;
+                m_MaxDate = currentDt;
+            }
+
             if (IsBull && high > m_ItemACancelPrice ||
                 !IsBull && low < m_ItemACancelPrice)
             {
@@ -512,7 +529,6 @@ namespace TradeKit.Gartley
                 }
             }
             
-            DateTime currentDt = m_BarsProvider.GetOpenTime(index);
             bool result = CheckPoint(currentDt, high, true);
             result &= CheckPoint(currentDt, low, false);
 
@@ -548,7 +564,22 @@ namespace TradeKit.Gartley
         internal BarPoint ItemX { get; }
         internal BarPoint ItemA { get; }
 
-        internal BarPoint ItemB { get; set; }
+        internal BarPoint ItemB
+
+        {
+            get => m_ItemB;
+            set
+            {
+                m_ItemB = value;
+
+                if (value == null)
+                {
+                    ItemC = null;
+                    ItemD = null;
+                }
+            }
+        }
+
         internal BarPoint ItemBSecond { get; set; }
 
         internal BarPoint ItemC
