@@ -256,7 +256,7 @@ namespace TradeKit.AlgoBase
                         continue;
 
                     patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
-                    patterns.Add(CreatePattern(activeProjection));
+                    patterns.Add(pattern);
                 }
             }
 
@@ -329,8 +329,8 @@ namespace TradeKit.AlgoBase
             int accuracy = Convert.ToInt32(GetRatio(projection.XtoD, xD) +
                                            GetRatio(projection.AtoC, aC) +
                                            GetRatio(projection.BtoD, bD) +
-                                           GetRatio(projection.XtoB, xB)) /
-                (projection.XtoB == 0 ? 3 : 4) * 100;
+                                           GetRatio(projection.XtoB, xB) /
+                (projection.XtoB == 0 ? 3 : 4) * 100);
 
             var item = new GartleyItem(accuracy, 
                 projection.PatternType.PatternType, 
@@ -349,7 +349,10 @@ namespace TradeKit.AlgoBase
 
         private double GetRatio(double val1, double val2)
         {
-            return Math.Min(val1, val2) / Math.Max(val1, val2);
+            var min = Math.Min(val1, val2);
+            var max = Math.Max(val1, val2);
+
+            return min / max;
         }
     }
 }

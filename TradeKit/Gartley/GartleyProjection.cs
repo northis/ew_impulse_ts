@@ -23,7 +23,7 @@ namespace TradeKit.Gartley
         private bool m_IsInvalid;
         private readonly RealLevel[] m_RatioToAcLevelsMap;
         private readonly RealLevel[] m_RatioToXbLevelsMap;
-        private RealLevel[] m_RatioToXdLevelsMap;
+        private readonly RealLevel[] m_RatioToXdLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
         private bool m_IsBItemLocked = false;
         private readonly RealLevelBase m_ItemBRange;
@@ -139,9 +139,13 @@ namespace TradeKit.Gartley
             m_RatioToXbLevelsMap = InitPriceRanges(
                 PatternType.XBValues, true, LengthAtoX, ItemA.Value);
 
+            m_RatioToXdLevelsMap = InitPriceRanges(
+                PatternType.XDValues, true, LengthAtoX, ItemA.Value);
+
             if (PatternType.XBValues.Any())
             {
-                IEnumerable<double> bEnd = m_RatioToXbLevelsMap.Select(a => IsBull ? a.Min : a.Max);
+                IEnumerable<double> bEnd = m_RatioToXbLevelsMap
+                    .Select(a => IsBull ? a.Min : a.Max);
                 m_ItemBRange = new RealLevelBase(itemA.Value, IsBull ? bEnd.Min() : bEnd.Max());
             }
             else// 4 shark
@@ -152,9 +156,7 @@ namespace TradeKit.Gartley
             //We cannot initialize BD/XD ranges until points B/C is calculated.
             m_XdToDbMapSortedItems = new List<RealLevelCombo>();
         }
-
-        private bool UseSecondItemB => ItemBSecond != null;
-
+        
         /// <summary>
         /// Initializes the actual price ranges from the ratio values given.
         /// Let's assume we have XA from 100 to 105, this is a bull pattern. L=LengthAtoX=(105-100). We use XB=0.618, so the point B = A-L*0.618 (useCounterPoint=true). If we use AC=0.382, the point A = X+L*0.382 (useCounterPoint=false).
@@ -219,27 +221,45 @@ namespace TradeKit.Gartley
             if (ItemB == null)
                 return;
 
+            //if (ItemBSecond != null && (IsBull && value > ItemA || !IsBull && value < ItemA))
+            //{
+            //    ItemBSecond = null;
+            //    XtoBSecond = 0;
+            //}
+
             if (ItemC != null &&
                 (IsBull && value > ItemC || !IsBull && value < ItemC))
             {
                 // The price goes beyond the existing C, we should reset it
                 ItemC = null;
-                AtoC = 0d;
-                m_ProjectionIsReady = false;
             }
 
             foreach (RealLevel levelRange in m_RatioToAcLevelsMap)
             {
-                if (IsBull && (value < levelRange.StartValue || value > levelRange.EndValue) ||
-                    !IsBull && (value > levelRange.StartValue || value < levelRange.EndValue))
-                    continue;
+                if (IsBull)
+                {
+                    if (value < levelRange.StartValue || value > levelRange.EndValue) continue;
+                    if (ItemC != null && ItemC.Value > value) continue;
+                }
+                else
+                {
+                    if (value > levelRange.StartValue || value < levelRange.EndValue) continue;
+                    if (ItemC != null && ItemC.Value < value) continue;
+                }
 
-                if (dt <= ItemB.OpenTime)
+                if (dt <= ItemB.OpenTime)//TODO do we need this?
                     break;
+
+                if (ItemBSecond != null)
+                {
+                    ItemB = ItemBSecond;
+                    XtoB = XtoBSecond;
+                    ItemBSecond = null;
+                    XtoBSecond = 0;
+                }
                 
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
                 AtoC = levelRange.Ratio;
-                m_ProjectionIsReady = true;
                 break;
             }
         }
@@ -332,19 +352,21 @@ namespace TradeKit.Gartley
 
         private void UpdateB(DateTime dt, double value)
         {
-            bool IsOutRange() => IsBull && value < ItemB || !IsBull && value > ItemB;
+            if (m_IsBItemLocked)
+                return;
+
             bool isNoXb = !PatternType.XBValues.Any();
 
             bool useSecondItemB = false;
             if (ItemC == null)
             {
-                if (isNoXb && (ItemB == null || IsOutRange()))
+                if (isNoXb && (ItemB == null || IsBOutRange(value)))
                 {
                     ItemB = new BarPoint(value, dt, m_BarsProvider);
                     return;
                 }
 
-                if (ItemB != null && IsOutRange())
+                if (ItemB != null && IsBOutRange(value))
                     ItemB = null;
             }
             else
@@ -356,7 +378,7 @@ namespace TradeKit.Gartley
 
                 if (IsBull && ItemC < ItemA || !IsBull && ItemC > ItemA)
                 {
-                    if (isNoXb && IsOutRange())
+                    if (isNoXb && IsBOutRange(value))
                     {
                         ItemB = new BarPoint(value, dt, m_BarsProvider);
                         return;
@@ -379,12 +401,6 @@ namespace TradeKit.Gartley
                     if (ItemB != null && ItemB.Value > value) continue;
                 }
 
-                if (ItemX.OpenTime is { Day: 2, Month: 10, Year: 2023 } &&
-                    ItemA.OpenTime is { Day: 27, Month: 12, Year: 2023 })
-                {
-                    Debugger.Launch();
-                }
-
                 if (useSecondItemB)
                 {
                     ItemBSecond = new BarPoint(value, dt, m_BarsProvider);
@@ -399,6 +415,8 @@ namespace TradeKit.Gartley
                 break;
             }
         }
+
+        private bool IsBOutRange(double value) => IsBull && value < ItemB || !IsBull && value > ItemB;
 
         /// <summary>
         /// Checks the point.
@@ -419,9 +437,14 @@ namespace TradeKit.Gartley
                     m_IsBItemLocked = true;
             }
 
-            if (!isStraightExtrema && !m_IsBItemLocked)
+            if (!isStraightExtrema)
+            {
+                //if (m_IsBItemLocked && IsBOutRange(value))
+                //    return false;
+
                 UpdateB(dt, value);
-            
+            }
+
             if (isStraightExtrema)
                 UpdateC(dt, value);
 
@@ -438,7 +461,7 @@ namespace TradeKit.Gartley
         /// <returns>Result of the Update process</returns>
         public ProjectionState Update(int index)
         {
-            if(m_PatternIsReady)
+            if (m_PatternIsReady)
                 return ProjectionState.PATTERN_SAME;
 
             if (m_IsInvalid)
@@ -534,24 +557,22 @@ namespace TradeKit.Gartley
             set
             {
                 m_ItemC = value;
-
                 if (value == null)
                 {
                     m_RatioToBdLevelsMap = Array.Empty<RealLevel>();
-                    m_RatioToXdLevelsMap = Array.Empty<RealLevel>();
                     m_XdToDbMapSortedItems?.Clear();
                     m_PatternIsReady = false;
+                    m_ProjectionIsReady = false;
                     m_ItemDCancelPrice = double.NaN;
+                    AtoC = 0;
                 }
                 else
                 {
                     m_RatioToBdLevelsMap = InitPriceRanges(
                         PatternType.BDValues, true, Math.Abs(ItemA - ItemB), m_ItemC.Value);
 
-                    m_RatioToXdLevelsMap = InitPriceRanges(
-                        PatternType.XDValues, true, LengthAtoX, m_ItemC.Value);
-
                     UpdateXdToDbMaps();
+                    m_ProjectionIsReady = true;
                 }
             }
         }

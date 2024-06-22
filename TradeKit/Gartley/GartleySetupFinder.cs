@@ -34,8 +34,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="wickAllowance">The correction allowance percent for wicks.</param>
     /// <param name="barsDepth">How many bars we should analyze backwards.</param>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
-    /// <param name="useAutoSettings">If true - we use pre-defined settings.</param>
     /// <param name="superTrendItem">For filtering by the trend.</param>
+    /// <param name="patterns">Patterns supported.</param>
     /// <param name="macdCrossOver">MACD Cross Over.</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
     public GartleySetupFinder(
@@ -57,7 +57,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_FilterByDivergence = filterByDivergence;
 
         m_PatternFinder = new GartleyPatternFinder(
-            m_MainBarsProvider, wickAllowance, barsDepth, new HashSet<GartleyPatternType>{ GartleyPatternType.GARTLEY });
+            m_MainBarsProvider, wickAllowance, barsDepth, patterns);
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
