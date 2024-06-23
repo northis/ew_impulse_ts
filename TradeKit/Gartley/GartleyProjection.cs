@@ -213,9 +213,15 @@ namespace TradeKit.Gartley
             if (!m_XdToDbMapSortedItems.Any())
                 return;
 
+            Debugger.Launch();
+            RealLevelCombo lastLevel = IsBull
+                ? m_XdToDbMapSortedItems.MinBy(a => a.Min)
+                : m_XdToDbMapSortedItems.MaxBy(a => a.Max);
+
+            m_XdToDbMapSortedItems.RemoveAll(a => a != lastLevel);
             m_ItemDCancelPrice = IsBull 
-                ? m_XdToDbMapSortedItems.MinBy(a => a.Min).Min 
-                : m_XdToDbMapSortedItems.MaxBy(a => a.Max).Max;
+                ? lastLevel.Min 
+                : lastLevel.Max;
         }
 
         private void UpdateC(DateTime dt, double value)

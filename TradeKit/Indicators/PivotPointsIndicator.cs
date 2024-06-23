@@ -10,7 +10,7 @@ namespace TradeKit.Indicators
     /// </summary>
     /// <seealso cref="Indicator" />
 #if !GARTLEY_PROD
-    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.None)]
+    //[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.None)]
 #endif
     public class PivotPointsIndicator : Indicator
     {

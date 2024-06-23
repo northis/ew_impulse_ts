@@ -94,8 +94,7 @@ namespace TradeKit.Indicators
                 Histogram[index] = UP_VALUE;
                 return;
             }
-
-
+            
             double downPrev = m_SuperTrend.DownTrend[index - 1];
             if (!double.IsNaN(downPrev) && Math.Abs(downPrev - down) < double.Epsilon)
             {

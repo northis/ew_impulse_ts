@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Plotly.NET.TraceObjects;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TradeKit.Core;
@@ -262,6 +263,33 @@ namespace TradeKit.AlgoBase
             return patterns;
         }
 
+        private bool HasExtremaBetweenPoints(BarPoint bp1, BarPoint bp2)
+        {
+            double max = Math.Max(bp1.Value, bp2.Value);
+            double min = Math.Max(bp1.Value, bp2.Value);
+
+            for (int i = bp2.BarIndex; i < bp2.BarIndex; i++)
+            {
+                if (max < m_BarsProvider.GetHighPrice(i) ||
+                    min > m_BarsProvider.GetLowPrice(i))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool HasExtremaBetweenPoints(GartleyProjection projection)
+        {
+            bool result = HasExtremaBetweenPoints(projection.ItemX, projection.ItemA) ||
+                          HasExtremaBetweenPoints(projection.ItemA, projection.ItemB) ||
+                          HasExtremaBetweenPoints(projection.ItemB, projection.ItemC) ||
+                          HasExtremaBetweenPoints(projection.ItemC, projection.ItemD);
+
+            return result;
+        }
+
         /// <summary>
         /// Creates the pattern if it is possible
         /// </summary>
@@ -292,6 +320,12 @@ namespace TradeKit.AlgoBase
 
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
+
+            if (HasExtremaBetweenPoints(projection))
+            {
+                Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
+                return null;
+            }
 
             double xB = aB / xA;
             double xD = cD / xA;
@@ -325,11 +359,8 @@ namespace TradeKit.AlgoBase
                 return null;
             }
 
-            int accuracy = Convert.ToInt32(GetRatio(projection.XtoD, xD) +
-                                           GetRatio(projection.AtoC, aC) +
-                                           GetRatio(projection.BtoD, bD) +
-                                           GetRatio(projection.XtoB, xB) /
-                (projection.XtoB == 0 ? 3 : 4) * 100);
+            int accuracy = Convert.ToInt32(
+                GetRatio(projection.XtoD + projection.AtoC + projection.BtoD, xD + aC + bD)) * 100;
 
             var item = new GartleyItem(accuracy, 
                 projection.PatternType.PatternType, 

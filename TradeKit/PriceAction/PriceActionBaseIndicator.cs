@@ -38,9 +38,9 @@ namespace TradeKit.PriceAction
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
             
-            SuperTrendItem superTrendItem = null;
+            TrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(TimeFrame, this, Symbol.Name);
+                superTrendItem = TrendItem.Create(TimeFrame, this, Symbol.Name);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

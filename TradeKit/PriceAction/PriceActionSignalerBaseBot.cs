@@ -201,9 +201,9 @@ namespace TradeKit.PriceAction
             IBarsProvider barsProvider = GetBarsProvider(bars, symbolEntity);
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
-            SuperTrendItem superTrendItem = null;
+            TrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
+                superTrendItem = TrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

@@ -107,7 +107,7 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
-        [Parameter("Trend only patterns", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Trend only patterns", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
 
         private HashSet<GartleyPatternType> GetPatternsType()
@@ -157,9 +157,9 @@ namespace TradeKit.Gartley
                     Helper.MACD_SIGNAL_PERIODS)
                 : null;
 
-            SuperTrendItem superTrendItem = null;
+            TrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(TimeFrame, this, Symbol.Name);
+                superTrendItem = TrendItem.Create(TimeFrame, this, Symbol.Name);
             
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
                 BarDepthCount, UseDivergences, superTrendItem, patternTypes, macdCrossover);

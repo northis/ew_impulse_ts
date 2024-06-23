@@ -23,7 +23,7 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="sti">The super trend input.</param>
         /// <param name="barPoint">The bar to check.</param>
-        public static SpikeType GetSpike(SuperTrendItem sti, BarPoint barPoint)
+        public static SpikeType GetSpike(TrendItem sti, BarPoint barPoint)
         {
             double value = barPoint.Value;
             
@@ -46,7 +46,7 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="sti">The super trend input.</param>
         /// <param name="dateTimeBar">The date and time of the current bar .</param>
-        public static TrendType GetTrend(SuperTrendItem sti, DateTime dateTimeBar)
+        public static TrendType GetTrend(TrendItem sti, DateTime dateTimeBar)
         {
             if (sti.Indicators.Length == 0)
                 return TrendType.NoTrend;
@@ -55,9 +55,9 @@ namespace TradeKit.AlgoBase
             DateTime endDt = dateTimeBar + mainPeriod;
 
             int[] vals = new int[sti.Indicators.Length];
-            for (var i = 0; i < sti.Indicators.Length; i++)
+            for (int i = 0; i < sti.Indicators.Length; i++)
             {
-                SuperTrendIndicator ind = sti.Indicators[i];
+                ZoneAlligator ind = sti.Indicators[i];
 
                 TimeSpan period = TimeFrameHelper.GetTimeFrameInfo(ind.TimeFrame).TimeSpan;
                 DateTime dt;

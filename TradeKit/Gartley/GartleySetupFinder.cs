@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
-using static TradeKit.AlgoBase.GartleyPatternFinder;
 
 namespace TradeKit.Gartley;
 
@@ -17,8 +15,8 @@ namespace TradeKit.Gartley;
 public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 {
     private readonly IBarsProvider m_MainBarsProvider;
-    private bool m_FilterByDivergence;
-    private SuperTrendItem m_SuperTrendItem;
+    private readonly bool m_FilterByDivergence;
+    private readonly TrendItem m_SuperTrendItem;
     private readonly MacdCrossOverIndicator m_MacdCrossOver;
     private readonly double? m_BreakevenRatio;
 
@@ -29,7 +27,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
     /// </summary>
-    /// <param name="mainBarsProvider">The main bars provider.</param>
+    /// <param name="mainBarsProvider">The main bar provider.</param>
     /// <param name="symbol">The symbol.</param>
     /// <param name="wickAllowance">The correction allowance percent for wicks.</param>
     /// <param name="barsDepth">How many bars we should analyze backwards.</param>
@@ -44,7 +42,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         double wickAllowance,
         int barsDepth,
         bool filterByDivergence,
-        SuperTrendItem superTrendItem = null,
+        TrendItem superTrendItem = null,
         HashSet<GartleyPatternType> patterns = null,
         MacdCrossOverIndicator macdCrossOver = null,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)
@@ -52,7 +50,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_MainBarsProvider = mainBarsProvider;
         m_MacdCrossOver = macdCrossOver;
         m_BreakevenRatio = breakevenRatio;
-        m_SuperTrendItem = superTrendItem;
         m_SuperTrendItem = superTrendItem;
         m_FilterByDivergence = filterByDivergence;
 
@@ -130,54 +127,17 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
                 if (m_SuperTrendItem != null)
                 {
-                    bool FlatStrategy()
+                    TrendType trend = SignalFilters.GetTrend(
+                        m_SuperTrendItem, localPattern.ItemD.OpenTime);
+                    if (localPattern.IsBull)
                     {
-                        int patternLength = localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex;
-                        if (patternLength <= 0)
-                            return false;
-
-                        double dIndexFlat = m_SuperTrendItem
-                            .MainTrendIndicator.HistogramFlat[localPattern.ItemD.BarIndex];
-
-                        if (dIndexFlat == 0)
-                            return false;
-
-                        //bool isCounterTrend = false;
-                        //for (int i = localPattern.ItemC.BarIndex; i < localPattern.ItemD.BarIndex; i++)
-                        //{
-                        //    if (localPattern.IsBull && m_SuperTrendItem
-                        //            .MainTrendIndicator.HistogramFlat[i] < 0 ||
-                        //        !localPattern.IsBull && m_SuperTrendItem
-                        //            .MainTrendIndicator.HistogramFlat[i] > 0)
-                        //    {
-                        //        isCounterTrend = true;
-                        //        break;
-                        //    }
-                        //}
-
-                        //if(isCounterTrend)
-                        //    return false;
-
-                        if (Math.Abs(dIndexFlat) < patternLength)
-                            return false;
-
-                        return true;
+                        if (trend != TrendType.Bullish)
+                            continue;
                     }
-
-                    if (!FlatStrategy())
+                    else
                     {
-                        TrendType trend = SignalFilters.GetTrend(
-                            m_SuperTrendItem, localPattern.ItemD.OpenTime);
-                        if (localPattern.IsBull)
-                        {
-                            if (trend != TrendType.Bullish)
-                                continue;
-                        }
-                        else
-                        {
-                            if (trend != TrendType.Bearish)
-                                continue;
-                        }
+                        if (trend != TrendType.Bearish)
+                            continue;
                     }
                 }
 
