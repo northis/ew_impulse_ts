@@ -247,12 +247,9 @@ namespace TradeKit.Gartley
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
             MacdCrossOverIndicator macdCrossover = Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS);
-            
-            TrendItem superTrendItem = null;
-            if (UseTrendOnly)
-            {
-                superTrendItem = TrendItem.Create(bars.TimeFrame, this, symbolEntity.Name);
-            }
+
+            ZoneAlligator zoneAlligator = null;
+            if (UseTrendOnly) zoneAlligator = Indicators.GetIndicator<ZoneAlligator>(bars);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)
@@ -261,7 +258,7 @@ namespace TradeKit.Gartley
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity, 
                 BarAllowancePercent, BarDepthCount, UseDivergences,
-                superTrendItem, patternTypes, macdCrossover, breakEvenRatio);
+                zoneAlligator, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;
         }

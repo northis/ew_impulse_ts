@@ -213,7 +213,6 @@ namespace TradeKit.Gartley
             if (!m_XdToDbMapSortedItems.Any())
                 return;
 
-            Debugger.Launch();
             RealLevelCombo lastLevel = IsBull
                 ? m_XdToDbMapSortedItems.MinBy(a => a.Min)
                 : m_XdToDbMapSortedItems.MaxBy(a => a.Max);

@@ -5,20 +5,18 @@ using TradeKit.Indicators;
 namespace TradeKit.Core
 {
     /// <summary>
-    ///  Class contains indicators & providers for the trend based on the "Bill Williams' Alligator" indicator.
+    ///  Class contains indicators & providers for the trend based on the "Super trend" indicator.
     /// </summary>
-    public class TrendItem
+    public class SuperTrendItem
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="TrendItem"/> class.
+        /// Initializes a new instance of the <see cref="SuperTrendItem"/> class.
         /// </summary>
         /// <param name="indicators">The trend indicators (minor, main and major TF).</param>
         /// <param name="bollingerBandsIndicator">The bollinger bands indicators.</param>
         /// <param name="mainTrendIndicator">The main TF trend indicator.</param>
-        private TrendItem(
-            ZoneAlligator[] indicators, 
-            BollingerBandsIndicator bollingerBandsIndicator, 
-            ZoneAlligator mainTrendIndicator)
+        private SuperTrendItem(
+            SuperTrendIndicator[] indicators, BollingerBandsIndicator bollingerBandsIndicator, SuperTrendIndicator mainTrendIndicator)
         {
             Indicators = indicators;
             BollingerBands = bollingerBandsIndicator;
@@ -26,14 +24,14 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// The "Bill Williams' Alligator" indicators (3 TFs max)
+        /// The "Super trend" indicators (3 TFs max)
         /// </summary>
-        internal ZoneAlligator[] Indicators { get; }
+        internal SuperTrendIndicator[] Indicators { get; }
 
         /// <summary>
-        /// The "Bill Williams' Alligator" indicator
+        /// The "Super trend" indicator
         /// </summary>
-        internal ZoneAlligator MainTrendIndicator { get; }
+        internal SuperTrendIndicator MainTrendIndicator { get; }
 
         /// <summary>
         /// The "Bollinger Bands" indicator
@@ -50,19 +48,22 @@ namespace TradeKit.Core
             return ind;
         }
 
-        private static ZoneAlligator GetTrendIndicator(Algo algo, Bars bars)
+        private static SuperTrendIndicator GetTrendIndicator(Algo algo, Bars bars)
         {
-            ZoneAlligator ind = algo.Indicators.GetIndicator<ZoneAlligator>(bars);
+            SuperTrendIndicator ind = algo.Indicators.GetIndicator<SuperTrendIndicator>(bars,
+                Helper.SUPERTREND_PERIOD,
+                Helper.SUPERTREND_MULTIPLIER);
+
             return ind;
         }
 
         /// <summary>
-        /// Creates the <see cref="TrendItem"/> instance.
+        /// Creates the <see cref="SuperTrendItem"/> instance.
         /// </summary>
         /// <param name="mainTimeFrame">The main time frame.</param>
         /// <param name="algo">The algo instance (from an indicator or a cBot).</param>
         /// <param name="symbolName">The symbol name</param>
-        public static TrendItem Create(TimeFrame mainTimeFrame, Algo algo, string symbolName)
+        public static SuperTrendItem Create(TimeFrame mainTimeFrame, Algo algo, string symbolName)
         {
             TimeFrameInfo[] tfInfos = {
                 TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame),
@@ -70,8 +71,8 @@ namespace TradeKit.Core
                 TimeFrameHelper.GetNextTimeFrameInfo(mainTimeFrame)
             };
 
-            ZoneAlligator mainIndicator = null;
-            var indicators = new ZoneAlligator[tfInfos.Length];
+            SuperTrendIndicator mainIndicator = null;
+            var indicators = new SuperTrendIndicator[tfInfos.Length];
             for (int i = 0; i < tfInfos.Length; i++)
             {
                 TimeFrame tf = tfInfos[i].TimeFrame;
@@ -84,7 +85,7 @@ namespace TradeKit.Core
 
             Bars barsMain = algo.MarketData.GetBars(mainTimeFrame, symbolName);
             BollingerBandsIndicator bollingerBands = GetBollingerBandsIndicator(algo, barsMain);
-            return new TrendItem(indicators, bollingerBands, mainIndicator);
+            return new SuperTrendItem(indicators, bollingerBands, mainIndicator);
         }
     }
 }

@@ -67,7 +67,7 @@
     <Compile Include="Core\ChartDataSource.cs" />
     <Compile Include="Json\JsonCandleExport.cs" />
     <Compile Include="Json\JsonSymbolStatExport.cs" />
-    <Compile Include="Core\TrendItem.cs" />
+    <Compile Include="Core\SuperTrendItem.cs" />
     <Compile Include="Core\ElderScreensItem.cs" />
     <Compile Include="Core\SpikeType.cs" />
     <Compile Include="Json\JsonSymbolDataExport.cs" />

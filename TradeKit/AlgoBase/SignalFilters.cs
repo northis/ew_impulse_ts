@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Indicators;
+using static Microsoft.FSharp.Core.ByRefKinds;
 
 namespace TradeKit.AlgoBase
 {
@@ -23,7 +23,7 @@ namespace TradeKit.AlgoBase
         /// </summary>
         /// <param name="sti">The super trend input.</param>
         /// <param name="barPoint">The bar to check.</param>
-        public static SpikeType GetSpike(TrendItem sti, BarPoint barPoint)
+        public static SpikeType GetSpike(SuperTrendItem sti, BarPoint barPoint)
         {
             double value = barPoint.Value;
             
@@ -42,11 +42,28 @@ namespace TradeKit.AlgoBase
         }
 
         /// <summary>
+        /// Gets the trend based on the "Bill Williams' Alligator + Zone" indicator.
+        /// </summary>
+        /// <param name="alligator">The zone alligator input.</param>
+        /// <param name="dateTimeBar">The date and time of the current bar .</param>
+        public static TrendType GetTrend(ZoneAlligator alligator, DateTime dateTimeBar)
+        {
+            int index = alligator.Bars.OpenTimes.GetIndexByTime(dateTimeBar);
+            double value = alligator.Histogram[index];
+            if (value > ZoneAlligator.NO_VALUE)
+                return TrendType.Bullish;
+            if (value < ZoneAlligator.NO_VALUE)
+                return TrendType.Bearish;
+
+            return TrendType.NoTrend;
+        }
+
+        /// <summary>
         /// Gets the trend based on the "Super trend" indicator.
         /// </summary>
         /// <param name="sti">The super trend input.</param>
         /// <param name="dateTimeBar">The date and time of the current bar .</param>
-        public static TrendType GetTrend(TrendItem sti, DateTime dateTimeBar)
+        public static TrendType GetTrend(SuperTrendItem sti, DateTime dateTimeBar)
         {
             if (sti.Indicators.Length == 0)
                 return TrendType.NoTrend;
@@ -57,7 +74,7 @@ namespace TradeKit.AlgoBase
             int[] vals = new int[sti.Indicators.Length];
             for (int i = 0; i < sti.Indicators.Length; i++)
             {
-                ZoneAlligator ind = sti.Indicators[i];
+                SuperTrendIndicator ind = sti.Indicators[i];
 
                 TimeSpan period = TimeFrameHelper.GetTimeFrameInfo(ind.TimeFrame).TimeSpan;
                 DateTime dt;

@@ -16,7 +16,7 @@ namespace TradeKit.PriceAction
     {
         public double? BreakevenRatio { get; }
         private readonly IBarsProvider m_MainBarsProvider;
-        private readonly TrendItem m_SuperTrendItem;
+        private readonly SuperTrendItem m_SuperTrendItem;
         private const int DEPTH_SHOW = 10;
         private const double SL_ALLOWANCE = 0.1;
         private readonly CandlePatternFinder m_CandlePatternFinder;
@@ -36,7 +36,7 @@ namespace TradeKit.PriceAction
             IBarsProvider mainBarsProvider, 
             Symbol symbol,
             bool useStrengthBar = false,
-            TrendItem superTrendItem = null,
+            SuperTrendItem superTrendItem = null,
             HashSet<CandlePatternType> patterns = null,
             double? breakevenRatio = null) : base(mainBarsProvider, symbol)
         {
@@ -94,7 +94,7 @@ namespace TradeKit.PriceAction
                     if (isBull && trend == TrendType.Bearish ||
                         !isBull && trend == TrendType.Bullish)
                     {
-                       // Logger.Write($"Not a trend pattern {localPattern.Type}, ignore it");
+                        // Logger.Write($"Not a trend pattern {localPattern.Type}, ignore it");
                         return;
                     }
                 }

@@ -1,5 +1,4 @@
-﻿using System;
-using cAlgo.API;
+﻿using cAlgo.API;
 using cAlgo.API.Indicators;
 
 namespace TradeKit.Indicators
@@ -37,7 +36,7 @@ namespace TradeKit.Indicators
         /// <summary>
         /// Gets or sets the histogram.
         /// </summary>
-        [Output(nameof(Histogram), PlotType = PlotType.Histogram)]
+        [Output(nameof(Histogram), PlotType = PlotType.Line)]
         public IndicatorDataSeries Histogram { get; set; }
 
         /// <summary>
@@ -45,7 +44,7 @@ namespace TradeKit.Indicators
         /// </summary>
         protected override void Initialize()
         {
-            m_Alligator = Indicators.Alligator(13, 0, 8, 0, 5, 0);
+            m_Alligator = Indicators.Alligator(13, 18, 8, 5, 5, 3);
         }
 
         /// <summary>
@@ -57,13 +56,12 @@ namespace TradeKit.Indicators
             double lips = m_Alligator.Lips[index];
             double teeth = m_Alligator.Teeth[index];
 
-            double alligatorHeight = Math.Abs(lips - jaw);
-            double threshold = alligatorHeight * THRESHOLD;
-            bool isUp = lips > teeth + threshold && teeth > jaw + threshold;
-            bool isDown = lips < teeth - threshold && teeth < jaw - threshold;
+            double midVal = Bars.MedianPrices[index];
+            bool isUp = midVal > lips && midVal > teeth;
+            bool isDown = midVal < lips &&  midVal < teeth;
             bool isAwake = isUp || isDown;
-            if (isAwake) m_PrevValue = isUp ? UP_VALUE : DOWN_VALUE;
-            Histogram[index] = m_PrevValue;
+            if (isAwake) Histogram[index] = isUp ? UP_VALUE : DOWN_VALUE;
+            else Histogram[index] = NO_VALUE;
         }
     }
 }

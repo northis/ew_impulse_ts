@@ -157,12 +157,12 @@ namespace TradeKit.Gartley
                     Helper.MACD_SIGNAL_PERIODS)
                 : null;
 
-            TrendItem superTrendItem = null;
+            ZoneAlligator zoneAlligator = null;
             if (UseTrendOnly)
-                superTrendItem = TrendItem.Create(TimeFrame, this, Symbol.Name);
+                zoneAlligator = Indicators.GetIndicator<ZoneAlligator>();
             
             m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
-                BarDepthCount, UseDivergences, superTrendItem, patternTypes, macdCrossover);
+                BarDepthCount, UseDivergences, zoneAlligator, patternTypes, macdCrossover);
             Subscribe(m_SetupFinder);
         }
 

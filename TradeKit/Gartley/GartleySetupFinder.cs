@@ -16,7 +16,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 {
     private readonly IBarsProvider m_MainBarsProvider;
     private readonly bool m_FilterByDivergence;
-    private readonly TrendItem m_SuperTrendItem;
+    private readonly ZoneAlligator m_ZoneAlligator;
     private readonly MacdCrossOverIndicator m_MacdCrossOver;
     private readonly double? m_BreakevenRatio;
 
@@ -32,7 +32,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="wickAllowance">The correction allowance percent for wicks.</param>
     /// <param name="barsDepth">How many bars we should analyze backwards.</param>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
-    /// <param name="superTrendItem">For filtering by the trend.</param>
+    /// <param name="zoneAlligator">For filtering by the trend.</param>
     /// <param name="patterns">Patterns supported.</param>
     /// <param name="macdCrossOver">MACD Cross Over.</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
@@ -42,7 +42,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         double wickAllowance,
         int barsDepth,
         bool filterByDivergence,
-        TrendItem superTrendItem = null,
+        ZoneAlligator zoneAlligator = null,
         HashSet<GartleyPatternType> patterns = null,
         MacdCrossOverIndicator macdCrossOver = null,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)
@@ -50,7 +50,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_MainBarsProvider = mainBarsProvider;
         m_MacdCrossOver = macdCrossOver;
         m_BreakevenRatio = breakevenRatio;
-        m_SuperTrendItem = superTrendItem;
+        m_ZoneAlligator = zoneAlligator;
         m_FilterByDivergence = filterByDivergence;
 
         m_PatternFinder = new GartleyPatternFinder(
@@ -125,18 +125,18 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 if (!hasTrendCandles)
                     continue;
 
-                if (m_SuperTrendItem != null)
+                if (m_ZoneAlligator != null)
                 {
                     TrendType trend = SignalFilters.GetTrend(
-                        m_SuperTrendItem, localPattern.ItemD.OpenTime);
+                        m_ZoneAlligator, localPattern.ItemD.OpenTime);
                     if (localPattern.IsBull)
                     {
-                        if (trend != TrendType.Bullish)
+                        if (trend == TrendType.Bearish)
                             continue;
                     }
                     else
                     {
-                        if (trend != TrendType.Bearish)
+                        if (trend == TrendType.Bullish)
                             continue;
                     }
                 }
