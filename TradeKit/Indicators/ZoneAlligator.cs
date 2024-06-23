@@ -11,11 +11,6 @@ namespace TradeKit.Indicators
     public class ZoneAlligator : Indicator
     {
         /// <summary>
-        /// Threshold for the alligator length
-        /// </summary>
-        public const double THRESHOLD = 0.35;
-
-        /// <summary>
         /// Up value
         /// </summary>
         public const int UP_VALUE = 1;
@@ -31,7 +26,6 @@ namespace TradeKit.Indicators
         public const int DOWN_VALUE = -1;
 
         private Alligator m_Alligator;
-        private int m_PrevValue = NO_VALUE;
 
         /// <summary>
         /// Gets or sets the histogram.
@@ -56,9 +50,9 @@ namespace TradeKit.Indicators
             double lips = m_Alligator.Lips[index];
             double teeth = m_Alligator.Teeth[index];
 
-            double midVal = Bars.MedianPrices[index];
-            bool isUp = midVal > lips && midVal > teeth;
-            bool isDown = midVal < lips &&  midVal < teeth;
+            //double midVal = Bars.MedianPrices[index];
+            bool isUp = lips > jaw && lips > teeth;
+            bool isDown = lips < jaw && lips < teeth;
             bool isAwake = isUp || isDown;
             if (isAwake) Histogram[index] = isUp ? UP_VALUE : DOWN_VALUE;
             else Histogram[index] = NO_VALUE;

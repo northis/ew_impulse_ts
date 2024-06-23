@@ -13,8 +13,8 @@ namespace TradeKit.AlgoBase
         private readonly IBarsProvider m_BarsProvider;
         private readonly int m_BarsDepth;
 //#if GARTLEY_PROD
-        private const double SL_RATIO = 0.272;
-        private const double TP1_RATIO = 0.382;
+        private const double SL_RATIO = 0.28;
+        private const double TP1_RATIO = 0.37;
 
 //#else
         //private const double SL_RATIO = 0.35;
@@ -321,16 +321,21 @@ namespace TradeKit.AlgoBase
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
 
-            if (HasExtremaBetweenPoints(projection))
-            {
-                Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
-                return null;
-            }
+            //if (HasExtremaBetweenPoints(projection))
+            //{
+            //    Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
+            //    return null;
+            //}
 
             double xB = aB / xA;
             double xD = cD / xA;
             double bD = cD / aB;
             double aC = xC / xA;
+
+            double accuracy = 
+                GetRatio(projection.XtoD + projection.AtoC + projection.BtoD, xD + aC + bD);
+            //if (accuracy < 0.95)
+            //    return null;
 
             bool isBull = projection.IsBull;
             double closeD = m_BarsProvider.GetClosePrice(projection.ItemD.BarIndex);
@@ -358,29 +363,26 @@ namespace TradeKit.AlgoBase
                 //Logger.Write("SL/TP is too big.");
                 return null;
             }
-
-            int accuracy = Convert.ToInt32(
-                GetRatio(projection.XtoD + projection.AtoC + projection.BtoD, xD + aC + bD)) * 100;
-
-            var item = new GartleyItem(accuracy, 
-                projection.PatternType.PatternType, 
+            
+            var item = new GartleyItem(Convert.ToInt32(accuracy * 100),
+                projection.PatternType.PatternType,
                 projection.ItemX,
-                projection.ItemA, 
-                projection.ItemB, 
-                projection.ItemC, 
+                projection.ItemA,
+                projection.ItemB,
+                projection.ItemC,
                 projection.ItemD,
-                sl, tp1, tp2, 
+                sl, tp1, tp2,
                 xD, projection.XtoD,
-                aC, projection.AtoC, 
-                bD, projection.BtoD, 
+                aC, projection.AtoC,
+                bD, projection.BtoD,
                 xB, projection.XtoB);
             return item;
         }
 
         private double GetRatio(double val1, double val2)
         {
-            var min = Math.Min(val1, val2);
-            var max = Math.Max(val1, val2);
+            double min = Math.Min(val1, val2);
+            double max = Math.Max(val1, val2);
 
             return min / max;
         }

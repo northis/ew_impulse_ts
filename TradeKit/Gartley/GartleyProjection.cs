@@ -179,7 +179,7 @@ namespace TradeKit.Gartley
             {
                 double val = ratios[i];
                 double ratioStart = val * (1 - m_WickAllowanceZeroToOne);
-                double ratioEnd = val * (1 + m_WickAllowanceZeroToOne);
+                double ratioEnd = val;// * (1 + m_WickAllowanceZeroToOne);
                 double xLengthStart = baseLength * ratioStart;
                 double xLengthEnd = baseLength * ratioEnd;
                 double xPointStart = countPoint + isUpLocal * xLengthStart;
@@ -217,7 +217,7 @@ namespace TradeKit.Gartley
                 ? m_XdToDbMapSortedItems.MinBy(a => a.Min)
                 : m_XdToDbMapSortedItems.MaxBy(a => a.Max);
 
-            m_XdToDbMapSortedItems.RemoveAll(a => a != lastLevel);
+            //m_XdToDbMapSortedItems.RemoveAll(a => a != lastLevel);
             m_ItemDCancelPrice = IsBull 
                 ? lastLevel.Min 
                 : lastLevel.Max;
