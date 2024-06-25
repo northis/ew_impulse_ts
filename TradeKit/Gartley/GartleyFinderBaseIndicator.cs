@@ -43,12 +43,12 @@ namespace TradeKit.Gartley
         /// </summary>
         [Parameter("Bar depth count", DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarDepthCount { get; set; }
-
+        
         /// <summary>
-        /// Gets or sets the percent of the allowance for the relations calculation.
+        /// Gets or sets the final accuracy.
         /// </summary>
-        [Parameter("Bar allowance percent", DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
-        public int BarAllowancePercent { get; set; }
+        [Parameter("Accuracy", DefaultValue = Helper.GARTLEY_ACCURACY, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
+        public double Accuracy { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
@@ -161,7 +161,8 @@ namespace TradeKit.Gartley
             if (UseTrendOnly)
                 zoneAlligator = Indicators.GetIndicator<ZoneAlligator>();
             
-            m_SetupFinder = new GartleySetupFinder(m_BarsProvider, Symbol, BarAllowancePercent,
+            m_SetupFinder = new GartleySetupFinder(
+                m_BarsProvider, Symbol, Accuracy,
                 BarDepthCount, UseDivergences, zoneAlligator, patternTypes, macdCrossover);
             Subscribe(m_SetupFinder);
         }

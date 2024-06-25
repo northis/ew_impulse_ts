@@ -35,10 +35,10 @@ namespace TradeKit.Gartley
         public int BarDepthCount { get; set; }
 
         /// <summary>
-        /// Gets or sets the percent of the allowance for the relations calculation.
+        /// Gets or sets the final accuracy.
         /// </summary>
-        [Parameter(nameof(BarAllowancePercent), DefaultValue = Helper.GARTLEY_CANDLE_ALLOWANCE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
-        public int BarAllowancePercent { get; set; }
+        [Parameter(nameof(Accuracy), DefaultValue = Helper.GARTLEY_ACCURACY, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
+        public double Accuracy { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
@@ -256,8 +256,8 @@ namespace TradeKit.Gartley
                 breakEvenRatio = BreakEvenRatio;
 
             var setupFinder = new GartleySetupFinder(
-                cTraderBarsProvider, symbolEntity, 
-                BarAllowancePercent, BarDepthCount, UseDivergences,
+                cTraderBarsProvider, symbolEntity,
+                Accuracy, BarDepthCount, UseDivergences,
                 zoneAlligator, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;

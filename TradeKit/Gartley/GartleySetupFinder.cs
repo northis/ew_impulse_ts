@@ -29,7 +29,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// </summary>
     /// <param name="mainBarsProvider">The main bar provider.</param>
     /// <param name="symbol">The symbol.</param>
-    /// <param name="wickAllowance">The correction allowance percent for wicks.</param>
+    /// <param name="accuracy">The accuracy filter - from 0 to 1.</param>
     /// <param name="barsDepth">How many bars we should analyze backwards.</param>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
     /// <param name="zoneAlligator">For filtering by the trend.</param>
@@ -39,7 +39,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     public GartleySetupFinder(
         IBarsProvider mainBarsProvider,
         Symbol symbol,
-        double wickAllowance,
+        double accuracy,
         int barsDepth,
         bool filterByDivergence,
         ZoneAlligator zoneAlligator = null,
@@ -54,7 +54,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_FilterByDivergence = filterByDivergence;
 
         m_PatternFinder = new GartleyPatternFinder(
-            m_MainBarsProvider, wickAllowance, barsDepth, patterns);
+            m_MainBarsProvider, accuracy, barsDepth, patterns);
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);

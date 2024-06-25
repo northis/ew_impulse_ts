@@ -9,8 +9,9 @@ namespace TradeKit.AlgoBase
 {
     public class GartleyPatternFinder
     {
-        private readonly double m_WickAllowanceRatio;
         private readonly IBarsProvider m_BarsProvider;
+        private readonly double m_Accuracy;
+
         private readonly int m_BarsDepth;
 //#if GARTLEY_PROD
         private const double SL_RATIO = 0.28;
@@ -36,27 +37,24 @@ namespace TradeKit.AlgoBase
 
         private const int MIN_PERIOD = 1;
         private DateTime? m_BorderDateTime;
+        private readonly double[] m_Allowances = {0.1, 0.2, 0.3, 0.4, 0.5};
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
         /// </summary>
-        /// <param name="wickAllowance">The correction allowance percent.</param>
+        /// <param name="accuracy">The accuracy filter - from 0 to 1.</param>
         /// <param name="barsProvider">The bar provider.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             IBarsProvider barsProvider, 
-            double wickAllowance,
+            double accuracy,
             int barsDepth,
             HashSet<GartleyPatternType> patterns = null)
         {
-            if (wickAllowance is < 0 or > 100)
-                throw new IndexOutOfRangeException(
-                    $"{nameof(wickAllowance)} should be between 0 and 100");
-
             m_PivotPointsFinder = new PivotPointsFinder(MIN_PERIOD, barsProvider, false);
-            m_WickAllowanceRatio = wickAllowance / 100;
             m_BarsProvider = barsProvider;
+            m_Accuracy = accuracy;
             m_BarsDepth = barsDepth;
             m_RealPatterns = patterns == null
                 ? GartleyProjection.PATTERNS
@@ -195,14 +193,17 @@ namespace TradeKit.AlgoBase
                 
                 foreach (GartleyPattern realPattern in m_RealPatterns)
                 {
-                    var projection = new GartleyProjection(
-                        m_BarsProvider,
-                        realPattern.PatternType,
-                        xBarPoint,
-                        aBarPoint, 
-                        m_WickAllowanceRatio);
+                    foreach (double allowances in m_Allowances)
+                    {
+                        var projection = new GartleyProjection(
+                            m_BarsProvider,
+                            realPattern.PatternType,
+                            xBarPoint,
+                            aBarPoint,
+                            allowances);
 
-                    m_ActiveProjections.AddValue(pointDateTimeX, projection);
+                        m_ActiveProjections.AddValue(pointDateTimeX, projection);
+                    }
                 }
             }
         }
@@ -266,9 +267,9 @@ namespace TradeKit.AlgoBase
         private bool HasExtremaBetweenPoints(BarPoint bp1, BarPoint bp2)
         {
             double max = Math.Max(bp1.Value, bp2.Value);
-            double min = Math.Max(bp1.Value, bp2.Value);
+            double min = Math.Min(bp1.Value, bp2.Value);
 
-            for (int i = bp2.BarIndex; i < bp2.BarIndex; i++)
+            for (int i = bp1.BarIndex + 1; i < bp2.BarIndex; i++)
             {
                 if (max < m_BarsProvider.GetHighPrice(i) ||
                     min > m_BarsProvider.GetLowPrice(i))
@@ -280,8 +281,28 @@ namespace TradeKit.AlgoBase
             return false;
         }
 
+        private bool IsInnerPointsPivot(GartleyProjection projection)
+        {
+            bool isBinPivot = projection.IsBull
+                ? m_PivotPointsFinder.LowExtrema.Contains(projection.ItemB.OpenTime)
+                : m_PivotPointsFinder.HighExtrema.Contains(projection.ItemB.OpenTime);
+
+            if (!isBinPivot)
+                return false;
+            
+            bool isCinPivot = projection.IsBull
+                ? m_PivotPointsFinder.HighExtrema.Contains(projection.ItemC.OpenTime)
+                : m_PivotPointsFinder.LowExtrema.Contains(projection.ItemC.OpenTime);
+
+            if (!isCinPivot)
+                return false;
+
+            return true;
+        }
+
         private bool HasExtremaBetweenPoints(GartleyProjection projection)
         {
+
             bool result = HasExtremaBetweenPoints(projection.ItemX, projection.ItemA) ||
                           HasExtremaBetweenPoints(projection.ItemA, projection.ItemB) ||
                           HasExtremaBetweenPoints(projection.ItemB, projection.ItemC) ||
@@ -321,21 +342,35 @@ namespace TradeKit.AlgoBase
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
 
-            //if (HasExtremaBetweenPoints(projection))
-            //{
-            //    Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
-            //    return null;
-            //}
+            if (HasExtremaBetweenPoints(projection))
+            {
+                Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
+                return null;
+            }
+
+            if (!IsInnerPointsPivot(projection))
+            {
+                Logger.Write($"{nameof(IsInnerPointsPivot)}: {projection.PatternType.PatternType}");
+                return null;
+            }
 
             double xB = aB / xA;
             double xD = cD / xA;
             double bD = cD / aB;
             double aC = xC / xA;
 
-            double accuracy = 
-                GetRatio(projection.XtoD + projection.AtoC + projection.BtoD, xD + aC + bD);
-            //if (accuracy < 0.95)
-            //    return null;
+            var accuracyList = new List<double>
+            {
+                GetRatio(projection.XtoD, xD),
+                GetRatio(projection.AtoC, aC),
+                GetRatio(projection.BtoD, bD)
+            };
+            if(projection.XtoB > 0)
+                accuracyList.Add(GetRatio(projection.XtoB, xB));
+
+            double accuracy = accuracyList.Average();
+            if (accuracy > 0 && accuracy < m_Accuracy)
+                return null;
 
             bool isBull = projection.IsBull;
             double closeD = m_BarsProvider.GetClosePrice(projection.ItemD.BarIndex);

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using TradeKit.Core;
 
@@ -178,8 +177,8 @@ namespace TradeKit.Gartley
             for (int i = 0; i < ratios.Length; i++)
             {
                 double val = ratios[i];
-                double ratioStart = val * (1 - m_WickAllowanceZeroToOne);
-                double ratioEnd = val;// * (1 + m_WickAllowanceZeroToOne);
+                double ratioStart = val;// * (1 - m_WickAllowanceZeroToOne);
+                double ratioEnd = val * (1 + m_WickAllowanceZeroToOne);
                 double xLengthStart = baseLength * ratioStart;
                 double xLengthEnd = baseLength * ratioEnd;
                 double xPointStart = countPoint + isUpLocal * xLengthStart;
@@ -217,7 +216,7 @@ namespace TradeKit.Gartley
                 ? m_XdToDbMapSortedItems.MinBy(a => a.Min)
                 : m_XdToDbMapSortedItems.MaxBy(a => a.Max);
 
-            //m_XdToDbMapSortedItems.RemoveAll(a => a != lastLevel);
+            m_XdToDbMapSortedItems.RemoveAll(a => a != lastLevel);
             m_ItemDCancelPrice = IsBull 
                 ? lastLevel.Min 
                 : lastLevel.Max;
