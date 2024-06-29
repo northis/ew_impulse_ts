@@ -236,7 +236,7 @@ namespace TradeKit.Impulse
             };
 
             string csvFilePath = Path.Join(
-                Helper.DirectoryToSaveImages, Helper.ML_CSV_STAT_FILE_NAME);
+                Helper.DirectoryToSaveResults, Helper.ML_CSV_STAT_FILE_NAME);
             using StreamWriter sw = new StreamWriter(csvFilePath, true);
             sw.WriteLine(saveToLog);
         }

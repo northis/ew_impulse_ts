@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
@@ -19,6 +19,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TradeKit\TradeKit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="GartleySignalerRobotReport1.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="GartleySignalerRobotReport2.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

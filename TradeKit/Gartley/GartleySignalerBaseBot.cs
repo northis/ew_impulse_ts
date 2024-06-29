@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using Plotly.NET;
@@ -9,6 +10,8 @@ using TradeKit.Indicators;
 using Shape = Plotly.NET.LayoutObjects.Shape;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
+using Plotly.NET.LayoutObjects;
+using System.IO;
 
 namespace TradeKit.Gartley
 {
@@ -18,6 +21,8 @@ namespace TradeKit.Gartley
         private const string DIVERGENCE_NAME = "Div";
         private const string SVG_PATH_TEMPLATE = "M {0} L {1} L {2} L {3} L {4} L {2} L {0} Z";
 
+        private readonly string m_PathToSave = 
+            $"{BOT_NAME}-{DateTime.UtcNow:s}.csv".Replace(":", "_");
         private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
         private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
         private const int LINE_WIDTH = 3;
@@ -136,8 +141,8 @@ namespace TradeKit.Gartley
         public override string GetBotName()
         {
             return BOT_NAME;
-        }
-
+        } 
+        
         private string SvgPathFromGartleyItem(GartleyItem gartley)
         {
             string path = string.Format(SVG_PATH_TEMPLATE, 
@@ -175,7 +180,7 @@ namespace TradeKit.Gartley
                 Path: SvgPathFromGartleyItem(gartley), 
                 Fillcolor: colorFill, 
                 Line: Line.init(Color: colorFill));
-            candlestickChart.WithShape(patternPath, true);
+            candlestickChart.WithShape(patternPath);
             
             double levelStart = barProvider.GetClosePrice(gartley.ItemD.BarIndex);
             GetSetupEndRender(gartley.ItemD.OpenTime, barProvider.TimeFrame, 
@@ -183,30 +188,29 @@ namespace TradeKit.Gartley
 
             Shape tp1 = GetSetupRectangle(
                 setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit1);
-            candlestickChart.WithShape(tp1, true);
+            candlestickChart.WithShape(tp1);
             Shape tp2 = GetSetupRectangle(
                 setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit2);
-            candlestickChart.WithShape(tp2, true);
+            candlestickChart.WithShape(tp2);
             Shape sl = GetSetupRectangle(
                 setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
-            candlestickChart.WithShape(sl, true);
+            candlestickChart.WithShape(sl);
             
             if (signalEventArgs.DivergenceStart is not null)
             {
                 Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, LINE_WIDTH);
-                candlestickChart.WithShape(div, true);
+                candlestickChart.WithShape(div);
                 candlestickChart.WithAnnotation(GetAnnotation(
-                        signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, DIVERGENCE_NAME, chartDateTimes),
-                    true);
+                        signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, DIVERGENCE_NAME, chartDateTimes));
             }
 
             void AddLine(BarPoint b1, BarPoint b2, double ratio)
             {
                 Shape line = GetLine(b1, b2, colorBorder, LINE_WIDTH);
-                candlestickChart.WithShape(line, true);
+                candlestickChart.WithShape(line);
 
                 candlestickChart.WithAnnotation(GetAnnotation(
-                    b1, b2, colorBorder, ratio.Ratio(), chartDateTimes), true);
+                    b1, b2, colorBorder, ratio.Ratio(), chartDateTimes));
             }
             
             AddLine(gartley.ItemA, gartley.ItemC, gartley.AtoC);
@@ -221,8 +225,7 @@ namespace TradeKit.Gartley
 
             candlestickChart.WithAnnotation(ChartGenerator.GetAnnotation(
                     gartley.ItemD.OpenTime, patternBottom, ChartGenerator.BLACK_COLOR, CHART_FONT_HEADER, colorBorder,
-                    gartley.PatternType.Format()),
-                true);
+                    gartley.PatternType.Format()));
         }
 
         /// <summary>
@@ -261,6 +264,42 @@ namespace TradeKit.Gartley
                 zoneAlligator, patternTypes, macdCrossover, breakEvenRatio);
 
             return setupFinder;
+        }
+
+
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        protected override void OnResultForManualAnalysis(
+            GartleySignalEventArgs signalEventArgs,
+            GartleySetupFinder sf,
+            bool tradeResult)
+        {
+            string csvFilePath = Path.Join(Helper.DirectoryToSaveResults, m_PathToSave);
+            GartleyItem g = signalEventArgs.GartleyItem;
+            string resultToSave =
+                $"{g.ItemD.OpenTime:s};{g.PatternType};{g.XtoB:0.###};{g.AtoC:0.###};{g.BtoD:0.###};{g.XtoD:0.###};{(tradeResult ? "+" : "-")};{g.AccuracyPercent};{sf.Symbol.Name};{sf.TimeFrame.ShortName}";
+
+            File.AppendAllLines(csvFilePath, new[] { resultToSave });
+        }
+
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        protected override void OnSaveRawChartDataForManualAnalysis(
+            ChartDataSource chartDataSource,
+            GartleySignalEventArgs signalEventArgs,
+            IBarsProvider barProvider,
+            string dirPath,
+            bool tradeResult,
+            Rangebreak[] rangebreaks = null)
+        {
+            string csvFilePath = Path.Join(Helper.DirectoryToSaveResults, m_PathToSave);
+            GartleyItem g = signalEventArgs.GartleyItem;
+            string resultToSave =
+                $"{g.ItemD.OpenTime:s};{g.PatternType};{g.XtoB:##.###};{g.AtoC:##.###};{g.BtoD:##.###};{g.XtoD:##.###};{(tradeResult ? "+" : "-")}";
+
+            File.AppendAllLines(csvFilePath, new [] { resultToSave });
         }
 
         /// <summary>

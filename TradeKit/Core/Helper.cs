@@ -11,7 +11,7 @@ namespace TradeKit.Core
     {
         static Helper()
         {
-            DirectoryToSaveImages =
+            DirectoryToSaveResults =
                 Path.Combine(Environment.CurrentDirectory, "TradeKitTelegramSend");
         }
         
@@ -78,9 +78,9 @@ namespace TradeKit.Core
         public const int ML_DEF_ACCURACY_PART = 5;
 
         /// <summary>
-        /// Gets the directory to save images.
+        /// Gets the directory to save analysis results.
         /// </summary>
-        public static string DirectoryToSaveImages { get; }
+        public static string DirectoryToSaveResults { get; }
 
         /// <summary>
         /// The JSON data file name

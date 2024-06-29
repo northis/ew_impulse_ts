@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Internals;
-using Microsoft.FSharp.Core;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
@@ -297,7 +297,7 @@ namespace TradeKit.Core
 
             if (SaveChartForManualAnalysis)
             {
-                Logger.Write($"Your charts will be in this folder: {Helper.DirectoryToSaveImages}");
+                Logger.Write($"Your charts will be in this folder: {Helper.DirectoryToSaveResults}");
             }
 
             Positions.Closed += OnPositionsClosed;
@@ -483,12 +483,17 @@ namespace TradeKit.Core
         /// <param name="successTrade">True - TP hit, False - SL hit</param>
         private void ShowResultChart(object setupFinder, bool successTrade)
         {
-            if (!SaveChartForManualAnalysis || 
-                setupFinder is not T sf ||
+            if (setupFinder is not T sf ||
                 !m_ChartFileFinderMap.TryGetValue(sf.Id, out TK signalEventArgs))
             {
                 return;
             }
+
+            if (IsBacktesting)
+                OnResultForManualAnalysis(signalEventArgs, sf, successTrade);
+
+            if (!SaveChartForManualAnalysis)
+                return;
 
             IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
             GeneratePlotImageFile(bp, signalEventArgs, true, successTrade);
@@ -695,34 +700,27 @@ namespace TradeKit.Core
                     }
                 }
             }
-
-
-            if (IsBacktesting && !SaveChartForManualAnalysis)
-            {
-                return;
-            }
             
-            Directory.CreateDirectory(Helper.DirectoryToSaveImages);
-            if (!SaveChartForManualAnalysis)
-            {
-                foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveImages))
-                {
-                    File.Delete(file);
-                }
-            }
+            //if (IsBacktesting && !SaveChartForManualAnalysis)
+            //{
+            //    return;
+            //}
+            
+            Directory.CreateDirectory(Helper.DirectoryToSaveResults);
+            //if (!SaveChartForManualAnalysis)
+            //{
+            //    foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveResults))
+            //    {
+            //        File.Delete(file);
+            //    }
+            //}
+
+            if (SaveChartForManualAnalysis || IsBacktesting) m_ChartFileFinderMap[sf.Id] = e;
+            if (!TelegramReporter.IsReady)
+                return;
 
             IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
             string plotImagePath = GeneratePlotImageFile(bp, e);
-            if (SaveChartForManualAnalysis)
-            {
-                m_ChartFileFinderMap[sf.Id] = e;
-            }
-
-            if (!TelegramReporter.IsReady)
-            {
-                return;
-            }
-
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
                 Ask = s.Ask,
@@ -768,7 +766,21 @@ namespace TradeKit.Core
             Rangebreak[] rangebreaks = null)
         {
         }
-        
+
+        /// <summary>
+        /// Occurs on the <see cref="E:ResultForManualAnalysis" /> event.
+        /// </summary>
+        /// <param name="signalEventArgs">The <see cref="GartleySignalEventArgs"/> instance containing the event data.</param>
+        /// <param name="setupFinder">The setup finder this trade relates to</param>
+        /// <param name="tradeResult"><c>true</c> for TP hit, otherwise <c>false</c>.</param>
+        protected virtual void OnResultForManualAnalysis(
+            TK signalEventArgs,
+            T setupFinder,
+            bool tradeResult)
+        {
+
+        }
+
         /// <summary>
         /// Gets the additional chart layers.
         /// </summary>
@@ -865,7 +877,7 @@ namespace TradeKit.Core
                     Font.init(Size: CHART_FONT_HEADER));
 
             string fileName = startView.ToString("s").Replace(":", "-");
-            string dirPath = Path.Combine(Helper.DirectoryToSaveImages,
+            string dirPath = Path.Combine(Helper.DirectoryToSaveResults,
                 $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}");
             Directory.CreateDirectory(dirPath);
 
@@ -874,8 +886,6 @@ namespace TradeKit.Core
             {
                 if (showTradeResult)
                 {
-                    OnSaveRawChartDataForManualAnalysis(
-                        s, signalEventArgs, barProvider, null, successTrade.GetValueOrDefault());
                     OnSaveRawChartDataForManualAnalysis(
                         s, signalEventArgs, barProvider, dirPath, successTrade.GetValueOrDefault(), rbs);
                     imageName = Helper.MAIN_IMG_FILE_NAME;

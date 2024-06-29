@@ -177,7 +177,7 @@ namespace TradeKit.Gartley
             for (int i = 0; i < ratios.Length; i++)
             {
                 double val = ratios[i];
-                double ratioStart = val;// * (1 - m_WickAllowanceZeroToOne);
+                double ratioStart = val * (1 - m_WickAllowanceZeroToOne);
                 double ratioEnd = val * (1 + m_WickAllowanceZeroToOne);
                 double xLengthStart = baseLength * ratioStart;
                 double xLengthEnd = baseLength * ratioEnd;

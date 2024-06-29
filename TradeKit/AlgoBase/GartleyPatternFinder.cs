@@ -37,7 +37,7 @@ namespace TradeKit.AlgoBase
 
         private const int MIN_PERIOD = 1;
         private DateTime? m_BorderDateTime;
-        private readonly double[] m_Allowances = {0.1, 0.2, 0.3, 0.4, 0.5};
+        private readonly double[] m_Allowances = {0.5};
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
@@ -342,17 +342,17 @@ namespace TradeKit.AlgoBase
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
 
-            if (HasExtremaBetweenPoints(projection))
-            {
-                Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
-                return null;
-            }
+            //if (HasExtremaBetweenPoints(projection))
+            //{
+            //    Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
+            //    return null;
+            //}
 
-            if (!IsInnerPointsPivot(projection))
-            {
-                Logger.Write($"{nameof(IsInnerPointsPivot)}: {projection.PatternType.PatternType}");
-                return null;
-            }
+            //if (!IsInnerPointsPivot(projection))
+            //{
+            //    Logger.Write($"{nameof(IsInnerPointsPivot)}: {projection.PatternType.PatternType}");
+            //    return null;
+            //}
 
             double xB = aB / xA;
             double xD = cD / xA;
