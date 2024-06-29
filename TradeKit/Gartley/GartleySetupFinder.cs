@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
@@ -17,7 +18,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly IBarsProvider m_MainBarsProvider;
     private readonly bool m_FilterByDivergence;
     private readonly ZoneAlligator m_ZoneAlligator;
-    private readonly MacdCrossOverIndicator m_MacdCrossOver;
+    private readonly AwesomeOscillator m_AwesomeOscillator;
     private readonly double? m_BreakevenRatio;
 
     private readonly GartleyPatternFinder m_PatternFinder;
@@ -34,7 +35,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
     /// <param name="zoneAlligator">For filtering by the trend.</param>
     /// <param name="patterns">Patterns supported.</param>
-    /// <param name="macdCrossOver">MACD Cross Over.</param>
+    /// <param name="awesomeOscillator">AO indicator instnce.</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
     public GartleySetupFinder(
         IBarsProvider mainBarsProvider,
@@ -44,11 +45,11 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool filterByDivergence,
         ZoneAlligator zoneAlligator = null,
         HashSet<GartleyPatternType> patterns = null,
-        MacdCrossOverIndicator macdCrossOver = null,
+        AwesomeOscillator awesomeOscillator = null,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)
     {
         m_MainBarsProvider = mainBarsProvider;
-        m_MacdCrossOver = macdCrossOver;
+        m_AwesomeOscillator = awesomeOscillator;
         m_BreakevenRatio = breakevenRatio;
         m_ZoneAlligator = zoneAlligator;
         m_FilterByDivergence = filterByDivergence;
@@ -58,7 +59,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
-        m_FilterByDivergence = macdCrossOver != null && filterByDivergence;
+        m_FilterByDivergence = awesomeOscillator != null && filterByDivergence;
     }
 
     /// <summary>
@@ -142,15 +143,21 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 }
 
                 BarPoint divItem = null;
-                if (m_MacdCrossOver != null)
+                if (m_AwesomeOscillator != null && m_FilterByDivergence)
                 {
                     divItem = SignalFilters.FindDivergence(
-                        m_MacdCrossOver,
+                        m_AwesomeOscillator,
                         BarsProvider,
                         localPattern.ItemX,
                         localPattern.ItemD,
                         localPattern.ItemX.Value < localPattern.ItemA.Value);
-                    if (m_FilterByDivergence && divItem is null)
+                    if (divItem is null)
+                        continue;
+
+                    int divLength = localPattern.ItemD.BarIndex - divItem.BarIndex;
+                    int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 3;
+
+                    if (divLength < thrdCtoD)
                         continue;
                 }
 

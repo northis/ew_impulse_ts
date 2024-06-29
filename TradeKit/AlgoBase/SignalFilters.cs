@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using cAlgo.API;
+using cAlgo.API.Indicators;
 using TradeKit.Core;
 using TradeKit.Indicators;
 using static Microsoft.FSharp.Core.ByRefKinds;
@@ -197,25 +198,28 @@ namespace TradeKit.AlgoBase
         /// <summary>
         /// Finds the divergence for the possible signal.
         /// </summary>
-        /// <param name="macdCrossOver">The MACD cross over indicator instance.</param>
+        /// <param name="awesomeOscillator">The AO instance.</param>
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="start">The start bar to search.</param>
         /// <param name="end">The end bar to search.</param>
         /// <param name="isBullSignal">if set to <c>true</c> the signal is bullish, otherwise bearish.</param>
         /// <returns>Start of the divergence bar or null if no divergence has been found.</returns>
-        public static BarPoint FindDivergence(MacdCrossOverIndicator macdCrossOver,
+        public static BarPoint FindDivergence(AwesomeOscillator awesomeOscillator,
             IBarsProvider barsProvider, BarPoint start, BarPoint end, bool isBullSignal)
         {
             double? foundDivValue = null;
             int indexStart = start.BarIndex;
             int indexEnd = end.BarIndex;
             int loopStart = indexEnd - DIVERGENCE_OFFSET_SEARCH;
-            double macd = macdCrossOver.Histogram[indexEnd];
-            double currentValHist = macdCrossOver.Histogram[loopStart];
+            double ao = awesomeOscillator.Result[indexEnd];
+            double currentValHist = awesomeOscillator.Result[loopStart];
+
+            if (ao < 0 && !isBullSignal || ao > 0 && isBullSignal)
+                return null;
 
             for (int i = loopStart; i >= indexStart; i--)
             {
-                double localHist = macdCrossOver.Histogram[i];
+                double localHist = awesomeOscillator.Result[i];
                 if (currentValHist * localHist < 0)
                     break;
 
@@ -225,8 +229,8 @@ namespace TradeKit.AlgoBase
                     !isBullSignal && barsProvider.GetHighPrice(i) > end.Value)
                     break;
 
-                if (isBullSignal && currentValHist <= macd ||
-                    !isBullSignal && currentValHist >= macd)
+                if (isBullSignal && currentValHist <= ao ||
+                    !isBullSignal && currentValHist >= ao)
                 {
                     // Find the inflection point of the histogram values
                     if (foundDivValue is null ||
@@ -240,7 +244,7 @@ namespace TradeKit.AlgoBase
                     int extremaIndex = i;
                     for (int j = i - 1; j >= indexStart; j--)
                     {
-                        localHist = macdCrossOver.Histogram[j];
+                        localHist = awesomeOscillator.Result[j];
 
                         if (currentValHist * localHist < 0)
                             break;

@@ -59,8 +59,6 @@ namespace TradeKit.AlgoBase
             };
         }
 
-        
-
         public static Dictionary<ElliottModelType, ModelRules> ModelRules
         { get; private set; }
 

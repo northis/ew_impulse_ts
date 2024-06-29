@@ -12,6 +12,7 @@ using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
 using Plotly.NET.LayoutObjects;
 using System.IO;
+using cAlgo.API.Indicators;
 
 namespace TradeKit.Gartley
 {
@@ -249,7 +250,7 @@ namespace TradeKit.Gartley
             IBarsProvider cTraderBarsProvider = GetBarsProvider(bars, symbolEntity);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            MacdCrossOverIndicator macdCrossover = Indicators.GetIndicator<MacdCrossOverIndicator>(bars, Helper.MACD_LONG_CYCLE, Helper.MACD_SHORT_CYCLE, Helper.MACD_SIGNAL_PERIODS);
+            AwesomeOscillator ao = Indicators.AwesomeOscillator(bars);
 
             ZoneAlligator zoneAlligator = null;
             if (UseTrendOnly) zoneAlligator = Indicators.GetIndicator<ZoneAlligator>(bars);
@@ -261,7 +262,7 @@ namespace TradeKit.Gartley
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity,
                 Accuracy, BarDepthCount, UseDivergences,
-                zoneAlligator, patternTypes, macdCrossover, breakEvenRatio);
+                zoneAlligator, patternTypes, ao, breakEvenRatio);
 
             return setupFinder;
         }

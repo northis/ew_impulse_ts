@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using cAlgo.API;
+using cAlgo.API.Indicators;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
@@ -101,7 +102,7 @@ namespace TradeKit.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
-        [Parameter("Use divergences", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Use divergences", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseDivergences { get; set; }
         
         /// <summary>
@@ -149,12 +150,8 @@ namespace TradeKit.Gartley
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            MacdCrossOverIndicator macdCrossover = UseDivergences || ShowDivergences
-                ? Indicators.GetIndicator<MacdCrossOverIndicator>(
-                    Bars, 
-                    Helper.MACD_LONG_CYCLE, 
-                    Helper.MACD_SHORT_CYCLE,
-                    Helper.MACD_SIGNAL_PERIODS)
+            AwesomeOscillator ao = UseDivergences || ShowDivergences
+                ? Indicators.AwesomeOscillator(Bars)
                 : null;
 
             ZoneAlligator zoneAlligator = null;
@@ -163,7 +160,7 @@ namespace TradeKit.Gartley
             
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol, Accuracy,
-                BarDepthCount, UseDivergences, zoneAlligator, patternTypes, macdCrossover);
+                BarDepthCount, UseDivergences, zoneAlligator, patternTypes, ao);
             Subscribe(m_SetupFinder);
         }
 
