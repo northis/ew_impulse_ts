@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
@@ -150,13 +151,13 @@ namespace TradeKit.Gartley
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            AwesomeOscillator ao = UseDivergences || ShowDivergences
-                ? Indicators.AwesomeOscillator(Bars)
+            AwesomeOscillatorIndicator ao = UseDivergences || ShowDivergences
+                ? Indicators.GetIndicator<AwesomeOscillatorIndicator>(Bars)
                 : null;
 
             ZoneAlligator zoneAlligator = null;
             if (UseTrendOnly)
-                zoneAlligator = Indicators.GetIndicator<ZoneAlligator>();
+                zoneAlligator = Indicators.GetIndicator<ZoneAlligator>(Bars);
             
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol, Accuracy,

@@ -250,7 +250,8 @@ namespace TradeKit.Gartley
             IBarsProvider cTraderBarsProvider = GetBarsProvider(bars, symbolEntity);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
-            AwesomeOscillator ao = Indicators.AwesomeOscillator(bars);
+            AwesomeOscillatorIndicator ao = 
+                Indicators.GetIndicator<AwesomeOscillatorIndicator>(bars);
 
             ZoneAlligator zoneAlligator = null;
             if (UseTrendOnly) zoneAlligator = Indicators.GetIndicator<ZoneAlligator>(bars);

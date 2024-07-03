@@ -38,6 +38,7 @@
     <Compile Include="Core\ChartGenerator.cs" />
     <Compile Include="Gartley\GartleyProjection.cs" />
     <Compile Include="Gartley\GartleyProjectionsHelper.cs" />
+    <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\ZoneAlligator.cs" />
     <Compile Include="Json\JsonWave.cs" />
     <Compile Include="Json\JsonGeneratedModel.cs" />

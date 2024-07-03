@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Indicators;
@@ -204,70 +205,58 @@ namespace TradeKit.AlgoBase
         /// <param name="end">The end bar to search.</param>
         /// <param name="isBullSignal">if set to <c>true</c> the signal is bullish, otherwise bearish.</param>
         /// <returns>Start of the divergence bar or null if no divergence has been found.</returns>
-        public static BarPoint FindDivergence(AwesomeOscillator awesomeOscillator,
+        public static BarPoint FindDivergence(AwesomeOscillatorIndicator awesomeOscillator,
             IBarsProvider barsProvider, BarPoint start, BarPoint end, bool isBullSignal)
         {
-            double? foundDivValue = null;
             int indexStart = start.BarIndex;
             int indexEnd = end.BarIndex;
-            int loopStart = indexEnd - DIVERGENCE_OFFSET_SEARCH;
-            double ao = awesomeOscillator.Result[indexEnd];
-            double currentValHist = awesomeOscillator.Result[loopStart];
+            //int loopStart = indexEnd - DIVERGENCE_OFFSET_SEARCH;
+            double endHistValue = awesomeOscillator.Result[indexEnd];
 
-            if (ao < 0 && !isBullSignal || ao > 0 && isBullSignal)
+            if (endHistValue < 0 && !isBullSignal || endHistValue > 0 && isBullSignal)
                 return null;
 
-            for (int i = loopStart; i >= indexStart; i--)
+            if(indexStart > indexEnd)
+                return null;
+
+            double endValue = isBullSignal
+                ? barsProvider.GetLowPrice(indexEnd)
+                : barsProvider.GetHighPrice(indexEnd);
+
+            for (int i = indexEnd-1; i >= indexStart; i--)
             {
                 double localHist = awesomeOscillator.Result[i];
-                if (currentValHist * localHist < 0)
-                    break;
 
-                currentValHist = localHist;
+                if (isBullSignal && localHist > 0 ||
+                    !isBullSignal && localHist < 0)
+                    break;
 
                 if (isBullSignal && barsProvider.GetLowPrice(i) < end.Value ||
                     !isBullSignal && barsProvider.GetHighPrice(i) > end.Value)
                     break;
 
-                if (isBullSignal && currentValHist <= ao ||
-                    !isBullSignal && currentValHist >= ao)
-                {
-                    // Find the inflection point of the histogram values
-                    if (foundDivValue is null ||
-                        isBullSignal && currentValHist <= foundDivValue ||
-                        !isBullSignal && currentValHist >= foundDivValue)
-                    {
-                        foundDivValue = currentValHist;
-                        continue;
-                    }
+                double currentValue = isBullSignal
+                    ? barsProvider.GetLowPrice(i)
+                    : barsProvider.GetHighPrice(i);
 
-                    int extremaIndex = i;
-                    for (int j = i - 1; j >= indexStart; j--)
-                    {
-                        localHist = awesomeOscillator.Result[j];
+                if (isBullSignal && currentValue < endValue ||
+                    !isBullSignal && currentValue > endValue)
+                    break;
 
-                        if (currentValHist * localHist < 0)
-                            break;
-                        currentValHist = localHist;
+                if (isBullSignal && localHist > endHistValue ||
+                    !isBullSignal && localHist < endHistValue)
+                    continue;
 
-                        if (isBullSignal &&
-                            barsProvider.GetLowPrice(j) > end.Value
-                            && localHist < currentValHist ||
-                            !isBullSignal &&
-                            barsProvider.GetHighPrice(j) < end.Value
-                            && localHist > currentValHist)
-                        {
+                if (i - 1 <= indexStart)
+                    break;
 
-                            extremaIndex = j;
-                            currentValHist = localHist;
-                        }
-                    }
+                double nextHist = awesomeOscillator.Result[i - 1];
+                if ((!isBullSignal || !(nextHist > localHist)) &&
+                    (isBullSignal || !(nextHist < localHist)))
+                    continue;
 
-                    var divItem = new BarPoint(isBullSignal
-                        ? barsProvider.GetLowPrice(extremaIndex)
-                        : barsProvider.GetHighPrice(extremaIndex), extremaIndex, barsProvider);
-                    return divItem;
-                }
+                var divItem = new BarPoint(currentValue, i, barsProvider);
+                return divItem;
             }
 
             return null;

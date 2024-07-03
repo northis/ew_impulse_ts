@@ -18,7 +18,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly IBarsProvider m_MainBarsProvider;
     private readonly bool m_FilterByDivergence;
     private readonly ZoneAlligator m_ZoneAlligator;
-    private readonly AwesomeOscillator m_AwesomeOscillator;
+    private readonly AwesomeOscillatorIndicator m_AwesomeOscillator;
     private readonly double? m_BreakevenRatio;
 
     private readonly GartleyPatternFinder m_PatternFinder;
@@ -45,7 +45,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool filterByDivergence,
         ZoneAlligator zoneAlligator = null,
         HashSet<GartleyPatternType> patterns = null,
-        AwesomeOscillator awesomeOscillator = null,
+        AwesomeOscillatorIndicator awesomeOscillator = null,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)
     {
         m_MainBarsProvider = mainBarsProvider;
@@ -150,7 +150,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                         BarsProvider,
                         localPattern.ItemX,
                         localPattern.ItemD,
-                        localPattern.ItemX.Value < localPattern.ItemA.Value);
+                        localPattern.IsBull);
                     if (divItem is null)
                         continue;
 
