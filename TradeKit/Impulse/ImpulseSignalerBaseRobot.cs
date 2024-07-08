@@ -8,8 +8,11 @@ using Plotly.NET;
 using Plotly.NET.LayoutObjects;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
+using TradeKit.Core.AlgoBase;
+using TradeKit.Core.Common;
+using TradeKit.Core.ElliottWave;
+using TradeKit.Core.Json;
 using TradeKit.EventArgs;
-using TradeKit.Json;
 using TradeKit.ML;
 using static Plotly.NET.StyleParam;
 using Color = Plotly.NET.Color;
@@ -167,7 +170,7 @@ namespace TradeKit.Impulse
             DateTime setupStart = signal.StopLoss.OpenTime;
             DateTime setupEnd = signal.Level.OpenTime + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
             Logger.Write(
-                $"A risky signal, the setup contains a trade session change: {bp.Symbol}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
+                $"A risky signal, the setup contains a trade session change: {bp.SymbolName}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
 
             return HasTradeBreakInside(setupStart, setupEnd, setupFinder.Symbol);
         }

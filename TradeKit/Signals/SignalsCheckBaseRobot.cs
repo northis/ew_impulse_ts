@@ -5,6 +5,7 @@ using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Core;
+using TradeKit.Core.Common;
 using TradeKit.EventArgs;
 
 namespace TradeKit.Signals

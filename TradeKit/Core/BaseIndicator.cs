@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
 using cAlgo.API;
-using TradeKit.EventArgs;
+using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core
 {
@@ -79,7 +79,7 @@ namespace TradeKit.Core
         /// <exception cref="NotSupportedException">Time frame {TimeFrame} isn't supported.</exception>
         protected override void Initialize()
         {
-            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame))
+            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame.ToITimeFrame()))
             {
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");

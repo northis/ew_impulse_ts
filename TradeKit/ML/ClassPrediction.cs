@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.ML.Data;
+using TradeKit.Core.ElliottWave;
 using TradeKit.Impulse;
 
 namespace TradeKit.ML

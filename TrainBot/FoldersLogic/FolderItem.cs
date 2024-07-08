@@ -1,4 +1,4 @@
-using TradeKit.Json;
+using TradeKit.Core.Json;
 
 namespace TrainBot.FoldersLogic;
 

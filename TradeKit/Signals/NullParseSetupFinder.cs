@@ -1,5 +1,5 @@
 ﻿using cAlgo.API.Internals;
-using TradeKit.Core;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Signals
 {

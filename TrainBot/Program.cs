@@ -1,6 +1,6 @@
 using System.Net;
 using Microsoft.AspNetCore;
-using TradeKit.Core;
+using TradeKit.Core.Common;
 using TrainBot.Root;
 
 namespace TrainBot

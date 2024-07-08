@@ -6,6 +6,8 @@ using cAlgo.API.Internals;
 using Plotly.NET;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core;
+using TradeKit.Core.Common;
+using TradeKit.Core.PriceAction;
 using TradeKit.EventArgs;
 using Color = Plotly.NET.Color;
 using Shape = Plotly.NET.LayoutObjects.Shape;

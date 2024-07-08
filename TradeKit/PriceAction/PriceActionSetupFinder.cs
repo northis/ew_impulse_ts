@@ -4,7 +4,10 @@ using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
-using TradeKit.EventArgs;
+using TradeKit.Core.AlgoBase;
+using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
+using TradeKit.Core.PriceAction;
 
 namespace TradeKit.PriceAction
 {

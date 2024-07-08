@@ -3,7 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using TradeKit.Json;
+using TradeKit.Core.Common;
+using TradeKit.Core.Json;
 
 namespace TradeKit.Core
 {
@@ -160,7 +161,7 @@ namespace TradeKit.Core
         /// <param name="timeFrame">The time frame.</param>
         /// <returns>start-end dates range</returns>
         public static (DateTime, DateTime) GetDateRange(
-            int barCount, TimeFrame timeFrame)
+            int barCount, ITimeFrame timeFrame)
         {
             DateTime dt = DateTime.UtcNow;
             dt = new DateTime(dt.Year, dt.Month, dt.Day);

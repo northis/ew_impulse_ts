@@ -5,6 +5,9 @@ using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
+using TradeKit.Core.AlgoBase;
+using TradeKit.Core.Common;
+using TradeKit.Core.Gartley;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
 
@@ -155,7 +158,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                         continue;
 
                     int divLength = localPattern.ItemD.BarIndex - divItem.BarIndex;
-                    int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 3;
+                    int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 2;
 
                     if (divLength < thrdCtoD)
                         continue;

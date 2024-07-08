@@ -1,4 +1,4 @@
-using TradeKit.PatternGeneration;
+using TradeKit.Core.PatternGeneration;
 
 namespace TradeKit.Tests
 {

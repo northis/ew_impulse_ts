@@ -1,5 +1,6 @@
 ﻿using cAlgo.API;
 using cAlgo.API.Internals;
+using TradeKit.Core.Common;
 using TradeKit.Indicators;
 
 namespace TradeKit.Core
@@ -63,7 +64,7 @@ namespace TradeKit.Core
         /// <param name="mainTimeFrame">The main time frame.</param>
         /// <param name="algo">The algo instance (from an indicator or a cBot).</param>
         /// <param name="symbolName">The symbol name</param>
-        public static SuperTrendItem Create(TimeFrame mainTimeFrame, Algo algo, string symbolName)
+        public static SuperTrendItem Create(ITimeFrame mainTimeFrame, Algo algo, string symbolName)
         {
             TimeFrameInfo[] tfInfos = {
                 TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame),
@@ -75,15 +76,15 @@ namespace TradeKit.Core
             var indicators = new SuperTrendIndicator[tfInfos.Length];
             for (int i = 0; i < tfInfos.Length; i++)
             {
-                TimeFrame tf = tfInfos[i].TimeFrame;
-                Bars bars = algo.MarketData.GetBars(tf, symbolName);
+                ITimeFrame tf = tfInfos[i].TimeFrame;
+                Bars bars = algo.MarketData.GetBars(tf.ToTimeFrame(), symbolName);
                 indicators[i] = GetTrendIndicator(algo, bars);
 
                 if (tf == mainTimeFrame)
                     mainIndicator = indicators[i];
             }
 
-            Bars barsMain = algo.MarketData.GetBars(mainTimeFrame, symbolName);
+            Bars barsMain = algo.MarketData.GetBars(mainTimeFrame.ToTimeFrame(), symbolName);
             BollingerBandsIndicator bollingerBands = GetBollingerBandsIndicator(algo, barsMain);
             return new SuperTrendItem(indicators, bollingerBands, mainIndicator);
         }

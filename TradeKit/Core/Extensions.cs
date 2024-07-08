@@ -7,6 +7,9 @@ using cAlgo.API.Internals;
 using TradeKit.Gartley;
 using TradeKit.AlgoBase;
 using System.Collections;
+using TradeKit.Core.PriceAction;
+using TradeKit.Core.Common;
+using TradeKit.Core.Gartley;
 
 #if !GARTLEY_PROD
 using TradeKit.PriceAction;
@@ -199,22 +202,6 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Slices the ordered array by value.
-        /// </summary>
-        /// <param name="inDoubles">The array of doubles.</param>
-        /// <param name="startValue">The start value.</param>
-        /// <param name="endValue">The end value.</param>
-        /// <returns>The sliced array</returns>
-        public static double[] RangeVal(
-            this double[] inDoubles, double startValue, double endValue)
-        {
-            return inDoubles
-                .SkipWhile(a => a < startValue)
-                .TakeWhile(a => a <= endValue)
-                .ToArray();
-        }
-
-        /// <summary>
         /// Normalizes the extrema from Zigzag indicator.
         /// </summary>
         /// <param name="extrema">The extrema.</param>
@@ -350,76 +337,45 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Adds the value to the sorted dict with list-backed value.
+        /// Converts <see cref="TimeFrame"/> to <see cref="ITimeFrame"/>.
         /// </summary>
-        /// <typeparam name="TK">The type of the key.</typeparam>
-        /// <typeparam name="TV">The type of the value.</typeparam>
-        /// <param name="sortedDictionary">The sorted dict.</param>
-        /// <param name="key">The key.</param>
-        /// <param name="value">The value.</param>
-        public static void AddValue<TK, TV>(
-            this SortedDictionary<TK, List<TV>> sortedDictionary, TK key, TV value)
+        /// <param name="tf">The cTrader tf object.</param>
+        public static ITimeFrame ToITimeFrame(this TimeFrame tf)
         {
-            if (!sortedDictionary.TryGetValue(key, out List<TV> valList))
-            {
-                valList = new List<TV>();
-                sortedDictionary[key] = valList;
-            }
-
-            valList.Add(value);
+            return new CTraderTimeFrame(tf);
         }
         
         /// <summary>
-        /// Removes according to the func (left part of the dictionary).
+        /// Converts <see cref="TimeFrame"/> to <see cref="ITimeFrame"/>.
         /// </summary>
-        /// <typeparam name="TK">The type of the key.</typeparam>
-        /// <typeparam name="TV">The type of the value.</typeparam>
-        /// <param name="sortedList">The sorted list.</param>
-        /// <param name="compareFunc">The function for comparing.</param>
-        /// <returns>Removed items count.</returns>
-        public static int RemoveLeft<TK, TV>(
-            this SortedDictionary<TK, TV> sortedList, Func<TK, bool> compareFunc)
+        /// <param name="tf">The cTrader tf object.</param>
+        public static TimeFrame ToTimeFrame(this ITimeFrame tf)
         {
-            return RemoveWhere(sortedList, sortedList.Keys.TakeWhile(compareFunc));
+            if (tf is CTraderTimeFrame cTraderTf)
+                return cTraderTf.CTimeFrame;
+
+            return TimeFrame.Parse(tf.Name);
         }
 
         /// <summary>
-        /// Removes according to the func (right part of the dictionary).
+        /// Converts <see cref="Symbol"/> to <see cref="ISymbol"/>.
         /// </summary>
-        /// <typeparam name="TK">The type of the key.</typeparam>
-        /// <typeparam name="TV">The type of the value.</typeparam>
-        /// <param name="sortedList">The sorted list.</param>
-        /// <param name="compareFunc">The function for comparing.</param>
-        /// <returns>Removed items count.</returns>
-        public static int RemoveRight<TK, TV>(
-            this SortedDictionary<TK, TV> sortedList, Func<TK, bool> compareFunc)
+        /// <param name="symbol">The cTrader symbol object.</param>
+        public static ISymbol ToISymbol(this Symbol symbol)
         {
-            return RemoveWhere(sortedList, sortedList.Keys.SkipWhile(compareFunc));
+            return new CTraderSymbol(symbol);
         }
 
         /// <summary>
-        /// Removes according to the enumerable.
+        /// Converts <see cref="ISymbol"/> to <see cref="Symbol"/>.
         /// </summary>
-        /// <typeparam name="TK">The type of the key.</typeparam>
-        /// <typeparam name="TV">The type of the value.</typeparam>
-        /// <param name="sortedList">The sorted list.</param>
-        /// <param name="toDeleteEnumerable">The enumerable to delete.</param>
-        /// <returns>Removed items count.</returns>
-        public static int RemoveWhere<TK, TV>(
-            this SortedDictionary<TK, TV> sortedList, IEnumerable<TK> toDeleteEnumerable)
+        /// <param name="tf">The cTrader tf object.</param>
+        public static Symbol ToSymbol(this ISymbol tf)
         {
-            var keysToRemove = new List<TK>();
-            foreach (TK key in toDeleteEnumerable)
-            {
-                keysToRemove.Add(key);
-            }
+            if (tf is CTraderSymbol cTraderSymbol)
+                return cTraderSymbol.CSymbol;
 
-            foreach (TK key in keysToRemove)
-            {
-                sortedList.Remove(key);
-            }
-
-            return keysToRemove.Count;
+            throw new NotSupportedException("Cannot convert this instance, check CTraderSymbol");
         }
 
         /// <summary>
@@ -429,7 +385,7 @@ namespace TradeKit.Core
         /// <param name="barsFunc">The time frame to bars provider function.</param>
         /// <param name="candleTimeFrame">The TF of the candle.</param>
         public static void InitIsHighFirst(
-            this Candle candle, Func<TimeFrame, IBarsProvider> barsFunc, TimeFrame candleTimeFrame)
+            this Candle candle, Func<ITimeFrame, IBarsProvider> barsFunc, ITimeFrame candleTimeFrame)
         {
             if (candle.IsHighFirst.HasValue || !candle.Index.HasValue)
                 return;
@@ -440,11 +396,11 @@ namespace TradeKit.Core
             TimeFrameInfo timeFrameInfo = TimeFrameHelper.GetTimeFrameInfo(candleTimeFrame);
             DateTime endDate = startDate + timeFrameInfo.TimeSpan;
 
-            TimeFrame currentTimeFrame = candleTimeFrame;
+            ITimeFrame currentTimeFrame = candleTimeFrame;
 
             for (;;)
             {
-                TimeFrame prevTimeFrame = TimeFrameHelper.GetPreviousTimeFrameInfo(currentTimeFrame).TimeFrame;
+                var prevTimeFrame = TimeFrameHelper.GetPreviousTimeFrameInfo(currentTimeFrame).TimeFrame;
                 if (currentTimeFrame == prevTimeFrame)
                     break;
 

@@ -9,6 +9,8 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using TradeKit.Core;
+using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 using TradeKit.EventArgs;
 using File = System.IO.File;
 

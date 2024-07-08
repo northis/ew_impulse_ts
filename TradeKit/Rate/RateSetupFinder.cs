@@ -4,6 +4,8 @@ using System.Linq;
 using cAlgo.API.Internals;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
+using TradeKit.Core.AlgoBase;
+using TradeKit.Core.Common;
 using TradeKit.EventArgs;
 
 namespace TradeKit.Rate

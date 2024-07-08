@@ -1,4 +1,5 @@
 ﻿using cAlgo.API.Internals;
+using TradeKit.Core.Common;
 using TradeKit.EventArgs;
 
 namespace TradeKit.Core

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using cAlgo.API;
 using TradeKit.Core;
+using TradeKit.Core.Common;
+using TradeKit.Core.PriceAction;
 using TradeKit.EventArgs;
 
 namespace TradeKit.PriceAction

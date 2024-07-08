@@ -1,4 +1,5 @@
-﻿using TradeKit.Indicators;
+﻿using TradeKit.Core.Common;
+using TradeKit.Indicators;
 
 namespace TradeKit.Core
 {

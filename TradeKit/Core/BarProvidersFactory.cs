@@ -1,16 +1,16 @@
 ﻿using System.Collections.Generic;
-using cAlgo.API;
 using cAlgo.API.Internals;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core
 {
     /// <summary>
     /// This factory can make bar providers for many TFs
     /// </summary>
-    public class BarProvidersFactory
+    public class BarProvidersFactory : IBarProvidersFactory
     {
         private readonly MarketData m_MarketData;
-        private readonly Dictionary<TimeFrame, CTraderBarsProvider> m_Providers;
+        private readonly Dictionary<ITimeFrame, CTraderBarsProvider> m_Providers;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BarProvidersFactory"/> class.
@@ -19,21 +19,24 @@ namespace TradeKit.Core
         /// <param name="marketData">The market data.</param>
         public BarProvidersFactory(Symbol symbol, MarketData marketData)
         {
-            Symbol = symbol;
+            Symbol = symbol.ToISymbol();
+            CSymbol = symbol;
             m_MarketData = marketData;
-            m_Providers = new Dictionary<TimeFrame, CTraderBarsProvider>();
+            m_Providers = new Dictionary<ITimeFrame, CTraderBarsProvider>();
         }
 
-        public Symbol Symbol { get; }
+        public ISymbol Symbol { get; }
+        public Symbol CSymbol { get; }
 
-        public IBarsProvider GetBarsProvider(TimeFrame timeFrame)
+        public IBarsProvider GetBarsProvider(ITimeFrame timeFrame)
         {
             if (m_Providers.TryGetValue(timeFrame, out CTraderBarsProvider prov))
             {
                 return prov;
             }
 
-            prov = new CTraderBarsProvider(m_MarketData.GetBars(timeFrame, Symbol.Name), Symbol);
+            prov = new CTraderBarsProvider(m_MarketData.GetBars(
+                timeFrame.ToTimeFrame(), Symbol.Name), CSymbol);
             m_Providers[timeFrame] = prov;
             return prov;
         }

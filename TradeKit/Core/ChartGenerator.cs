@@ -7,8 +7,8 @@ using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
-using TradeKit.Json;
-using TradeKit.PatternGeneration;
+using TradeKit.Core.Json;
+using TradeKit.Core.PatternGeneration;
 using static Plotly.NET.StyleParam;
 
 namespace TradeKit.Core

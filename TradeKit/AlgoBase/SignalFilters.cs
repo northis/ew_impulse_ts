@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
-using cAlgo.API.Indicators;
 using TradeKit.Core;
+using TradeKit.Core.Common;
 using TradeKit.Indicators;
-using static Microsoft.FSharp.Core.ByRefKinds;
 
 namespace TradeKit.AlgoBase
 {
@@ -70,7 +68,7 @@ namespace TradeKit.AlgoBase
             if (sti.Indicators.Length == 0)
                 return TrendType.NoTrend;
 
-            TimeSpan mainPeriod = TimeFrameHelper.GetTimeFrameInfo(sti.MainTrendIndicator.TimeFrame).TimeSpan;
+            TimeSpan mainPeriod = TimeFrameHelper.GetTimeFrameInfo(sti.MainTrendIndicator.TimeFrame.ToITimeFrame()).TimeSpan;
             DateTime endDt = dateTimeBar + mainPeriod;
 
             int[] vals = new int[sti.Indicators.Length];
@@ -78,7 +76,8 @@ namespace TradeKit.AlgoBase
             {
                 SuperTrendIndicator ind = sti.Indicators[i];
 
-                TimeSpan period = TimeFrameHelper.GetTimeFrameInfo(ind.TimeFrame).TimeSpan;
+                TimeSpan period = TimeFrameHelper.GetTimeFrameInfo(
+                    ind.TimeFrame.ToITimeFrame()).TimeSpan;
                 DateTime dt;
                 if (period < mainPeriod)
                 {
@@ -126,7 +125,7 @@ namespace TradeKit.AlgoBase
         ///   <c>true</c> if the candle is reliable; otherwise, <c>false</c>.
         /// </returns>
         private static bool IsCandleReliable(
-            DateTime dateTimeBar, DateTime dateTimeCandleToCheck, TimeFrame timeFrameToCheck)
+            DateTime dateTimeBar, DateTime dateTimeCandleToCheck, ITimeFrame timeFrameToCheck)
         {
             bool res = dateTimeBar < dateTimeCandleToCheck + 
                       TimeFrameHelper.TimeFrames[timeFrameToCheck].TimeSpan / 2;

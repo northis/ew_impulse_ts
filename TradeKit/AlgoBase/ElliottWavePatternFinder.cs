@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core;
+using TradeKit.Core.AlgoBase;
+using TradeKit.Core.Common;
+using TradeKit.Core.ElliottWave;
 using TradeKit.Impulse;
 
 namespace TradeKit.AlgoBase

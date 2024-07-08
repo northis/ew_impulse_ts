@@ -3,6 +3,7 @@ using cAlgo.API;
 using System.Linq;
 using TradeKit.Core;
 using TradeKit.EventArgs;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Impulse
 {

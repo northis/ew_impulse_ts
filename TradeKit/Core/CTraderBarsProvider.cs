@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core
 {
@@ -23,7 +23,7 @@ namespace TradeKit.Core
         public CTraderBarsProvider(Bars bars, Symbol symbolEntity)
         {
             m_Bars = bars;
-            Symbol = symbolEntity;
+            SymbolName = symbolEntity.ToString();
         }
 
         /// <summary>
@@ -202,19 +202,19 @@ namespace TradeKit.Core
         public int Limit => Count;
 
         /// <summary>
-        /// Gets the start bar index according by limit.
+        /// Gets the start bar index according to the limit.
         /// </summary>
         public int StartIndexLimit => 0;
 
         /// <summary>
         /// Gets the time frame of the current instance.
         /// </summary>
-        public TimeFrame TimeFrame => m_Bars.TimeFrame;
+        public ITimeFrame TimeFrame => m_Bars.TimeFrame.ToITimeFrame();
 
         /// <summary>
         /// Gets the current symbol.
         /// </summary>
-        public Symbol Symbol { get; }
+        public string SymbolName { get; }
 
         /// <summary>
         /// Gets the int index of bar (candle) by datetime.

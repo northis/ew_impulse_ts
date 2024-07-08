@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.Linq;
 using TradeKit.AlgoBase;
 using TradeKit.Core;
+using TradeKit.Core.AlgoBase;
+using TradeKit.Core.Common;
+using TradeKit.Core.ElliottWave;
 using TradeKit.EventArgs;
 
 namespace TradeKit.Impulse
@@ -50,7 +53,7 @@ namespace TradeKit.Impulse
         public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider, 
             BarProvidersFactory barProvidersFactory)
-            : base(mainBarsProvider, mainBarsProvider.Symbol)
+            : base(mainBarsProvider, mainBarsProvider.SymbolName)
         {
             m_BarProvidersFactory = barProvidersFactory;
             m_PivotPointsFinder = new PivotPointsFinder(Helper.PIVOT_PERIOD, BarsProvider);

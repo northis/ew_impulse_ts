@@ -8,8 +8,10 @@ using System.Text.RegularExpressions;
 using cAlgo.API.Internals;
 using Newtonsoft.Json;
 using TradeKit.Core;
-using TradeKit.EventArgs;
-using TradeKit.Json;
+using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
+using TradeKit.Core.Json;
+using TradeKit.Core.Signals;
 
 namespace TradeKit.Signals
 {

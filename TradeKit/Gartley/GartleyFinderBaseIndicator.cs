@@ -4,6 +4,8 @@ using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Indicators;
 using TradeKit.Core;
+using TradeKit.Core.Common;
+using TradeKit.Core.Gartley;
 using TradeKit.EventArgs;
 using TradeKit.Indicators;
 

@@ -9,11 +9,14 @@ using TradeKit.Core;
 using Microsoft.ML;
 using Microsoft.ML.Data;
 using Microsoft.ML.Trainers;
-using TradeKit.Json;
 using Newtonsoft.Json;
-using TradeKit.PatternGeneration;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Impulse;
 using TradeKit.Resources;
+using TradeKit.Core.Common;
+using TradeKit.Core.ElliottWave;
+using TradeKit.Core.Json;
+using TradeKit.Core.PatternGeneration;
 
 namespace TradeKit.ML
 {
@@ -236,7 +239,7 @@ namespace TradeKit.ML
         private static ModelPattern GetModelPattern(
             PatternGenerator generator, ElliottModelType model)
         {
-            TimeFrame tf = TimeFrame.Minute15;
+            TimeFrame tf = minute15;
             const int minBarCount = Helper.ML_MIN_BARS_COUNT;
             const int maxBarCount = Helper.ML_MAX_BARS_COUNT;
             int barCount = Random.Shared.Next(minBarCount, maxBarCount);

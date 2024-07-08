@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
-using cAlgo.API;
 using cAlgo.API.Internals;
-using TradeKit.EventArgs;
+using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core
 {
@@ -26,7 +25,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the time frame.
         /// </summary>
-        public TimeFrame TimeFrame { get; }
+        public ITimeFrame TimeFrame { get; }
 
         /// <summary>
         /// Gets the bars provider.

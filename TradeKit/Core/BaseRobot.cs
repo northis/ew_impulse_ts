@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -10,7 +9,8 @@ using cAlgo.API.Internals;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
-using TradeKit.EventArgs;
+using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 using TradeKit.Telegram;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
@@ -268,10 +268,10 @@ namespace TradeKit.Core
 
             Logger.Write("Creating chart dictionaries...");
 
-            var symbolTfMap = new Dictionary<Symbol, TimeFrame>();
+            var symbolTfMap = new Dictionary<Symbol, ITimeFrame>();
             foreach (KeyValuePair<string, T> finder in m_SetupFindersMap)
             {
-                TimeFrame chartTimeFrame = TimeFrameHelper
+                ITimeFrame chartTimeFrame = TimeFrameHelper
                     .GetPreviousTimeFrameInfo(finder.Value.TimeFrame).TimeFrame;
 
                 IBarsProvider barProvider = m_SetupFindersMap
@@ -285,7 +285,7 @@ namespace TradeKit.Core
                     !(symbolTfMap.ContainsKey(finder.Value.Symbol) &&
                     symbolTfMap[finder.Value.Symbol].Equals(chartTimeFrame)))
                 {
-                    Bars bars = MarketData.GetBars(chartTimeFrame, finder.Value.Symbol.Name);
+                    Bars bars = MarketData.GetBars(chartTimeFrame.ToTimeFrame(), finder.Value.Symbol.Name);
                     barProvider = GetBarsProvider(bars, finder.Value.Symbol);
                     bars.BarOpened += MinimalBarOpened;
                     m_MinimalBars.Add(bars);
@@ -862,7 +862,7 @@ namespace TradeKit.Core
             DateTime lastCloseDateTime = lastOpenDateTime;
 
             GenericChart.GenericChart candlestickChart = ChartGenerator.GetCandlestickChart(
-                s.O, s.H, s.L, s.C, s.D, barProvider.Symbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
+                s.O, s.H, s.L, s.C, s.D, barProvider.SymbolName, rangeBreaks, timeFrameInfo.TimeSpan,
                 out Rangebreak[] rbs);
 
             OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
@@ -873,12 +873,12 @@ namespace TradeKit.Core
             GenericChart.GenericChart resultChart = Plotly.NET.Chart.Combine(
                     layers.Concat(new[] { candlestickChart }))
                 .WithTitle(
-                    $@"{barProvider.Symbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
+                    $@"{barProvider.SymbolName} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
                     Font.init(Size: CHART_FONT_HEADER));
 
             string fileName = startView.ToString("s").Replace(":", "-");
             string dirPath = Path.Combine(Helper.DirectoryToSaveResults,
-                $"{fileName}.{barProvider.Symbol.Name}.{barProvider.TimeFrame.ShortName}");
+                $"{fileName}.{barProvider.SymbolName}.{barProvider.TimeFrame.ShortName}");
             Directory.CreateDirectory(dirPath);
 
             string imageName;
@@ -975,7 +975,7 @@ namespace TradeKit.Core
         }
 
         protected void GetSetupEndRender(
-            DateTime openDateTime, TimeFrame tf, out  DateTime realStart, out DateTime realEnd)
+            DateTime openDateTime, ITimeFrame tf, out  DateTime realStart, out DateTime realEnd)
         {
             TimeSpan timeFramePeriod = TimeFrameHelper.TimeFrames[tf].TimeSpan;
             realStart = openDateTime.Add(timeFramePeriod);
