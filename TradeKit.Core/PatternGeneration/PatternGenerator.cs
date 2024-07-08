@@ -15,11 +15,10 @@ namespace TradeKit.Core.PatternGeneration
         private const int SIMPLE_BARS_THRESHOLD = 100;
         private const byte MAX_DEEP_LEVEL = 10;
         private const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
-        private const double MAIN_ALLOWANCE_MAX_RATIO_INVERT = 1- MAIN_ALLOWANCE_MAX_RATIO;
+        private const double MAIN_ALLOWANCE_MAX_RATIO_INVERT = 1 - MAIN_ALLOWANCE_MAX_RATIO;
         private const double MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS = 1 + MAIN_ALLOWANCE_MAX_RATIO;
-        
-        public static Dictionary<ElliottModelType, ModelRules> ModelRules 
-        { get; private set; }
+
+        public static Dictionary<ElliottModelType, ModelRules> ModelRules => HelperEw.ModelRules;
 
         private Dictionary<ElliottModelType, Func<PatternArgsItem, ModelPattern>> m_ModelGeneratorsMap;
 
@@ -40,6 +39,7 @@ namespace TradeKit.Core.PatternGeneration
         public PatternGenerator(bool generateExtraInfo)
         {
             m_GenerateExtraInfo = generateExtraInfo;
+            
             InitModelRules();
             m_Random = new Random();
         }
