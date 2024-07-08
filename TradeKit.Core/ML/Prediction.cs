@@ -1,7 +1,4 @@
-﻿using Microsoft.ML.Data;
-using TradeKit.Core;
-
-namespace TradeKit.ML
+﻿namespace TradeKit.Core.ML
 {
     public class Prediction
     {

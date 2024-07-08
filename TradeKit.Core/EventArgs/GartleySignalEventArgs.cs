@@ -1,7 +1,5 @@
-﻿using System;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
-using TradeKit.Gartley;
 
 namespace TradeKit.Core.EventArgs
 {

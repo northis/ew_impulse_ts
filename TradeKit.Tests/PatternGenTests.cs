@@ -1,8 +1,7 @@
-﻿using cAlgo.API;
-using TradeKit.Core;
+﻿using NUnit.Framework;
+using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.PatternGeneration;
-using TradeKit.Impulse;
 
 namespace TradeKit.Tests;
 
@@ -13,7 +12,7 @@ public class PatternGenTests
     private static readonly string FOLDER_TO_SAVE = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "images");
     
-    private static readonly TimeFrame TIME_FRAME = minute5;
+    private static readonly ITimeFrame TIME_FRAME = TimeFrameHelper.Minute5;
 
     private static (DateTime, DateTime) GetDateRange(int barCount)
     {

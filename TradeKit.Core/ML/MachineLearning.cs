@@ -1,24 +1,13 @@
-﻿#nullable enable
-using System.Collections.Generic;
-using System;
-using System.IO;
-using System.Linq;
-using cAlgo.API;
-using TradeKit.AlgoBase;
-using TradeKit.Core;
-using Microsoft.ML;
-using Microsoft.ML.Data;
-using Microsoft.ML.Trainers;
+﻿using Microsoft.ML;
 using Newtonsoft.Json;
 using TradeKit.Core.AlgoBase;
-using TradeKit.Impulse;
-using TradeKit.Resources;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Json;
 using TradeKit.Core.PatternGeneration;
+using TradeKit.Core.Resources;
 
-namespace TradeKit.ML
+namespace TradeKit.Core.ML
 {
     public static class MachineLearning
     {
@@ -239,7 +228,7 @@ namespace TradeKit.ML
         private static ModelPattern GetModelPattern(
             PatternGenerator generator, ElliottModelType model)
         {
-            TimeFrame tf = minute15;
+            ITimeFrame tf = TimeFrameHelper.Minute15;
             const int minBarCount = Helper.ML_MIN_BARS_COUNT;
             const int maxBarCount = Helper.ML_MAX_BARS_COUNT;
             int barCount = Random.Shared.Next(minBarCount, maxBarCount);
@@ -367,7 +356,7 @@ namespace TradeKit.ML
         }
 
         /// <summary>
-        /// Runs the learn from the files passed and saves the result model to the file specified.
+        /// Runs the learn process from the files passed and saves the result model to the file specified.
         /// </summary>
         /// <param name="learnFiles">The learn files.</param>
         /// <param name="folderToSaveModels">The folder to save models: classification <see cref="SDCA_NON_CALIBRATED_FILE_NAME"/> + by EW-models.</param>

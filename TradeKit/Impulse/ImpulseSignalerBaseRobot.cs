@@ -12,8 +12,8 @@ using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Json;
+using TradeKit.Core.ML;
 using TradeKit.EventArgs;
-using TradeKit.ML;
 using static Plotly.NET.StyleParam;
 using Color = Plotly.NET.Color;
 

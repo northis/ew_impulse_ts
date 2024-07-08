@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using TradeKit.Core.PatternGeneration;
 
 namespace TradeKit.Tests

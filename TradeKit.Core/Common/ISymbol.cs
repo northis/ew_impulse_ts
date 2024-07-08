@@ -4,6 +4,6 @@
     {
         string Description { get; }
         string Name { get; }
-        string Id { get; }
+        long Id { get; }
     }
 }

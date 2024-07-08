@@ -1,5 +1,5 @@
 using TradeKit.Core.Common;
-using TradeKit.ML;
+using TradeKit.Core.ML;
 using TrainBot.Root;
 
 namespace TrainBot.MachineLearning;
@@ -46,7 +46,7 @@ public class LearnManager
             IEnumerable<LearnFilesItem> dataToLearn =
                 filesToLearnPositive.Concat(filesToLearnNegative);
 
-            TradeKit.ML.MachineLearning.RunLearnFiles(
+            TradeKit.Core.ML.MachineLearning.RunLearnFiles(
                 dataToLearn, m_Settings.MlFolder);
         }
         catch (Exception ex)

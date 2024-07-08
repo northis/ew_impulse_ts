@@ -84,29 +84,29 @@ namespace TradeKit.Core.PatternGeneration
             m_TimeFrames = new Dictionary<TimeFrameInfo, Func<DateTime, DateTime>>()
             {
                 {
-                    TimeFrameHelper.TimeFrames[minute],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute1],
                     a => new DateTime(a.Year, a.Month, a.Day, a.Hour, a.Minute, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[minute5],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute5],
                     a => new DateTime(
                         a.Year, a.Month, a.Day, a.Hour, a.Minute - a.Minute % 5, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[minute15],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute15],
                     a => new DateTime(
                         a.Year, a.Month, a.Day, a.Hour, a.Minute - a.Minute % 15, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrame.Hour],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Hour1],
                     a => new DateTime(a.Year, a.Month, a.Day, a.Hour, 0, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrame.Hour4],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Hour4],
                     a => new DateTime(a.Year, a.Month, a.Day, a.Hour - a.Hour % 4, 0, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrame.Daily],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Day1],
                     a => new DateTime(a.Year, a.Month, a.Day)
                 }
             };
@@ -129,10 +129,10 @@ namespace TradeKit.Core.PatternGeneration
             if (!m_TimeFrames.ContainsKey(tfInfo))
                 throw new ArgumentException(nameof(args.TimeFrame));
 
-            TimeFrame originalTimeFrame = args.TimeFrame;
+            ITimeFrame originalTimeFrame = args.TimeFrame;
             args.RecalculateDates(m_TimeFrames[tfInfo](args.DateStart),
                 m_TimeFrames[tfInfo](args.DateEnd),
-                useScaleFrom1M ? minute : args.TimeFrame);
+                useScaleFrom1M ? TimeFrameHelper.Minute1 : args.TimeFrame);
 
             ModelPattern modelPattern = GetPatternInner(args, model);
             ValidateAndCorrectCandles(modelPattern, args.Accuracy);

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace TradeKit.Resources {
+namespace TradeKit.Core.Resources {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace TradeKit.Resources {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("TradeKit.Resources.MLModels", typeof(MLModels).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("TradeKit.Core.Resources.MLModels", typeof(MLModels).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

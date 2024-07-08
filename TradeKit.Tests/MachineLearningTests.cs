@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using TradeKit.Core;
+using NUnit.Framework;
 using TradeKit.Core.Common;
+using TradeKit.Core.ML;
 using TradeKit.Core.PatternGeneration;
-using TradeKit.ML;
 
 namespace TradeKit.Tests
 {

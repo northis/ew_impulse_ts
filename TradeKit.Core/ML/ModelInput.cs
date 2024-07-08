@@ -1,9 +1,7 @@
 ﻿using Microsoft.ML.Data;
-using System.Linq;
-using System;
-using TradeKit.Core;
+using TradeKit.Core.Common;
 
-namespace TradeKit.ML
+namespace TradeKit.Core.ML
 {
     public class ModelInput
     {

@@ -1,7 +1,5 @@
-﻿using System;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 using TradeKit.Core.PriceAction;
-using TradeKit.PriceAction;
 
 namespace TradeKit.Core.EventArgs
 {

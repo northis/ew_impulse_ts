@@ -1,7 +1,6 @@
-﻿using System.IO;
-using TradeKit.Core;
+﻿using TradeKit.Core.Common;
 
-namespace TradeKit.ML
+namespace TradeKit.Core.ML
 {
     public record LearnFilesItem(bool IsFit, string StatFilePath, string DataFilePath)
     {

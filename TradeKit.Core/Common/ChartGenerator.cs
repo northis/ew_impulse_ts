@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Microsoft.FSharp.Core;
+﻿using Microsoft.FSharp.Core;
 using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
@@ -11,7 +7,7 @@ using TradeKit.Core.Json;
 using TradeKit.Core.PatternGeneration;
 using static Plotly.NET.StyleParam;
 
-namespace TradeKit.Core
+namespace TradeKit.Core.Common
 {
     public static class ChartGenerator
     {
@@ -195,7 +191,7 @@ namespace TradeKit.Core
             GenericChart.GenericChart chart = GetCandlestickChart(candles, name);
 
             const byte chartFontSizeCorrect = (byte)CHART_FONT_MAIN - 4;
-            if (model?.PatternKeyPoints != null)
+            if (model.PatternKeyPoints != null)
             {
                 var annotations = new List<Annotation>();
                 bool isUp = model.Candles[0].O - model.Candles[^1].C > 0;

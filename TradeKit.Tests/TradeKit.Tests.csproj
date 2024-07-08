@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TradeKit\TradeKit.csproj" />
+    <ProjectReference Include="..\TradeKit.Core\TradeKit.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,7 +1,5 @@
-﻿using System;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
-using TradeKit.Impulse;
 
 namespace TradeKit.Core.EventArgs
 {

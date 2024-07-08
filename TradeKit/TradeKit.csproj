@@ -24,24 +24,15 @@
     <PackageReference Include="cTrader.Automate" Version="1.*" />
     <PackageReference Include="Microsoft.ML" Version="3.0.1" />
     <PackageReference Include="Microsoft.ML.FastTree" Version="3.0.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Plotly.NET.ImageExport" Version="3.0.0" />
     <PackageReference Include="Telegram.Bot" Version="17.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Core\ChartGenerator.cs" />
     <Compile Include="Core\CTraderSymbol.cs" />
     <Compile Include="Core\CTraderTimeFrame.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\ZoneAlligator.cs" />
-    <Compile Include="ML\ModelInput.cs" />
-    <Compile Include="ML\ClassPrediction.cs" />
-    <Compile Include="ML\Prediction.cs" />
-    <Compile Include="Resources\MLModels.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>MLModels.resx</DependentUpon>
-    </Compile>
     <Compile Include="AlgoBase\SignalFilters.cs" />
     <Compile Include="Core\BarProvidersFactory.cs" />
     <Compile Include="Core\BaseIndicator.cs" />
@@ -54,12 +45,8 @@
     <Compile Include="Indicators\SuperTrendIndicator.cs" />
     <Compile Include="Indicators\StochasticOscillatorIndicator.cs" />
     <Compile Include="Indicators\MovingAverageIndicator.cs" />
-    <Compile Include="Core\EventArgs\PriceActionSignalEventArgs.cs" />
-    <Compile Include="ML\LearnFilesItem.cs" />
-    <Compile Include="ML\MachineLearning.cs" />
     <Compile Include="Indicators\MacdCrossOverIndicator.cs" />
     <Compile Include="Core\SingleSetupFinder.cs" />
-    <Compile Include="Core\EventArgs\GartleySignalEventArgs.cs" />
     <Compile Include="Gartley\GartleySetupFinder.cs" />
     <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
     <Compile Include="Gartley\GartleySignalerBaseBot.cs" />
@@ -68,8 +55,6 @@
     <Compile Include="PriceAction\PriceActionSignalerBaseBot.cs" />
     <Compile Include="Signals\NullParseSetupFinder.cs" />
     <Compile Include="Core\CTraderBarsProvider.cs" />
-    <Compile Include="Core\EventArgs\ImpulseSignalEventArgs.cs" />
-    <Compile Include="Core\Helper.cs" />
     <Compile Include="Impulse\ImpulseFinderBaseIndicator.cs" />
     <Compile Include="Rate\RateSetupFinder.cs" />
     <Compile Include="Signals\ParseSetupFinder.cs" />
@@ -81,23 +66,8 @@
     <Compile Include="Core\Extensions.cs" />
     <Compile Include="Signals\SignalsCheckBaseRobot.cs" />
     <Compile Include="Signals\SignalsCheckBaseIndicator.cs" />
-    <Compile Include="Telegram\TelegramReporter.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\MLModels.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>MLModels.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\classification_lbfgs_ent.zip" />
-    <None Include="Resources\classification_sdca.zip" />
-    <None Include="Resources\classification_sdca_ent.zip" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TradeKit.Core\TradeKit.Core.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="EventArgs\" />
   </ItemGroup>
 </Project>

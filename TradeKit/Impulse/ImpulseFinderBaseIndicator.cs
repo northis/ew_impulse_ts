@@ -4,6 +4,7 @@ using System.Linq;
 using TradeKit.Core;
 using TradeKit.EventArgs;
 using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Impulse
 {
