@@ -1,9 +1,8 @@
-﻿using System.Collections.Generic;
-using cAlgo.API;
+﻿using cAlgo.API;
 using System.Linq;
 using TradeKit.Core;
-using TradeKit.EventArgs;
 using TradeKit.Core.Common;
+using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Impulse
@@ -25,7 +24,7 @@ namespace TradeKit.Impulse
         {
             base.Initialize();
             var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
-            m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame);
+            m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame.ToITimeFrame());
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
             Subscribe(m_SetupFinder);
         }

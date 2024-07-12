@@ -1,9 +1,9 @@
 ﻿namespace TradeKit.Core.Common
 {
     /// <summary>
-    /// Interface isolates all the cTrader objects from the main code
+    /// Interface isolates all the bar obtaining logic from the main code
     /// </summary>
-    public interface IBarsProvider
+    public interface IBarsProvider : IDisposable
     {
         /// <summary>
         /// Gets the low price of the candle by the <see cref="index"/> specified.
@@ -12,38 +12,16 @@
         double GetLowPrice(int index);
 
         /// <summary>
-        /// Gets the [low price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
-        /// </summary>
-        /// <param name="startIndex">The start index.</param>
-        /// <param name="endIndex">The end index.</param>
-        KeyValuePair<int, double> GetLowPrice(int startIndex, int endIndex);
-
-        /// <summary>
-        /// Gets the [low price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
-        /// </summary>
-        /// <param name="startDate">The start date.</param>
-        /// <param name="endDate">The end date.</param>
-        KeyValuePair<DateTime, double> GetLowPrice(DateTime startDate, DateTime endDate);
-
-        /// <summary>
         /// Gets the high price of the candle by the <see cref="index"/> specified.
         /// </summary>
         /// <param name="index">The index.</param>
         double GetHighPrice(int index);
 
         /// <summary>
-        /// Gets the [high price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
+        /// Gets the median price ((H+L)/2) of the candle by the <see cref="index"/> specified.
         /// </summary>
-        /// <param name="startIndex">The start index.</param>
-        /// <param name="endIndex">The end index.</param>
-        KeyValuePair<int, double> GetHighPrice(int startIndex, int endIndex);
-
-        /// <summary>
-        /// Gets the [high price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
-        /// </summary>
-        /// <param name="startDate">The start date.</param>
-        /// <param name="endDate">The end date.</param>
-        KeyValuePair<DateTime, double> GetHighPrice(DateTime startDate, DateTime endDate);
+        /// <param name="index">The index.</param>
+        double GetMedianPrice(int index);
 
         /// <summary>
         /// Gets the open price of the candle by the <see cref="index" /> specified.
@@ -56,18 +34,6 @@
         /// </summary>
         /// <param name="index">The index.</param>
         double GetClosePrice(int index);
-
-        /// <summary>
-        /// Gets the max price of the candle body by the <see cref="index" /> specified.
-        /// </summary>
-        /// <param name="index">The index.</param>
-        double GetMaxBodyPrice(int index);
-
-        /// <summary>
-        /// Gets the min price of the candle body by the <see cref="index" /> specified.
-        /// </summary>
-        /// <param name="index">The index.</param>
-        double GetMinBodyPrice(int index);
 
         /// <summary>
         /// Gets the open time of the candle by the <see cref="index"/> specified
@@ -86,11 +52,6 @@
         void LoadBars(DateTime date);
 
         /// <summary>
-        /// Gets the limit amount for bars loaded.
-        /// </summary>
-        int Limit { get; }
-
-        /// <summary>
         /// Gets the start bar index according to limit.
         /// </summary>
         int StartIndexLimit { get; }
@@ -101,9 +62,9 @@
         ITimeFrame TimeFrame { get; }
 
         /// <summary>
-        /// Gets the current symbol name (full).
+        /// Gets the current symbol.
         /// </summary>
-        string SymbolName { get; }
+        ISymbol BarSymbol { get; }
 
         /// <summary>
         /// Gets the int index of bar (candle) by datetime.
@@ -112,8 +73,8 @@
         int GetIndexByTime(DateTime dateTime);
 
         /// <summary>
-        /// Gets the open time for the last bar available.
+        /// Called when a new bar is opened and the previous bar is ready to analyze.
         /// </summary>
-        DateTime GetLastBarOpenTime();
+        event EventHandler BarOpened;
     }
 }

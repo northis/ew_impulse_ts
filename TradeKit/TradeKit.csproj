@@ -29,6 +29,7 @@
     <PackageReference Include="Telegram.Bot" Version="17.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Core\CTraderBaseRobot.cs" />
     <Compile Include="Core\CTraderSymbol.cs" />
     <Compile Include="Core\CTraderTimeFrame.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
@@ -46,7 +47,6 @@
     <Compile Include="Indicators\StochasticOscillatorIndicator.cs" />
     <Compile Include="Indicators\MovingAverageIndicator.cs" />
     <Compile Include="Indicators\MacdCrossOverIndicator.cs" />
-    <Compile Include="Core\SingleSetupFinder.cs" />
     <Compile Include="Gartley\GartleySetupFinder.cs" />
     <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
     <Compile Include="Gartley\GartleySignalerBaseBot.cs" />
@@ -60,9 +60,6 @@
     <Compile Include="Signals\ParseSetupFinder.cs" />
     <Compile Include="Rate\RateSignalerBaseRobot.cs" />
     <Compile Include="Impulse\ImpulseSignalerBaseRobot.cs" />
-    <Compile Include="AlgoBase\ElliottWavePatternFinder.cs" />
-    <Compile Include="Core\BaseSetupFinder.cs" />
-    <Compile Include="Impulse\ImpulseSetupFinder.cs" />
     <Compile Include="Core\Extensions.cs" />
     <Compile Include="Signals\SignalsCheckBaseRobot.cs" />
     <Compile Include="Signals\SignalsCheckBaseIndicator.cs" />

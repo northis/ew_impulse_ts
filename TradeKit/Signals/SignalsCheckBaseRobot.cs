@@ -72,7 +72,7 @@ namespace TradeKit.Signals
         /// <inheritdoc/>
         protected override void OnStart()
         {
-            base.OnStart();
+            base.Start();
             Positions.Closed += OnPositionClosed;
         }
 

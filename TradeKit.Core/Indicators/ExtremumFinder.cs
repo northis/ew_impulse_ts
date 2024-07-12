@@ -1,6 +1,6 @@
 ﻿using TradeKit.Core.Common;
 
-namespace TradeKit.Core.AlgoBase
+namespace TradeKit.Core.Indicators
 {
     /// <summary>
     /// Class allows to find all the extrema from the set of market candles
@@ -8,7 +8,7 @@ namespace TradeKit.Core.AlgoBase
     public class ExtremumFinder : ExtremumFinderBase
     {
         private readonly int m_ScaleRate;
-        
+
         /// <summary>
         /// Gets the deviation price in absolute value.
         /// </summary>
@@ -27,7 +27,7 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="scaleRate">The scale (zoom) to find zigzags.</param>
         /// <param name="barsProvider">The source bars provider.</param>
         /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
-        public ExtremumFinder(int scaleRate, IBarsProvider barsProvider, bool isUpDirection = false):base(barsProvider,isUpDirection)
+        public ExtremumFinder(int scaleRate, IBarsProvider barsProvider, bool isUpDirection = false) : base(barsProvider, isUpDirection)
         {
             m_ScaleRate = scaleRate;
         }
@@ -38,10 +38,11 @@ namespace TradeKit.Core.AlgoBase
         public int ScaleRate => m_ScaleRate;
 
         /// <summary>
-        /// Calculates the extrema for the specified <see cref="index"/>.
+        /// Called inside the <see cref="BaseFinder{T}.Calculate(int)" /> method.
         /// </summary>
         /// <param name="index">The index.</param>
-        public override void Calculate(int index)
+        /// <param name="openDateTime">The open date time.</param>
+        public override void OnCalculate(int index, DateTime openDateTime)
         {
             if (BarsProvider.Count < 2)
             {
@@ -56,7 +57,7 @@ namespace TradeKit.Core.AlgoBase
             if (IsUpDirection ? high > Extremum.Value : low < Extremum.Value)
             {
                 var newExtremum = new BarPoint(
-                    IsUpDirection ? high : low, 
+                    IsUpDirection ? high : low,
                     index, BarsProvider);
                 MoveExtremum(newExtremum);
                 return;

@@ -2,7 +2,7 @@ using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Core;
 using TradeKit.Core.Common;
-using TradeKit.EventArgs;
+using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Rate
 {

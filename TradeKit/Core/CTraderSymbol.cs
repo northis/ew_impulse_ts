@@ -7,7 +7,8 @@ namespace TradeKit.Core
     {
         public Symbol CSymbol { get; }
 
-        public CTraderSymbol(Symbol symbol) : base(symbol.Name, symbol.Description, symbol.Id)
+        public CTraderSymbol(Symbol symbol) : 
+            base(symbol.Name, symbol.Description, symbol.Id, symbol.Digits, symbol.PipSize, symbol.PipValue)
         {
             CSymbol = symbol;
         }

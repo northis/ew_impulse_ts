@@ -1,11 +1,11 @@
 ﻿using TradeKit.Core.Common;
 
-namespace TradeKit.Core.AlgoBase
+namespace TradeKit.Core.Indicators
 {
     /// <summary>
     /// Class allows to find all the extrema from the set of market candles
     /// </summary>
-    public abstract class ExtremumFinderBase
+    public abstract class ExtremumFinderBase : BaseFinder<BarPoint>
     {
         public class BarPointEventArgs : System.EventArgs
         {
@@ -13,7 +13,6 @@ namespace TradeKit.Core.AlgoBase
         }
 
         private DateTime m_ExtremumOpenDate;
-        protected readonly IBarsProvider BarsProvider;
         protected bool IsUpDirection;
 
         /// <summary>
@@ -32,7 +31,7 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="extremum">The extremum object - the price and the timestamp.</param>
         protected void MoveExtremum(BarPoint extremum)
         {
-            Extrema.Remove(m_ExtremumOpenDate);
+            Result.Remove(m_ExtremumOpenDate);
             SetExtremumInner(extremum);
         }
 
@@ -42,7 +41,7 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="upDirection">if set to <c>true</c> [up direction].</param>
         public void Reset(bool upDirection = false)
         {
-            Extrema.Clear();
+            Result.Clear();
             Extremum = null;
             IsUpDirection = upDirection;
             m_ExtremumOpenDate = DateTime.MinValue;
@@ -55,7 +54,7 @@ namespace TradeKit.Core.AlgoBase
         protected void SetExtremum(BarPoint extremum)
         {
             SetExtremumInner(extremum);
-            OnSetExtremum?.Invoke(this, new BarPointEventArgs {EventExtremum = extremum});
+            OnSetExtremum?.Invoke(this, new BarPointEventArgs { EventExtremum = extremum });
         }
 
         /// <summary>
@@ -66,23 +65,17 @@ namespace TradeKit.Core.AlgoBase
         {
             m_ExtremumOpenDate = extremum.OpenTime;
             Extremum = extremum;
-            Extrema[extremum.OpenTime] = Extremum;
+            Result[extremum.OpenTime] = Extremum;
         }
-
-        /// <summary>
-        /// Gets the collection of extrema found.
-        /// </summary>
-        public SortedDictionary<DateTime, BarPoint> Extrema { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinderBase"/> class.
         /// </summary>
         /// <param name="barsProvider">The source bars provider.</param>
         /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
-        protected ExtremumFinderBase(IBarsProvider barsProvider, bool isUpDirection = false)
+        protected ExtremumFinderBase(
+            IBarsProvider barsProvider, bool isUpDirection = false) : base(barsProvider)
         {
-            BarsProvider = barsProvider;
-            Extrema = new SortedDictionary<DateTime, BarPoint>();
             IsUpDirection = isUpDirection;
         }
 
@@ -91,38 +84,7 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         public List<BarPoint> ToExtremaList()
         {
-            return Extrema.Select(a => a.Value).ToList();
+            return Result.Select(a => a.Value).ToList();
         }
-
-        /// <summary>
-        /// Calculates the extrema from <see cref="startIndex"/> to <see cref="endIndex"/>.
-        /// </summary>
-        /// <param name="startIndex">The start index.</param>
-        /// <param name="endIndex">The end index.</param>
-        public void Calculate(int startIndex, int endIndex)
-        {
-            for (int i = startIndex; i <= endIndex; i++)
-            {
-                Calculate(i);
-            }
-        }
-
-        /// <summary>
-        /// Calculates the extrema from <see cref="startDate"/> to <see cref="endDate"/>.
-        /// </summary>
-        /// <param name="startDate">The start date and time.</param>
-        /// <param name="endDate">The end date and time.</param>
-        public void Calculate(DateTime startDate, DateTime endDate)
-        {
-            int startIndex = BarsProvider.GetIndexByTime(startDate);
-            int endIndex = BarsProvider.GetIndexByTime(endDate);
-            Calculate(startIndex, endIndex);
-        }
-
-        /// <summary>
-        /// Calculates the extrema for the specified <see cref="index"/>.
-        /// </summary>
-        /// <param name="index">The index.</param>
-        public abstract void Calculate(int index);
     }
 }

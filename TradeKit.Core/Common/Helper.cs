@@ -119,7 +119,7 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="setupId">The setup identifier.</param>
         /// <param name="entryBarPoint">The entry bar point.</param>
-        internal static string GetPositionId(string setupId, BarPoint entryBarPoint)
+        public static string GetPositionId(string setupId, BarPoint entryBarPoint)
         {
             return $"{setupId}{entryBarPoint.OpenTime:O}";
         }
@@ -129,7 +129,7 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="profile">The profile collection.</param>
         /// <returns>List of groups found (keys).</returns>
-        internal static List<HashSet<int>> FindGroups(
+        public static List<HashSet<int>> FindGroups(
             SortedDictionary<int, double> profile)
         {
             List<HashSet<int>> res = FindGroups(profile, (a, b) => a >= b);
@@ -141,7 +141,7 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="profile">The profile collection.</param>
         /// <returns>List of groups found (keys).</returns>
-        internal static List<HashSet<double>> FindGroups(
+        public static List<HashSet<double>> FindGroups(
             SortedDictionary<double, int> profile)
         {
             List<HashSet<double>> res = FindGroups(profile, (a, b) => a >= b);

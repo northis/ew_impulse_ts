@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Core.Common;
@@ -23,7 +22,13 @@ namespace TradeKit.Core
         public CTraderBarsProvider(Bars bars, Symbol symbolEntity)
         {
             m_Bars = bars;
-            SymbolName = symbolEntity.ToString();
+            bars.BarOpened += OnBarOpened;
+            BarSymbol = symbolEntity.ToISymbol();
+        }
+
+        private void OnBarOpened(BarOpenedEventArgs obj)
+        {
+            BarOpened?.Invoke(this, System.EventArgs.Empty);
         }
 
         /// <summary>
@@ -36,70 +41,6 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Gets the extremum price.
-        /// </summary>
-        /// <param name="startIndex">The start index.</param>
-        /// <param name="endIndex">The end index.</param>
-        /// <param name="isHigh">The end index.</param>
-        private KeyValuePair<int, double> GetExtremumPrice(
-            int startIndex, int endIndex, bool isHigh)
-        {
-            double extrema = isHigh ? double.NegativeInfinity : double.PositiveInfinity;
-            int index = startIndex;
-            for (int i = startIndex; i <= endIndex; i++)
-            {
-                if (isHigh)
-                {
-                    double high = m_Bars.HighPrices[i];
-                    if(double.IsNaN(high))
-                        continue;
-
-                    if (high > extrema)
-                    {
-                        index = i;
-                        extrema = high;
-                    }
-
-                    continue;
-                }
-
-                double low = m_Bars.LowPrices[i];
-                if (double.IsNaN(low))
-                    continue;
-
-                if (low < extrema)
-                {
-                    index = i;
-                    extrema = low;
-                }
-            }
-
-            return new KeyValuePair<int, double>(index, extrema);
-        }
-
-        /// <summary>
-        /// Gets the [low price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
-        /// </summary>
-        /// <param name="startIndex">The start index.</param>
-        /// <param name="endIndex">The end index.</param>
-        public KeyValuePair<int, double> GetLowPrice(int startIndex, int endIndex)
-        {
-            return GetExtremumPrice(startIndex, endIndex, false);
-        }
-
-        /// <summary>
-        /// Gets the [low price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
-        /// </summary>
-        /// <param name="startDate">The start date.</param>
-        /// <param name="endDate">The end date.</param>
-        public KeyValuePair<DateTime, double> GetLowPrice(DateTime startDate, DateTime endDate)
-        {
-            KeyValuePair<int, double> res = GetLowPrice(
-                GetIndexByTime(startDate), GetIndexByTime(startDate));
-            return new KeyValuePair<DateTime, double>(m_Bars.OpenTimes[res.Key], res.Value);
-        }
-
-        /// <summary>
         /// Gets the high price of the candle by the <see cref="index" /> specified.
         /// </summary>
         /// <param name="index">The index.</param>
@@ -109,25 +50,12 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Gets the [high price-bar key] pair from <see cref="startIndex"/> to <see cref="endIndex"/>.
+        /// Gets the median price ((H+L)/2) of the candle by the <see cref="index" /> specified.
         /// </summary>
-        /// <param name="startIndex">The start index.</param>
-        /// <param name="endIndex">The end index.</param>
-        public KeyValuePair<int, double> GetHighPrice(int startIndex, int endIndex)
+        /// <param name="index">The index.</param>
+        public double GetMedianPrice(int index)
         {
-            return GetExtremumPrice(startIndex, endIndex, true);
-        }
-
-        /// <summary>
-        /// Gets the [high price-bar key] pair from <see cref="startDate"/> to <see cref="endDate"/>.
-        /// </summary>
-        /// <param name="startDate">The start index.</param>
-        /// <param name="endDate">The end index.</param>
-        public KeyValuePair<DateTime, double> GetHighPrice(DateTime startDate, DateTime endDate)
-        {
-            KeyValuePair<int, double> res = GetHighPrice(
-                GetIndexByTime(startDate), GetIndexByTime(startDate));
-            return new KeyValuePair<DateTime, double>(m_Bars.OpenTimes[res.Key], res.Value);
+            return (GetHighPrice(index) + GetLowPrice(index)) / 2;
         }
 
         /// <summary>
@@ -149,24 +77,6 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Gets the max price of the candle body by the <see cref="index" /> specified.
-        /// </summary>
-        /// <param name="index">The index.</param>
-        public virtual double GetMaxBodyPrice(int index)
-        {
-            return Math.Max(GetClosePrice(index), GetOpenPrice(index));
-        }
-
-        /// <summary>
-        /// Gets the min price of the candle body by the <see cref="index" /> specified.
-        /// </summary>
-        /// <param name="index">The index.</param>
-        public virtual double GetMinBodyPrice(int index)
-        {
-            return Math.Min(GetClosePrice(index), GetOpenPrice(index));
-        }
-
-        /// <summary>
         /// Gets the open time of the candle by the <see cref="index" /> specified
         /// </summary>
         /// <param name="index">The index.</param>
@@ -181,7 +91,7 @@ namespace TradeKit.Core
         public int Count => m_Bars.Count;
 
         /// <summary>
-        /// Loads the bars until <see cref="Limit" /> was reached.
+        /// Loads the bars until <see cref="date"/> is reached.
         /// </summary>
         public void LoadBars(DateTime date)
         {
@@ -197,11 +107,6 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Gets the limit amount for bars loaded.
-        /// </summary>
-        public int Limit => Count;
-
-        /// <summary>
         /// Gets the start bar index according to the limit.
         /// </summary>
         public int StartIndexLimit => 0;
@@ -214,7 +119,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the current symbol.
         /// </summary>
-        public string SymbolName { get; }
+        public ISymbol BarSymbol { get; }
 
         /// <summary>
         /// Gets the int index of bar (candle) by datetime.
@@ -244,11 +149,16 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Gets the open time for the latest bar available.
+        /// Called when a new bar is opened and the previous bar is ready to analyze.
         /// </summary>
-        public DateTime GetLastBarOpenTime()
+        public event EventHandler BarOpened;
+
+        /// <summary>
+        /// Releases unmanaged and - optionally - managed resources.
+        /// </summary>
+        public void Dispose()
         {
-            return m_Bars.LastBar.OpenTime;
+            m_Bars.BarOpened -= OnBarOpened;
         }
     }
 }

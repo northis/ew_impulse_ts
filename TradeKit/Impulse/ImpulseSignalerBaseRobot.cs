@@ -170,7 +170,7 @@ namespace TradeKit.Impulse
             DateTime setupStart = signal.StopLoss.OpenTime;
             DateTime setupEnd = signal.Level.OpenTime + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
             Logger.Write(
-                $"A risky signal, the setup contains a trade session change: {bp.SymbolName}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
+                $"A risky signal, the setup contains a trade session change: {bp.Symbol}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
 
             return HasTradeBreakInside(setupStart, setupEnd, setupFinder.Symbol);
         }
