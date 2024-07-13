@@ -15,7 +15,7 @@ using Shape = Plotly.NET.LayoutObjects.Shape;
 namespace TradeKit.PriceAction
 {
     public class PriceActionSignalerBaseBot : 
-        BaseRobot<PriceActionSetupFinder, PriceActionSignalEventArgs>
+        BaseAlgoRobot<PriceActionSetupFinder, PriceActionSignalEventArgs>
     {
         private const string BOT_NAME = "PriceActionRobot";
 

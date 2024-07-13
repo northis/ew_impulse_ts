@@ -57,19 +57,6 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// Returns the amount of volume based on your provided risk percentage and stop loss
-        /// </summary>
-        /// <param name="symbol">The symbol</param>
-        /// <param name="riskPercentage">Risk percentage amount</param>
-        /// <param name="accountBalance">The account balance</param>
-        /// <param name="stopLossInPips">Stop loss amount in Pips</param>
-        public static double GetVolume(this ISymbol symbol, double riskPercentage, double accountBalance, double stopLossInPips)
-        {
-            //symbol.NormalizeVolumeInUnits(
-            return riskPercentage / (Math.Abs(stopLossInPips) * symbol.PipValue / accountBalance * 100);
-        }
-
-        /// <summary>
         /// Converts <see cref="TimeFrame"/> to <see cref="ITimeFrame"/>.
         /// </summary>
         /// <param name="tf">The cTrader tf object.</param>
@@ -109,6 +96,15 @@ namespace TradeKit.Core
                 return cTraderSymbol.CSymbol;
 
             throw new NotSupportedException("Cannot convert this instance, check CTraderSymbol");
+        }
+
+        /// <summary>
+        /// Converts <see cref="Position"/> to <see cref="IPosition"/>.
+        /// </summary>
+        /// <param name="position">The cTrader position object.</param>
+        public static IPosition ToIPosition(this Position position)
+        {
+            return new CTraderSymbol(symbol);
         }
     }
 }

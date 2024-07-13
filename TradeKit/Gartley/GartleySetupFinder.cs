@@ -135,12 +135,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                         m_ZoneAlligator, localPattern.ItemD.OpenTime);
                     if (localPattern.IsBull)
                     {
-                        if (trend == TrendType.Bearish)
+                        if (trend == TrendType.BEARISH)
                             continue;
                     }
                     else
                     {
-                        if (trend == TrendType.Bullish)
+                        if (trend == TrendType.BULLISH)
                             continue;
                     }
                 }

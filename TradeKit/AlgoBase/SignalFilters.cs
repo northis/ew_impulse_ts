@@ -51,11 +51,11 @@ namespace TradeKit.AlgoBase
             int index = alligator.Bars.OpenTimes.GetIndexByTime(dateTimeBar);
             double value = alligator.Histogram[index];
             if (value > ZoneAlligator.NO_VALUE)
-                return TrendType.Bullish;
+                return TrendType.BULLISH;
             if (value < ZoneAlligator.NO_VALUE)
-                return TrendType.Bearish;
+                return TrendType.BEARISH;
 
-            return TrendType.NoTrend;
+            return TrendType.NO_TREND;
         }
 
         /// <summary>
@@ -66,7 +66,7 @@ namespace TradeKit.AlgoBase
         public static TrendType GetTrend(SuperTrendItem sti, DateTime dateTimeBar)
         {
             if (sti.Indicators.Length == 0)
-                return TrendType.NoTrend;
+                return TrendType.NO_TREND;
 
             TimeSpan mainPeriod = TimeFrameHelper.GetTimeFrameInfo(sti.MainTrendIndicator.TimeFrame.ToITimeFrame()).TimeSpan;
             DateTime endDt = dateTimeBar + mainPeriod;
@@ -109,10 +109,10 @@ namespace TradeKit.AlgoBase
             }
             
             if (vals.Count(a => a == 1) == sti.Indicators.Length)
-                return TrendType.Bullish;
+                return TrendType.BULLISH;
             if (vals.Count(a => a == -1) == sti.Indicators.Length)
-                return TrendType.Bearish;
-            return TrendType.NoTrend;
+                return TrendType.BEARISH;
+            return TrendType.NO_TREND;
         }
 
         /// <summary>
@@ -159,7 +159,7 @@ namespace TradeKit.AlgoBase
             int minorIndex = GetActualIndex(esi.BarsProviderMinor, dateTimeBar);
 
             if (majorIndex <= 0 || minorIndex <= 0)
-                return TrendType.NoTrend;
+                return TrendType.NO_TREND;
 
             double min = esi.BarsProviderMajor.GetLowPrice(majorIndex);
             double average = esi.MovingAverageMajor.Result[majorIndex];
@@ -171,12 +171,12 @@ namespace TradeKit.AlgoBase
             if (min > average)
             {
                 if (histValue <= 0 || histValue < histValuePrev)
-                    return TrendType.NoTrend;
+                    return TrendType.NO_TREND;
 
                 if (stochasticValue >= STOCHASTIC_DOWN && stochasticValuePrev < STOCHASTIC_DOWN)
-                    return TrendType.Bullish;
+                    return TrendType.BULLISH;
 
-                return TrendType.NoTrend;
+                return TrendType.NO_TREND;
 
             }
 
@@ -184,15 +184,15 @@ namespace TradeKit.AlgoBase
             if (max < average)
             {
                 if (histValue >= 0 || histValue > histValuePrev)
-                    return TrendType.NoTrend;
+                    return TrendType.NO_TREND;
 
                 if (stochasticValue <= STOCHASTIC_UP && stochasticValuePrev > STOCHASTIC_UP)
-                    return TrendType.Bearish;
+                    return TrendType.BEARISH;
 
-                return TrendType.NoTrend;
+                return TrendType.NO_TREND;
             }
 
-            return TrendType.NoTrend;
+            return TrendType.NO_TREND;
         }
 #endif
         /// <summary>

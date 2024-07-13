@@ -28,8 +28,19 @@
         double PipSize { get; }
 
         /// <summary>
+        /// Gets the size of 1 lot in units of the base currency.
+        /// </summary>
+        double LotSize { get; }
+
+        /// <summary>
         /// Gets the monetary value of one pip.
         /// </summary>
         double PipValue { get; }
+
+        double GetSpread();
+
+        double GetAsk();
+
+        double GetBid();
     }
 }

@@ -7,5 +7,15 @@
         ISymbol Symbol { get; }
 
         double VolumeInUnits { get; }
+
+        PositionType Type { get; }
+
+        string Comment { get; }
+
+        void SetStopLossPrice(double? price);
+
+        void SetTakeProfitPrice(double? price);
+
+        void Close();
     }
 }

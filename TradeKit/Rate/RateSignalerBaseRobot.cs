@@ -6,7 +6,7 @@ using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Rate
 {
-    public class RateSignalerBaseRobot : BaseRobot<RateSetupFinder, SignalEventArgs>
+    public class RateSignalerBaseRobot : BaseAlgoRobot<RateSetupFinder, SignalEventArgs>
     {
         private const string BOT_NAME = "RateSignalerRobot";
 

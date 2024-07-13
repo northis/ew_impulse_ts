@@ -14,7 +14,7 @@ namespace TradeKit.Signals
     /// Robot for history trading the signals from the file
     /// </summary>
     /// <seealso cref="Robot" />
-    public class SignalsCheckBaseRobot : BaseRobot<ParseSetupFinder, SignalEventArgs>
+    public class SignalsCheckBaseRobot : BaseAlgoRobot<ParseSetupFinder, SignalEventArgs>
     {
         private const string BOT_NAME = "SignalsCheckRobot";
 

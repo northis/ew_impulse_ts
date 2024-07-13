@@ -1,5 +1,6 @@
 ﻿using System;
 using cAlgo.API;
+using cAlgo.API.Internals;
 using Plotly.NET;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -9,12 +10,12 @@ namespace TradeKit.Core
     /// <summary>
     /// Base (ro)bot with common operations for trading
     /// </summary>
-    /// <typeparam name="TR">Type of <see cref="BaseRobot{TF,TK}"/></typeparam>
+    /// <typeparam name="TR">Type of <see cref="BaseAlgoRobot{T,TK}"/></typeparam>
     /// <typeparam name="TF">Type of <see cref="BaseSetupFinder{TK}"/></typeparam>
     /// <typeparam name="TK">The type of <see cref="SignalEventArgs"/> - what type of signals supports this bot.</typeparam>
     /// <seealso cref="Robot" />
     public abstract class CTraderBaseRobot<TR, TF, TK> : 
-        Robot where TR : BaseRobot<TF, TK> where TF: BaseSetupFinder<TK> where TK : SignalEventArgs
+        Robot where TR : BaseAlgoRobot<TF, TK> where TF: BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;

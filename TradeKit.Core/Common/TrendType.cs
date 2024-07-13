@@ -8,16 +8,16 @@
         /// <summary>
         /// Flat part of the market
         /// </summary>
-        NoTrend,
+        NO_TREND,
 
         /// <summary>
         /// The bullish part of the market
         /// </summary>
-        Bullish,
+        BULLISH,
 
         /// <summary>
         /// The bearish part of the market
         /// </summary>
-        Bearish
+        BEARISH
     }
 }

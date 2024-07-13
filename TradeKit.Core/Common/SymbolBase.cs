@@ -38,9 +38,26 @@
         /// </summary>
         public double PipSize { get; }
 
+        public double LotSize { get; }
+
         /// <summary>
         /// Gets the monetary value of one pip.
         /// </summary>
         public double PipValue { get; }
+
+        public double GetSpread()
+        {
+            throw new NotImplementedException();
+        }
+
+        public double GetAsk()
+        {
+            throw new NotImplementedException();
+        }
+
+        public double GetBid()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

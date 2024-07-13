@@ -18,7 +18,7 @@ using TradeKit.Core.Gartley;
 
 namespace TradeKit.Gartley
 {
-    public class GartleySignalerBaseBot : BaseRobot<GartleySetupFinder, GartleySignalEventArgs>
+    public class GartleySignalerBaseBot : BaseAlgoRobot<GartleySetupFinder, GartleySignalEventArgs>
     {
         private const string BOT_NAME = "GartleySignalerRobot";
         private const string DIVERGENCE_NAME = "Div";

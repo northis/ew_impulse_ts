@@ -19,7 +19,7 @@ using Color = Plotly.NET.Color;
 
 namespace TradeKit.Impulse
 {
-    public class ImpulseSignalerBaseRobot : BaseRobot<ImpulseSetupFinder, ImpulseSignalEventArgs>
+    public class ImpulseSignalerBaseRobot : BaseAlgoRobot<ImpulseSetupFinder, TradeKit.Core.EventArgs.ImpulseSignalEventArgs>
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
         
@@ -31,7 +31,7 @@ namespace TradeKit.Impulse
             return BOT_NAME;
         }
 
-        protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
+        protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, TradeKit.Core.EventArgs.ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
         {
             string[] waveNotations = ElliottWavePatternHelper.ModelRules[ElliottModelType.IMPULSE].Models
@@ -56,7 +56,7 @@ namespace TradeKit.Impulse
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="lastOpenDateTime">The last open date time.</param>
         protected override GenericChart.GenericChart[] GetAdditionalChartLayers(
-            ImpulseSignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
+            TradeKit.Core.EventArgs.ImpulseSignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
         {
             double sl = signalEventArgs.StopLoss.Value;
             double tp = signalEventArgs.TakeProfit.Value;
@@ -164,13 +164,13 @@ namespace TradeKit.Impulse
         /// <param name="signal">The signal.</param>
         /// <param name="setupFinder">The setup finder.</param>
         protected override bool IsOvernightTrade(
-            ImpulseSignalEventArgs signal, ImpulseSetupFinder setupFinder)
+            TradeKit.Core.EventArgs.ImpulseSignalEventArgs signal, ImpulseSetupFinder setupFinder)
         {
             IBarsProvider bp = setupFinder.BarsProvider; 
             DateTime setupStart = signal.StopLoss.OpenTime;
             DateTime setupEnd = signal.Level.OpenTime + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
             Logger.Write(
-                $"A risky signal, the setup contains a trade session change: {bp.Symbol}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
+                $"A risky signal, the setup contains a trade session change: {bp.BarSymbol}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
 
             return HasTradeBreakInside(setupStart, setupEnd, setupFinder.Symbol);
         }
@@ -179,12 +179,12 @@ namespace TradeKit.Impulse
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
         /// <param name="finder"></param>
-        /// <param name="signal">The <see cref="SignalEventArgs" /> instance containing the event data.</param>
+        /// <param name="signal">The <see cref="Core.EventArgs.SignalEventArgs" /> instance containing the event data.</param>
         /// <returns>
         ///   <c>true</c> if the specified setup finder already has same setup active; otherwise, <c>false</c>.
         /// </returns>
         protected override bool HasSameSetupActive(
-            ImpulseSetupFinder finder, ImpulseSignalEventArgs signal)
+            ImpulseSetupFinder finder, TradeKit.Core.EventArgs.ImpulseSignalEventArgs signal)
         {
             if (Math.Abs(finder.SetupStartPrice - signal.StopLoss.Value) < double.Epsilon &&
                 Math.Abs(finder.SetupEndPrice - signal.TakeProfit.Value) < double.Epsilon)
@@ -197,7 +197,7 @@ namespace TradeKit.Impulse
 
         protected override void OnSaveRawChartDataForManualAnalysis(
             ChartDataSource chartDataSource, 
-            ImpulseSignalEventArgs signalEventArgs,
+            TradeKit.Core.EventArgs.ImpulseSignalEventArgs signalEventArgs,
             IBarsProvider barProvider,
             string dirPath,
             bool tradeResult,
