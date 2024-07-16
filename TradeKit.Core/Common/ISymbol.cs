@@ -36,11 +36,5 @@
         /// Gets the monetary value of one pip.
         /// </summary>
         double PipValue { get; }
-
-        double GetSpread();
-
-        double GetAsk();
-
-        double GetBid();
     }
 }

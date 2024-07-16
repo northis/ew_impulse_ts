@@ -1,7 +1,4 @@
-﻿using System;
-using cAlgo.API;
-using cAlgo.API.Internals;
-using Plotly.NET;
+﻿using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 
@@ -10,12 +7,12 @@ namespace TradeKit.Core
     /// <summary>
     /// Base (ro)bot with common operations for trading
     /// </summary>
-    /// <typeparam name="TR">Type of <see cref="BaseAlgoRobot{T,TK}"/></typeparam>
+    /// <typeparam name="TR">Type of <see cref="CTraderBaseAlgoRobot{T,TK}"/></typeparam>
     /// <typeparam name="TF">Type of <see cref="BaseSetupFinder{TK}"/></typeparam>
     /// <typeparam name="TK">The type of <see cref="SignalEventArgs"/> - what type of signals supports this bot.</typeparam>
     /// <seealso cref="Robot" />
     public abstract class CTraderBaseRobot<TR, TF, TK> : 
-        Robot where TR : BaseAlgoRobot<TF, TK> where TF: BaseSetupFinder<TK> where TK : SignalEventArgs
+        Robot where TR : CTraderBaseAlgoRobot<TF, TK> where TF: BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
@@ -25,7 +22,29 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the logic class for robot.
         /// </summary>
-        protected abstract TR GetBaseRobot();
+        protected abstract TR GetAlgoRobot();
+
+        /// <summary>
+        /// Joins the robot parameters into one record.
+        /// </summary>
+        protected RobotParams GetRobotParams()
+        {
+            return new RobotParams(RiskPercentFromDeposit,
+                RiskPercentFromDepositMax, 
+                MaxVolumeLots, 
+                AllowToTrade, 
+                AllowEnterOnBigSpread, 
+                UseProgressiveVolume,
+                AllowOvernightTrade, 
+                UseSymbolsList, 
+                UseTimeFramesList, 
+                SaveChartForManualAnalysis, 
+                PostCloseMessages,
+                TimeFramesToProceed, 
+                SymbolsToProceed, 
+                TelegramBotToken, 
+                ChatId);
+        }
 
         #region User properties
 
@@ -127,107 +146,7 @@ namespace TradeKit.Core
         protected override void OnStart()
         {
             Logger.SetWrite(a => Print(a));
-            m_BaseRobot = GetBaseRobot();
-
-            //m_SetupFindersMap = new Dictionary<string, T>();
-            //m_SetupIdBarsMap = new Dictionary<string, Bars>();
-            //m_FinderIdChartBarProviderMap = new Dictionary<string, IBarsProvider>();
-            //m_BarsInitMap = new Dictionary<string, bool>();
-            //m_SymbolsMap = new Dictionary<string, Symbol>();
-            //m_SymbolFindersMap = new Dictionary<string, T[]>();
-            //m_PositionFinderMap = new Dictionary<string, List<int>>();
-            //m_ChartFileFinderMap = new Dictionary<string, TK>();
-            //m_MinimalBars = new HashSet<Bars>();
-            //m_CurrentRisk = RiskPercentFromDeposit;
-
-            //string[] symbols = !UseSymbolsList || string.IsNullOrEmpty(SymbolsToProceed)
-            //    ? new[] {SymbolName}
-            //    : SplitString(SymbolsToProceed);
-            //string[] timeFrames = !UseTimeFramesList || string.IsNullOrEmpty(TimeFramesToProceed)
-            //    ? new[] {TimeFrame.Name}
-            //    : SplitString(TimeFramesToProceed);
-            //foreach (string symbolName in symbols)
-            //{
-            //    if (!Symbols.Exists(symbolName))
-            //    {
-            //        continue;
-            //    }
-
-            //    Symbol symbolEntity = Symbols.GetSymbol(symbolName);
-            //    var finders = new List<T>();
-            //    foreach (string timeFrameStr in timeFrames)
-            //    {
-            //        if (!TimeFrame.TryParse(timeFrameStr, out TimeFrame timeFrame))
-            //            continue;
-
-            //        Bars bars = MarketData.GetBars(timeFrame, symbolName);
-            //        T sf = CreateSetupFinder(bars, symbolEntity);
-            //        string key = sf.Id;
-
-            //        m_SetupIdBarsMap[key] = bars;
-            //        m_SetupIdBarsMap[key].BarOpened += BarOpened;
-            //        m_SymbolsMap[key] = symbolEntity;
-            //        m_SetupFindersMap[key] = sf;
-            //        m_BarsInitMap[key] = false;
-            //        finders.Add(sf);
-            //        Logger.Write($"Symbol {symbolName}, time frame {timeFrame.Name} is added");
-            //    }
-
-            //    m_SymbolFindersMap[symbolName] = finders.ToArray();
-            //}
-
-
-            //Logger.Write("Creating chart dictionaries...");
-
-            //var symbolTfMap = new Dictionary<string, ITimeFrame>();
-            //foreach (KeyValuePair<string, T> finder in m_SetupFindersMap)
-            //{
-            //    ITimeFrame chartTimeFrame = TimeFrameHelper
-            //        .GetPreviousTimeFrameInfo(finder.Value.TimeFrame).TimeFrame;
-
-            //    IBarsProvider barProvider = m_SetupFindersMap
-            //        .Where(a =>
-            //            a.Value.Symbol == finder.Value.Symbol &&
-            //            a.Value.TimeFrame == chartTimeFrame)
-            //        .Select(a => a.Value.BarsProvider)
-            //        .FirstOrDefault();
-
-            //    if (barProvider == null && 
-            //        !(symbolTfMap.ContainsKey(finder.Value.Symbol) &&
-            //        symbolTfMap[finder.Value.Symbol].Equals(chartTimeFrame)))
-            //    {
-            //        Bars bars = MarketData.GetBars(chartTimeFrame.ToTimeFrame(), finder.Value.Symbol.Name);
-            //        barProvider = GetBarsProvider(bars, finder.Value.Symbol);
-            //        bars.BarOpened += MinimalBarOpened;
-            //        m_MinimalBars.Add(bars);
-            //        symbolTfMap[finder.Value.Symbol] = chartTimeFrame;
-            //    }
-
-            //    m_FinderIdChartBarProviderMap[finder.Key] = barProvider;
-            //}
-
-            //if (SaveChartForManualAnalysis)
-            //{
-            //    Logger.Write($"Your charts will be in this folder: {Helper.DirectoryToSaveResults}");
-            //}
-
-            //Positions.Closed += OnPositionsClosed;
-
-            //Dictionary<string, int> stateMap = LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
-            //TelegramReporter = new TelegramReporter(
-            //    TelegramBotToken, ChatId, PostCloseMessages, stateMap, OnReportStateSave);
-            //Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
-        }
-
-        /// <summary>
-        /// Gets the additional chart layers.
-        /// </summary>
-        /// <param name="signalEventArgs">The signal event arguments.</param>
-        /// <param name="lastOpenDateTime">The last open date time.</param>
-        protected virtual GenericChart.GenericChart[] GetAdditionalChartLayers(
-            TK signalEventArgs, DateTime lastOpenDateTime)
-        {
-            return null;
+            m_BaseRobot = GetAlgoRobot();
         }
 
         /// <summary>
@@ -236,23 +155,7 @@ namespace TradeKit.Core
         protected override void OnStop()
         {
             base.OnStop();
-            //foreach (T sf in m_SetupFindersMap.Values)
-            //{
-            //    sf.OnEnter -= OnEnter;
-            //    sf.OnStopLoss -= OnStopLoss;
-            //    sf.OnTakeProfit -= OnTakeProfit;
-            //    sf.OnTakeProfit -= OnBreakeven;
-            //    m_SetupIdBarsMap[sf.Id].BarOpened -= BarOpened;
-            //    IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
-            //    bp.Dispose();
-            //}
-
-            //foreach (Bars minimalBar in m_MinimalBars)
-            //{
-            //    minimalBar.BarOpened -= MinimalBarOpened;
-            //}
-
-            //Logger.Write($"Enters: {m_EnterCount}; take profits: {m_TakeCount}; stop losses {m_StopCount}");
+            m_BaseRobot.Dispose();
         }
     }
 }

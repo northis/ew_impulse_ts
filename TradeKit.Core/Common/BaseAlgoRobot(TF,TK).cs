@@ -18,6 +18,7 @@ namespace TradeKit.Core.Common
     public abstract class BaseAlgoRobot<TF,TK> : IDisposable 
         where TF : BaseSetupFinder<TK> where TK : SignalEventArgs
     {
+        protected readonly ITradeManager TradeManager;
         private readonly RobotParams m_RobotParams;
         private readonly bool m_IsBackTesting;
         protected const double SPREAD_MARGIN_RATIO = 1.1;
@@ -44,15 +45,19 @@ namespace TradeKit.Core.Common
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseAlgoRobot{T,TK}"/> class.
         /// </summary>
+        /// <param name="tradeManager">Trade-related manager.</param>
         /// <param name="robotParams">The robot parameters.</param>
         /// <param name="isBackTesting">if set to <c>true</c> if this a history trading.</param>
         /// <param name="symbolName">Name of the symbol.</param>
         /// <param name="timeFrameName">Name of the time frame.</param>
-        protected BaseAlgoRobot(RobotParams robotParams,
+        protected BaseAlgoRobot(
+            ITradeManager tradeManager,
+            RobotParams robotParams,
             bool isBackTesting,
             string symbolName,
             string timeFrameName)
         {
+            TradeManager = tradeManager;
             m_RobotParams = robotParams;
             m_IsBackTesting = isBackTesting;
 
@@ -78,7 +83,7 @@ namespace TradeKit.Core.Common
 
         private void Init(string[] symbols, string[] timeFrames)
         {
-            HashSet<string> symbolsAvailable = GetSymbolNamesAvailable();
+            HashSet<string> symbolsAvailable = TradeManager.GetSymbolNamesAvailable();
 
             foreach (string symbol in symbols)
             {
@@ -87,11 +92,11 @@ namespace TradeKit.Core.Common
                     continue;
                 }
 
-                ISymbol symbolEntity = GetSymbol(symbol);
+                ISymbol symbolEntity = TradeManager.GetSymbol(symbol);
                 var finders = new List<TF>();
                 foreach (string timeFrameStr in timeFrames)
                 {
-                    ITimeFrame timeFrame = GetTimeFrame(timeFrameStr);
+                    ITimeFrame timeFrame = TradeManager.GetTimeFrame(timeFrameStr);
                     if (timeFrame == null)
                         continue;
 
@@ -131,34 +136,12 @@ namespace TradeKit.Core.Common
                 Logger.Write($"Your charts will be in this folder: {Helper.DirectoryToSaveResults}");
             }
 
-            PositionClosed += OnPositionsClosed;
+            TradeManager.PositionClosed += OnPositionsClosed;
 
             Dictionary<string, int> stateMap = GetSavedState();
             TelegramReporter = new TelegramReporter(
                 m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_RobotParams.PostCloseMessages, stateMap, OnReportStateSave);
         }
-
-        /// <summary>
-        /// Occurs when a position is being closed.
-        /// </summary>
-        protected abstract event EventHandler<ClosedPositionEventArgs> PositionClosed;
-
-        /// <summary>
-        /// Gets the symbol names available on the current trade platform.
-        /// </summary>
-        protected abstract HashSet<string> GetSymbolNamesAvailable();
-
-        /// <summary>
-        /// Gets the symbol instance by its name.
-        /// </summary>
-        /// <param name="symbolName">Name of the symbol.</param>
-        protected abstract ISymbol GetSymbol(string symbolName);
-
-        /// <summary>
-        /// Gets the timeframe instance by its name.
-        /// </summary>
-        /// <param name="timeFrameName">Name of the TF.</param>
-        protected abstract ITimeFrame GetTimeFrame(string timeFrameName);
 
         /// <summary>
         /// Gets or sets the name of the bot.
@@ -232,11 +215,6 @@ namespace TradeKit.Core.Common
         /// <param name="symbolEntity">The symbol entity.</param>
         protected abstract TF CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity);
 
-        /// <summary>
-        /// Gets the current positions.
-        /// </summary>
-        protected abstract IPosition[] GetPositions();
-
         private void OnPositionsClosed(object sender, ClosedPositionEventArgs args)
         {
             if (args.State == PositionClosedState.STOP_LOSS)
@@ -303,24 +281,25 @@ namespace TradeKit.Core.Common
         /// <param name="setupId">ID of the setup finder.</param>
         /// <param name="posId">Identity args to find the position</param>
         /// <param name="breakEvenPrice">If not null, sets this price as a breakeven</param>
-        private void ModifySymbolPositions(string setupId, string posId, double? breakEvenPrice = null)
+        private void ModifySymbolPositions(
+            string setupId, string posId, double? breakEvenPrice = null)
         {
             if (!m_PositionFinderMap.TryGetValue(setupId, out List<int> posIds)
                 || posIds == null || posIds.Count == 0)
                 return;
 
-            IPosition[] positionsToModify = GetPositions()
+            IPosition[] positionsToModify = TradeManager.GetPositions()
                 .Where(a => posIds.Contains(a.Id) && a.Comment == posId)
                 .ToArray();
 
             foreach (IPosition position in positionsToModify)
             {
                 if (breakEvenPrice.HasValue)
-                    position.SetStopLossPrice(breakEvenPrice.Value);
+                    TradeManager.SetStopLossPrice(position, breakEvenPrice.Value);
                 else
                 {
                     posIds.Remove(position.Id);
-                    position.Close();
+                    TradeManager.Close(position);
                 }
 
                 break;
@@ -362,7 +341,7 @@ namespace TradeKit.Core.Common
         /// <summary>
         /// Generates the second result chart for the setup finder
         /// </summary>
-        /// <param name="setupFinder">The setup finder we want to check. See <see cref="T"/></param>
+        /// <param name="setupFinder">The setup finder we want to check. See <see cref="TF"/></param>
         /// <param name="successTrade">True - TP hit, False - SL hit</param>
         private void ShowResultChart(object setupFinder, bool successTrade)
         {
@@ -468,9 +447,9 @@ namespace TradeKit.Core.Common
             double tp = e.TakeProfit.Value;
             double sl = e.StopLoss.Value;
             bool isLong = sl < tp;
-            double spread = symbol.GetSpread();
+            double spread = TradeManager.GetSpread(symbol);
 
-            if (isLong && symbol.GetAsk() >= tp ||
+            if (isLong && TradeManager.GetAsk(symbol) >= tp ||
                 spread > 0 && Math.Abs(sl - tp) / spread < Helper.MAX_SPREAD_RATIO)
             {
                 Logger.Write("Big spread, ignore the signal");
@@ -506,9 +485,9 @@ namespace TradeKit.Core.Common
             GetEventStrings(sender, e.Level, out string price);
             Logger.Write($"New setup found! {price}");
             ISymbol s = m_SymbolsMap[sf.Id];
-            double priceNow = isLong ? s.GetAsk() : s.GetBid();
+            double priceNow = isLong ? TradeManager.GetAsk(s) : TradeManager.GetBid(s);
 
-            double spreadNew = s.GetSpread();
+            double spreadNew = TradeManager.GetSpread(s);
             if (!isLong)
             {
                 sl += spreadNew * SPREAD_MARGIN_RATIO;
@@ -536,14 +515,14 @@ namespace TradeKit.Core.Common
 
                 if (m_IsBackTesting || m_RobotParams.AllowToTrade)
                 {
-                    OrderResult order = OpenOrder(
+                    OrderResult order = TradeManager.OpenOrder(
                         isLong, sf.Symbol, volume, BotName, slP, tpP,
                         Helper.GetPositionId(sf.Id, e.Level));
 
                     if (order?.IsSuccessful == true)
                     {
-                        order.Position.SetTakeProfitPrice(tp);
-                        order.Position.SetStopLossPrice(sl);
+                        TradeManager.SetTakeProfitPrice(order.Position, tp);
+                        TradeManager.SetStopLossPrice(order.Position, sl);
                         m_PositionFinderMap[sf.Id].Add(order.Position.Id);
                     }
                 }
@@ -572,8 +551,8 @@ namespace TradeKit.Core.Common
             string plotImagePath = GeneratePlotImageFile(bp, e);
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
-                Ask = s.GetAsk(),
-                Bid = s.GetBid(),
+                Ask = TradeManager.GetAsk(s),
+                Bid = TradeManager.GetBid(s),
                 Digits = sf.Symbol.Digits,
                 SignalEventArgs = e,
                 SymbolName = sf.Symbol.Name,
@@ -581,26 +560,6 @@ namespace TradeKit.Core.Common
                 PlotImagePath = plotImagePath
             });
         }
-
-        /// <summary>
-        /// Opens the trade order.
-        /// </summary>
-        /// <param name="isLong">if set to <c>true</c> [is long].</param>
-        /// <param name="symbol">The symbol.</param>
-        /// <param name="volume">The volume.</param>
-        /// <param name="botName">Name of the bot.</param>
-        /// <param name="stopInPips">The stop in pips.</param>
-        /// <param name="takeInPips">The take in pips.</param>
-        /// <param name="positionId">The position identifier.</param>
-        /// <returns>Result of the operation</returns>
-        protected abstract OrderResult OpenOrder(
-            bool isLong, 
-            ISymbol symbol, 
-            double volume, 
-            string botName, 
-            double stopInPips, 
-            double takeInPips,
-            string positionId);
 
         /// <summary>
         /// Can be used for drawing something on the chart.
@@ -773,12 +732,7 @@ namespace TradeKit.Core.Common
             resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
             return $"{filePath}{Helper.CHART_FILE_TYPE_EXTENSION}";
         }
-
-        /// <summary>
-        /// Gets the current account balance.
-        /// </summary>
-        protected abstract double GetAccountBalance();
-
+        
         /// <summary>
         /// Gets the volume for the symbol given and allowed points for stop loss.
         /// </summary>
@@ -787,7 +741,8 @@ namespace TradeKit.Core.Common
         /// <returns>Size of a position calculated.</returns>
         protected virtual double GetVolume(ISymbol symbol, double slPoints)
         {
-            double volume = symbol.GetVolume(GetCurrentRisk, GetAccountBalance(), slPoints);
+            double volume = symbol.GetVolume(
+                GetCurrentRisk, TradeManager.GetAccountBalance(), slPoints);
             return volume;
         }
 
@@ -885,7 +840,7 @@ namespace TradeKit.Core.Common
         /// </summary>
         public virtual void Dispose()
         {
-            PositionClosed -= OnPositionsClosed;
+            TradeManager.PositionClosed -= OnPositionsClosed;
             foreach (TF sf in m_SetupFindersMap.Values)
             {
                 sf.OnEnter -= OnEnter;

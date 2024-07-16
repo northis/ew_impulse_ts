@@ -32,8 +32,8 @@
     <Compile Include="Core\CTraderBaseAlgoRobot.cs" />
     <Compile Include="Core\CTraderBaseRobot.cs" />
     <Compile Include="Core\CTraderPosition.cs" />
-    <Compile Include="Core\CTraderSymbol.cs" />
     <Compile Include="Core\CTraderTimeFrame.cs" />
+    <Compile Include="Core\CTraderManager.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\ZoneAlligator.cs" />
     <Compile Include="AlgoBase\SignalFilters.cs" />

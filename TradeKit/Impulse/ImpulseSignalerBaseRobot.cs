@@ -13,13 +13,12 @@ using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Json;
 using TradeKit.Core.ML;
-using TradeKit.EventArgs;
 using static Plotly.NET.StyleParam;
 using Color = Plotly.NET.Color;
 
 namespace TradeKit.Impulse
 {
-    public class ImpulseSignalerBaseRobot : BaseAlgoRobot<ImpulseSetupFinder, TradeKit.Core.EventArgs.ImpulseSignalEventArgs>
+    public class ImpulseSignalerBaseRobot : CTraderBaseAlgoRobot<ImpulseSetupFinder, Core.EventArgs.ImpulseSignalEventArgs>
     {
         private const string BOT_NAME = "ImpulseSignalerRobot";
         
@@ -175,6 +174,11 @@ namespace TradeKit.Impulse
             return HasTradeBreakInside(setupStart, setupEnd, setupFinder.Symbol);
         }
 
+        protected override ImpulseSetupFinder CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <summary>
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
@@ -242,6 +246,10 @@ namespace TradeKit.Impulse
                 Helper.DirectoryToSaveResults, Helper.ML_CSV_STAT_FILE_NAME);
             using StreamWriter sw = new StreamWriter(csvFilePath, true);
             sw.WriteLine(saveToLog);
+        }
+
+        public ImpulseSignalerBaseRobot(Robot hostRobot, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(hostRobot, robotParams, isBackTesting, symbolName, timeFrameName)
+        {
         }
     }
 }

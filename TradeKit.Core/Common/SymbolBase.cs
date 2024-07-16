@@ -3,7 +3,7 @@
     public class SymbolBase : ISymbol
     {
         public SymbolBase(
-            string name, string description, long id, int digits, double pipSize, double pipValue)
+            string name, string description, long id, int digits, double pipSize, double pipValue, double lotSize)
         {
             Description = description;
             Name = name;
@@ -11,6 +11,7 @@
             Digits = digits;
             PipSize = pipSize;
             PipValue = pipValue;
+            LotSize = lotSize;
         }
 
         /// <summary>
@@ -38,6 +39,9 @@
         /// </summary>
         public double PipSize { get; }
 
+        /// <summary>
+        /// Gets the size of 1 lot in units of the base currency.
+        /// </summary>
         public double LotSize { get; }
 
         /// <summary>

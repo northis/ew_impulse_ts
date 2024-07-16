@@ -12,34 +12,13 @@ namespace TradeKit.Core
     public abstract class CTraderBaseAlgoRobot<TF, TK> : BaseAlgoRobot<TF, TK> where TF : BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         private readonly Robot m_HostRobot; 
+        private readonly CTraderManager m_CTraderManager; 
         protected const string STATE_SAVE_KEY = "ReportStateMap";
 
-        protected CTraderBaseAlgoRobot(Robot hostRobot, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(robotParams, isBackTesting, symbolName, timeFrameName)
+        protected CTraderBaseAlgoRobot(Robot hostRobot, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(new CTraderManager(hostRobot), robotParams, isBackTesting, symbolName, timeFrameName)
         {
             m_HostRobot = hostRobot;
-
-            m_HostRobot.Positions.Closed += PositionsClosed;
-        }
-
-        private void PositionsClosed(PositionClosedEventArgs obj)
-        {
-            PositionClosed.Invoke(this, new ClosedPositionEventArgs(obj.Reason));
-        }
-
-        protected override event EventHandler<ClosedPositionEventArgs> PositionClosed;
-        protected override HashSet<string> GetSymbolNamesAvailable()
-        {
-            throw new NotImplementedException();
-        }
-
-        protected override ISymbol GetSymbol(string symbolName)
-        {
-            throw new NotImplementedException();
-        }
-
-        protected override ITimeFrame GetTimeFrame(string timeFrameName)
-        {
-            throw new NotImplementedException();
+            m_CTraderManager = (CTraderManager) TradeManager;
         }
 
         protected override void OnReportStateSave(Dictionary<string, int> stateMap)
@@ -52,22 +31,16 @@ namespace TradeKit.Core
             return m_HostRobot.LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
         }
 
-        protected override TF CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity)
+        protected override double GetVolume(ISymbol symbol, double slPoints)
         {
-            throw new NotImplementedException();
+            return m_CTraderManager.GetCTraderSymbol(symbol.Name)
+                .NormalizeVolumeInUnits(base.GetVolume(symbol, slPoints));
         }
 
-        protected override IPosition[] GetPositions()
-        {
-            m_HostRobot.Positions.Select(a=>a.)
-            throw new NotImplementedException();
-        }
-        
         protected override bool HasTradeBreakInside(
             DateTime dateStart, DateTime dateEnd, ISymbol symbol)
         {
-            Symbol cTraderSymbol = symbol.ToSymbol();
-
+            Symbol cTraderSymbol = m_CTraderManager.GetCTraderSymbol(symbol.Name);
             IReadonlyList<TradingSession> sessions = cTraderSymbol.MarketHours.Sessions;
             TimeSpan safeTimeDurationStart = TimeSpan.FromHours(1);
 
@@ -94,17 +67,6 @@ namespace TradeKit.Core
             }
 
             return !isSetupInDay;
-        }
-
-        protected override OrderResult OpenOrder(bool isLong, ISymbol symbol, double volume, string botName, double stopInPips, double takeInPips,
-            string positionId)
-        {
-            throw new NotImplementedException();
-        }
-
-        protected override double GetAccountBalance()
-        {
-            throw new NotImplementedException();
         }
     }
 }

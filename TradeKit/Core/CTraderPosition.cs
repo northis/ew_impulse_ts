@@ -3,14 +3,40 @@ using TradeKit.Core.Common;
 
 namespace TradeKit.Core
 {
-    internal class CTraderPosition : SymbolBase
+    internal class CTraderPosition : IPosition
     {
-        public Symbol CSymbol { get; }
-
-        public CTraderSymbol(Symbol symbol) : 
-            base(symbol.Name, symbol.Description, symbol.Id, symbol.Digits, symbol.PipSize, symbol.PipValue)
+        public CTraderPosition(int id, ISymbol symbol, double volumeInUnits, PositionType type, string comment)
         {
-            CSymbol = symbol;
+            Id = id;
+            Symbol = symbol;
+            VolumeInUnits = volumeInUnits;
+            Type = type;
+            Comment = comment;
         }
+
+        /// <summary>
+        /// Gets the identifier.
+        /// </summary>
+        public int Id { get; }
+
+        /// <summary>
+        /// Gets the symbol.
+        /// </summary>
+        public ISymbol Symbol { get; }
+
+        /// <summary>
+        /// Gets the volume in units.
+        /// </summary>
+        public double VolumeInUnits { get; }
+
+        /// <summary>
+        /// Gets the type.
+        /// </summary>
+        public PositionType Type { get; }
+
+        /// <summary>
+        /// Gets the comment.
+        /// </summary>
+        public string Comment { get; }
     }
 }
