@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using cAlgo.API;
-using cAlgo.API.Internals;
 using Plotly.NET;
 using Plotly.NET.LayoutObjects;
-using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -20,17 +18,10 @@ namespace TradeKit.Impulse
 {
     public class ImpulseSignalerBaseRobot : CTraderBaseAlgoRobot<ImpulseSetupFinder, Core.EventArgs.ImpulseSignalEventArgs>
     {
+        private readonly Robot m_HostRobot;
         private const string BOT_NAME = "ImpulseSignalerRobot";
         
-        /// <summary>
-        /// Gets the name of the bot.
-        /// </summary>
-        public override string GetBotName()
-        {
-            return BOT_NAME;
-        }
-
-        protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, TradeKit.Core.EventArgs.ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
+        protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, Core.EventArgs.ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
         {
             string[] waveNotations = ElliottWavePatternHelper.ModelRules[ElliottModelType.IMPULSE].Models
@@ -55,7 +46,7 @@ namespace TradeKit.Impulse
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="lastOpenDateTime">The last open date time.</param>
         protected override GenericChart.GenericChart[] GetAdditionalChartLayers(
-            TradeKit.Core.EventArgs.ImpulseSignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
+            Core.EventArgs.ImpulseSignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
         {
             double sl = signalEventArgs.StopLoss.Value;
             double tp = signalEventArgs.TakeProfit.Value;
@@ -132,27 +123,21 @@ namespace TradeKit.Impulse
 
             return result.ToArray();
         }
-
+        
         /// <summary>
-        /// Gets the bars provider.
+        /// Creates the setup finder and returns it.
         /// </summary>
-        /// <param name="bars">The bars.</param>
+        /// <param name="timeFrame">The TF.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
-        protected override IBarsProvider GetBarsProvider(Bars bars, Symbol symbolEntity)
+        protected override ImpulseSetupFinder CreateSetupFinder(
+            ITimeFrame timeFrame, ISymbol symbolEntity)
         {
-            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
-            return barsProvider;
-        }
+            Bars bars = m_HostRobot.MarketData.GetBars(
+                CTraderManager.GetCTraderTimeFrame(timeFrame.Name), symbolEntity.Name);
 
-        /// <summary>
-        /// Creates the setup finder.
-        /// </summary>
-        /// <param name="bars">The bars.</param>
-        /// <param name="symbolEntity">The symbol entity.</param>
-        protected override ImpulseSetupFinder CreateSetupFinder(Bars bars, Symbol symbolEntity)
-        {
-            var barsProvider = GetBarsProvider(bars, symbolEntity);
-            var barProvidersFactory = new BarProvidersFactory(symbolEntity, MarketData);
+            var barsProvider = new CTraderBarsProvider(bars, symbolEntity, TradeManager);
+            var barProvidersFactory = new BarProvidersFactory(
+                CTraderManager.GetCTraderSymbol(symbolEntity.Name), m_HostRobot.MarketData);
             var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
             return sf;
         }
@@ -174,11 +159,6 @@ namespace TradeKit.Impulse
             return HasTradeBreakInside(setupStart, setupEnd, setupFinder.Symbol);
         }
 
-        protected override ImpulseSetupFinder CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity)
-        {
-            throw new NotImplementedException();
-        }
-
         /// <summary>
         /// Determines whether the specified setup finder already has same setup active.
         /// </summary>
@@ -188,7 +168,7 @@ namespace TradeKit.Impulse
         ///   <c>true</c> if the specified setup finder already has same setup active; otherwise, <c>false</c>.
         /// </returns>
         protected override bool HasSameSetupActive(
-            ImpulseSetupFinder finder, TradeKit.Core.EventArgs.ImpulseSignalEventArgs signal)
+            ImpulseSetupFinder finder, Core.EventArgs.ImpulseSignalEventArgs signal)
         {
             if (Math.Abs(finder.SetupStartPrice - signal.StopLoss.Value) < double.Epsilon &&
                 Math.Abs(finder.SetupEndPrice - signal.TakeProfit.Value) < double.Epsilon)
@@ -201,7 +181,7 @@ namespace TradeKit.Impulse
 
         protected override void OnSaveRawChartDataForManualAnalysis(
             ChartDataSource chartDataSource, 
-            TradeKit.Core.EventArgs.ImpulseSignalEventArgs signalEventArgs,
+            Core.EventArgs.ImpulseSignalEventArgs signalEventArgs,
             IBarsProvider barProvider,
             string dirPath,
             bool tradeResult,
@@ -232,9 +212,11 @@ namespace TradeKit.Impulse
                 });
             }
 
+            var symbol = TradeManager.GetSymbol(barProvider.BarSymbol.Name);
+
             float[] vector = MachineLearning.GetModelVector(
                 candlesForExport, startWave.Value, endWave.Value,
-                Helper.ML_IMPULSE_VECTOR_RANK, Symbol.Digits).Item1;
+                Helper.ML_IMPULSE_VECTOR_RANK, symbol.Digits).Item1;
 
             var saveToLog = new ModelInput
             {
@@ -250,6 +232,7 @@ namespace TradeKit.Impulse
 
         public ImpulseSignalerBaseRobot(Robot hostRobot, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(hostRobot, robotParams, isBackTesting, symbolName, timeFrameName)
         {
+            m_HostRobot = hostRobot;
         }
     }
 }

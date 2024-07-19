@@ -1,6 +1,6 @@
 ﻿namespace TradeKit.Core.Gartley
 {
-    internal class GartleyItemComparer: IEqualityComparer<GartleyItem>
+    public class GartleyItemComparer: IEqualityComparer<GartleyItem>
     {
         public bool Equals(GartleyItem x, GartleyItem y)
         {

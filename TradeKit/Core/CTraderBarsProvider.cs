@@ -19,11 +19,12 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
-        public CTraderBarsProvider(Bars bars, Symbol symbolEntity)
+        public CTraderBarsProvider(Bars bars, ISymbol symbolEntity)
         {
             m_Bars = bars;
             bars.BarOpened += OnBarOpened;
-            BarSymbol = symbolEntity.ToISymbol();
+            BarSymbol = symbolEntity;
+            TimeFrame = new CTraderTimeFrame(bars.TimeFrame);
         }
 
         private void OnBarOpened(BarOpenedEventArgs obj)
@@ -114,7 +115,7 @@ namespace TradeKit.Core
         /// <summary>
         /// Gets the time frame of the current instance.
         /// </summary>
-        public ITimeFrame TimeFrame => m_Bars.TimeFrame.ToITimeFrame();
+        public ITimeFrame TimeFrame { get; }
 
         /// <summary>
         /// Gets the current symbol.

@@ -52,9 +52,6 @@ namespace TradeKit.Core.Common
         public const int STOCHASTIC_D_PERIODS = 3;
         public const int STOCHASTIC_K_SLOWING = 3;
 
-        public const int SUPERTREND_PERIOD = 10;
-        public const double SUPERTREND_MULTIPLIER = 2;
-
         public const double BREAKEVEN_MIN = 0;
         public const double BREAKEVEN_MAX = 1;
         public const double ALLOWED_VOLUME_LOTS = 1;

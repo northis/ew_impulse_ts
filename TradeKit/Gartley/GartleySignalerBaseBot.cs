@@ -14,6 +14,7 @@ using Plotly.NET.LayoutObjects;
 using System.IO;
 using cAlgo.API.Indicators;
 using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 using TradeKit.Core.Gartley;
 
 namespace TradeKit.Gartley

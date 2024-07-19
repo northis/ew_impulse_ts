@@ -142,12 +142,7 @@ namespace TradeKit.Core.Common
             TelegramReporter = new TelegramReporter(
                 m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_RobotParams.PostCloseMessages, stateMap, OnReportStateSave);
         }
-
-        /// <summary>
-        /// Gets or sets the name of the bot.
-        /// </summary>
-        public string BotName { get; set; }
-
+        
         /// <summary>
         /// Gets the get current risk.
         /// </summary>
@@ -196,7 +191,12 @@ namespace TradeKit.Core.Common
         {
             return str.Split(new[] { '|', ',', ';', }, StringSplitOptions.RemoveEmptyEntries);
         }
-        
+
+        /// <summary>
+        /// Gets the name of the bot.
+        /// </summary>
+        public abstract string GetBotName();
+
         /// <summary>
         /// Called when on saving the report state.
         /// </summary>
@@ -421,8 +421,45 @@ namespace TradeKit.Core.Common
         /// <returns>
         ///   <c>true</c> if the interval has a trade break inside; otherwise, <c>false</c>.
         /// </returns>
-        protected abstract bool HasTradeBreakInside(
-            DateTime dateStart, DateTime dateEnd, ISymbol symbol);
+        protected virtual bool HasTradeBreakInside(
+            DateTime dateStart, DateTime dateEnd, ISymbol symbol)
+        {
+            ITradingHours[] sessions = GetTradingHours();
+            if (sessions.Length == 0)
+                return false;
+
+            TimeSpan safeTimeDurationStart = TimeSpan.FromHours(1);
+
+            DateTime setupDayStart = dateStart
+                .Subtract(dateStart.TimeOfDay)
+                .AddDays(-(int)dateStart.DayOfWeek);
+            bool isSetupInDay = !sessions.Any();
+            foreach (ITradingHours session in sessions)
+            {
+                DateTime sessionDateTime = setupDayStart
+                    .AddDays((int)session.StartDay)
+                    .Add(session.StartTime)
+                    .Add(safeTimeDurationStart);
+                DateTime sessionEndTime = setupDayStart
+                    .AddDays((int)session.EndDay)
+                    .Add(session.EndTime)
+                    .Add(-safeTimeDurationStart);
+
+                if (dateStart > sessionDateTime && dateEnd < sessionEndTime)
+                {
+                    isSetupInDay = true;
+                    break;
+                }
+            }
+
+            return !isSetupInDay;
+        }
+
+        /// <summary>
+        /// Gets the trading hours for symbol.
+        /// </summary>
+        /// <param name="symbol">The symbol.</param>
+        protected abstract ITradingHours[] GetTradingHours(ISymbol symbol);
 
         /// <summary>
         /// Determines whether <see cref="signal"/> and <see cref="setupFinder"/> can contain an overnight signal.
@@ -516,7 +553,7 @@ namespace TradeKit.Core.Common
                 if (m_IsBackTesting || m_RobotParams.AllowToTrade)
                 {
                     OrderResult order = TradeManager.OpenOrder(
-                        isLong, sf.Symbol, volume, BotName, slP, tpP,
+                        isLong, sf.Symbol, volume, GetBotName(), slP, tpP,
                         Helper.GetPositionId(sf.Id, e.Level));
 
                     if (order?.IsSuccessful == true)

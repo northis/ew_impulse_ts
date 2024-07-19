@@ -1,10 +1,21 @@
 ﻿using System;
 using cAlgo.API;
+using cAlgo.API.Internals;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core
 {
     internal static class Extensions
     {
+        /// <summary>
+        /// Converts <see cref="Symbol"/> to <see cref="ISymbol"/>.
+        /// </summary>
+        /// <param name="symbol">The <see cref="Symbol"/> object.</param>
+        public static ISymbol ToISymbol(this Symbol symbol)
+        {
+            return new SymbolBase(symbol.Name, symbol.Description, symbol.Id, symbol.Digits, symbol.PipSize, symbol.PipValue, symbol.LotSize);
+        }
+        
         /// <summary>
         /// Sets the <see cref="rectangle"/> filled.
         /// </summary>

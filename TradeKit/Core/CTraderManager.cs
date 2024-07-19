@@ -11,6 +11,7 @@ namespace TradeKit.Core
     internal class CTraderManager: ITradeManager
     {
         private readonly Robot m_HostRobot;
+        protected const string STATE_SAVE_KEY = "ReportStateMap";
 
         private readonly Dictionary<PositionCloseReason, PositionClosedState> m_ReasonMapper =
             new()
@@ -52,6 +53,21 @@ namespace TradeKit.Core
         }
 
         /// <summary>
+        /// Gets the cTrader TF.
+        /// </summary>
+        /// <param name="timeFrameName">Name of the TF.</param>
+        internal TimeFrame GetCTraderTimeFrame(string timeFrameName)
+        {
+            if (m_TimeFrameMap.TryGetValue(timeFrameName, out TimeFrame value))
+                return value;
+
+            value = TimeFrame.Parse(timeFrameName);
+            m_TimeFrameMap[timeFrameName] = value;
+
+            return value;
+        }
+
+        /// <summary>
         /// Gets the cTrader symbol.
         /// </summary>
         /// <param name="symbolName">Name of the symbol.</param>
@@ -73,7 +89,7 @@ namespace TradeKit.Core
 
             Symbol valueLocal = GetCTraderSymbol(symbolName);
 
-            value = new SymbolBase(valueLocal.Name, valueLocal.Description, valueLocal.Id, valueLocal.Digits, valueLocal.PipSize, valueLocal.PipValue, valueLocal.LotSize);
+            value = valueLocal.ToISymbol();
             m_ISymbolMap[symbolName] = value;
             return value;
         }
@@ -162,6 +178,34 @@ namespace TradeKit.Core
         public double GetAccountBalance()
         {
             return m_HostRobot.Account.Balance;
+        }
+
+        private ITradingHours ToITradingHours(TradingSession session)
+        {
+            return new CTraderTradingHours(session.StartDay, session.EndDay, session.StartTime, session.EndTime);
+        }
+
+        public ITradingHours[] GetTradingHours(ISymbol symbol)
+        {
+            Symbol cTraderSymbol = GetCTraderSymbol(symbol.Name);
+            ITradingHours[] sessions = cTraderSymbol.MarketHours.Sessions
+                .Select(ToITradingHours).ToArray();
+            return sessions;
+        }
+
+        public void SaveState(Dictionary<string, int> stateMap)
+        {
+            m_HostRobot.LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Device);
+        }
+
+        public Dictionary<string, int> GetSavedState()
+        {
+            return m_HostRobot.LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
+        }
+
+        public double NormalizeVolumeInUnits(ISymbol symbol, double volumeInPoints)
+        {
+            return GetCTraderSymbol(symbol.Name).NormalizeVolumeInUnits(volumeInPoints);
         }
     }
 }

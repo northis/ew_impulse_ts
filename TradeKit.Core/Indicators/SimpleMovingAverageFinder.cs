@@ -18,11 +18,12 @@ namespace TradeKit.Core.Indicators
         /// Initializes a new instance of the <see cref="SimpleMovingAverageFinder"/> class.
         /// </summary>
         /// <param name="barsProvider">The bar provider.</param>
+        /// <param name="useAutoCalculateEvent">True if the instance should use <see cref="IBarsProvider.BarOpened"/> event for calculate the results. If false - the child classes should handle it manually.</param>
         /// <param name="periods">The periods.</param>
         /// <param name="shift">The shift.</param>
         /// <exception cref="ArgumentOutOfRangeException">periods</exception>
         public SimpleMovingAverageFinder(
-            IBarsProvider barsProvider, int periods = 14, int shift = 0) : base(barsProvider)
+            IBarsProvider barsProvider, int periods = 14, int shift = 0, bool useAutoCalculateEvent = true) : base(barsProvider, useAutoCalculateEvent)
         {
             if (periods < 1)
                 throw new ArgumentOutOfRangeException(nameof(periods));
@@ -31,7 +32,7 @@ namespace TradeKit.Core.Indicators
             Shift = shift;
         }
 
-        public override void Calculate(int index)
+        public override void OnCalculate(int index, DateTime openDateTime)
         {
             int index1 = checked(index + Shift);
             DateTime dtIndex1 = BarsProvider.GetOpenTime(index1);
@@ -44,7 +45,8 @@ namespace TradeKit.Core.Indicators
                 checked { ++index2; }
             }
 
-            Result[dtIndex1] = num / Periods;
+            double value = num / Periods;
+            SetResultValue(openDateTime, value);
         }
     }
 }

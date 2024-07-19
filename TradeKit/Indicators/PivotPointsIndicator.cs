@@ -1,6 +1,5 @@
 ﻿using System;
 using cAlgo.API;
-using TradeKit.AlgoBase;
 using TradeKit.Core;
 
 namespace TradeKit.Indicators

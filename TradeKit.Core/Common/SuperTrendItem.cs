@@ -1,9 +1,6 @@
-﻿using cAlgo.API;
-using cAlgo.API.Internals;
-using TradeKit.Core.Common;
-using TradeKit.Indicators;
+﻿using TradeKit.Core.Indicators;
 
-namespace TradeKit.Core
+namespace TradeKit.Core.Common
 {
     /// <summary>
     ///  Class contains indicators & providers for the trend based on the "Super trend" indicator.
@@ -14,10 +11,10 @@ namespace TradeKit.Core
         /// Initializes a new instance of the <see cref="SuperTrendItem"/> class.
         /// </summary>
         /// <param name="indicators">The trend indicators (minor, main and major TF).</param>
-        /// <param name="bollingerBandsIndicator">The bollinger bands indicators.</param>
+        /// <param name="bollingerBandsIndicator">The bollinger bands indicator.</param>
         /// <param name="mainTrendIndicator">The main TF trend indicator.</param>
         private SuperTrendItem(
-            SuperTrendIndicator[] indicators, BollingerBandsIndicator bollingerBandsIndicator, SuperTrendIndicator mainTrendIndicator)
+            ZoneAlligatorFinder[] indicators, BollingerBandsFinder bollingerBandsIndicator, ZoneAlligatorFinder mainTrendIndicator)
         {
             Indicators = indicators;
             BollingerBands = bollingerBandsIndicator;
@@ -25,36 +22,29 @@ namespace TradeKit.Core
         }
 
         /// <summary>
-        /// The "Super trend" indicators (3 TFs max)
+        /// The "zone alligator" indicators (3 TFs max)
         /// </summary>
-        internal SuperTrendIndicator[] Indicators { get; }
+        internal ZoneAlligatorFinder[] Indicators { get; }
 
         /// <summary>
-        /// The "Super trend" indicator
+        /// The "zone alligator" indicator
         /// </summary>
-        internal SuperTrendIndicator MainTrendIndicator { get; }
+        internal ZoneAlligatorFinder MainTrendIndicator { get; }
 
         /// <summary>
         /// The "Bollinger Bands" indicator
         /// </summary>
-        internal BollingerBandsIndicator BollingerBands { get; }
+        internal BollingerBandsFinder BollingerBands { get; }
 
-        private static BollingerBandsIndicator GetBollingerBandsIndicator(Algo algo, Bars bars)
+        private static BollingerBandsFinder GetBollingerBandsIndicator(IBarsProvider barsProvider)
         {
-            BollingerBandsIndicator ind = algo.Indicators.GetIndicator<BollingerBandsIndicator>(
-                bars,
-                Helper.BOLLINGER_PERIODS,
-                Helper.BOLLINGER_STANDARD_DEVIATIONS);
-
+            BollingerBandsFinder ind = new BollingerBandsFinder(barsProvider);
             return ind;
         }
 
-        private static SuperTrendIndicator GetTrendIndicator(Algo algo, Bars bars)
+        private static ZoneAlligatorFinder GetTrendIndicator(IBarsProvider barsProvider)
         {
-            SuperTrendIndicator ind = algo.Indicators.GetIndicator<SuperTrendIndicator>(bars,
-                Helper.SUPERTREND_PERIOD,
-                Helper.SUPERTREND_MULTIPLIER);
-
+            var ind = new ZoneAlligatorFinder(barsProvider);
             return ind;
         }
 
@@ -62,9 +52,10 @@ namespace TradeKit.Core
         /// Creates the <see cref="SuperTrendItem"/> instance.
         /// </summary>
         /// <param name="mainTimeFrame">The main time frame.</param>
-        /// <param name="algo">The algo instance (from an indicator or a cBot).</param>
+        /// <param name="barsProvider">The bar provider.</param>
         /// <param name="symbolName">The symbol name</param>
-        public static SuperTrendItem Create(ITimeFrame mainTimeFrame, Algo algo, string symbolName)
+        public static SuperTrendItem Create(
+            ITimeFrame mainTimeFrame, IBarsProvider barsProvider, string symbolName)
         {
             TimeFrameInfo[] tfInfos = {
                 TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame),
@@ -72,20 +63,19 @@ namespace TradeKit.Core
                 TimeFrameHelper.GetNextTimeFrameInfo(mainTimeFrame)
             };
 
-            SuperTrendIndicator mainIndicator = null;
-            var indicators = new SuperTrendIndicator[tfInfos.Length];
+            ZoneAlligatorFinder mainIndicator = null;
+            var indicators = new ZoneAlligatorFinder[tfInfos.Length];
             for (int i = 0; i < tfInfos.Length; i++)
             {
                 ITimeFrame tf = tfInfos[i].TimeFrame;
-                Bars bars = algo.MarketData.GetBars(tf.ToTimeFrame(), symbolName);
-                indicators[i] = GetTrendIndicator(algo, bars);
+                indicators[i] = GetTrendIndicator(barsProvider);
 
                 if (tf == mainTimeFrame)
                     mainIndicator = indicators[i];
             }
 
             Bars barsMain = algo.MarketData.GetBars(mainTimeFrame.ToTimeFrame(), symbolName);
-            BollingerBandsIndicator bollingerBands = GetBollingerBandsIndicator(algo, barsMain);
+            BollingerBandsFinder bollingerBands = GetBollingerBandsIndicator(algo, barsMain);
             return new SuperTrendItem(indicators, bollingerBands, mainIndicator);
         }
     }

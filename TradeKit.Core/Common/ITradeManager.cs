@@ -97,5 +97,29 @@ namespace TradeKit.Core.Common
         /// Gets the account balance.
         /// </summary>
         double GetAccountBalance();
+
+        /// <summary>
+        /// Gets the trading hours for the symbol.
+        /// </summary>
+        /// <param name="symbol">The symbol.</param>
+        ITradingHours[] GetTradingHours(ISymbol symbol);
+
+        /// <summary>
+        /// Saves the trade state.
+        /// </summary>
+        /// <param name="stateMap">The state map.</param>
+        void SaveState(Dictionary<string, int> stateMap);
+
+        /// <summary>
+        /// Gets the saved state dictionary.
+        /// </summary>
+        Dictionary<string, int> GetSavedState();
+
+        /// <summary>
+        /// Converts the volume from points to units.
+        /// </summary>
+        /// <param name="symbol">The symbol.</param>
+        /// <param name="volumeInPoints">The volume in points.</param>
+        double NormalizeVolumeInUnits(ISymbol symbol, double volumeInPoints);
     }
 }

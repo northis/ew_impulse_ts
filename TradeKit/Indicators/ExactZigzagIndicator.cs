@@ -1,5 +1,4 @@
 ﻿using cAlgo.API;
-using TradeKit.AlgoBase;
 using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.Indicators;
@@ -14,7 +13,8 @@ public class ExactZigzagIndicator : Indicator
     /// </summary>
     protected override void Initialize()
     {
-        m_ExtremumFinder = new ExactExtremumFinder(new CTraderBarsProvider(Bars, Symbol),
+        m_ExtremumFinder = new ExactExtremumFinder(
+            new CTraderBarsProvider(Bars, Symbol.ToISymbol()),
             new BarProvidersFactory(Symbol, MarketData));
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
