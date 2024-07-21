@@ -19,6 +19,16 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="bars">The bars.</param>
         /// <param name="symbolEntity">The symbol entity.</param>
+        public CTraderBarsProvider(Bars bars, Symbol symbolEntity) : this(bars, symbolEntity.ToISymbol())
+        {
+
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
+        /// </summary>
+        /// <param name="bars">The bars.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
         public CTraderBarsProvider(Bars bars, ISymbol symbolEntity)
         {
             m_Bars = bars;

@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
@@ -13,7 +14,7 @@ namespace TradeKit.Core.Indicators
         /// <summary>
         /// Gets the bars provider.
         /// </summary>
-        protected IBarsProvider BarsProvider { get; }
+        public IBarsProvider BarsProvider { get; }
 
         /// <summary>
         /// True if the instance should use <see cref="IBarsProvider.BarOpened"/> event for calculate the results. If false - the child classes should handle it manually.
@@ -91,6 +92,15 @@ namespace TradeKit.Core.Indicators
                 m_Result.RemoveLeft(a => a < dt.Add(m_DefaultCleanDuration));
 
             OnCalculate(index, dt);
+        }
+
+        /// <summary>
+        /// Gets the result value.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        public T GetResultValue(int index)
+        {
+            return GetResultValue(BarsProvider.GetOpenTime(index));
         }
 
         /// <summary>

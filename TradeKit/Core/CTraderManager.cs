@@ -8,9 +8,9 @@ using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core
 {
-    internal class CTraderManager: ITradeManager
+    internal class CTraderManager: CTraderViewManager, ITradeManager
     {
-        private readonly Robot m_HostRobot;
+        private readonly Robot m_Robot;
         protected const string STATE_SAVE_KEY = "ReportStateMap";
 
         private readonly Dictionary<PositionCloseReason, PositionClosedState> m_ReasonMapper =
@@ -21,16 +21,11 @@ namespace TradeKit.Core
                 {PositionCloseReason.TakeProfit, PositionClosedState.TAKE_PROFIT},
                 {PositionCloseReason.StopOut, PositionClosedState.STOP_OUT},
             };
-
-        private readonly Dictionary<string, ITimeFrame> m_ITimeFrameMap = new();
-        private readonly Dictionary<string, TimeFrame> m_TimeFrameMap = new();
-        private readonly Dictionary<string, ISymbol> m_ISymbolMap = new();
-        private readonly Dictionary<string, Symbol> m_SymbolMap = new();
-
-        public CTraderManager(Robot hostRobot)
+        
+        public CTraderManager(Robot robot):base(robot)
         {
-            m_HostRobot = hostRobot;
-            m_HostRobot.Positions.Closed += PositionsClosed;
+            m_Robot = robot;
+            m_Robot.Positions.Closed += PositionsClosed;
         }
 
         private void PositionsClosed(PositionClosedEventArgs obj)
@@ -39,64 +34,9 @@ namespace TradeKit.Core
             PositionClosed?.Invoke(this, new ClosedPositionEventArgs(reason));
         }
 
-        public ITimeFrame GetTimeFrame(string timeFrameName)
-        {
-            if (m_ITimeFrameMap.TryGetValue(timeFrameName, out ITimeFrame value))
-                return value;
-
-            TimeFrame cTraderTimeFrame = TimeFrame.Parse(timeFrameName);
-            m_TimeFrameMap[timeFrameName] = cTraderTimeFrame;
-
-            value = new CTraderTimeFrame(cTraderTimeFrame);
-            m_ITimeFrameMap[timeFrameName] = value;
-            return value;
-        }
-
-        /// <summary>
-        /// Gets the cTrader TF.
-        /// </summary>
-        /// <param name="timeFrameName">Name of the TF.</param>
-        internal TimeFrame GetCTraderTimeFrame(string timeFrameName)
-        {
-            if (m_TimeFrameMap.TryGetValue(timeFrameName, out TimeFrame value))
-                return value;
-
-            value = TimeFrame.Parse(timeFrameName);
-            m_TimeFrameMap[timeFrameName] = value;
-
-            return value;
-        }
-
-        /// <summary>
-        /// Gets the cTrader symbol.
-        /// </summary>
-        /// <param name="symbolName">Name of the symbol.</param>
-        internal Symbol GetCTraderSymbol(string symbolName)
-        {
-            if (m_SymbolMap.TryGetValue(symbolName, out Symbol value))
-                return value;
-
-            value = m_HostRobot.Symbols.GetSymbol(symbolName);
-            m_SymbolMap[symbolName] = value;
-
-            return value;
-        }
-
-        public ISymbol GetSymbol(string symbolName)
-        {
-            if (m_ISymbolMap.TryGetValue(symbolName, out ISymbol value))
-                return value;
-
-            Symbol valueLocal = GetCTraderSymbol(symbolName);
-
-            value = valueLocal.ToISymbol();
-            m_ISymbolMap[symbolName] = value;
-            return value;
-        }
-
         public IPosition[] GetPositions()
         {
-            IPosition[] positions = m_HostRobot.Positions
+            IPosition[] positions = m_Robot.Positions
                     .Select(ToIPosition)
                     .ToArray();
             return positions;
@@ -113,7 +53,7 @@ namespace TradeKit.Core
 
         private Position ToPosition(IPosition position)
         {
-            Position cTraderPosition = m_HostRobot.Positions
+            Position cTraderPosition = m_Robot.Positions
                 .FirstOrDefault(a => a.Id == position.Id);
             if (cTraderPosition == null)
                 throw new InvalidOperationException(
@@ -122,20 +62,18 @@ namespace TradeKit.Core
             return cTraderPosition;
         }
 
+        /// <summary>
+        /// Occurs when the position is closed.
+        /// </summary>
         public event EventHandler<ClosedPositionEventArgs> PositionClosed;
 
         public OrderResult OpenOrder(bool isLong, ISymbol symbol, double volume, string botName, double stopInPips, double takeInPips,
             string positionId)
         {
-            TradeResult order = m_HostRobot.ExecuteMarketOrder(
+            TradeResult order = m_Robot.ExecuteMarketOrder(
                 isLong ? TradeType.Buy: TradeType.Sell, symbol.Name, volume, botName, stopInPips, takeInPips, positionId);
 
             return new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
-        }
-
-        public HashSet<string> GetSymbolNamesAvailable()
-        {
-            return m_HostRobot.Symbols.Select(a => a).ToHashSet();
         }
 
         public void SetStopLossPrice(IPosition position, double? price)
@@ -157,55 +95,19 @@ namespace TradeKit.Core
             return new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
         }
 
-        public double GetSpread(ISymbol symbol)
-        {
-            Symbol valueLocal = GetCTraderSymbol(symbol.Name);
-            return valueLocal.Spread;
-        }
-
-        public double GetAsk(ISymbol symbol)
-        {
-            Symbol valueLocal = GetCTraderSymbol(symbol.Name);
-            return valueLocal.Ask;
-        }
-
-        public double GetBid(ISymbol symbol)
-        {
-            Symbol valueLocal = GetCTraderSymbol(symbol.Name);
-            return valueLocal.Bid;
-        }
-
         public double GetAccountBalance()
         {
-            return m_HostRobot.Account.Balance;
-        }
-
-        private ITradingHours ToITradingHours(TradingSession session)
-        {
-            return new CTraderTradingHours(session.StartDay, session.EndDay, session.StartTime, session.EndTime);
-        }
-
-        public ITradingHours[] GetTradingHours(ISymbol symbol)
-        {
-            Symbol cTraderSymbol = GetCTraderSymbol(symbol.Name);
-            ITradingHours[] sessions = cTraderSymbol.MarketHours.Sessions
-                .Select(ToITradingHours).ToArray();
-            return sessions;
+            return m_Robot.Account.Balance;
         }
 
         public void SaveState(Dictionary<string, int> stateMap)
         {
-            m_HostRobot.LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Device);
+            m_Robot.LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Device);
         }
 
         public Dictionary<string, int> GetSavedState()
         {
-            return m_HostRobot.LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
-        }
-
-        public double NormalizeVolumeInUnits(ISymbol symbol, double volumeInPoints)
-        {
-            return GetCTraderSymbol(symbol.Name).NormalizeVolumeInUnits(volumeInPoints);
+            return m_Robot.LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
         }
     }
 }

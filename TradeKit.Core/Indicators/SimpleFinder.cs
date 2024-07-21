@@ -14,7 +14,7 @@ namespace TradeKit.Core.Indicators
 
         public void SetResult(DateTime dt, double value)
         {
-            SetResultValue(dt, value)
+            SetResultValue(dt, value);
         }
     }
 }

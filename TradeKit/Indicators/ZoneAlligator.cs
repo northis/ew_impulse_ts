@@ -35,7 +35,7 @@ namespace TradeKit.Indicators
         public override void Calculate(int index)
         {
             DateTime openDate = Bars.OpenTimes[index];
-            Histogram[index] = m_Alligator.Result[openDate];
+            Histogram[index] = m_Alligator.GetResultValue(openDate);
         }
     }
 }

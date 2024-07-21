@@ -1,4 +1,5 @@
 ﻿using TradeKit.Core.Common;
+using TradeKit.Core.Indicators;
 
 namespace TradeKit.Core.AlgoBase
 {
@@ -21,12 +22,10 @@ namespace TradeKit.Core.AlgoBase
         public static SpikeType GetSpike(SuperTrendItem sti, BarPoint barPoint)
         {
             double value = barPoint.Value;
-            
-            double bandTop = sti.BollingerBands.Top[barPoint.BarIndex];
-            //double bandMain = sti.BollingerBands.Main[barPoint.BarIndex];
-            double bandBottom = sti.BollingerBands.Bottom[barPoint.BarIndex];
+            double bandTop = sti.BollingerBands.Top.GetResultValue(barPoint.BarIndex);
+            //double bandMain = sti.BollingerBands.GetResultValue(barPoint.BarIndex);
+            double bandBottom = sti.BollingerBands.Bottom.GetResultValue(barPoint.BarIndex);
 
-            Bars bars = sti.BollingerBands.Bars;
             if (value >= bandTop)
                 return SpikeType.High;
 
@@ -41,13 +40,12 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         /// <param name="alligator">The zone alligator input.</param>
         /// <param name="dateTimeBar">The date and time of the current bar .</param>
-        public static TrendType GetTrend(ZoneAlligator alligator, DateTime dateTimeBar)
+        public static TrendType GetTrend(ZoneAlligatorFinder alligator, DateTime dateTimeBar)
         {
-            int index = alligator.Bars.OpenTimes.GetIndexByTime(dateTimeBar);
-            double value = alligator.Histogram[index];
-            if (value > ZoneAlligator.NO_VALUE)
+            double value = alligator.GetResultValue(dateTimeBar);
+            if (value > ZoneAlligatorFinder.NO_VALUE)
                 return TrendType.BULLISH;
-            if (value < ZoneAlligator.NO_VALUE)
+            if (value < ZoneAlligatorFinder.NO_VALUE)
                 return TrendType.BEARISH;
 
             return TrendType.NO_TREND;
@@ -63,16 +61,16 @@ namespace TradeKit.Core.AlgoBase
             if (sti.Indicators.Length == 0)
                 return TrendType.NO_TREND;
 
-            TimeSpan mainPeriod = TimeFrameHelper.GetTimeFrameInfo(sti.MainTrendIndicator.TimeFrame.ToITimeFrame()).TimeSpan;
+            TimeSpan mainPeriod = TimeFrameHelper.GetTimeFrameInfo(sti.MainTrendIndicator.BarsProvider.TimeFrame).TimeSpan;
             DateTime endDt = dateTimeBar + mainPeriod;
 
             int[] vals = new int[sti.Indicators.Length];
             for (int i = 0; i < sti.Indicators.Length; i++)
             {
-                SuperTrendIndicator ind = sti.Indicators[i];
+                ZoneAlligatorFinder ind = sti.Indicators[i];
 
                 TimeSpan period = TimeFrameHelper.GetTimeFrameInfo(
-                    ind.TimeFrame.ToITimeFrame()).TimeSpan;
+                    ind.BarsProvider.TimeFrame).TimeSpan;
                 DateTime dt;
                 if (period < mainPeriod)
                 {
@@ -81,7 +79,7 @@ namespace TradeKit.Core.AlgoBase
                 else if(period > mainPeriod)
                 {
                     DateTime localDt = 
-                        ind.Bars.OpenTimes[ind.Bars.OpenTimes.GetIndexByTime(dateTimeBar)];
+                        ind.BarsProvider.GetOpenTime(ind.BarsProvider.GetIndexByTime(dateTimeBar));
                     dt = localDt == dateTimeBar ? dateTimeBar : dateTimeBar - period;
                 }
                 else
@@ -89,18 +87,18 @@ namespace TradeKit.Core.AlgoBase
                     dt = dateTimeBar;
                 }
 
-                int index = ind.Bars.OpenTimes.GetIndexByTime(dt);
+                int index = ind.BarsProvider.GetIndexByTime(dt);
                 if (index < 0)
-                    ind.Bars.LoadMoreHistory();
+                    ind.BarsProvider.LoadBars(dt);
 
                 //if (!IsCandleReliable(dateTimeBar, ind.Bars.OpenTimes[index], ind.Bars.TimeFrame))
                 //    index--;
 
-                double res = ind.Histogram[index];
+                double res = ind.GetResultValue(dt);
                 if (res == 0)
                     vals[i] = 0;
                 else
-                    vals[i] = ind.Histogram[index] > 0 ? 1 : -1;
+                    vals[i] = res > 0 ? 1 : -1;
             }
             
             if (vals.Count(a => a == 1) == sti.Indicators.Length)
@@ -152,13 +150,13 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="end">The end bar to search.</param>
         /// <param name="isBullSignal">if set to <c>true</c> the signal is bullish, otherwise bearish.</param>
         /// <returns>Start of the divergence bar or null if no divergence has been found.</returns>
-        public static BarPoint FindDivergence(AwesomeOscillatorIndicator awesomeOscillator,
+        public static BarPoint FindDivergence(AwesomeOscillatorFinder awesomeOscillator,
             IBarsProvider barsProvider, BarPoint start, BarPoint end, bool isBullSignal)
         {
             int indexStart = start.BarIndex;
             int indexEnd = end.BarIndex;
             //int loopStart = indexEnd - DIVERGENCE_OFFSET_SEARCH;
-            double endHistValue = awesomeOscillator.Result[indexEnd];
+            double endHistValue = awesomeOscillator.GetResultValue(indexEnd);
 
             if (endHistValue < 0 && !isBullSignal || endHistValue > 0 && isBullSignal)
                 return null;
@@ -172,7 +170,7 @@ namespace TradeKit.Core.AlgoBase
 
             for (int i = indexEnd-1; i >= indexStart; i--)
             {
-                double localHist = awesomeOscillator.Result[i];
+                double localHist = awesomeOscillator.GetResultValue(i);
 
                 if (isBullSignal && localHist > 0 ||
                     !isBullSignal && localHist < 0)
@@ -197,7 +195,7 @@ namespace TradeKit.Core.AlgoBase
                 if (i - 1 <= indexStart)
                     break;
 
-                double nextHist = awesomeOscillator.Result[i - 1];
+                double nextHist = awesomeOscillator.GetResultValue(i - 1);
                 if ((!isBullSignal || !(nextHist > localHist)) &&
                     (isBullSignal || !(nextHist < localHist)))
                     continue;

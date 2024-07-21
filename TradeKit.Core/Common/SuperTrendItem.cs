@@ -53,9 +53,9 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="mainTimeFrame">The main time frame.</param>
         /// <param name="barsProvider">The bar provider.</param>
-        /// <param name="symbolName">The symbol name</param>
         public static SuperTrendItem Create(
-            ITimeFrame mainTimeFrame, IBarsProvider barsProvider, string symbolName)
+            ITimeFrame mainTimeFrame, 
+            IBarsProvider barsProvider)
         {
             TimeFrameInfo[] tfInfos = {
                 TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame),
@@ -74,8 +74,7 @@ namespace TradeKit.Core.Common
                     mainIndicator = indicators[i];
             }
 
-            Bars barsMain = algo.MarketData.GetBars(mainTimeFrame.ToTimeFrame(), symbolName);
-            BollingerBandsFinder bollingerBands = GetBollingerBandsIndicator(algo, barsMain);
+            BollingerBandsFinder bollingerBands = GetBollingerBandsIndicator(barsProvider);
             return new SuperTrendItem(indicators, bollingerBands, mainIndicator);
         }
     }

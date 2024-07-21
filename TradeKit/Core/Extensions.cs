@@ -15,6 +15,15 @@ namespace TradeKit.Core
         {
             return new SymbolBase(symbol.Name, symbol.Description, symbol.Id, symbol.Digits, symbol.PipSize, symbol.PipValue, symbol.LotSize);
         }
+
+        /// <summary>
+        /// Converts <see cref="TimeFrame"/> to <see cref="ITimeFrame"/>.
+        /// </summary>
+        /// <param name="timeFrame">The <see cref="TimeFrame"/> object.</param>
+        public static ITimeFrame ToITimeFrame(this TimeFrame timeFrame)
+        {
+            return new CTraderTimeFrame(timeFrame);
+        }
         
         /// <summary>
         /// Sets the <see cref="rectangle"/> filled.

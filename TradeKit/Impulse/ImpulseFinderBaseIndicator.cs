@@ -23,7 +23,10 @@ namespace TradeKit.Impulse
         protected override void Initialize()
         {
             base.Initialize();
-            var barProvidersFactory = new BarProvidersFactory(Symbol, MarketData);
+
+            var cTraderViewManager = new CTraderViewManager(this);
+            var barProvidersFactory = new BarProvidersFactory(
+                Symbol, MarketData, cTraderViewManager);
             m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame.ToITimeFrame());
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
             Subscribe(m_SetupFinder);

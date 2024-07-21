@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 using TradeKit.Core.PriceAction;
-using TradeKit.EventArgs;
 
 namespace TradeKit.PriceAction
 {
@@ -36,13 +36,14 @@ namespace TradeKit.PriceAction
             m_PatternBullColor = Color.FromHex("#6090EE90");
             m_SlColor = Color.FromHex("#50F00000");
             m_TpColor = Color.FromHex("#5000F000");
-
+            
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
+
             HashSet<CandlePatternType> patternTypes = GetPatternsType();
 
             SuperTrendItem superTrendItem = null;
             if (UseTrendOnly)
-                superTrendItem = SuperTrendItem.Create(TimeFrame, this, Symbol.Name);
+                superTrendItem = SuperTrendItem.Create(TimeFrame.ToITimeFrame(), m_BarsProvider);
 
             double? breakEvenRatio = null;
             if (BreakEvenRatio > 0)

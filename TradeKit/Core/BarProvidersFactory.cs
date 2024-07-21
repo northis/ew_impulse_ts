@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Core.Common;
 
@@ -10,6 +11,7 @@ namespace TradeKit.Core
     public class BarProvidersFactory : IBarProvidersFactory
     {
         private readonly MarketData m_MarketData;
+        private readonly CTraderViewManager m_TwManager;
         private readonly Dictionary<ITimeFrame, CTraderBarsProvider> m_Providers;
 
         /// <summary>
@@ -17,11 +19,13 @@ namespace TradeKit.Core
         /// </summary>
         /// <param name="symbol">The symbol.</param>
         /// <param name="marketData">The market data.</param>
-        public BarProvidersFactory(Symbol symbol, MarketData marketData)
+        /// <param name="twManager">Trade manager for view (read-only) operations.</param>
+        public BarProvidersFactory(Symbol symbol, MarketData marketData, CTraderViewManager twManager)
         {
             Symbol = symbol.ToISymbol();
             CSymbol = symbol;
             m_MarketData = marketData;
+            m_TwManager = twManager;
             m_Providers = new Dictionary<ITimeFrame, CTraderBarsProvider>();
         }
 
@@ -35,8 +39,8 @@ namespace TradeKit.Core
                 return prov;
             }
 
-            prov = new CTraderBarsProvider(m_MarketData.GetBars(
-                timeFrame.ToTimeFrame(), Symbol.Name), CSymbol);
+            TimeFrame tf = m_TwManager.GetCTraderTimeFrame(timeFrame.Name);
+            prov = new CTraderBarsProvider(m_MarketData.GetBars(tf, Symbol.Name), Symbol);
             m_Providers[timeFrame] = prov;
             return prov;
         }

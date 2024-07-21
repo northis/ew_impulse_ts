@@ -34,6 +34,7 @@
     <Compile Include="Core\CTraderTimeFrame.cs" />
     <Compile Include="Core\CTraderManager.cs" />
     <Compile Include="Core\CTraderTradingHours.cs" />
+    <Compile Include="Core\CTraderViewManager.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\ZoneAlligator.cs" />
     <Compile Include="Core\BarProvidersFactory.cs" />
@@ -41,7 +42,6 @@
     <Compile Include="Indicators\BollingerBandsIndicator.cs" />
     <Compile Include="Indicators\ExactZigzagIndicator.cs" />
     <Compile Include="Indicators\PivotPointsIndicator.cs" />
-    <Compile Include="Indicators\SuperTrendIndicator.cs" />
     <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
     <Compile Include="Gartley\GartleySignalerBaseBot.cs" />
     <Compile Include="PriceAction\PriceActionBaseIndicator.cs" />
