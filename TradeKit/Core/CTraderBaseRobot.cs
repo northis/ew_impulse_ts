@@ -1,28 +1,26 @@
 ﻿using cAlgo.API;
 using TradeKit.Core.Common;
-using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core
 {
     /// <summary>
     /// Base (ro)bot with common operations for trading
     /// </summary>
-    /// <typeparam name="TR">Type of <see cref="CTraderBaseAlgoRobot{T,TK}"/></typeparam>
-    /// <typeparam name="TF">Type of <see cref="BaseSetupFinder{TK}"/></typeparam>
-    /// <typeparam name="TK">The type of <see cref="SignalEventArgs"/> - what type of signals supports this bot.</typeparam>
     /// <seealso cref="Robot" />
-    public abstract class CTraderBaseRobot<TR, TF, TK> : 
-        Robot where TR : CTraderBaseAlgoRobot<TF, TK> where TF: BaseSetupFinder<TK> where TK : SignalEventArgs
+    public abstract class CTraderBaseRobot : Robot
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
-
-        private TR m_BaseRobot;
+        
+        /// <summary>
+        /// Initializes the logic class for robot.
+        /// </summary>
+        protected abstract void InitAlgoRobot();
 
         /// <summary>
-        /// Gets the logic class for robot.
+        /// De-initializes the logic class for robot.
         /// </summary>
-        protected abstract TR GetAlgoRobot();
+        protected abstract void DisposeAlgoRobot();
 
         /// <summary>
         /// Joins the robot parameters into one record.
@@ -146,7 +144,7 @@ namespace TradeKit.Core
         protected override void OnStart()
         {
             Logger.SetWrite(a => Print(a));
-            m_BaseRobot = GetAlgoRobot();
+            InitAlgoRobot();
         }
 
         /// <summary>
@@ -154,8 +152,8 @@ namespace TradeKit.Core
         /// </summary>
         protected override void OnStop()
         {
+            DisposeAlgoRobot();
             base.OnStop();
-            m_BaseRobot.Dispose();
         }
     }
 }

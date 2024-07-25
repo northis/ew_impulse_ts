@@ -8,7 +8,7 @@ using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core
 {
-    internal class CTraderManager: CTraderViewManager, ITradeManager
+    public class CTraderManager: CTraderViewManager, ITradeManager
     {
         private readonly Robot m_Robot;
         protected const string STATE_SAVE_KEY = "ReportStateMap";
