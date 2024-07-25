@@ -5,7 +5,7 @@ using TradeKit.Core.ElliottWave;
 
 namespace TradeKit.Impulse
 {
-    public class ImpulseSignalerAlgoRobot : ImpulseSignalerBaseAlgoRobot
+    public class ImpulseSignalerAlgoRobot : ElliottWaveBaseAlgoRobot
     {
         private readonly Robot m_HostRobot;
         private readonly CTraderManager m_TradeManager;

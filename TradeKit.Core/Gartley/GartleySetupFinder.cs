@@ -12,7 +12,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 {
     private readonly IBarsProvider m_MainBarsProvider;
     private readonly bool m_FilterByDivergence;
-    private readonly ZoneAlligator m_ZoneAlligator;
+    private readonly ZoneAlligatorFinder m_ZoneAlligator;
     private readonly AwesomeOscillatorFinder m_AwesomeOscillator;
     private readonly double? m_BreakevenRatio;
 
@@ -38,7 +38,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         double accuracy,
         int barsDepth,
         bool filterByDivergence,
-        ZoneAlligator zoneAlligator = null,
+        ZoneAlligatorFinder zoneAlligator = null,
         HashSet<GartleyPatternType> patterns = null,
         AwesomeOscillatorFinder awesomeOscillator = null,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)

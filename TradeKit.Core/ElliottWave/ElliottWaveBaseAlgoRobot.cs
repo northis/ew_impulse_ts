@@ -9,11 +9,11 @@ using Color = Plotly.NET.Color;
 
 namespace TradeKit.Core.ElliottWave
 {
-    public abstract class ImpulseSignalerBaseAlgoRobot : BaseAlgoRobot<ImpulseSetupFinder, EventArgs.ImpulseSignalEventArgs>
+    public abstract class ElliottWaveBaseAlgoRobot : BaseAlgoRobot<ImpulseSetupFinder, EventArgs.ImpulseSignalEventArgs>
     {
-        private const string BOT_NAME = "ImpulseSignalerRobot";
+        private const string BOT_NAME = "ElliottWaveRobot";
 
-        protected ImpulseSignalerBaseAlgoRobot(ITradeManager tradeManager, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
+        protected ElliottWaveBaseAlgoRobot(ITradeManager tradeManager, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
         {
         }
 
