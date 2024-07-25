@@ -1,7 +1,7 @@
 ﻿using cAlgo.API;
-using cAlgo.API.Indicators;
 using TradeKit.Core;
 using TradeKit.Core.Common;
+using TradeKit.Core.Indicators;
 
 namespace TradeKit.Indicators
 {
@@ -12,7 +12,7 @@ namespace TradeKit.Indicators
     /// </summary>
     public class BollingerBandsIndicator : Indicator
     {
-        private BollingerBands m_BollingerBands;
+        private BollingerBandsFinder m_BollingerBands;
         
         /// <summary>
         /// The period used for the calculation of the signal.
@@ -49,8 +49,8 @@ namespace TradeKit.Indicators
         /// </summary>
         protected override void Initialize()
         {
-            m_BollingerBands = Indicators.BollingerBands(
-                Bars.ClosePrices, Periods, StandardDeviations, MovingAverageType.Simple);
+            m_BollingerBands = new BollingerBandsFinder(
+                new CTraderBarsProvider(Bars, Symbol.ToISymbol()));
         }
 
         /// <summary>
@@ -58,9 +58,9 @@ namespace TradeKit.Indicators
         /// </summary>
         public override void Calculate(int index)
         {
-            Main[index] = m_BollingerBands.Main[index];
-            Top[index] = m_BollingerBands.Top[index];
-            Bottom[index] = m_BollingerBands.Bottom[index];
+            Main[index] = m_BollingerBands.GetResultValue(index);
+            Top[index] = m_BollingerBands.Top.GetResultValue(index);
+            Bottom[index] = m_BollingerBands.Bottom.GetResultValue(index);
         }
     }
 }

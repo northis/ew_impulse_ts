@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using cAlgo.API.Internals;
-using TradeKit.Core;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
-using TradeKit.EventArgs;
+using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Rate
 {
@@ -33,7 +31,7 @@ namespace TradeKit.Rate
         /// <param name="speedTpSlRatio">The speed tp sl ratio.</param>
         public RateSetupFinder(
             IBarsProvider mainBarsProvider, 
-            Symbol symbol,
+            ISymbol symbol,
             int maxBarSpeed,
             int minBarSpeed,
             double speedPercent,

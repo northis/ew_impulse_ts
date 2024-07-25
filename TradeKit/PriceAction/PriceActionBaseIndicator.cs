@@ -50,7 +50,7 @@ namespace TradeKit.PriceAction
                 breakEvenRatio = BreakEvenRatio;
 
             var setupFinder = new PriceActionSetupFinder(
-                m_BarsProvider, Symbol, UseStrengthBar, superTrendItem, patternTypes, breakEvenRatio);
+                m_BarsProvider, Symbol.ToISymbol(), UseStrengthBar, superTrendItem, patternTypes, breakEvenRatio);
             Subscribe(setupFinder);
         }
 

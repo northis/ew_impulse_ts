@@ -1,6 +1,8 @@
 ﻿using System;
 using cAlgo.API;
 using TradeKit.Core;
+using TradeKit.Core.AlgoBase;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Indicators
 {
@@ -30,7 +32,8 @@ namespace TradeKit.Indicators
         /// </summary>
         protected override void Initialize()
         {
-            m_PivotPointsFinder = new PivotPointsFinder(Period, new CTraderBarsProvider(Bars, Symbol));
+            m_PivotPointsFinder = new PivotPointsFinder(Period, 
+                new CTraderBarsProvider(Bars, Symbol));
         }
 
         /// <summary>

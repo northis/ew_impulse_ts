@@ -1,25 +1,25 @@
-﻿using cAlgo.API.Indicators;
-using cAlgo.API;
+﻿using cAlgo.API;
+using TradeKit.Core.Indicators;
+using TradeKit.Core;
 
 namespace TradeKit.Indicators
 {
     public class AwesomeOscillatorIndicator : Indicator
     {
-        private SimpleMovingAverage m_Sma5;
-        private SimpleMovingAverage m_Sma34;
+        private AwesomeOscillatorFinder m_AwesomeOscillatorFinder;
 
         [Output("Result", PlotType = PlotType.Histogram, IsColorCustomizable = false)]
         public IndicatorDataSeries Result { get; set; }
 
         protected override void Initialize()
         {
-            m_Sma5 = Indicators.SimpleMovingAverage(Bars.MedianPrices, 5);
-            m_Sma34 = Indicators.SimpleMovingAverage(Bars.MedianPrices, 34);
+            m_AwesomeOscillatorFinder = new AwesomeOscillatorFinder(
+                new CTraderBarsProvider(Bars, Symbol.ToISymbol()));
         }
 
         public override void Calculate(int index)
         {
-            Result[index] = m_Sma5.Result[index] - m_Sma34.Result[index];
+            Result[index] = m_AwesomeOscillatorFinder.GetResultValue(index);
         }
     }
 }

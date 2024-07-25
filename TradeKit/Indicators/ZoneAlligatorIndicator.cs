@@ -10,7 +10,7 @@ namespace TradeKit.Indicators
     /// </summary>
     /// <seealso cref="Indicator" />
     [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
-    public class ZoneAlligator : Indicator
+    public class ZoneAlligatorIndicator : Indicator
     {
         private ZoneAlligatorFinder m_Alligator;
 

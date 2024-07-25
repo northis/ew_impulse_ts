@@ -1,7 +1,7 @@
 ﻿namespace TradeKit.Core.Gartley
 {
     /// <summary>
-    /// Basic robot params
+    /// Basic Gartley params
     /// </summary>
     public record GartleyParams(
         int BarDepthCount,

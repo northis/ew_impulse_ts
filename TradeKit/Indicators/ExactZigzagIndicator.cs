@@ -15,7 +15,7 @@ public class ExactZigzagIndicator : Indicator
     {
         m_ExtremumFinder = new ExactExtremumFinder(
             new CTraderBarsProvider(Bars, Symbol.ToISymbol()),
-            new BarProvidersFactory(Symbol, MarketData));
+            new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this)));
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
