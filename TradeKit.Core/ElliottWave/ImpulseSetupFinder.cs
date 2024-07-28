@@ -88,7 +88,7 @@ namespace TradeKit.Core.ElliottWave
 
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                edgeExtremum = finder.Result.ElementAt(curIndex).Value;
+                edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
                 double curValue = edgeExtremum.Value;
 
                 if (isImpulseUp)
@@ -265,7 +265,7 @@ namespace TradeKit.Core.ElliottWave
         /// </returns>
         private bool IsSetup(int index, ExtremumFinder finder, double? currentPriceBid = null)
         {
-            SortedDictionary<DateTime, BarPoint> extrema = finder.Result;
+            SortedDictionary<DateTime, BarPoint> extrema = finder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
@@ -522,23 +522,6 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="currentPriceBid">The current price (Bid).</param>
         protected override void CheckSetup(int index, double? currentPriceBid = null)
         {
-            foreach (ExtremumFinder finder in m_ExtremumFinders)
-            {
-                finder.Calculate(index);
-
-                if (finder.Result.Count > Helper.EXTREMA_MAX)
-                { 
-                   //Logger.Write("Cleaning the extrema...");
-                   DateTime[] oldKeys = finder.Result.Keys
-                        .Take(finder.Result.Count - Helper.EXTREMA_MAX)
-                        .ToArray();
-                    foreach (DateTime oldKey in oldKeys)
-                    {
-                        finder.Result.Remove(oldKey);
-                    }
-                }
-            }
-
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
                 if (IsSetup(LastBar, finder))

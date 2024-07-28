@@ -33,11 +33,6 @@ namespace TradeKit.Core.Indicators
         }
 
         /// <summary>
-        /// Gets the deviation percent.
-        /// </summary>
-        public int ScaleRate => m_ScaleRate;
-
-        /// <summary>
         /// Called inside the <see cref="BaseFinder{T}.Calculate(int)" /> method.
         /// </summary>
         /// <param name="index">The index.</param>

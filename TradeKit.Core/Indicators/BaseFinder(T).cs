@@ -40,7 +40,7 @@ namespace TradeKit.Core.Indicators
                 BarsProvider.BarOpened += OnBarOpened;
 
             m_DefaultCleanDuration = TimeFrameHelper.TimeFrames[BarsProvider.TimeFrame].TimeSpan;
-            m_Result = new SortedDictionary<DateTime, T>();
+            Result = new SortedDictionary<DateTime, T>();
         }
 
         private void OnBarOpened(object sender, System.EventArgs e)
@@ -89,7 +89,7 @@ namespace TradeKit.Core.Indicators
             DateTime dt = BarsProvider.GetOpenTime(index);
 
             if (index % m_DefaultCleanBarsCount == 0)
-                m_Result.RemoveLeft(a => a < dt.Add(m_DefaultCleanDuration));
+                Result.RemoveLeft(a => a < dt.Add(m_DefaultCleanDuration));
 
             OnCalculate(index, dt);
         }
@@ -109,14 +109,14 @@ namespace TradeKit.Core.Indicators
         /// <param name="dt">The dt.</param>
         public T GetResultValue(DateTime dt)
         {
-            if (m_Result.TryGetValue(dt, out T value))
+            if (Result.TryGetValue(dt, out T value))
                 return value;
 
             if (!UseAutoCalculateEvent)
                 return default;
 
             OnCalculate(BarsProvider.GetIndexByTime(dt), dt);
-            return m_Result.GetValueOrDefault(dt);
+            return Result.GetValueOrDefault(dt);
         }
 
         /// <summary>
@@ -126,12 +126,12 @@ namespace TradeKit.Core.Indicators
         /// <param name="value">The value.</param>
         protected void SetResultValue(DateTime dt, T value)
         {
-            m_Result[dt] = value;
+            Result[dt] = value;
         }
 
         /// <summary>
         /// Gets the collection of extrema found.
         /// </summary>
-        private readonly SortedDictionary<DateTime, T> m_Result;
+        protected readonly SortedDictionary<DateTime, T> Result;
     }
 }
