@@ -2,7 +2,8 @@
 using cAlgo.API;
 using TradeKit.Core;
 using TradeKit.Core.Common;
-using TradeKit.EventArgs;
+using TradeKit.Core.EventArgs;
+using TradeKit.Core.Signals;
 
 namespace TradeKit.Signals
 {
@@ -43,7 +44,7 @@ namespace TradeKit.Signals
             m_SlColor = Color.FromHex("#50F00000");
             m_TpColor = Color.FromHex("#5000F000");
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
-            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol, SignalHistoryFilePath, UseUtc, false);
+            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol.ToISymbol(), SignalHistoryFilePath, UseUtc, false);
             Subscribe(m_ParseSetupFinder);
         }
 

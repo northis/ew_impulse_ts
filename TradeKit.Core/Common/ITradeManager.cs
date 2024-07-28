@@ -45,6 +45,12 @@ namespace TradeKit.Core.Common
         void SetStopLossPrice(IPosition position, double? price);
 
         /// <summary>
+        /// Sets the stop loss to the entry price.
+        /// </summary>
+        /// <param name="position">The position.</param>
+        public void SetBreakeven(IPosition position);
+
+        /// <summary>
         /// Sets the take profit price.
         /// </summary>
         /// <param name="position">The position.</param>

@@ -82,6 +82,12 @@ namespace TradeKit.Core
             cTraderPosition.ModifyStopLossPrice(price);
         }
 
+        public void SetBreakeven(IPosition position)
+        {
+            Position cTraderPosition = ToPosition(position);
+            cTraderPosition.ModifyStopLossPrice(cTraderPosition.EntryPrice);
+        }
+
         public void SetTakeProfitPrice(IPosition position, double? price)
         {
             Position cTraderPosition = ToPosition(position);

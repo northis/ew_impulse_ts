@@ -48,15 +48,14 @@
     <Compile Include="PriceAction\GartleyCTraderBaseRobot.cs" />
     <Compile Include="PriceAction\PriceActionAlgoRobot.cs" />
     <Compile Include="PriceAction\PriceActionBaseIndicator.cs" />
-    <Compile Include="Signals\NullParseSetupFinder.cs" />
+    <Compile Include="Rate\RateCTraderBaseRobot.cs" />
+    <Compile Include="Rate\RateSignalerAlgoRobot.cs" />
     <Compile Include="Core\CTraderBarsProvider.cs" />
     <Compile Include="Impulse\ImpulseFinderBaseIndicator.cs" />
-    <Compile Include="Rate\RateSetupFinder.cs" />
-    <Compile Include="Signals\ParseSetupFinder.cs" />
-    <Compile Include="Rate\RateSignalerBaseRobot.cs" />
     <Compile Include="Impulse\ImpulseSignalerAlgoRobot.cs" />
     <Compile Include="Core\Extensions.cs" />
-    <Compile Include="Signals\SignalsCheckBaseRobot.cs" />
+    <Compile Include="Signals\SignalsCheckAlgoRobot.cs" />
+    <Compile Include="Signals\SignalsCTraderBaseRobot.cs" />
     <Compile Include="Signals\SignalsCheckBaseIndicator.cs" />
   </ItemGroup>
   <ItemGroup>
