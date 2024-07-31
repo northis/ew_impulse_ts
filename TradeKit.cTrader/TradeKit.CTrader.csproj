@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <EnableDefaultItems>False</EnableDefaultItems>
+	  <Version>1.0.1</Version>
+	  <Authors>Mikhail Berdnikov</Authors>
+	  <Copyright>Mikhail Berdnikov (C) 2024</Copyright>
+	  <RepositoryUrl>https://github.com/northis/ew_impulse_ts</RepositoryUrl>
+	  <Product>Elliott Wave Impulse Kit Library</Product>
+	  <Description>Elliott Wave Impulse Kit Library for cTrader</Description>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>10</LangVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>TradeKit</RootNamespace>
+    <AssemblyName>TradeKit</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="cTrader.Automate" Version="1.*" />
+    <PackageReference Include="Microsoft.ML" Version="3.0.1" />
+    <PackageReference Include="Microsoft.ML.FastTree" Version="3.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Plotly.NET.ImageExport" Version="3.0.0" />
+    <PackageReference Include="Telegram.Bot" Version="17.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Core\CTraderBaseRobot.cs" />
+    <Compile Include="Core\CTraderPosition.cs" />
+    <Compile Include="Core\CTraderTimeFrame.cs" />
+    <Compile Include="Core\CTraderManager.cs" />
+    <Compile Include="Core\CTraderTradingHours.cs" />
+    <Compile Include="Core\CTraderViewManager.cs" />
+    <Compile Include="Gartley\GartleyCTraderBaseRobot.cs" />
+    <Compile Include="Gartley\GartleySignalerAlgoRobot.cs" />
+    <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
+    <Compile Include="Indicators\ZoneAlligatorIndicator.cs" />
+    <Compile Include="Core\BarProvidersFactory.cs" />
+    <Compile Include="Core\BaseIndicator.cs" />
+    <Compile Include="Indicators\BollingerBandsIndicator.cs" />
+    <Compile Include="Indicators\ExactZigzagIndicator.cs" />
+    <Compile Include="Indicators\PivotPointsIndicator.cs" />
+    <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
+    <Compile Include="PriceAction\GartleyCTraderBaseRobot.cs" />
+    <Compile Include="PriceAction\PriceActionAlgoRobot.cs" />
+    <Compile Include="PriceAction\PriceActionBaseIndicator.cs" />
+    <Compile Include="Rate\RateCTraderBaseRobot.cs" />
+    <Compile Include="Rate\RateSignalerAlgoRobot.cs" />
+    <Compile Include="Core\CTraderBarsProvider.cs" />
+    <Compile Include="Impulse\ImpulseFinderBaseIndicator.cs" />
+    <Compile Include="Impulse\ImpulseSignalerAlgoRobot.cs" />
+    <Compile Include="Core\Extensions.cs" />
+    <Compile Include="Signals\SignalsCheckAlgoRobot.cs" />
+    <Compile Include="Signals\SignalsCTraderBaseRobot.cs" />
+    <Compile Include="Signals\SignalsCheckBaseIndicator.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TradeKit.Core\TradeKit.Core.csproj" />
+  </ItemGroup>
+</Project>

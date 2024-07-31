@@ -25,6 +25,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\TradeKit\TradeKit.csproj" />
+    <ProjectReference Include="..\TradeKit.cTrader\TradeKit.CTrader.csproj" />
   </ItemGroup>
 </Project>

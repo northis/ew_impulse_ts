@@ -1,5 +1,4 @@
-﻿using cAlgo.API.Internals;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 
 namespace TradeKit.Core
 {
