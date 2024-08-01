@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
@@ -10,9 +9,8 @@ namespace TradeKit.Core.Indicators
 
         public AwesomeOscillatorFinder(IBarsProvider barsProvider) : base(barsProvider)
         {
-            //Debugger.Launch();
-            m_Sma5 = new SimpleMovingAverageFinder(barsProvider, 5, 0, false);
-            m_Sma34 = new SimpleMovingAverageFinder(barsProvider, 34, 0, false);
+            m_Sma5 = new SimpleMovingAverageFinder(barsProvider, 5);
+            m_Sma34 = new SimpleMovingAverageFinder(barsProvider, 34);
         }
 
         public override void OnCalculate(int index, DateTime openDateTime)
