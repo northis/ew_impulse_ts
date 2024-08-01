@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <EnableDefaultItems>False</EnableDefaultItems>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -18,12 +18,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="cTrader.Automate" Version="1.*" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <Compile Include="PriceActionSignalerBot.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TradeKit\TradeKit.csproj" />
+    <PackageReference Include="cTrader.Automate" Version="1.*" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TradeKit.cTrader\TradeKit.CTrader.csproj" />
   </ItemGroup>
 
 </Project>

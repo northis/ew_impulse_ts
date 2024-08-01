@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using TradeKit.Core;
-using TradeKit.Json;
+using TradeKit.Core.Common;
+using TradeKit.Core.Json;
 using TrainBot.Root;
 
 namespace TrainBot.FoldersLogic;

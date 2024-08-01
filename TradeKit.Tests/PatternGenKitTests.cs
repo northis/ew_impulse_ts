@@ -1,4 +1,5 @@
-using TradeKit.PatternGeneration;
+using NUnit.Framework;
+using TradeKit.Core.PatternGeneration;
 
 namespace TradeKit.Tests
 {

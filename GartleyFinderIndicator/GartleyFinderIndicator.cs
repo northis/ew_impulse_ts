@@ -1,5 +1,5 @@
 ﻿using cAlgo.API;
-using TradeKit.Gartley;
+using TradeKit.CTrader.Gartley;
 
 namespace GartleyFinderIndicator
 {

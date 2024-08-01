@@ -1,5 +1,5 @@
 ﻿using cAlgo.API;
-using TradeKit.Impulse;
+using TradeKit.CTrader.Impulse;
 
 namespace ImpulseFinderIndicator
 {

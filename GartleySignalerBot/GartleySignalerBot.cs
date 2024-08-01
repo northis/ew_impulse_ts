@@ -8,7 +8,19 @@ namespace GartleySignalerBot
     /// </summary>
     /// <seealso cref="Indicator" />
     [Robot(AccessRights = AccessRights.FullAccess)]
-    public class GartleySignalerBot : GartleySignalerBaseBot
+    public class GartleySignalerBot : GartleyCTraderBaseRobot
     {
+        private GartleySignalerAlgoRobot m_GartleySignalerAlgoRobot;
+
+        protected override void InitAlgoRobot()
+        {
+            m_GartleySignalerAlgoRobot = new GartleySignalerAlgoRobot(
+                this, GetRobotParams(), GetGartleyParams());
+        }
+
+        protected override void DisposeAlgoRobot()
+        {
+            m_GartleySignalerAlgoRobot.Dispose();
+        }
     }
 }

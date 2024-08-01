@@ -4,7 +4,7 @@ using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
-using TradeKit.Core;
+using TradeKit.Core.Common;
 using TrainBot.Commands;
 using TrainBot.Commands.Common;
 

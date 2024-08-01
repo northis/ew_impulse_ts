@@ -1,4 +1,6 @@
-﻿namespace TradeKit.Tests
+﻿using NUnit.Framework;
+
+namespace TradeKit.Tests
 {
     internal class GartleyTests
     {

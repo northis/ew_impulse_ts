@@ -1,0 +1,159 @@
+﻿using cAlgo.API;
+using TradeKit.Core.Common;
+
+namespace TradeKit.CTrader.Core
+{
+    /// <summary>
+    /// Base (ro)bot with common operations for trading
+    /// </summary>
+    /// <seealso cref="Robot" />
+    public abstract class CTraderBaseRobot : Robot
+    {
+        protected const double RISK_DEPOSIT_PERCENT = 1;
+        protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
+        
+        /// <summary>
+        /// Initializes the logic class for robot.
+        /// </summary>
+        protected abstract void InitAlgoRobot();
+
+        /// <summary>
+        /// De-initializes the logic class for robot.
+        /// </summary>
+        protected abstract void DisposeAlgoRobot();
+
+        /// <summary>
+        /// Joins the robot parameters into one record.
+        /// </summary>
+        protected RobotParams GetRobotParams()
+        {
+            return new RobotParams(RiskPercentFromDeposit,
+                RiskPercentFromDepositMax, 
+                MaxVolumeLots, 
+                AllowToTrade, 
+                AllowEnterOnBigSpread, 
+                UseProgressiveVolume,
+                AllowOvernightTrade, 
+                UseSymbolsList, 
+                UseTimeFramesList, 
+                SaveChartForManualAnalysis, 
+                PostCloseMessages,
+                TimeFramesToProceed, 
+                SymbolsToProceed, 
+                TelegramBotToken, 
+                ChatId);
+        }
+
+        #region User properties
+
+        /// <summary>
+        /// Gets or sets the risk percent from deposit (regular).
+        /// </summary>
+        [Parameter(nameof(RiskPercentFromDeposit), DefaultValue = RISK_DEPOSIT_PERCENT, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double RiskPercentFromDeposit { get; set; }
+
+        /// <summary>
+        /// Gets or sets the risk percent from deposit (maximum).
+        /// </summary>
+        [Parameter(nameof(RiskPercentFromDepositMax), DefaultValue = RISK_DEPOSIT_PERCENT_MAX, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double RiskPercentFromDepositMax { get; set; }
+
+        /// <summary>
+        /// Gets or sets the max allowed volume in lots.
+        /// </summary>
+        [Parameter(nameof(MaxVolumeLots), DefaultValue = Helper.ALLOWED_VOLUME_LOTS, MaxValue = Helper.MAX_ALLOWED_VOLUME_LOTS, MinValue = Helper.MIN_ALLOWED_VOLUME_LOTS, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxVolumeLots { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this bot can trade.
+        /// </summary>
+        [Parameter(nameof(AllowToTrade), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool AllowToTrade { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this bot can pass positions overnight (to the next trade day).
+        /// </summary>
+        [Parameter(nameof(AllowOvernightTrade), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool AllowOvernightTrade { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this bot can open positions while big spread (spread/(tp-sl) ratio more than <see cref="Helper.MAX_SPREAD_RATIO"/>.
+        /// </summary>
+        [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool AllowEnterOnBigSpread { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should increase the volume every SL hit.
+        /// </summary>
+        [Parameter(nameof(UseProgressiveVolume), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool UseProgressiveVolume { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use the symbols list.
+        /// </summary>
+        [Parameter(nameof(UseSymbolsList), DefaultValue = false, Group = Helper.SYMBOL_SETTINGS_NAME)]
+        public bool UseSymbolsList { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating we should use the TF list.
+        /// </summary>
+        [Parameter(nameof(UseTimeFramesList), DefaultValue = false, Group = Helper.SYMBOL_SETTINGS_NAME)]
+        public bool UseTimeFramesList { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating we should save .png files of the charts for manual analysis.
+        /// </summary>
+        [Parameter(nameof(SaveChartForManualAnalysis), DefaultValue = false, Group = Helper.TELEGRAM_SETTINGS_NAME)]
+        public bool SaveChartForManualAnalysis { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating we should post the close messages like "tp/sl hit".
+        /// </summary>
+        [Parameter(nameof(PostCloseMessages), DefaultValue = true, Group = Helper.TELEGRAM_SETTINGS_NAME)]
+        public bool PostCloseMessages { get; set; }
+
+        /// <summary>
+        /// Gets or sets the time frames we should use.
+        /// </summary>
+        [Parameter(nameof(TimeFramesToProceed), DefaultValue = "Minute30,Hour", Group = Helper.SYMBOL_SETTINGS_NAME)]
+        public string TimeFramesToProceed { get; set; }
+
+        /// <summary>
+        /// Gets the symbol names.
+        /// </summary>
+        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100,USDNOK,USDSEK,USDDDK", Group = Helper.SYMBOL_SETTINGS_NAME)]
+        public string SymbolsToProceed { get; set; }
+
+        /// <summary>
+        /// Gets or sets the telegram bot token.
+        /// </summary>
+        [Parameter("Telegram bot token", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
+        public string TelegramBotToken { get; set; }
+
+        /// <summary>
+        /// Gets or sets the chat identifier where to send signals.
+        /// </summary>
+        [Parameter("Chat ID", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
+        public string ChatId { get; set; }
+
+        #endregion
+        
+        /// <summary>
+        /// Called when cBot is being started. Override this method to initialize cBot, create nested indicators, etc.
+        /// </summary>
+        protected override void OnStart()
+        {
+            Logger.SetWrite(a => Print(a));
+            InitAlgoRobot();
+        }
+
+        /// <summary>
+        /// Called when cBot is stopped.
+        /// </summary>
+        protected override void OnStop()
+        {
+            DisposeAlgoRobot();
+            base.OnStop();
+        }
+    }
+}
