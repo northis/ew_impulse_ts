@@ -3,14 +3,14 @@ using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 
-namespace TradeKit.Core
+namespace TradeKit.CTrader.Core
 {
     /// <summary>
     /// Base indicator for Setup finders
     /// </summary>
     /// <typeparam name="T">Type of the setup finder</typeparam>
     /// <typeparam name="TK">The type of the signal argument.</typeparam>
-    /// <seealso cref="cAlgo.API.Indicator" />
+    /// <seealso cref="Indicator" />
     public abstract class BaseIndicator<T, TK> 
         : Indicator where T : BaseSetupFinder<TK> where TK : SignalEventArgs
     {
@@ -79,7 +79,7 @@ namespace TradeKit.Core
         /// <exception cref="NotSupportedException">Time frame {TimeFrame} isn't supported.</exception>
         protected override void Initialize()
         {
-            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame.ToITimeFrame()))
+            if (!TimeFrameHelper.TimeFrames.ContainsKey(TimeFrame.Name))
             {
                 throw new NotSupportedException(
                     $"Time frame {TimeFrame} isn't supported.");

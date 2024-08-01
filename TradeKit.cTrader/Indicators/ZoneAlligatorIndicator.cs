@@ -1,15 +1,14 @@
 ﻿using System;
 using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Indicators;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Indicators
+namespace TradeKit.CTrader.Indicators
 {
     /// <summary>
     /// Calculates trend value (-1,0,1) based on Bill Williams' Alligator.
     /// </summary>
     /// <seealso cref="Indicator" />
-    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
     public class ZoneAlligatorIndicator : Indicator
     {
         private ZoneAlligatorFinder m_Alligator;

@@ -15,8 +15,8 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>TradeKit</RootNamespace>
-    <AssemblyName>TradeKit</AssemblyName>
+    <RootNamespace>$(MSBuildProjectName.Replace(" ", "_"))</RootNamespace>
+    <AssemblyName>$(MSBuildProjectName)</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
   </PropertyGroup>

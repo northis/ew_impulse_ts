@@ -1,11 +1,11 @@
-﻿using cAlgo.API;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 
-namespace TradeKit.Core
+namespace TradeKit.CTrader.Core
 {
     public class CTraderManager: CTraderViewManager, ITradeManager
     {

@@ -1,9 +1,9 @@
 ﻿using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.Indicators;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Indicators
+namespace TradeKit.CTrader.Indicators
 {
     /// <summary>
     /// Bollinger Bands are used to confirm signals. The bands indicate overbought and oversold levels relative to a moving average.

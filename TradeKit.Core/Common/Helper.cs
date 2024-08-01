@@ -157,7 +157,7 @@ namespace TradeKit.Core.Common
             DateTime dt = DateTime.UtcNow;
             dt = new DateTime(dt.Year, dt.Month, dt.Day);
 
-            TimeSpan step = TimeFrameHelper.TimeFrames[timeFrame].TimeSpan;
+            TimeSpan step = TimeFrameHelper.TimeFrames[timeFrame.Name].TimeSpan;
             DateTime dtStart = dt.Add(-barCount * step);
 
             return (dtStart, dt);

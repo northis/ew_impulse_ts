@@ -1,4 +1,6 @@
-﻿namespace TradeKit.Core.Common
+﻿using System;
+
+namespace TradeKit.Core.Common
 {
     /// <summary>
     /// Describes timeframe

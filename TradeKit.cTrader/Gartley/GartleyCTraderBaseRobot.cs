@@ -1,9 +1,9 @@
 ﻿using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Gartley
+namespace TradeKit.CTrader.Gartley
 {
     public abstract class GartleyCTraderBaseRobot : CTraderBaseRobot
     {

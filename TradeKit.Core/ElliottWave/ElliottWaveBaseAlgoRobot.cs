@@ -135,7 +135,7 @@ namespace TradeKit.Core.ElliottWave
         {
             IBarsProvider bp = setupFinder.BarsProvider; 
             DateTime setupStart = signal.StopLoss.OpenTime;
-            DateTime setupEnd = signal.Level.OpenTime + TimeFrameHelper.TimeFrames[bp.TimeFrame].TimeSpan;
+            DateTime setupEnd = signal.Level.OpenTime + TimeFrameHelper.TimeFrames[bp.TimeFrame.Name].TimeSpan;
             Logger.Write(
                 $"A risky signal, the setup contains a trade session change: {bp.BarSymbol}, {setupFinder.TimeFrame}, {setupStart:s}-{setupEnd:s}");
 

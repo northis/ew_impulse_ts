@@ -1,5 +1,5 @@
 using cAlgo.API;
-using TradeKit.Rate;
+using TradeKit.CTrader.Rate;
 
 namespace RateSignalerBot
 {

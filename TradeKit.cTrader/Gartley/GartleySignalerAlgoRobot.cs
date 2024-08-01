@@ -1,11 +1,11 @@
 ﻿using System.Collections.Generic;
 using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.Indicators;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Gartley
+namespace TradeKit.CTrader.Gartley
 {
     public class GartleySignalerAlgoRobot : GartleyBaseAlgoRobot
     {

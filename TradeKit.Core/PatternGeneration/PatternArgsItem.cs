@@ -28,7 +28,7 @@ namespace TradeKit.Core.PatternGeneration
             DateStart = dateStart;
             DateEnd = dateEnd;
             BarsCount = Convert.ToInt32((dateEnd - dateStart) /
-                                        TimeFrameHelper.TimeFrames[timeFrame].TimeSpan);
+                                        TimeFrameHelper.TimeFrames[timeFrame.Name].TimeSpan);
         }
 
         public PatternArgsItem(

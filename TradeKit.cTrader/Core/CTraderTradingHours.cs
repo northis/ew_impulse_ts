@@ -1,7 +1,7 @@
 ﻿using System;
 using TradeKit.Core.Common;
 
-namespace TradeKit.Core
+namespace TradeKit.CTrader.Core
 {
     public class CTraderTradingHours: ITradingHours
     {

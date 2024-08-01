@@ -1,7 +1,7 @@
 ﻿using cAlgo.API;
 using TradeKit.Core.Common;
 
-namespace TradeKit.Core
+namespace TradeKit.CTrader.Core
 {
     /// <summary>
     /// Base (ro)bot with common operations for trading

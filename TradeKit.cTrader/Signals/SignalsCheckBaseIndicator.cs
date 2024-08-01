@@ -1,11 +1,11 @@
 ﻿using System;
 using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Signals;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Signals
+namespace TradeKit.CTrader.Signals
 {
     /// <summary>
     /// This indicator can show the signals from the file

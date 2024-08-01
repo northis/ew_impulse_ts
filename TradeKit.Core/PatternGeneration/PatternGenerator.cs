@@ -84,29 +84,29 @@ namespace TradeKit.Core.PatternGeneration
             m_TimeFrames = new Dictionary<TimeFrameInfo, Func<DateTime, DateTime>>()
             {
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute1],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute1.Name],
                     a => new DateTime(a.Year, a.Month, a.Day, a.Hour, a.Minute, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute5],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute5.Name],
                     a => new DateTime(
                         a.Year, a.Month, a.Day, a.Hour, a.Minute - a.Minute % 5, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute15],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute15.Name],
                     a => new DateTime(
                         a.Year, a.Month, a.Day, a.Hour, a.Minute - a.Minute % 15, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Hour1],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Hour1.Name],
                     a => new DateTime(a.Year, a.Month, a.Day, a.Hour, 0, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Hour4],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Hour4.Name],
                     a => new DateTime(a.Year, a.Month, a.Day, a.Hour - a.Hour % 4, 0, 0)
                 },
                 {
-                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Day1],
+                    TimeFrameHelper.TimeFrames[TimeFrameHelper.Day1.Name],
                     a => new DateTime(a.Year, a.Month, a.Day)
                 }
             };
@@ -125,7 +125,7 @@ namespace TradeKit.Core.PatternGeneration
         public ModelPattern GetPattern(
             PatternArgsItem args, ElliottModelType model, bool useScaleFrom1M = false)
         {
-            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame];
+            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame.Name];
             if (!m_TimeFrames.ContainsKey(tfInfo))
                 throw new ArgumentException(nameof(args.TimeFrame));
 
@@ -1355,7 +1355,7 @@ namespace TradeKit.Core.PatternGeneration
 
             double previousClose = args.StartValue;
             double stepLinear = args.Range / args.BarsCount;
-            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame];
+            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[args.TimeFrame.Name];
             for (int i = 0; i < args.BarsCount; i++)
             {
                 double open;
@@ -1568,7 +1568,7 @@ namespace TradeKit.Core.PatternGeneration
 
             ModelPattern modelCurrent = null;
             bool isUp = arg.IsUp; 
-            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[arg.TimeFrame];
+            TimeFrameInfo tfInfo = TimeFrameHelper.TimeFrames[arg.TimeFrame.Name];
             for (int i = 0; i < values.Length; i++)
             {
                 DateTime dateStart = modelCurrent == null

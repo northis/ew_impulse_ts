@@ -1,11 +1,11 @@
-﻿using cAlgo.API;
-using System.Linq;
-using TradeKit.Core;
+﻿using System.Linq;
+using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Impulse
+namespace TradeKit.CTrader.Impulse
 {
     /// <summary>
     /// Indicator can find possible setups based on initial impulses (wave 1 or A)

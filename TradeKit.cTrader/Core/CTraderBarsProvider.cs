@@ -1,9 +1,10 @@
 ﻿using System;
 using cAlgo.API;
 using cAlgo.API.Internals;
+using TradeKit.Core;
 using TradeKit.Core.Common;
 
-namespace TradeKit.Core
+namespace TradeKit.CTrader.Core
 {
     /// <summary>
     /// Implements the <see cref="IBarsProvider"/> from the cTrader objects.

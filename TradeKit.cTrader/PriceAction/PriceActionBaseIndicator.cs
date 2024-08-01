@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.PriceAction;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.PriceAction
+namespace TradeKit.CTrader.PriceAction
 {
     /// <summary>
     /// This indicator can find Price Action candle patterns

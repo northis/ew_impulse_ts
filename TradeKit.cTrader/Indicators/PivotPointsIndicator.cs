@@ -1,10 +1,10 @@
 ﻿using System;
 using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Indicators
+namespace TradeKit.CTrader.Indicators
 {
     /// <summary>
     /// Calculates the Moving Average Indicator.

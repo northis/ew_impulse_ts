@@ -1,6 +1,6 @@
 ﻿using TradeKit.Core.Common;
 
-namespace TradeKit.Core
+namespace TradeKit.CTrader.Core
 {
     internal class CTraderPosition : IPosition
     {

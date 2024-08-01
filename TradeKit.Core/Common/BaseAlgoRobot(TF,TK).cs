@@ -666,7 +666,7 @@ namespace TradeKit.Core.Common
             }
             
             bool useCommonTimeFrame = TimeFrameHelper.TimeFrames
-                .TryGetValue(barProvider.TimeFrame, out TimeFrameInfo timeFrameInfo);
+                .TryGetValue(barProvider.TimeFrame.Name, out TimeFrameInfo timeFrameInfo);
 
             if (!useCommonTimeFrame)
                 throw new NotSupportedException($"We don't support {barProvider.TimeFrame.Name} time frame");
@@ -850,7 +850,7 @@ namespace TradeKit.Core.Common
         protected void GetSetupEndRender(
             DateTime openDateTime, ITimeFrame tf, out DateTime realStart, out DateTime realEnd)
         {
-            TimeSpan timeFramePeriod = TimeFrameHelper.TimeFrames[tf].TimeSpan;
+            TimeSpan timeFramePeriod = TimeFrameHelper.TimeFrames[tf.Name].TimeSpan;
             realStart = openDateTime.Add(timeFramePeriod);
             realEnd = realStart.Add(timeFramePeriod * SETUP_MIN_WIDTH);
         }

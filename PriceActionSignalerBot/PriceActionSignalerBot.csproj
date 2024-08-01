@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -16,6 +16,10 @@
     <FileAlignment>512</FileAlignment>
     <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="PriceActionSignalerBot.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="cTrader.Automate" Version="1.*" />

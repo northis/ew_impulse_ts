@@ -3,7 +3,7 @@ using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Core.Common;
 
-namespace TradeKit.Core
+namespace TradeKit.CTrader.Core
 {
     internal static class Extensions
     {

@@ -1,4 +1,6 @@
-﻿namespace TradeKit.Core.Common
+﻿using System.Diagnostics;
+
+namespace TradeKit.Core.Common
 {
     /// <summary>
     /// Handles all the Time Frame-related logic
@@ -39,13 +41,13 @@
                 new(Month1, TimeSpan.FromDays(30), Hour4, Month1)
             };
 
-            TimeFrames = timeFramesList.ToDictionary(a => a.TimeFrame, a => a);
+            TimeFrames = timeFramesList.ToDictionary(a => a.TimeFrame.Name, a => a);
         }
 
         /// <summary>
         /// Gets the supported time frames.
         /// </summary>
-        public static Dictionary<ITimeFrame, TimeFrameInfo> TimeFrames { get; }
+        public static Dictionary<string, TimeFrameInfo> TimeFrames { get; }
 
         /// <summary>
         /// Gets the next time frame (bigger).
@@ -78,7 +80,7 @@
         /// <exception cref="NotSupportedException">The TF {tf.Name} is not supported!</exception>
         public static TimeFrameInfo GetTimeFrameInfo(ITimeFrame tf)
         {
-            if (!TimeFrames.TryGetValue(tf, out TimeFrameInfo val))
+            if (!TimeFrames.TryGetValue(tf.Name, out TimeFrameInfo val))
                 throw new NotSupportedException($"The TF {tf.Name} is not supported!");
 
             return val;

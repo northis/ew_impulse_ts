@@ -1,5 +1,5 @@
 ﻿using cAlgo.API;
-using TradeKit.PriceAction;
+using TradeKit.CTrader.PriceAction;
 
 namespace PriceActionSignalerBot
 { 

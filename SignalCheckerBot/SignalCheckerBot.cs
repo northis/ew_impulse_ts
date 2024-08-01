@@ -1,5 +1,5 @@
 using cAlgo.API;
-using TradeKit.Signals;
+using TradeKit.CTrader.Signals;
 
 namespace SignalCheckerBot
 {

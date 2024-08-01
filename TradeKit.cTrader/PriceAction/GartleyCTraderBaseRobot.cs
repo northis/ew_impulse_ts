@@ -1,9 +1,9 @@
 ﻿using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.PriceAction;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.PriceAction
+namespace TradeKit.CTrader.PriceAction
 {
     public abstract class PriceActionCTraderBaseRobot : CTraderBaseRobot
     {

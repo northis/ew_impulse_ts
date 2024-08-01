@@ -1,9 +1,10 @@
 ﻿using cAlgo.API;
 using TradeKit.Core.Indicators;
-using TradeKit.Core;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Indicators
+namespace TradeKit.CTrader.Indicators
 {
+    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
     public class AwesomeOscillatorIndicator : Indicator
     {
         private AwesomeOscillatorFinder m_AwesomeOscillatorFinder;

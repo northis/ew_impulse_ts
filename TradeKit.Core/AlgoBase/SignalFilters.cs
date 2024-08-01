@@ -121,7 +121,7 @@ namespace TradeKit.Core.AlgoBase
             DateTime dateTimeBar, DateTime dateTimeCandleToCheck, ITimeFrame timeFrameToCheck)
         {
             bool res = dateTimeBar < dateTimeCandleToCheck + 
-                      TimeFrameHelper.TimeFrames[timeFrameToCheck].TimeSpan / 2;
+                      TimeFrameHelper.TimeFrames[timeFrameToCheck.Name].TimeSpan / 2;
 
             return res;
         }

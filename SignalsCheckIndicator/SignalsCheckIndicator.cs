@@ -1,10 +1,10 @@
 using cAlgo.API;
-using TradeKit.Signals;
+using TradeKit.CTrader.Signals;
 
 namespace SignalsCheckIndicator
 {
     [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-    public class SignalsCheckIndicator : TradeKit.Signals.SignalsCheckBaseIndicator
+    public class SignalsCheckIndicator : SignalsCheckBaseIndicator
     {
     }
 }

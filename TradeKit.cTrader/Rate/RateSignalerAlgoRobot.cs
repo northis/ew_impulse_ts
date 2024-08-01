@@ -1,9 +1,9 @@
 ﻿using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.Rate;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Rate
+namespace TradeKit.CTrader.Rate
 {
     public class RateSignalerAlgoRobot : RateSignalerBaseAlgoRobot
     {

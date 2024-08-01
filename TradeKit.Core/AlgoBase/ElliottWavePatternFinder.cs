@@ -32,7 +32,7 @@ namespace TradeKit.Core.AlgoBase
             ITimeFrame mainTimeFrame,
             IBarProvidersFactory barProvidersFactory)
         {
-            m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame];
+            m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame.Name];
             m_BarsProviderMain = barProvidersFactory.GetBarsProvider(mainTimeFrame);
             var tfInfo = TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame);
 

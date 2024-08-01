@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.Indicators;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Gartley
+namespace TradeKit.CTrader.Gartley
 {
     /// <summary>
     /// Indicator can find possible setups based on Gartley patterns
@@ -141,6 +141,7 @@ namespace TradeKit.Gartley
         protected override void Initialize()
         {
             base.Initialize();
+
             m_SlColor = Color.FromHex("#50F00000");
             m_TpColor = Color.FromHex("#5000F000");
             m_BearColorFill = Color.FromHex("#50F08080");

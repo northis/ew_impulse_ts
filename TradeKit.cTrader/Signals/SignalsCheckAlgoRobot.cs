@@ -2,11 +2,11 @@
 using System.IO;
 using System.Linq;
 using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.Signals;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Signals
+namespace TradeKit.CTrader.Signals
 {
     public class SignalsCheckAlgoRobot : SignalsCheckBaseAlgoRobot
     {
@@ -20,7 +20,7 @@ namespace TradeKit.Signals
             TradeManager.PositionClosed += TradeManagerOnPositionClosed;
         }
 
-        private void TradeManagerOnPositionClosed(object sender, Core.EventArgs.ClosedPositionEventArgs e)
+        private void TradeManagerOnPositionClosed(object sender, TradeKit.Core.EventArgs.ClosedPositionEventArgs e)
         {
             if (!m_SignalsParams.UseBreakeven)
             {

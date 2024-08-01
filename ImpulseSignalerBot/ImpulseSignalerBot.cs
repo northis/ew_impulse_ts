@@ -1,6 +1,6 @@
 using cAlgo.API;
-using TradeKit.Core;
-using TradeKit.Impulse;
+using TradeKit.CTrader.Core;
+using TradeKit.CTrader.Impulse;
 
 namespace ImpulseSignalerBot
 {   

@@ -1,9 +1,9 @@
 ﻿using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.Indicators;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Indicators;
+namespace TradeKit.CTrader.Indicators;
 
 //[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.None)]
 public class ExactZigzagIndicator : Indicator

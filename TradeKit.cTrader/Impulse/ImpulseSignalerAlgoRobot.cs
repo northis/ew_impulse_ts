@@ -1,9 +1,9 @@
 ﻿using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Impulse
+namespace TradeKit.CTrader.Impulse
 {
     public class ImpulseSignalerAlgoRobot : ElliottWaveBaseAlgoRobot
     {

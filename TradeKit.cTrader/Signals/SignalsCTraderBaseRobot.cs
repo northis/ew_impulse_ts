@@ -1,8 +1,8 @@
 ﻿using cAlgo.API;
-using TradeKit.Core;
 using TradeKit.Core.Signals;
+using TradeKit.CTrader.Core;
 
-namespace TradeKit.Signals
+namespace TradeKit.CTrader.Signals
 {
     public abstract class SignalsCTraderBaseRobot : CTraderBaseRobot
     {
