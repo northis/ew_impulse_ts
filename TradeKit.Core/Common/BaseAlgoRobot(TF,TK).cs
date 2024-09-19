@@ -3,6 +3,7 @@ using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core.EventArgs;
+using TradeKit.Core.Gartley;
 using TradeKit.Core.Telegram;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
@@ -38,9 +39,12 @@ namespace TradeKit.Core.Common
         private readonly Dictionary<string, bool> m_BarsInitMap;
         private readonly Dictionary<string, List<int>> m_PositionFinderMap;
         private readonly Dictionary<string, TK> m_ChartFileFinderMap;
+        private readonly string[] m_Symbols;
+        private readonly string[] m_TimeFrames;
         private int m_EnterCount;
         private int m_TakeCount;
         private int m_StopCount;
+        private bool m_IsInit;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseAlgoRobot{T,TK}"/> class.
@@ -70,22 +74,27 @@ namespace TradeKit.Core.Common
             m_ChartFileFinderMap = new Dictionary<string, TK>();
             m_CurrentRisk = robotParams.RiskPercentFromDeposit;
 
-            string[] symbols = !robotParams.UseSymbolsList || string.IsNullOrEmpty(robotParams.SymbolsToProceed)
+            m_Symbols = !robotParams.UseSymbolsList || string.IsNullOrEmpty(robotParams.SymbolsToProceed)
                 ? new[] { symbolName }
                 : SplitString(robotParams.SymbolsToProceed);
-            string[] timeFrames = !robotParams.UseTimeFramesList || string.IsNullOrEmpty(robotParams.TimeFramesToProceed)
+            m_TimeFrames = !robotParams.UseTimeFramesList || string.IsNullOrEmpty(robotParams.TimeFramesToProceed)
                 ? new[] { timeFrameName }
                 : SplitString(robotParams.TimeFramesToProceed);
 
-            Init(symbols, timeFrames);
-            Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
         }
 
-        private void Init(string[] symbols, string[] timeFrames)
+        /// <summary>
+        /// The method <see cref="Init"/> should be called here after the initialization of all descendant classes is completed.
+        /// </summary>
+        public void Init()
         {
+            if (m_IsInit)
+                return;
+
+            m_IsInit = true;
             HashSet<string> symbolsAvailable = TradeManager.GetSymbolNamesAvailable();
 
-            foreach (string symbol in symbols)
+            foreach (string symbol in m_Symbols)
             {
                 if (!symbolsAvailable.Contains(symbol))
                 {
@@ -94,7 +103,7 @@ namespace TradeKit.Core.Common
 
                 ISymbol symbolEntity = TradeManager.GetSymbol(symbol);
                 var finders = new List<TF>();
-                foreach (string timeFrameStr in timeFrames)
+                foreach (string timeFrameStr in m_TimeFrames)
                 {
                     ITimeFrame timeFrame = TradeManager.GetTimeFrame(timeFrameStr);
                     if (timeFrame == null)
@@ -126,7 +135,7 @@ namespace TradeKit.Core.Common
                         a.Value.Symbol == finder.Value.Symbol &&
                         a.Value.TimeFrame == chartTimeFrame)
                     .Select(a => a.Value.BarsProvider)
-                    .FirstOrDefault();
+                    .FirstOrDefault() ?? CreateBarsProvider(chartTimeFrame, finder.Value.Symbol);
 
                 m_FinderIdChartBarProviderMap[finder.Key] = barProvider;
             }
@@ -141,8 +150,13 @@ namespace TradeKit.Core.Common
             Dictionary<string, int> stateMap = TradeManager.GetSavedState();
             TelegramReporter = new TelegramReporter(
                 m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_RobotParams.PostCloseMessages, stateMap,  TradeManager.SaveState);
+
+            Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
         }
-        
+
+
+        protected abstract IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity);
+
         /// <summary>
         /// Gets the get current risk.
         /// </summary>

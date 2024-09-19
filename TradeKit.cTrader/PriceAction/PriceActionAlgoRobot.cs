@@ -10,11 +10,24 @@ namespace TradeKit.CTrader.PriceAction
     {
         private readonly Robot m_HostRobot;
         private readonly PriceActionParams m_PriceActionParams;
+        private readonly CTraderManager m_TradeManager;
 
-        public PriceActionAlgoRobot(Robot hostRobot, RobotParams robotParams, PriceActionParams priceActionParams) : base(new CTraderManager(hostRobot), robotParams, priceActionParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        public PriceActionAlgoRobot(Robot hostRobot, RobotParams robotParams, PriceActionParams priceActionParams) : this(hostRobot, new CTraderManager(hostRobot), robotParams, priceActionParams)
+        {
+        }
+
+        private PriceActionAlgoRobot(Robot hostRobot, CTraderManager tradeManager, RobotParams robotParams, PriceActionParams priceActionParams) : 
+            base(tradeManager, robotParams, priceActionParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
         {
             m_HostRobot = hostRobot;
             m_PriceActionParams = priceActionParams;
+            m_TradeManager = tradeManager;
+            Init();
+        }
+
+        protected override IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity)
+        {
+            return CTraderBarsProvider.Create(timeFrame, symbolEntity, m_HostRobot.MarketData, m_TradeManager);
         }
 
         protected override PriceActionSetupFinder CreateSetupFinder(

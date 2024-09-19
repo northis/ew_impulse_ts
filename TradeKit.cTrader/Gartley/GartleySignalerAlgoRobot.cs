@@ -9,8 +9,8 @@ namespace TradeKit.CTrader.Gartley
 {
     public class GartleySignalerAlgoRobot : GartleyBaseAlgoRobot
     {
-        private readonly GartleyParams m_GartleyParams;
         private readonly Robot m_HostRobot;
+        private readonly CTraderManager m_CTraderManager;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleySignalerAlgoRobot"/> class.
@@ -18,31 +18,42 @@ namespace TradeKit.CTrader.Gartley
         /// <param name="hostRobot">The host robot.</param>
         /// <param name="robotParams">The robot parameters.</param>
         /// <param name="gartleyParams">Gartley parameters.</param>
-        public GartleySignalerAlgoRobot(Robot hostRobot, RobotParams robotParams, GartleyParams gartleyParams) : base(new CTraderManager(hostRobot), robotParams,gartleyParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        public GartleySignalerAlgoRobot(Robot hostRobot, RobotParams robotParams, GartleyParams gartleyParams)
+            : base(new CTraderManager(hostRobot), 
+                robotParams, 
+                gartleyParams, 
+                hostRobot.IsBacktesting,
+                hostRobot.SymbolName, 
+                hostRobot.TimeFrame.Name)
         {
-
-            m_GartleyParams = gartleyParams;
             m_HostRobot = hostRobot;
+            m_CTraderManager = (CTraderManager)TradeManager;
+            Init();
+        }
+
+        protected override IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity)
+        {
+            return CTraderBarsProvider.Create(timeFrame, symbolEntity, m_HostRobot.MarketData, m_CTraderManager);
         }
 
         protected override GartleySetupFinder CreateSetupFinder(
             ITimeFrame timeFrame, ISymbol symbolEntity)
         {
-            var cTraderBarsProvider = new CTraderBarsProvider(m_HostRobot.Bars, symbolEntity);
             HashSet<GartleyPatternType> patternTypes = GetPatternsType();
+            IBarsProvider cTraderBarsProvider = CreateBarsProvider(timeFrame, symbolEntity);
             var ao = new AwesomeOscillatorFinder(cTraderBarsProvider);
 
             ZoneAlligatorFinder zoneAlligator = null;
-            if (m_GartleyParams.UseTrendOnly) 
+            if (GartleyParams.UseTrendOnly) 
                 zoneAlligator = new ZoneAlligatorFinder(cTraderBarsProvider);
 
             double? breakEvenRatio = null;
-            if (m_GartleyParams.BreakEvenRatio > 0)
-                breakEvenRatio = m_GartleyParams.BreakEvenRatio;
+            if (GartleyParams.BreakEvenRatio > 0)
+                breakEvenRatio = GartleyParams.BreakEvenRatio;
 
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity,
-                m_GartleyParams.Accuracy, m_GartleyParams.BarDepthCount, m_GartleyParams.UseDivergences,
+                GartleyParams.Accuracy, GartleyParams.BarDepthCount, GartleyParams.UseDivergences,
                 zoneAlligator, patternTypes, ao, breakEvenRatio);
 
             return setupFinder;

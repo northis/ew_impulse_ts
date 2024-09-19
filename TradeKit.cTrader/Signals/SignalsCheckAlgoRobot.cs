@@ -12,12 +12,24 @@ namespace TradeKit.CTrader.Signals
     {
         private readonly Robot m_HostRobot;
         private readonly SignalsParams m_SignalsParams;
+        private readonly CTraderManager m_TradeManager;
+        public SignalsCheckAlgoRobot(Robot hostRobot, RobotParams robotParams, SignalsParams signalsParams) 
+            : this(hostRobot, new CTraderManager(hostRobot), robotParams, signalsParams)
+        {
+        }
 
-        public SignalsCheckAlgoRobot(Robot hostRobot, RobotParams robotParams, SignalsParams signalsParams) : base(new CTraderManager(hostRobot), robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        private SignalsCheckAlgoRobot(Robot hostRobot, CTraderManager tradeManager, RobotParams robotParams, SignalsParams signalsParams) : base(new CTraderManager(hostRobot), robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
         {
             m_HostRobot = hostRobot;
             m_SignalsParams = signalsParams;
+            m_TradeManager = tradeManager;
             TradeManager.PositionClosed += TradeManagerOnPositionClosed;
+            Init();
+        }
+
+        protected override IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity)
+        {
+            return CTraderBarsProvider.Create(timeFrame, symbolEntity, m_HostRobot.MarketData, m_TradeManager);
         }
 
         private void TradeManagerOnPositionClosed(object sender, TradeKit.Core.EventArgs.ClosedPositionEventArgs e)
@@ -36,7 +48,7 @@ namespace TradeKit.CTrader.Signals
 
         protected override ParseSetupFinder CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity)
         {
-            IBarsProvider barsProvider = new CTraderBarsProvider(m_HostRobot.Bars, symbolEntity);
+            IBarsProvider barsProvider = CreateBarsProvider(timeFrame, symbolEntity);
             string path;
             if (string.IsNullOrEmpty(m_SignalsParams.SignalHistoryFilePath))
             {

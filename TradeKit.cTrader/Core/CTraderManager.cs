@@ -20,8 +20,8 @@ namespace TradeKit.CTrader.Core
                 {PositionCloseReason.TakeProfit, PositionClosedState.TAKE_PROFIT},
                 {PositionCloseReason.StopOut, PositionClosedState.STOP_OUT},
             };
-        
-        public CTraderManager(Robot robot):base(robot)
+
+        public CTraderManager(Robot robot) : base(robot)
         {
             m_Robot = robot;
             m_Robot.Positions.Closed += PositionsClosed;
@@ -72,7 +72,7 @@ namespace TradeKit.CTrader.Core
             TradeResult order = m_Robot.ExecuteMarketOrder(
                 isLong ? TradeType.Buy: TradeType.Sell, symbol.Name, volume, botName, stopInPips, takeInPips, positionId);
 
-            return new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
+            return order.Position == null ? null : new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
         }
 
         public void SetStopLossPrice(IPosition position, double? price)

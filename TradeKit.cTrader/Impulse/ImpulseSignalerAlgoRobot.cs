@@ -24,6 +24,12 @@ namespace TradeKit.CTrader.Impulse
         {
             m_HostRobot = hostRobot;
             m_TradeManager = tradeManager;
+            Init();
+        }
+
+        protected override IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity)
+        {
+            return CTraderBarsProvider.Create(timeFrame, symbolEntity, m_HostRobot.MarketData, m_TradeManager);
         }
 
         /// <summary>
@@ -34,10 +40,7 @@ namespace TradeKit.CTrader.Impulse
         protected override ImpulseSetupFinder CreateSetupFinder(
             ITimeFrame timeFrame, ISymbol symbolEntity)
         {
-            Bars bars = m_HostRobot.MarketData.GetBars(
-                m_TradeManager.GetCTraderTimeFrame(timeFrame.Name), symbolEntity.Name);
-
-            var barsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            IBarsProvider barsProvider = CreateBarsProvider(timeFrame, symbolEntity);
             var barProvidersFactory = new BarProvidersFactory(
                 m_TradeManager.GetCTraderSymbol(symbolEntity.Name), 
                 m_HostRobot.MarketData, 

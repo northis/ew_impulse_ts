@@ -1,7 +1,6 @@
 ﻿using System;
 using cAlgo.API;
 using cAlgo.API.Internals;
-using TradeKit.Core;
 using TradeKit.Core.Common;
 
 namespace TradeKit.CTrader.Core
@@ -36,6 +35,21 @@ namespace TradeKit.CTrader.Core
             bars.BarOpened += OnBarOpened;
             BarSymbol = symbolEntity;
             TimeFrame = new CTraderTimeFrame(bars.TimeFrame);
+        }
+
+        /// <summary>
+        /// Creates <see cref="CTraderBarsProvider"/> instance.
+        /// </summary>
+        /// <param name="timeFrame">The time frame.</param>
+        /// <param name="symbolEntity">The symbol entity.</param>
+        /// <param name="marketData">The market data.</param>
+        /// <param name="tradeManager">The trade manager.</param>
+        public static CTraderBarsProvider Create(
+            ITimeFrame timeFrame, ISymbol symbolEntity, MarketData marketData, CTraderViewManager tradeManager)
+        {
+            Bars bars = marketData.GetBars(tradeManager.GetCTraderTimeFrame(timeFrame.Name), symbolEntity.Name);
+            var cTraderBarsProvider = new CTraderBarsProvider(bars, symbolEntity);
+            return cTraderBarsProvider;
         }
 
         private void OnBarOpened(BarOpenedEventArgs obj)

@@ -10,7 +10,6 @@ namespace TradeKit.Core.Gartley
 {
     public abstract class GartleyBaseAlgoRobot : BaseAlgoRobot<GartleySetupFinder, GartleySignalEventArgs>
     {
-        private readonly GartleyParams m_GartleyParams;
         private const string BOT_NAME = "GartleySignalerRobot";
         private const string DIVERGENCE_NAME = "Div";
         private const string SVG_PATH_TEMPLATE = "M {0} L {1} L {2} L {3} L {4} L {2} L {0} Z";
@@ -25,29 +24,37 @@ namespace TradeKit.Core.Gartley
         private readonly Color m_BearColorBorder = Color.fromARGB(240, 240, 128, 128);
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
 
-        protected GartleyBaseAlgoRobot(ITradeManager tradeManager, RobotParams robotParams, GartleyParams gartleyParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
+        protected GartleyBaseAlgoRobot(
+            ITradeManager tradeManager, 
+            RobotParams robotParams, 
+            GartleyParams gartleyParams, 
+            bool isBackTesting, 
+            string symbolName, 
+            string timeFrameName) 
+            : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
         {
-            m_GartleyParams = gartleyParams;
+            GartleyParams = gartleyParams;
         }
+        protected GartleyParams GartleyParams { get; }
 
         protected HashSet<GartleyPatternType> GetPatternsType()
         {
             var res = new HashSet<GartleyPatternType>();
-            if (m_GartleyParams.UseGartley)
+            if (GartleyParams.UseGartley)
                 res.Add(GartleyPatternType.GARTLEY);
-            if (m_GartleyParams.UseButterfly)
+            if (GartleyParams.UseButterfly)
                 res.Add(GartleyPatternType.BUTTERFLY);
-            if (m_GartleyParams.UseShark)
+            if (GartleyParams.UseShark)
                 res.Add(GartleyPatternType.SHARK);
-            if (m_GartleyParams.UseCrab)
+            if (GartleyParams.UseCrab)
                 res.Add(GartleyPatternType.CRAB);
-            if (m_GartleyParams.UseBat)
+            if (GartleyParams.UseBat)
                 res.Add(GartleyPatternType.BAT);
-            if (m_GartleyParams.UseAltBat)
+            if (GartleyParams.UseAltBat)
                 res.Add(GartleyPatternType.ALT_BAT);
-            if (m_GartleyParams.UseCypher)
+            if (GartleyParams.UseCypher)
                 res.Add(GartleyPatternType.CYPHER);
-            if (m_GartleyParams.UseDeepCrab)
+            if (GartleyParams.UseDeepCrab)
                 res.Add(GartleyPatternType.DEEP_CRAB);
 
             return res;

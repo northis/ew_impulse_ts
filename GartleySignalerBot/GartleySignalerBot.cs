@@ -1,5 +1,6 @@
+using System.Diagnostics;
 using cAlgo.API;
-using TradeKit.Gartley;
+using TradeKit.CTrader.Gartley;
 
 namespace GartleySignalerBot
 {   
@@ -14,6 +15,7 @@ namespace GartleySignalerBot
 
         protected override void InitAlgoRobot()
         {
+            Debugger.Launch();
             m_GartleySignalerAlgoRobot = new GartleySignalerAlgoRobot(
                 this, GetRobotParams(), GetGartleyParams());
         }
