@@ -15,7 +15,6 @@ namespace GartleySignalerBot
 
         protected override void InitAlgoRobot()
         {
-            Debugger.Launch();
             m_GartleySignalerAlgoRobot = new GartleySignalerAlgoRobot(
                 this, GetRobotParams(), GetGartleyParams());
         }

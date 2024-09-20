@@ -421,7 +421,6 @@ namespace TradeKit.Core.Common
         /// <param name="stopLossInPips">Stop loss amount in Pips</param>
         public static double GetVolume(this ISymbol symbol, double riskPercentage, double accountBalance, double stopLossInPips)
         {
-            //symbol.NormalizeVolumeInUnits(
             return riskPercentage / (Math.Abs(stopLossInPips) * symbol.PipValue / accountBalance * 100);
         }
     }

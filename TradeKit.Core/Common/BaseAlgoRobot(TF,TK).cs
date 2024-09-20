@@ -518,10 +518,9 @@ namespace TradeKit.Core.Common
 
             GetEventStrings(sender, e.Level, out string price);
             Logger.Write($"New setup found! {price}");
-            ISymbol s = m_SymbolsMap[sf.Id];
-            double priceNow = isLong ? TradeManager.GetAsk(s) : TradeManager.GetBid(s);
+            double priceNow = isLong ? TradeManager.GetAsk(symbol) : TradeManager.GetBid(symbol);
 
-            double spreadNew = TradeManager.GetSpread(s);
+            double spreadNew = TradeManager.GetSpread(symbol);
             if (!isLong)
             {
                 sl += spreadNew * SPREAD_MARGIN_RATIO;
@@ -585,8 +584,8 @@ namespace TradeKit.Core.Common
             string plotImagePath = GeneratePlotImageFile(bp, e);
             TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
             {
-                Ask = TradeManager.GetAsk(s),
-                Bid = TradeManager.GetBid(s),
+                Ask = TradeManager.GetAsk(symbol),
+                Bid = TradeManager.GetBid(symbol),
                 Digits = sf.Symbol.Digits,
                 SignalEventArgs = e,
                 SymbolName = sf.Symbol.Name,

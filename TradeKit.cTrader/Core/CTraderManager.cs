@@ -69,8 +69,10 @@ namespace TradeKit.CTrader.Core
         public OrderResult OpenOrder(bool isLong, ISymbol symbol, double volume, string botName, double stopInPips, double takeInPips,
             string positionId)
         {
+            double normalizedVolume = GetCTraderSymbol(symbol.Name).NormalizeVolumeInUnits(volume);
+
             TradeResult order = m_Robot.ExecuteMarketOrder(
-                isLong ? TradeType.Buy: TradeType.Sell, symbol.Name, volume, botName, stopInPips, takeInPips, positionId);
+                isLong ? TradeType.Buy: TradeType.Sell, symbol.Name, normalizedVolume, botName, stopInPips, takeInPips, positionId);
 
             return order.Position == null ? null : new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
         }
