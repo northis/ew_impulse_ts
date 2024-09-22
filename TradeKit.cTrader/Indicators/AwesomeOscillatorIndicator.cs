@@ -4,7 +4,7 @@ using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators
 {
-    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
+    //[Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
     public class AwesomeOscillatorIndicator : Indicator
     {
         private AwesomeOscillatorFinder m_AwesomeOscillatorFinder;

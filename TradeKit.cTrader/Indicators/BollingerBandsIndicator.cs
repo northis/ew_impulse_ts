@@ -10,6 +10,7 @@ namespace TradeKit.CTrader.Indicators
     /// <remarks>Bollinger bands widen in volatile market periods, and contract during less volatile periods. Tightening of the bands is often used a signal that there will shortly be a sharp increase in market volatility.
     /// </remarks>
     /// </summary>
+    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
     public class BollingerBandsIndicator : Indicator
     {
         private BollingerBandsFinder m_BollingerBands;

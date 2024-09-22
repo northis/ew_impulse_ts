@@ -138,7 +138,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 }
 
                 BarPoint divItem = null;
-                if (m_AwesomeOscillator != null && m_FilterByDivergence)
+                if (m_AwesomeOscillator != null)
                 {
                     divItem = SignalFilters.FindDivergence(
                         m_AwesomeOscillator,
@@ -147,13 +147,23 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                         localPattern.ItemD,
                         localPattern.IsBull);
                     if (divItem is null)
-                        continue;
+                    {
+                        if (m_FilterByDivergence)
+                            continue;
+                    }
+                    else
+                    {
+                        int divLength = localPattern.ItemD.BarIndex - divItem.BarIndex;
+                        int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 2;
 
-                    int divLength = localPattern.ItemD.BarIndex - divItem.BarIndex;
-                    int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 2;
+                        if (divLength < thrdCtoD)
+                        {
+                            if (m_FilterByDivergence)
+                                continue;
 
-                    if (divLength < thrdCtoD)
-                        continue;
+                            divItem = null;
+                        }
+                    }
                 }
 
                 DateTime startView = m_MainBarsProvider.GetOpenTime(
@@ -162,7 +172,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 var args = new GartleySignalEventArgs(
                     new BarPoint(close, index, m_MainBarsProvider),
                     localPattern, startView, divItem, m_BreakevenRatio);
-
                 OnEnterInvoke(args);
                 m_PatternsEntryMap[localPattern] = args;
                 Logger.Write($"Added {localPattern.PatternType}");

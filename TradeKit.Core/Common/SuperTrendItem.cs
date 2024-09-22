@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Indicators;
+﻿using System.Diagnostics;
+using TradeKit.Core.Indicators;
 
 namespace TradeKit.Core.Common
 {
@@ -70,7 +71,7 @@ namespace TradeKit.Core.Common
                 ITimeFrame tf = tfInfos[i].TimeFrame;
                 indicators[i] = GetTrendIndicator(barsProvider);
 
-                if (tf == mainTimeFrame)
+                if (tf.Name == mainTimeFrame.Name)
                     mainIndicator = indicators[i];
             }
 
