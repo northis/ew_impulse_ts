@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -69,7 +70,7 @@ namespace TradeKit.CTrader.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.HAMMER"/> and <see cref="CandlePatternType.INVERTED_HAMMER"/> patterns.
         /// </summary>
-        [Parameter("Hammer", DefaultValue = false)]
+        [Parameter("Hammer", DefaultValue = true)]
         public bool UseHammer { get; set; }
 
         /// <summary>
@@ -105,38 +106,44 @@ namespace TradeKit.CTrader.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PPR"/> and <see cref="CandlePatternType.DOWN_PPR"/> patterns.
         /// </summary>
-        [Parameter("PPR", DefaultValue = true)]
+        [Parameter("PPR", DefaultValue = false)]
         public bool Ppr { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_CPPR"/> and <see cref="CandlePatternType.DOWN_CPPR"/> patterns.
         /// </summary>
-        [Parameter("CPPR", DefaultValue = true)]
+        [Parameter("CPPR", DefaultValue = false)]
         public bool CPpr { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_RAILS"/> and <see cref="CandlePatternType.DOWN_RAILS"/> pattern.
         /// </summary>
-        [Parameter("Rails", DefaultValue = true)]
+        [Parameter("Rails", DefaultValue = false)]
         public bool Rails { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PPR_IB"/> and <see cref="CandlePatternType.DOWN_PPR_IB"/> pattern.
         /// </summary>
-        [Parameter("PPR+Inner Bar", DefaultValue = true)]
+        [Parameter("PPR+Inner Bar", DefaultValue = false)]
         public bool PprIb { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should show only patterns with "the strength bar".
         /// </summary>
-        [Parameter("Use strength bar", DefaultValue = true)]
+        [Parameter("Use strength bar", DefaultValue = false)]
         public bool UseStrengthBar { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we fill the patterns with color.
         /// </summary>
-        [Parameter("Fill with color", DefaultValue = true)]
+        [Parameter("Fill with color", DefaultValue = false)]
         public bool FillWithColor { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_DOJI"/> and <see cref="CandlePatternType.UP_DOJI"/> patterns.
+        /// </summary>
+        [Parameter("Doji", DefaultValue = true)]
+        public bool Doji { get; set; }
 
         private HashSet<CandlePatternType> GetPatternsType()
         {
@@ -199,6 +206,12 @@ namespace TradeKit.CTrader.PriceAction
             {
                 res.Add(CandlePatternType.UP_CPPR);
                 res.Add(CandlePatternType.DOWN_CPPR);
+            }
+
+            if (Doji)
+            {
+                res.Add(CandlePatternType.UP_DOJI);
+                res.Add(CandlePatternType.DOWN_DOJI);
             }
 
             return res;

@@ -22,5 +22,7 @@
         DOWN_DOUBLE_INNER_BAR,
         UP_CPPR,
         DOWN_CPPR,
+        UP_DOJI,
+        DOWN_DOJI,
     }
 }

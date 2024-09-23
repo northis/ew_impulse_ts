@@ -60,7 +60,9 @@ namespace TradeKit.Core.Common
             {CandlePatternType.UP_DOUBLE_INNER_BAR, "  ↑\nDIB"},
             {CandlePatternType.DOWN_DOUBLE_INNER_BAR, "DIB\n  ↓"},
             {CandlePatternType.UP_CPPR, "     ↑\nCPPR"},
-            {CandlePatternType.DOWN_CPPR, "CPPR\n     ↓"}
+            {CandlePatternType.DOWN_CPPR, "CPPR\n     ↓"},
+            {CandlePatternType.DOWN_DOJI, "Doji\n  ↓"},
+            {CandlePatternType.UP_DOJI, "  ↑\nDoji"},
         };
 
         /// <summary>

@@ -1,4 +1,6 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+using TradeKit.Core.Common;
 using TradeKit.Core.PriceAction;
 using CPS = TradeKit.Core.PriceAction.CandlePatternSettings;
 using CPT = TradeKit.Core.PriceAction.CandlePatternType;
@@ -14,6 +16,8 @@ namespace TradeKit.Core.AlgoBase
         private static bool m_useStrengthBar;
         private readonly HashSet<CPT> m_Patterns;
         private const double ONE_CANDLE_RATIO = 0.7;
+        private const double DOJI_MIN_PERCENT_WICKS = 60;
+        private const double DOJI_PREV_PIP_MIN_BODY_SIZE = 15;
         private const int MIN_BARS_INDEX = 9;//0..9
 
         private static readonly Dictionary<CPT, CPS>
@@ -21,8 +25,8 @@ namespace TradeKit.Core.AlgoBase
             {
                 {CPT.HAMMER, new CPS(true, 0, 1)},
                 {CPT.INVERTED_HAMMER, new CPS(false, 0, 1)},
-                {CPT.UP_PIN_BAR, new CPS(true, 1, 3)},
-                {CPT.DOWN_PIN_BAR, new CPS(false, 1, 3)},
+                {CPT.UP_PIN_BAR, new CPS(true, 0, 2)},
+                {CPT.DOWN_PIN_BAR, new CPS(false, 0, 2)},
                 {CPT.UP_OUTER_BAR, new CPS(true, 0, 2)},
                 {CPT.DOWN_OUTER_BAR, new CPS(false, 0, 2)},
                 {CPT.UP_OUTER_BAR_BODIES, new CPS(true, -1, 2)},
@@ -38,110 +42,132 @@ namespace TradeKit.Core.AlgoBase
                 {CPT.UP_DOUBLE_INNER_BAR, new CPS(true, -1, 3, 0)},
                 {CPT.DOWN_DOUBLE_INNER_BAR, new CPS(false, -1, 3, 0)},
                 {CPT.UP_CPPR, new CPS(true, -1, 0)},
-                {CPT.DOWN_CPPR, new CPS(false, -1, 0)}
+                {CPT.DOWN_CPPR, new CPS(false, -1, 0)},
+                {CPT.UP_DOJI, new CPS(true, 0, 2)},
+                {CPT.DOWN_DOJI, new CPS(false, 0, 2)}
             };
 
         // Func - array of candles and count of the bars in the pattern
-        private static readonly Dictionary<CPT, Func<Candle[], int>>
+        private static readonly Dictionary<CPT, Func<CandleParams, int>>
             PATTERN_EXPRESSION_MAP = new()
             {
                 {
-                    CPT.HAMMER, cls => IsOneCandlePattern(cls[^1],
+                    CPT.HAMMER, cdParams => IsOneCandlePattern(cdParams.Candles[^1],
                         (c, r) => c.O > c.C && c.O > c.L + r && c.C > c.L + r)
                         ? PATTERN_DIRECTION_MAP[CPT.HAMMER].BarsCount
                         : 0
                 },
                 {
-                    CPT.INVERTED_HAMMER, cls => IsOneCandlePattern(cls[^1],
+                    CPT.INVERTED_HAMMER, cdParams => IsOneCandlePattern(cdParams.Candles[^1],
                         (c, r) => c.O < c.C && c.O < c.H - r && c.C < c.H - r)
                         ? PATTERN_DIRECTION_MAP[CPT.INVERTED_HAMMER].BarsCount
                         : 0
                 },
                 {
-                    CPT.UP_PIN_BAR,
-                    c => IsPinBar(c, true) && IsStrengthBar(c[^1], true)
+                    CPT.UP_PIN_BAR, cdParams => 
+                        IsPinBar(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[CPT.UP_PIN_BAR].BarsCount
                         : 0
                 },
                 {
-                    CPT.DOWN_PIN_BAR,
-                    c => IsPinBar(c, false) && IsStrengthBar(c[^1], false)
+                    CPT.DOWN_PIN_BAR, cdParams => 
+                        IsPinBar(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[CPT.DOWN_PIN_BAR].BarsCount
                         : 0
                 },
                 {
-                    CPT.UP_OUTER_BAR, c => IsOuterBar(c, true) &&
-                                           IsStrengthBar(c[^1], true)
+                    CPT.UP_OUTER_BAR, cdParams => 
+                        IsOuterBar(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[CPT.UP_OUTER_BAR].BarsCount
                         : 0
                 },
                 {
-                    CPT.DOWN_OUTER_BAR, c => IsOuterBar(c, false) &&
-                                             IsStrengthBar(c[^1], false)
+                    CPT.DOWN_OUTER_BAR, cdParams => 
+                        IsOuterBar(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[CPT.DOWN_OUTER_BAR].BarsCount
                         : 0
                 },
                 {
-                    CPT.UP_OUTER_BAR_BODIES, c => IsOuterBarBodies(c, true) &&
-                                                  IsStrengthBar(c[^1], true)
+                    CPT.UP_OUTER_BAR_BODIES, cdParams => 
+                        IsOuterBarBodies(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[CPT.UP_OUTER_BAR_BODIES].BarsCount
                         : 0
                 },
                 {
-                    CPT.DOWN_OUTER_BAR_BODIES, c => IsOuterBarBodies(c, false) &&
-                                                    IsStrengthBar(c[^1], false)
+                    CPT.DOWN_OUTER_BAR_BODIES, cdParams => IsOuterBarBodies(cdParams.Candles, false) && 
+                                                           IsStrengthBar(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[CPT.DOWN_OUTER_BAR_BODIES].BarsCount
                         : 0
                 },
                 {
-                    CPT.UP_INNER_BAR, c => IsInnerBar(c, true) &&
-                                           IsStrengthBar(c[^1], true)
+                    CPT.UP_INNER_BAR, cdParams => 
+                        IsInnerBar(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[CPT.UP_INNER_BAR].BarsCount
                         : 0
                 },
                 {
-                    CPT.DOWN_INNER_BAR, c => IsInnerBar(c, false) &&
-                                             IsStrengthBar(c[^1], false)
+                    CPT.DOWN_INNER_BAR, cdParams =>
+                        IsInnerBar(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[CPT.DOWN_INNER_BAR].BarsCount
                         : 0
                 },
                 {
-                    CPT.UP_PPR, c => IsPpr(c, true) &&
-                                     IsStrengthBar(c[^1], true)
+                    CPT.UP_PPR, cdParams => 
+                        IsPpr(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[CPT.UP_PPR].BarsCount
                         : 0
                 },
                 {
-                    CPT.DOWN_PPR, c => IsPpr(c, false) &&
-                                       IsStrengthBar(c[^1], false)
+                    CPT.DOWN_PPR, cdParams => 
+                        IsPpr(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[CPT.DOWN_PPR].BarsCount
                         : 0
                 },
                 {
-                    CPT.UP_RAILS, c => IsRails(c, true) ? PATTERN_DIRECTION_MAP[CPT.UP_RAILS].BarsCount : 0
+                    CPT.UP_RAILS, cdParams => IsRails(cdParams.Candles, true) 
+                        ? PATTERN_DIRECTION_MAP[CPT.UP_RAILS].BarsCount 
+                        : 0
                 },
                 {
-                    CPT.DOWN_RAILS, c => IsRails(c, false) ? PATTERN_DIRECTION_MAP[CPT.DOWN_RAILS].BarsCount : 0
+                    CPT.DOWN_RAILS, cdParams => IsRails(cdParams.Candles, false) 
+                        ? PATTERN_DIRECTION_MAP[CPT.DOWN_RAILS].BarsCount 
+                        : 0
                 },
                 {
-                    CPT.UP_PPR_IB, c => IsPprAndIb(c) ? PATTERN_DIRECTION_MAP[CPT.UP_PPR_IB].BarsCount : 0
+                    CPT.UP_PPR_IB, cdParams => IsPprAndIb(cdParams.Candles) 
+                        ? PATTERN_DIRECTION_MAP[CPT.UP_PPR_IB].BarsCount 
+                        : 0
                 },
                 {
-                    CPT.DOWN_PPR_IB, c => IsPprAndIb(c) ? PATTERN_DIRECTION_MAP[CPT.DOWN_PPR_IB].BarsCount : 0
+                    CPT.DOWN_PPR_IB, cdParams => IsPprAndIb(cdParams.Candles) 
+                        ? PATTERN_DIRECTION_MAP[CPT.DOWN_PPR_IB].BarsCount 
+                        : 0
                 },
                 {
-                    CPT.UP_DOUBLE_INNER_BAR,
-                    c => IsDoubleInnerBar(c, true) ? PATTERN_DIRECTION_MAP[CPT.UP_DOUBLE_INNER_BAR].BarsCount : 0
+                    CPT.UP_DOUBLE_INNER_BAR, cdParams => IsDoubleInnerBar(cdParams.Candles, true) 
+                        ? PATTERN_DIRECTION_MAP[CPT.UP_DOUBLE_INNER_BAR].BarsCount 
+                        : 0
                 },
                 {
-                    CPT.DOWN_DOUBLE_INNER_BAR,
-                    c => IsDoubleInnerBar(c, false) ? PATTERN_DIRECTION_MAP[CPT.DOWN_DOUBLE_INNER_BAR].BarsCount : 0
+                    CPT.DOWN_DOUBLE_INNER_BAR, cdParams => IsDoubleInnerBar(cdParams.Candles, false) 
+                        ? PATTERN_DIRECTION_MAP[CPT.DOWN_DOUBLE_INNER_BAR].BarsCount 
+                        : 0
                 },
                 {
-                    CPT.UP_CPPR, c => GetCPprCount(c, true)
+                    CPT.UP_CPPR, cdParams => GetCPprCount(cdParams.Candles, true)
                 },
                 {
-                    CPT.DOWN_CPPR, c => GetCPprCount(c, false)
+                    CPT.DOWN_CPPR, cdParams => GetCPprCount(cdParams.Candles, false)
+                },
+                {
+                    CPT.UP_DOJI, cdParams => IsDoji(cdParams, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        ? PATTERN_DIRECTION_MAP[CPT.UP_DOJI].BarsCount
+                        : 0
+                },
+                {
+                    CPT.DOWN_DOJI, cdParams => IsDoji(cdParams, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        ? PATTERN_DIRECTION_MAP[CPT.DOWN_DOJI].BarsCount
+                        : 0
                 }
             };
 
@@ -170,26 +196,98 @@ namespace TradeKit.Core.AlgoBase
 
         private static bool IsPinBar(Candle[] c, bool isUp)
         {
-            bool res;
+            double bodyPb = Math.Abs(c[^1].C - c[^1].O);
+            double bodyPb1 = Math.Abs(c[^2].C - c[^2].O);
+            if (bodyPb1 <= bodyPb)
+                return false;
+
+            double upShadowPb;
+            double downShadowPb;
             if (isUp)
             {
-                double upperPart = c[^2].H - c[^2].Length / 3;
-                double secHalf = c[^2].H - c[^2].Length / 2;
-                res = c[^2].BodyLow >= upperPart &&
-                      c[^3].L >= secHalf && c[^2].C <= c[^3].H &&
-                      c[^1].L >= secHalf && c[^1].C > c[^2].H;
-            }
-            else
-            {
-                double lowerPart = c[^2].L + c[^2].Length / 3;
-                double secHalf = c[^2].L + c[^2].Length / 2;
-                res = c[^2].BodyHigh <= lowerPart &&
-                      c[^3].H <= secHalf && c[^2].C >= c[^3].L &&
-                      c[^1].H <= secHalf && c[^1].C < c[^2].L;
+                if (c[^2].O <= c[^2].C)
+                    return false;
+
+                downShadowPb = c[^1].O - c[^1].L;
+                if (downShadowPb <= 0.5 * bodyPb)
+                    return false;
+
+                upShadowPb = c[^1].H - c[^1].C;
+                if (downShadowPb <= 2 * upShadowPb)
+                    return false;
+
+                return true;
             }
 
-            return res;
+            if (c[^2].C <= c[^2].O)
+                return false;
+
+            upShadowPb = c[^1].H - c[^1].O;
+            if (upShadowPb <= 0.5 * bodyPb)
+                return false;
+
+            downShadowPb = c[^1].C - c[^1].L;
+            if (upShadowPb <= 2 * downShadowPb)
+                return false;
+
+            return true;
         }
+
+        private static bool IsDoji(CandleParams candleParams, bool isUp)
+        {
+            Candle[] c = candleParams.Candles;
+
+            double pctCDw = DOJI_MIN_PERCENT_WICKS / 2 * 0.01;
+            double pctCDwBody = pctCDw * c[^1].Length;
+            double pctCDb = (100 - DOJI_MIN_PERCENT_WICKS) * 0.01;
+            double minPip = DOJI_PREV_PIP_MIN_BODY_SIZE * candleParams.Symbol.PipSize;
+
+            double bodyPb = Math.Abs(c[^1].C - c[^1].O);
+            double maxCo1 = Math.Max(c[^1].C, c[^1].O);
+            double minCo1 = Math.Min(c[^1].C, c[^1].O);
+
+            if (bodyPb / c[^1].Length >= pctCDb)
+                return false;
+
+            if (c[^1].H - maxCo1 <= pctCDwBody)
+                return false;
+
+            if (minCo1 - c[^1].L <= pctCDwBody)
+                return false;
+
+            if (isUp)
+            {
+                if (c[^2].O <= c[^2].C)
+                    return false;
+
+                if (c[^2].O - c[^2].C <= minPip)
+                    return false;
+
+
+                if (c[^2].O < maxCo1)
+                    return false;
+
+                if (c[^2].C > minCo1)
+                    return false;
+
+                return true;
+            }
+
+            if (c[^2].O >= c[^2].C)
+                return false;
+
+            if (c[^2].C - c[^2].O <= minPip)
+                return false;
+
+            if (c[^2].C < maxCo1)
+                return false;
+
+            if (c[^2].O > minCo1)
+                return false;
+
+            return true;
+        }
+
 
         private static bool IsOuterBarBodies(Candle[] c, bool isUp)
         {
@@ -340,14 +438,13 @@ namespace TradeKit.Core.AlgoBase
             List<CandlesResult> res = null;
             foreach (CPT cpt in m_Patterns)
             {
-                if (!PATTERN_EXPRESSION_MAP.TryGetValue(
-                        cpt, out Func<Candle[], int> func) ||
+                if (!PATTERN_EXPRESSION_MAP.TryGetValue(cpt, out Func<CandleParams, int> func) ||
                     !PATTERN_DIRECTION_MAP.TryGetValue(cpt, out CPS settings))
                 {
                     continue;
                 }
-
-                int barsCount = func(candles);
+                //pass m_BarsProvider.BarSymbol.PipSize
+                int barsCount = func(new CandleParams(candles, m_BarsProvider.BarSymbol));
                 if (barsCount == 0)
                 {
                     continue;
