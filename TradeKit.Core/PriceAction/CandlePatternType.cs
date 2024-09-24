@@ -24,5 +24,7 @@
         DOWN_CPPR,
         UP_DOJI,
         DOWN_DOJI,
+        PIECING_LINE,
+        DARK_CLOUD,
     }
 }

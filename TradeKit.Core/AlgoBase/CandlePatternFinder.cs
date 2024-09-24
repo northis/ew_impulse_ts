@@ -18,6 +18,7 @@ namespace TradeKit.Core.AlgoBase
         private const double ONE_CANDLE_RATIO = 0.7;
         private const double DOJI_MIN_PERCENT_WICKS = 60;
         private const double DOJI_PREV_PIP_MIN_BODY_SIZE = 15;
+        private const double PIECING_LINE_DARK_CLOUD_C = 0.7;
         private const int MIN_BARS_INDEX = 9;//0..9
 
         private static readonly Dictionary<CPT, CPS>
@@ -44,7 +45,9 @@ namespace TradeKit.Core.AlgoBase
                 {CPT.UP_CPPR, new CPS(true, -1, 0)},
                 {CPT.DOWN_CPPR, new CPS(false, -1, 0)},
                 {CPT.UP_DOJI, new CPS(true, 0, 2)},
-                {CPT.DOWN_DOJI, new CPS(false, 0, 2)}
+                {CPT.DOWN_DOJI, new CPS(false, 0, 2)},
+                {CPT.PIECING_LINE, new CPS(true, 0, 2)},
+                {CPT.DARK_CLOUD, new CPS(false, 0, 2)}
             };
 
         // Func - array of candles and count of the bars in the pattern
@@ -160,13 +163,27 @@ namespace TradeKit.Core.AlgoBase
                     CPT.DOWN_CPPR, cdParams => GetCPprCount(cdParams.Candles, false)
                 },
                 {
-                    CPT.UP_DOJI, cdParams => IsDoji(cdParams, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                    CPT.UP_DOJI, cdParams => 
+                        IsDoji(cdParams, true) && IsStrengthBar(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[CPT.UP_DOJI].BarsCount
                         : 0
                 },
                 {
-                    CPT.DOWN_DOJI, cdParams => IsDoji(cdParams, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                    CPT.DOWN_DOJI, cdParams => 
+                        IsDoji(cdParams, false) && IsStrengthBar(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[CPT.DOWN_DOJI].BarsCount
+                        : 0
+                },
+                {
+                    CPT.PIECING_LINE, cdParams =>
+                        IsPiecingLineDarkCloud(cdParams, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        ? PATTERN_DIRECTION_MAP[CPT.PIECING_LINE].BarsCount
+                        : 0
+                },
+                {
+                    CPT.DARK_CLOUD, cdParams =>
+                        IsPiecingLineDarkCloud(cdParams, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        ? PATTERN_DIRECTION_MAP[CPT.DARK_CLOUD].BarsCount
                         : 0
                 }
             };
@@ -288,6 +305,63 @@ namespace TradeKit.Core.AlgoBase
             return true;
         }
 
+        private static bool IsPiecingLineDarkCloud(CandleParams candleParams, bool isUp)
+        {
+            Candle[] c = candleParams.Candles;
+            double minPip = DOJI_PREV_PIP_MIN_BODY_SIZE * candleParams.Symbol.PipSize;
+            double oToC = c[^1].O - c[^1].C;
+            double oToC1 = c[^2].O - c[^2].C;
+
+
+            if (Math.Abs(oToC1) / c[^2].Length < PIECING_LINE_DARK_CLOUD_C)
+                return false;
+
+            if (Math.Abs(oToC) / c[^1].Length < PIECING_LINE_DARK_CLOUD_C)
+                return false;
+
+            if (isUp)
+            {
+                if (oToC1 <= 0)
+                    return false;
+
+                if (oToC1 <= minPip)
+                    return false;
+
+                if (oToC >= 0)
+                    return false;
+
+                if (c[^1].O > c[^2].C)
+                    return false;
+
+                if (c[^1].C >= c[^2].O)
+                    return false;
+
+                if (c[^1].C <= (c[^2].O + c[^2].C) / 2)
+                    return false;
+
+                return true;
+            }
+
+            if (oToC1 >= 0)
+                return false;
+
+            if (oToC1 >= minPip)
+                return false;
+
+            if (oToC <= 0)
+                return false;
+
+            if (c[^1].O < c[^2].C)
+                return false;
+
+            if (c[^1].C <= c[^2].O)
+                return false;
+
+            if (c[^1].C >= (c[^2].O + c[^2].C) / 2)
+                return false;
+
+            return true;
+        }
 
         private static bool IsOuterBarBodies(Candle[] c, bool isUp)
         {

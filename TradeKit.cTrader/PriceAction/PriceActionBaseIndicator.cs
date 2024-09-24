@@ -145,6 +145,18 @@ namespace TradeKit.CTrader.PriceAction
         [Parameter("Doji", DefaultValue = true)]
         public bool Doji { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DARK_CLOUD"/> pattern.
+        /// </summary>
+        [Parameter("Dark cloud", DefaultValue = true)]
+        public bool DarkCloud { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.PIECING_LINE"/> pattern.
+        /// </summary>
+        [Parameter("Piecing line", DefaultValue = true)]
+        public bool PiecingLine { get; set; }
+
         private HashSet<CandlePatternType> GetPatternsType()
         {
             var res = new HashSet<CandlePatternType>();
@@ -213,6 +225,12 @@ namespace TradeKit.CTrader.PriceAction
                 res.Add(CandlePatternType.UP_DOJI);
                 res.Add(CandlePatternType.DOWN_DOJI);
             }
+
+            if(DarkCloud)
+                res.Add(CandlePatternType.DARK_CLOUD);
+
+            if (PiecingLine)
+                res.Add(CandlePatternType.PIECING_LINE);
 
             return res;
         }
