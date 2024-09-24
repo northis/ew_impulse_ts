@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 using TradeKit.Core.PriceAction;
 using CPS = TradeKit.Core.PriceAction.CandlePatternSettings;
 using CPT = TradeKit.Core.PriceAction.CandlePatternType;
@@ -257,7 +255,7 @@ namespace TradeKit.Core.AlgoBase
             double pctCDw = DOJI_MIN_PERCENT_WICKS / 2 * 0.01;
             double pctCDwBody = pctCDw * c[^1].Length;
             double pctCDb = (100 - DOJI_MIN_PERCENT_WICKS) * 0.01;
-            double minPip = DOJI_PREV_PIP_MIN_BODY_SIZE * candleParams.Symbol.PipSize;
+            double minPip = DOJI_PREV_PIP_MIN_BODY_SIZE * Math.Pow(10, -candleParams.Symbol.Digits);
 
             double bodyPb = Math.Abs(c[^1].C - c[^1].O);
             double maxCo1 = Math.Max(c[^1].C, c[^1].O);
@@ -308,10 +306,9 @@ namespace TradeKit.Core.AlgoBase
         private static bool IsPiecingLineDarkCloud(CandleParams candleParams, bool isUp)
         {
             Candle[] c = candleParams.Candles;
-            double minPip = DOJI_PREV_PIP_MIN_BODY_SIZE * candleParams.Symbol.PipSize;
+            double minPip = DOJI_PREV_PIP_MIN_BODY_SIZE * Math.Pow(10, -candleParams.Symbol.Digits);
             double oToC = c[^1].O - c[^1].C;
             double oToC1 = c[^2].O - c[^2].C;
-
 
             if (Math.Abs(oToC1) / c[^2].Length < PIECING_LINE_DARK_CLOUD_C)
                 return false;
@@ -517,7 +514,7 @@ namespace TradeKit.Core.AlgoBase
                 {
                     continue;
                 }
-                //pass m_BarsProvider.BarSymbol.PipSize
+
                 int barsCount = func(new CandleParams(candles, m_BarsProvider.BarSymbol));
                 if (barsCount == 0)
                 {
@@ -530,7 +527,7 @@ namespace TradeKit.Core.AlgoBase
                 int slIndex = 0;
                 double? limitPrice = null;
                 
-                if (settings.StopLossBarIndex >= 0)// If we know the extremum bar index
+                if (settings.StopLossBarIndex >= 0)// If we know the extreme bar index
                 {
                     int offset = settings.StopLossBarIndex + 1;
                     sl = settings.IsBull
