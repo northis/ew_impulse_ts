@@ -54,7 +54,7 @@ namespace TradeKit.CTrader.Gartley
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity,
                 GartleyParams.Accuracy, GartleyParams.BarDepthCount, GartleyParams.UseDivergences,
-                zoneAlligator, patternTypes, ao, breakEvenRatio);
+                zoneAlligator, patternTypes, ao, null, breakEvenRatio);//TODO add
 
             return setupFinder;
         }

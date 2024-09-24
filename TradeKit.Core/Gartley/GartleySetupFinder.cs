@@ -2,6 +2,7 @@
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.PriceAction;
 
 namespace TradeKit.Core.Gartley;
 
@@ -14,6 +15,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly bool m_FilterByDivergence;
     private readonly ZoneAlligatorFinder m_ZoneAlligator;
     private readonly AwesomeOscillatorFinder m_AwesomeOscillator;
+    private readonly CandlePatternFinder m_CandlePatternFilter;
     private readonly double? m_BreakevenRatio;
 
     private readonly GartleyPatternFinder m_PatternFinder;
@@ -31,6 +33,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="zoneAlligator">For filtering by the trend.</param>
     /// <param name="patterns">Patterns supported.</param>
     /// <param name="awesomeOscillator">AO indicator instance.</param>
+    /// <param name="candlePatternFilter">Candle patterns filter.</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
     public GartleySetupFinder(
         IBarsProvider mainBarsProvider,
@@ -41,10 +44,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         ZoneAlligatorFinder zoneAlligator = null,
         HashSet<GartleyPatternType> patterns = null,
         AwesomeOscillatorFinder awesomeOscillator = null,
+        CandlePatternFinder candlePatternFilter = null,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)
     {
         m_MainBarsProvider = mainBarsProvider;
         m_AwesomeOscillator = awesomeOscillator;
+        m_CandlePatternFilter = candlePatternFilter;
         m_BreakevenRatio = breakevenRatio;
         m_ZoneAlligator = zoneAlligator;
         m_FilterByDivergence = filterByDivergence;
@@ -166,12 +171,20 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                     }
                 }
 
+                List<CandlesResult> candlePatterns = null;
+                if (m_CandlePatternFilter != null)
+                {
+                    candlePatterns = m_CandlePatternFilter.GetCandlePatterns(index);
+                    if (candlePatterns == null || candlePatterns.All(a => a.IsBull != localPattern.IsBull))
+                        continue;
+                }
+
                 DateTime startView = m_MainBarsProvider.GetOpenTime(
                     localPattern.ItemX.BarIndex);
 
                 var args = new GartleySignalEventArgs(
                     new BarPoint(close, index, m_MainBarsProvider),
-                    localPattern, startView, divItem, m_BreakevenRatio);
+                    localPattern, startView, divItem, m_BreakevenRatio, candlePatterns);
                 OnEnterInvoke(args);
                 m_PatternsEntryMap[localPattern] = args;
                 Logger.Write($"Added {localPattern.PatternType}");

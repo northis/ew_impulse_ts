@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using cAlgo.API;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.PriceAction;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Gartley
@@ -107,6 +109,12 @@ namespace TradeKit.CTrader.Gartley
         public bool UseDivergences { get; set; }
         
         /// <summary>
+        /// Gets or sets a value indicating whether we should use candle patterns (Price Action) with the patterns.
+        /// </summary>
+        [Parameter("Use candle patterns", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool UseCandlePatterns { get; set; }
+        
+        /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
         /// </summary>
         [Parameter("Trend only patterns", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -159,10 +167,24 @@ namespace TradeKit.CTrader.Gartley
             ZoneAlligatorFinder zoneAlligator = null;
             if (UseTrendOnly)
                 zoneAlligator = new ZoneAlligatorFinder(m_BarsProvider);
-            
+
+            CandlePatternFinder cpf = UseCandlePatterns
+                ? new CandlePatternFinder(m_BarsProvider, false,
+                    new HashSet<CandlePatternType>(new []{
+                        CandlePatternType.DARK_CLOUD,
+                        CandlePatternType.PIECING_LINE,
+                        CandlePatternType.DOWN_DOJI,
+                        CandlePatternType.UP_DOJI,
+                        CandlePatternType.UP_PIN_BAR,
+                        CandlePatternType.DOWN_PIN_BAR,
+                        CandlePatternType.HAMMER,
+                        CandlePatternType.INVERTED_HAMMER
+                    }))
+                : null;
+
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), Accuracy,
-                BarDepthCount, UseDivergences, zoneAlligator, patternTypes, ao);
+                BarDepthCount, UseDivergences, zoneAlligator, patternTypes, ao, cpf);
             Subscribe(m_SetupFinder);
         }
 
@@ -262,8 +284,7 @@ namespace TradeKit.CTrader.Gartley
 
                 bdLine.TextForLine(Chart, $"{e.GartleyItem.BtoDActual.Ratio()} ({e.GartleyItem.BtoD.Ratio()})",
                     true, indexB, indexD);
-
-
+                
                 ChartTrendLine acLine =
                     Chart.DrawTrendLine($"AC{name}", indexA, valueA, indexC, valueC, colorBorder, LINE_WIDTH);
 
