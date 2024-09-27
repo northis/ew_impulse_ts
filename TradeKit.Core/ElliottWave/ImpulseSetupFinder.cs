@@ -186,7 +186,7 @@ namespace TradeKit.Core.ElliottWave
             bool isUp = impulseEnd > impulseStart;
 
             // We want to discover view zone (before the impulse) + the impulse itself
-            // to be able to calculate extremum points.
+            // to be able to calculate extreme points.
             PreparePivotPointsFinder(
                 viewDt, impulseStart.OpenTime, impulseEnd.OpenTime, isUp);
             bars = Array.Empty<BarPoint>();
@@ -258,7 +258,7 @@ namespace TradeKit.Core.ElliottWave
         /// Determines whether the data for specified index contains a trade setup.
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
-        /// <param name="finder">The extremum finder instance.</param>
+        /// <param name="finder">The extreme finder instance.</param>
         /// <param name="currentPriceBid">The current price (Bid).</param>
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.

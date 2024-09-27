@@ -26,5 +26,7 @@
         DOWN_DOJI,
         PIECING_LINE,
         DARK_CLOUD,
+        UP_HARAMI,
+        DOWN_HARAMI
     }
 }

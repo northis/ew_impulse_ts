@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using cAlgo.API;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.PriceAction;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Gartley
@@ -47,6 +49,12 @@ namespace TradeKit.CTrader.Gartley
             if (GartleyParams.UseTrendOnly) 
                 zoneAlligator = new ZoneAlligatorFinder(cTraderBarsProvider);
 
+
+            CandlePatternFinder cpf = GartleyParams.UseCandlePatterns
+                ? new CandlePatternFinder(cTraderBarsProvider, false,
+                    new HashSet<CandlePatternType>(CandlePatternFinder.GetPatternsForFiltering()))
+                : null;
+
             double? breakEvenRatio = null;
             if (GartleyParams.BreakEvenRatio > 0)
                 breakEvenRatio = GartleyParams.BreakEvenRatio;
@@ -54,7 +62,7 @@ namespace TradeKit.CTrader.Gartley
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity,
                 GartleyParams.Accuracy, GartleyParams.BarDepthCount, GartleyParams.UseDivergences,
-                zoneAlligator, patternTypes, ao, null, breakEvenRatio);//TODO add
+                zoneAlligator, patternTypes, ao, cpf, breakEvenRatio);
 
             return setupFinder;
         }

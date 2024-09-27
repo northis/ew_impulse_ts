@@ -1,4 +1,5 @@
-﻿using Plotly.NET;
+﻿using System.Diagnostics;
+using Plotly.NET;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -107,7 +108,7 @@ namespace TradeKit.Core.Gartley
                 Line: Line.init(Color: colorFill));
             candlestickChart.WithShape(patternPath);
             
-            double levelStart = barProvider.GetClosePrice(gartley.ItemD.BarIndex);
+            double levelStart = barProvider.GetClosePrice(barProvider.GetIndexByTime(gartley.ItemD.OpenTime));
             GetSetupEndRender(gartley.ItemD.OpenTime, barProvider.TimeFrame, 
                 out DateTime setupStart, out DateTime setupEnd);
 

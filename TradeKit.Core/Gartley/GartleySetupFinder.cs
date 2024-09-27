@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.AlgoBase;
+﻿using System.Diagnostics;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -181,7 +182,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
                 DateTime startView = m_MainBarsProvider.GetOpenTime(
                     localPattern.ItemX.BarIndex);
-
                 var args = new GartleySignalEventArgs(
                     new BarPoint(close, index, m_MainBarsProvider),
                     localPattern, startView, divItem, m_BreakevenRatio, candlePatterns);

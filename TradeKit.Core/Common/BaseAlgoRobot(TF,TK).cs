@@ -734,7 +734,7 @@ namespace TradeKit.Core.Common
             GenericChart.GenericChart resultChart = Chart.Combine(
                     layers.Concat(new[] { candlestickChart }))
                 .WithTitle(
-                    $@"{barProvider.BarSymbol} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
+                    $@"{barProvider.BarSymbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
                     Font.init(Size: CHART_FONT_HEADER));
 
             string fileName = startView.ToString("s").Replace(":", "-");

@@ -23,7 +23,8 @@ namespace TradeKit.CTrader.Gartley
                 UseAltBat, 
                 UseCypher, 
                 UseDeepCrab, 
-                UseDivergences, 
+                UseDivergences,
+                UseCandlePatterns,
                 UseTrendOnly, 
                 BreakEvenRatio);
         }
@@ -95,6 +96,12 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter(nameof(UseDivergences), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseDivergences { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use candle patterns (Price Action).
+        /// </summary>
+        [Parameter(nameof(UseCandlePatterns), DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool UseCandlePatterns { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.

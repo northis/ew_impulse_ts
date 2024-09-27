@@ -170,16 +170,7 @@ namespace TradeKit.CTrader.Gartley
 
             CandlePatternFinder cpf = UseCandlePatterns
                 ? new CandlePatternFinder(m_BarsProvider, false,
-                    new HashSet<CandlePatternType>(new []{
-                        CandlePatternType.DARK_CLOUD,
-                        CandlePatternType.PIECING_LINE,
-                        CandlePatternType.DOWN_DOJI,
-                        CandlePatternType.UP_DOJI,
-                        CandlePatternType.UP_PIN_BAR,
-                        CandlePatternType.DOWN_PIN_BAR,
-                        CandlePatternType.HAMMER,
-                        CandlePatternType.INVERTED_HAMMER
-                    }))
+                    new HashSet<CandlePatternType>(CandlePatternFinder.GetPatternsForFiltering()))
                 : null;
 
             m_SetupFinder = new GartleySetupFinder(

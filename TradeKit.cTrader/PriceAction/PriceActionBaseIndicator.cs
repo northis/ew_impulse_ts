@@ -146,6 +146,12 @@ namespace TradeKit.CTrader.PriceAction
         public bool Doji { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_HARAMI""/> and <see cref="CandlePatternType.DOWN_HARAMI"/> patterns.
+        /// </summary>
+        [Parameter("Harami", DefaultValue = true)]
+        public bool Harami { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DARK_CLOUD"/> pattern.
         /// </summary>
         [Parameter("Dark cloud", DefaultValue = true)]
@@ -231,6 +237,12 @@ namespace TradeKit.CTrader.PriceAction
 
             if (PiecingLine)
                 res.Add(CandlePatternType.PIECING_LINE);
+
+            if (Harami)
+            {
+                res.Add(CandlePatternType.UP_HARAMI);
+                res.Add(CandlePatternType.DOWN_HARAMI);
+            }
 
             return res;
         }

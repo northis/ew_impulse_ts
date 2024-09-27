@@ -15,6 +15,7 @@
         bool UseCypher,
         bool UseDeepCrab,
         bool UseDivergences,
+        bool UseCandlePatterns,
         bool UseTrendOnly,
         double BreakEvenRatio)
     {
@@ -73,6 +74,11 @@
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
         public bool UseDivergences { get; set; } = UseDivergences;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use candle patterns (Price Action).
+        /// </summary>
+        public bool UseCandlePatterns { get; set; } = UseCandlePatterns;
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use only trend patterns.
