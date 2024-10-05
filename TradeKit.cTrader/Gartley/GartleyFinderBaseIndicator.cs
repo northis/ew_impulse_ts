@@ -285,15 +285,15 @@ namespace TradeKit.CTrader.Gartley
 
             if (ShowSetups)
             {
-                double closeD = m_BarsProvider.GetClosePrice(indexD);
+                double levelValue = e.Level.Value;
 
-                Chart.DrawRectangle($"SL{name}", indexD, closeD, indexD + SETUP_WIDTH,
+                Chart.DrawRectangle($"SL{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
                         e.GartleyItem.StopLoss, m_SlColor, LINE_WIDTH)
                     .SetFilled();
-                Chart.DrawRectangle($"TP1{name}", indexD, closeD, indexD + SETUP_WIDTH,
+                Chart.DrawRectangle($"TP1{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
                         e.GartleyItem.TakeProfit1, m_TpColor, LINE_WIDTH)
                     .SetFilled();
-                Chart.DrawRectangle($"TP2{name}", indexD, closeD, indexD + SETUP_WIDTH,
+                Chart.DrawRectangle($"TP2{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
                         e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
                     .SetFilled();
             }

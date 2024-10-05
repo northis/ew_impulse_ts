@@ -14,6 +14,7 @@ namespace TradeKit.Core.PriceAction
         private double? m_BreakevenRatio;
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly SuperTrendItem m_SuperTrendItem;
+        private readonly GartleyPatternFinder m_GartleyPatternFinder;
         private const int DEPTH_SHOW = 10;
         private const double SL_ALLOWANCE = 0.1;
         private readonly CandlePatternFinder m_CandlePatternFinder;
@@ -52,8 +53,7 @@ namespace TradeKit.Core.PriceAction
         /// Checks whether the data for specified index contains a trade setup.
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
-        /// <param name="currentPriceBid">The current price (Bid).</param>
-        protected override void CheckSetup(int index, double? currentPriceBid = null)
+        protected override void CheckSetup(int index)
         {
             int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - DEPTH_SHOW);
 
@@ -61,21 +61,11 @@ namespace TradeKit.Core.PriceAction
             double close;
             bool noOpenedPatterns = m_CandlePatternsEntryMap.Count == 0 && m_PendingPatterns.Count == 0;
 
-            if (currentPriceBid.HasValue)
-            {
-                if (noOpenedPatterns)
-                    return;
+            localPatterns = m_CandlePatternFinder.GetCandlePatterns(index);
+            if (localPatterns == null && noOpenedPatterns)
+                return;
 
-                close = currentPriceBid.Value;
-            }
-            else
-            {
-                localPatterns = m_CandlePatternFinder.GetCandlePatterns(index);
-                if (localPatterns == null && noOpenedPatterns)
-                    return;
-
-                close = BarsProvider.GetClosePrice(index);
-            }
+            close = BarsProvider.GetClosePrice(index);
 
             DateTime currentDt = BarsProvider.GetOpenTime(index);
             void AddPattern(CandlesResult localPattern, double price)
@@ -120,14 +110,14 @@ namespace TradeKit.Core.PriceAction
                 }
             }
 
-            double low = currentPriceBid ?? BarsProvider.GetLowPrice(index);
-            double high = currentPriceBid ?? BarsProvider.GetHighPrice(index);
+            double low = BarsProvider.GetLowPrice(index);
+            double high = BarsProvider.GetHighPrice(index);
 
             HashSet<CandlesResult> toRemovePendingPatterns = null;
             foreach (CandlesResult pendingPattern in m_PendingPatterns)
             {
                 if (m_CandlePatternsEntryMap.ContainsKey(pendingPattern) ||
-                    pendingPattern.BarIndex == index && currentPriceBid == null || // the same bar
+                    pendingPattern.BarIndex == index || // the same bar
                     toRemovePendingPatterns != null && toRemovePendingPatterns.Contains(pendingPattern))
                     continue;
 
@@ -140,7 +130,7 @@ namespace TradeKit.Core.PriceAction
                 else if (pendingPattern.IsBull && pendingPattern.LimitPrice.Value <= high ||
                          !pendingPattern.IsBull && pendingPattern.LimitPrice.Value >= low)
                 {
-                    AddPattern(pendingPattern, currentPriceBid ?? pendingPattern.LimitPrice.Value);
+                    AddPattern(pendingPattern, pendingPattern.LimitPrice.Value);
                     counterPattern = m_PendingPatterns.FirstOrDefault(
                         a => a.IsBull == !pendingPattern.IsBull && a.LimitPrice.HasValue &&
                              (toRemovePendingPatterns == null || !toRemovePendingPatterns.Contains(a)));

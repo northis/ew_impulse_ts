@@ -66,9 +66,9 @@ namespace TradeKit.Core.Signals
         /// </summary>
         public BarPoint LastEntry { get; private set; }
 
-        protected override void CheckSetup(int index, double? currentPriceBid = null)
+        protected override void CheckSetup(int index)
         {
-            m_LastPrice = currentPriceBid ?? m_MainBarsProvider.GetClosePrice(index);
+            m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
             ProcessSetup();
         }
 

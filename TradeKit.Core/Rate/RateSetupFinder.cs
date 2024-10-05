@@ -50,19 +50,11 @@ namespace TradeKit.Core.Rate
         /// </summary>
         public BarPoint LastEntry { get; private set; }
 
-        protected override void CheckSetup(int index, double? currentPriceBid = null)
+        protected override void CheckSetup(int index)
         {
-            if (currentPriceBid == null)
-            {
-                m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
-                m_PriceSpeedCheckerMajor.Calculate(index);
-                m_PriceSpeedCheckerMinor.Calculate(index);
-                ProcessSetup();
-                return;
-            }
-
-            //m_PriceSpeedCheckerMajor.Calculate(m_LastBar, bid);
-            m_PriceSpeedCheckerMinor.Calculate(LastBar, currentPriceBid);
+            m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
+            m_PriceSpeedCheckerMajor.Calculate(index);
+            m_PriceSpeedCheckerMinor.Calculate(index);
             ProcessSetup();
         }
 

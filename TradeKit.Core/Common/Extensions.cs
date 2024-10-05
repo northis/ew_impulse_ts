@@ -1,4 +1,5 @@
 ﻿using Microsoft.FSharp.Core;
+using PuppeteerSharp.Input;
 using System.Globalization;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.PriceAction;
@@ -157,7 +158,7 @@ namespace TradeKit.Core.Common
         /// <param name="toDeleteEnumerable">The enumerable to delete.</param>
         /// <returns>Removed items count.</returns>
         public static int RemoveWhere<TK, TV>(
-            this SortedDictionary<TK, TV> sortedList, IEnumerable<TK> toDeleteEnumerable)
+            this IDictionary<TK, TV> sortedList, IEnumerable<TK> toDeleteEnumerable)
         {
             var keysToRemove = new List<TK>();
             foreach (TK key in toDeleteEnumerable)

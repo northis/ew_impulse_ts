@@ -14,9 +14,5 @@ namespace TradeKit.Core.Signals
         public override void CheckBar(int index)
         {
         }
-
-        public override void CheckTick(double bid)
-        {
-        }
     }
 }

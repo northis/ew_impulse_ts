@@ -519,8 +519,7 @@ namespace TradeKit.Core.ElliottWave
         /// Checks whether the data for specified index contains a trade setup.
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
-        /// <param name="currentPriceBid">The current price (Bid).</param>
-        protected override void CheckSetup(int index, double? currentPriceBid = null)
+        protected override void CheckSetup(int index)
         {
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
@@ -529,20 +528,6 @@ namespace TradeKit.Core.ElliottWave
                     break;
                 }
             }
-        }
-
-        /// <summary>
-        /// Checks the tick.
-        /// </summary>
-        /// <param name="bid">The price (bid).</param>
-        public override void CheckTick(double bid)
-        {
-            if (m_PreFinder == null)
-            {
-                return;
-            }
-            
-            IsSetup(LastBar, m_PreFinder, bid);
         }
     }
 }

@@ -25,16 +25,17 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         public static CandlePatternType[] GetPatternsForFiltering()
         {
+            //return Enum.GetValues<CandlePatternType>();
             return new[]
             {
-                DARK_CLOUD,
-                PIECING_LINE,
-                DOWN_DOJI,
-                UP_DOJI,
-                UP_PIN_BAR,
-                DOWN_PIN_BAR,
-                HAMMER,
-                INVERTED_HAMMER,
+                //DARK_CLOUD,
+                //PIECING_LINE,
+                //DOWN_DOJI,
+                //UP_DOJI,
+                //UP_PIN_BAR,
+                //DOWN_PIN_BAR,
+                //HAMMER,
+                //INVERTED_HAMMER,
                 UP_RAILS,
                 DOWN_RAILS,
                 UP_HARAMI,

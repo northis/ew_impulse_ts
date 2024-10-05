@@ -1,4 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -22,6 +25,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly GartleyPatternFinder m_PatternFinder;
     private readonly GartleyItemComparer m_GartleyItemComparer = new();
     private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
+    private readonly Dictionary<GartleyItem, int> m_PendingPatterns;
+    private const int PATTERN_CACHE_DEPTH_CANDLES = 10;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -60,46 +65,140 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
+        m_PendingPatterns = new Dictionary<GartleyItem, int>(comparer);
         m_FilterByDivergence = awesomeOscillator != null && filterByDivergence;
+    }
+
+    private void AddSetup(
+        GartleyItem localPattern, double close, int index, List<CandlesResult> candlePatterns = null)
+    {
+        if (m_CandlePatternFilter != null && candlePatterns == null)
+        {
+            m_PendingPatterns.Add(localPattern, 0);
+            return;
+        }
+
+        if (m_ZoneAlligator != null)
+        {
+            TrendType trend = SignalFilters.GetTrend(
+                m_ZoneAlligator, localPattern.ItemD.OpenTime);
+            if (localPattern.IsBull)
+            {
+                if (trend == TrendType.BEARISH)
+                    return;
+            }
+            else
+            {
+                if (trend == TrendType.BULLISH)
+                    return;
+            }
+        }
+
+        BarPoint divItem = null;
+        if (m_AwesomeOscillator != null)
+        {
+            divItem = SignalFilters.FindDivergence(
+                m_AwesomeOscillator,
+                BarsProvider,
+                localPattern.ItemX,
+                localPattern.ItemD,
+                localPattern.IsBull);
+            if (divItem is null)
+            {
+                if (m_FilterByDivergence)
+                    return;
+            }
+            else
+            {
+                int divLength = localPattern.ItemD.BarIndex - divItem.BarIndex;
+                int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 2;
+
+                if (divLength < thrdCtoD)
+                {
+                    if (m_FilterByDivergence)
+                        return;
+
+                    divItem = null;
+                }
+            }
+        }
+
+        DateTime startView = m_MainBarsProvider.GetOpenTime(
+            localPattern.ItemX.BarIndex);
+        var args = new GartleySignalEventArgs(
+        new BarPoint(close, index, m_MainBarsProvider),
+            localPattern, startView, divItem, m_BreakevenRatio, candlePatterns);
+        OnEnterInvoke(args);
+        m_PatternsEntryMap[localPattern] = args;
+        Logger.Write($"Added {localPattern.PatternType}");
+    }
+
+    private void ProcessCachedPatternsIfNeeded(int index)
+    {
+        if (m_CandlePatternFilter == null)
+            return;
+
+        int prevIndex = index - PATTERN_CACHE_DEPTH_CANDLES;
+        if (prevIndex < 0)
+        {
+            m_PendingPatterns.Clear();
+            return;
+        }
+
+        DateTime prevDt = m_MainBarsProvider.GetOpenTime(prevIndex);
+
+        double high = m_MainBarsProvider.GetHighPrice(index);
+        double low = m_MainBarsProvider.GetLowPrice(index);
+        double close = m_MainBarsProvider.GetClosePrice(index);
+
+        Dictionary<GartleyItem, int>.KeyCollection keys = m_PendingPatterns.Keys;
+        m_PendingPatterns.RemoveWhere(keys.Where(a => a.ItemD.OpenTime < prevDt));
+        m_PendingPatterns.RemoveWhere(keys.Where(a => a.IsBull ? a.StopLoss > low : a.StopLoss < high));
+        m_PendingPatterns.RemoveWhere(keys.Where(a => a.IsBull ? a.TakeProfit1 < high : a.TakeProfit1 > low));
+
+        List<CandlesResult> candlePatterns = m_CandlePatternFilter.GetCandlePatterns(index);
+        if (candlePatterns == null || !candlePatterns.Any())
+            return;
+
+        List<GartleyItem> toDeleteFromCache = null;
+        foreach (GartleyItem pendingPattern in m_PendingPatterns.Keys)
+        {
+            List<CandlesResult> localCandlePatterns = candlePatterns
+                .Where(a => a.IsBull == pendingPattern.IsBull).ToList();
+            int plus = localCandlePatterns.Count;
+            if (candlePatterns.Count > plus)
+            {
+                toDeleteFromCache ??= new List<GartleyItem>();
+                toDeleteFromCache.Add(pendingPattern);
+                continue;
+            }
+
+            m_PendingPatterns[pendingPattern] += plus;
+            if (m_PendingPatterns[pendingPattern] < 3)
+                continue;
+
+            AddSetup(pendingPattern, close, index, localCandlePatterns);
+            toDeleteFromCache ??= new List<GartleyItem>();
+            toDeleteFromCache.Add(pendingPattern);
+        }
+
+        toDeleteFromCache?.ForEach(a => m_PendingPatterns.Remove(a));
     }
 
     /// <summary>
     /// Checks whether the data for specified index contains a trade setup.
     /// </summary>
     /// <param name="index">Index of the current candle.</param>
-    /// <param name="currentPriceBid">The current price (Bid).</param>
-    protected override void CheckSetup(int index, double? currentPriceBid = null)
+    protected override void CheckSetup(int index)
     {
-        //int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - m_BarsDepth);
-
-        HashSet<GartleyItem> localPatterns = null;
-        double close;
+        ProcessCachedPatternsIfNeeded(index);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
-        if (currentPriceBid.HasValue)
-        {
-            if (m_PatternsEntryMap.Count == 0)
-            {
-                return;
-            }
-
-            close = currentPriceBid.Value;
-        }
-        else
-        {
-            localPatterns = m_PatternFinder.FindGartleyPatterns(index);
-            if (localPatterns == null && noOpenedPatterns)
-            {
-                return;
-            }
-
-            close = BarsProvider.GetClosePrice(index);
-        }
-
-        if (noOpenedPatterns && localPatterns == null)
-        {
+        var localPatterns = m_PatternFinder.FindGartleyPatterns(index);
+        if (localPatterns == null && noOpenedPatterns)
             return;
-        }
+
+        double close = BarsProvider.GetClosePrice(index);
 
         if (localPatterns != null)
         {
@@ -127,72 +226,14 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 if (!hasTrendCandles)
                     continue;
 
-                if (m_ZoneAlligator != null)
-                {
-                    TrendType trend = SignalFilters.GetTrend(
-                        m_ZoneAlligator, localPattern.ItemD.OpenTime);
-                    if (localPattern.IsBull)
-                    {
-                        if (trend == TrendType.BEARISH)
-                            continue;
-                    }
-                    else
-                    {
-                        if (trend == TrendType.BULLISH)
-                            continue;
-                    }
-                }
-
-                BarPoint divItem = null;
-                if (m_AwesomeOscillator != null)
-                {
-                    divItem = SignalFilters.FindDivergence(
-                        m_AwesomeOscillator,
-                        BarsProvider,
-                        localPattern.ItemX,
-                        localPattern.ItemD,
-                        localPattern.IsBull);
-                    if (divItem is null)
-                    {
-                        if (m_FilterByDivergence)
-                            continue;
-                    }
-                    else
-                    {
-                        int divLength = localPattern.ItemD.BarIndex - divItem.BarIndex;
-                        int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 2;
-
-                        if (divLength < thrdCtoD)
-                        {
-                            if (m_FilterByDivergence)
-                                continue;
-
-                            divItem = null;
-                        }
-                    }
-                }
-
-                List<CandlesResult> candlePatterns = null;
-                if (m_CandlePatternFilter != null)
-                {
-                    candlePatterns = m_CandlePatternFilter.GetCandlePatterns(index);
-                    if (candlePatterns == null || candlePatterns.All(a => a.IsBull != localPattern.IsBull))
-                        continue;
-                }
-
-                DateTime startView = m_MainBarsProvider.GetOpenTime(
-                    localPattern.ItemX.BarIndex);
-                var args = new GartleySignalEventArgs(
-                    new BarPoint(close, index, m_MainBarsProvider),
-                    localPattern, startView, divItem, m_BreakevenRatio, candlePatterns);
-                OnEnterInvoke(args);
-                m_PatternsEntryMap[localPattern] = args;
-                Logger.Write($"Added {localPattern.PatternType}");
+                List<CandlesResult> instantCandles = m_CandlePatternFilter?.GetCandlePatterns(index);
+                AddSetup(localPattern, close, index, instantCandles);
+                //ProcessCachedPatternsIfNeeded(index);
             }
         }
 
-        double low = currentPriceBid ?? BarsProvider.GetLowPrice(index);
-        double high = currentPriceBid ?? BarsProvider.GetHighPrice(index);
+        double low = BarsProvider.GetLowPrice(index);
+        double high = BarsProvider.GetHighPrice(index);
 
         List<GartleyItem> toRemove = null;
         foreach (GartleyItem pattern in m_PatternsEntryMap.Keys)

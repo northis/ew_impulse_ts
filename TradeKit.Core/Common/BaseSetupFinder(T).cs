@@ -100,8 +100,7 @@ namespace TradeKit.Core.Common
         /// Checks whether the data for specified index contains a trade setup.
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
-        /// <param name="currentPriceBid">The current price (Bid).</param>
-        protected abstract void CheckSetup(int index, double? currentPriceBid = null);
+        protected abstract void CheckSetup(int index);
         
         /// <summary>
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
@@ -114,15 +113,6 @@ namespace TradeKit.Core.Common
                 m_LastBarIndex = index;
                 CheckSetup(m_LastBarIndex);
             }
-        }
-
-        /// <summary>
-        /// Checks the tick.
-        /// </summary>
-        /// <param name="bid">The price (bid).</param>
-        public virtual void CheckTick(double bid)
-        {
-            CheckSetup(m_LastBarIndex, bid);
         }
 
         /// <summary>
