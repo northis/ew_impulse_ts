@@ -105,7 +105,7 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
-        [Parameter("Use divergences", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Use divergences", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseDivergences { get; set; }
         
         /// <summary>
@@ -288,7 +288,7 @@ namespace TradeKit.CTrader.Gartley
                 double levelValue = e.Level.Value;
 
                 Chart.DrawRectangle($"SL{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
-                        e.GartleyItem.StopLoss, m_SlColor, LINE_WIDTH)
+                        e.StopLoss.Value, m_SlColor, LINE_WIDTH)
                     .SetFilled();
                 Chart.DrawRectangle($"TP1{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
                         e.GartleyItem.TakeProfit1, m_TpColor, LINE_WIDTH)

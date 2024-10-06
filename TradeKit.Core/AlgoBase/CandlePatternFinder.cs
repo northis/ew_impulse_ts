@@ -32,14 +32,16 @@ namespace TradeKit.Core.AlgoBase
                 //PIECING_LINE,
                 //DOWN_DOJI,
                 //UP_DOJI,
-                //UP_PIN_BAR,
-                //DOWN_PIN_BAR,
+                UP_PIN_BAR,
+                DOWN_PIN_BAR,
+                UP_PIN_BAR_TRIO,
+                DOWN_PIN_BAR_TRIO,
                 //HAMMER,
                 //INVERTED_HAMMER,
-                UP_RAILS,
-                DOWN_RAILS,
-                UP_HARAMI,
-                DOWN_HARAMI
+                //UP_RAILS,
+                //DOWN_RAILS,
+                //UP_HARAMI,
+                //DOWN_HARAMI
             };
         }
 
@@ -50,6 +52,8 @@ namespace TradeKit.Core.AlgoBase
                 {INVERTED_HAMMER, new CPS(false, 0, 1)},
                 {UP_PIN_BAR, new CPS(true, 0, 2)},
                 {DOWN_PIN_BAR, new CPS(false, 0, 2)},
+                {UP_PIN_BAR_TRIO, new CPS(true, 1, 3)},
+                {DOWN_PIN_BAR_TRIO, new CPS(false, 1, 3)},
                 {UP_OUTER_BAR, new CPS(true, 0, 2)},
                 {DOWN_OUTER_BAR, new CPS(false, 0, 2)},
                 {UP_OUTER_BAR_BODIES, new CPS(true, -1, 2)},
@@ -101,6 +105,18 @@ namespace TradeKit.Core.AlgoBase
                         IsPinBar(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DOWN_PIN_BAR].BarsCount
                         : 0
+                },
+                {
+                    UP_PIN_BAR_TRIO, cdParams =>
+                        IsPinBarTrio(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                            ? PATTERN_DIRECTION_MAP[UP_PIN_BAR_TRIO].BarsCount
+                            : 0
+                },
+                {
+                    DOWN_PIN_BAR_TRIO, cdParams =>
+                        IsPinBarTrio(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                            ? PATTERN_DIRECTION_MAP[DOWN_PIN_BAR_TRIO].BarsCount
+                            : 0
                 },
                 {
                     UP_OUTER_BAR, cdParams => 
@@ -244,6 +260,30 @@ namespace TradeKit.Core.AlgoBase
             }
 
             return 0;
+        }
+
+        private static bool IsPinBarTrio(Candle[] c, bool isUp)
+        {
+            bool res;
+            if (isUp)
+            {
+                double upperPart = c[^2].H - c[^2].Length / 3;
+                double secHalf = c[^2].H - c[^2].Length / 2;
+                res = c[^2].BodyLow >= upperPart &&
+                      c[^3].L >= secHalf && c[^2].C <= c[^3].H &&
+                      c[^1].L >= secHalf && c[^1].C > c[^2].H;
+            }
+            else
+            {
+                double lowerPart = c[^2].L + c[^2].Length / 3;
+                double secHalf = c[^2].L + c[^2].Length / 2;
+                res = c[^2].BodyHigh <= lowerPart &&
+                      c[^3].H <= secHalf && c[^2].C >= c[^3].L &&
+                      c[^1].H <= secHalf && c[^1].C < c[^2].L;
+            }
+
+            return res;
+
         }
 
         private static bool IsPinBar(Candle[] c, bool isUp)

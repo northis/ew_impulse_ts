@@ -6,6 +6,8 @@
         INVERTED_HAMMER,
         UP_PIN_BAR,
         DOWN_PIN_BAR,
+        UP_PIN_BAR_TRIO,
+        DOWN_PIN_BAR_TRIO,
         UP_OUTER_BAR,
         DOWN_OUTER_BAR,
         UP_OUTER_BAR_BODIES,
