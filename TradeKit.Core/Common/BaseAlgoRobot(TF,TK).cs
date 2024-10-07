@@ -127,8 +127,9 @@ namespace TradeKit.Core.Common
 
             foreach (KeyValuePair<string, TF> finder in m_SetupFindersMap)
             {
-                ITimeFrame chartTimeFrame = TimeFrameHelper
-                    .GetPreviousTimeFrameInfo(finder.Value.TimeFrame).TimeFrame;
+                ITimeFrame chartTimeFrame = finder.Value.TimeFrame;
+                //Use this to show a smaller TF on the chart
+                //chartTimeFrame =  TimeFrameHelper.GetPreviousTimeFrameInfo(finder.Value.TimeFrame).TimeFrame;
 
                 IBarsProvider barProvider = m_SetupFindersMap
                     .Where(a =>

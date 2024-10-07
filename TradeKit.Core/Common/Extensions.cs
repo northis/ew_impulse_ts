@@ -44,6 +44,8 @@ namespace TradeKit.Core.Common
         {
             {CandlePatternType.DOWN_PIN_BAR, "PB\n ↓"},
             {CandlePatternType.UP_PIN_BAR, " ↑\nPB"},
+            {CandlePatternType.DOWN_PIN_BAR_TRIO, "PBT\n  ↓"},
+            {CandlePatternType.UP_PIN_BAR_TRIO, "  ↑\nPBT"},
             {CandlePatternType.DOWN_OUTER_BAR, "OB\n ↓"},
             {CandlePatternType.UP_OUTER_BAR, " ↑\nOB"},
             {CandlePatternType.DOWN_INNER_BAR, "IB\n ↓"},

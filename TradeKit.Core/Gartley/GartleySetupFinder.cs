@@ -30,12 +30,16 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly HashSet<CandlePatternType> m_DelayedPatterns = new()
     {
         CandlePatternType.UP_PIN_BAR_TRIO,
-        CandlePatternType.DOWN_PIN_BAR_TRIO
+        CandlePatternType.DOWN_PIN_BAR_TRIO,
+        CandlePatternType.DOWN_RAILS,
+        CandlePatternType.UP_RAILS
     };
     private readonly HashSet<CandlePatternType> m_InstantPatterns = new()
     {
         CandlePatternType.UP_PIN_BAR,
-        CandlePatternType.DOWN_PIN_BAR
+        CandlePatternType.DOWN_PIN_BAR,
+        CandlePatternType.DOWN_RAILS,
+        CandlePatternType.UP_RAILS
     };
     private const int PATTERN_CACHE_DEPTH_CANDLES = 10;
 

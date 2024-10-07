@@ -176,6 +176,8 @@ namespace TradeKit.CTrader.PriceAction
             {
                 res.Add(CandlePatternType.UP_PIN_BAR);
                 res.Add(CandlePatternType.DOWN_PIN_BAR);
+                res.Add(CandlePatternType.UP_PIN_BAR_TRIO);
+                res.Add(CandlePatternType.DOWN_PIN_BAR_TRIO);
             }
 
             if (OuterBar)
