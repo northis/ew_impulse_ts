@@ -4,11 +4,12 @@ namespace TradeKit.Core.EventArgs
 {
     public class LevelEventArgs : System.EventArgs
     {
-        public LevelEventArgs(BarPoint level, BarPoint fromLevel, bool hasBreakeven = false)
+        public LevelEventArgs(BarPoint level, BarPoint fromLevel, bool hasBreakeven = false, string comment = "")
         {
             Level = level;
             FromLevel = fromLevel;
             HasBreakeven = hasBreakeven;
+            Comment = comment;
         }
 
         public BarPoint Level { get; }
@@ -21,5 +22,7 @@ namespace TradeKit.Core.EventArgs
         ///   <c>true</c> if this instance has breakeven; otherwise, <c>false</c>.
         /// </value>
         public bool HasBreakeven { get; set; }
+
+        public string Comment { get; }
     }
 }

@@ -32,7 +32,7 @@ namespace TradeKit.Core.Common
         /// <summary>
         /// Gets the identifier of this setup finder.
         /// </summary>
-        public string Id => GetId(Symbol.Name, TimeFrame.Name);
+        public virtual string Id => GetId(Symbol.Name, TimeFrame.Name);
 
         /// <summary>
         /// Gets the identifier.

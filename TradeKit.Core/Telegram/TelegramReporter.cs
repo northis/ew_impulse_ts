@@ -221,15 +221,16 @@ namespace TradeKit.Core.Telegram
             else
             {
                 using FileStream fileStream = File.Open(signalArgs.PlotImagePath, FileMode.Open);
-                string fileName = Path.GetFileName(signalArgs.PlotImagePath)
-                                  ?? Guid.NewGuid().ToString();
+                string fileName = Path.GetFileName(signalArgs.PlotImagePath);
 
                 msgRes = m_TelegramBotClient
                     .SendPhotoAsync(m_TelegramChatId, new InputMedia(fileStream, fileName), alert, replyMarkup: chartLink)
                     .Result;
             }
 
-            string positionId = Helper.GetPositionId(signalArgs.SenderId, signalArgs.SignalEventArgs.Level);
+            string positionId = Helper.GetPositionId(signalArgs.SenderId,
+                signalArgs.SignalEventArgs.Level,
+                signalArgs.SignalEventArgs.Comment);
             m_SignalPostIds[positionId] = msgRes.MessageId;
             m_OnSaveState?.Invoke(m_SignalPostIds);
         }

@@ -325,7 +325,7 @@ namespace TradeKit.Core.Common
             TF sf = (TF)sender;
             setupId = sf.Id;
             GetEventStrings(sender, e.Level, out price);
-            positionId = Helper.GetPositionId(setupId, e.FromLevel);
+            positionId = Helper.GetPositionId(setupId, e.FromLevel, e.Comment);
         }
         
         protected void OnStopLoss(object sender, LevelEventArgs e)

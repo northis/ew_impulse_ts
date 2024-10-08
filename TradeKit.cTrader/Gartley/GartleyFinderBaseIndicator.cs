@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -149,7 +150,6 @@ namespace TradeKit.CTrader.Gartley
         protected override void Initialize()
         {
             base.Initialize();
-
             m_SlColor = Color.FromHex("#50F00000");
             m_TpColor = Color.FromHex("#5000F000");
             m_BearColorFill = Color.FromHex("#50F08080");

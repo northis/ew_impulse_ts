@@ -29,19 +29,31 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
     private readonly HashSet<CandlePatternType> m_DelayedPatterns = new()
     {
-        CandlePatternType.UP_PIN_BAR_TRIO,
-        CandlePatternType.DOWN_PIN_BAR_TRIO,
-        CandlePatternType.DOWN_RAILS,
-        CandlePatternType.UP_RAILS
+        //CandlePatternType.UP_PIN_BAR_TRIO,
+        //CandlePatternType.DOWN_PIN_BAR_TRIO,
+        //CandlePatternType.DOWN_RAILS,
+        //CandlePatternType.UP_RAILS
+        CandlePatternType.DOWN_INNER_BAR,
+        CandlePatternType.UP_INNER_BAR,
+        CandlePatternType.DOWN_PPR_IB,
+        CandlePatternType.UP_PPR_IB,
+        CandlePatternType.UP_PPR,
+        CandlePatternType.DOWN_PPR,
     };
     private readonly HashSet<CandlePatternType> m_InstantPatterns = new()
     {
-        CandlePatternType.UP_PIN_BAR,
-        CandlePatternType.DOWN_PIN_BAR,
-        CandlePatternType.DOWN_RAILS,
-        CandlePatternType.UP_RAILS
+        //CandlePatternType.UP_PIN_BAR,
+        //CandlePatternType.DOWN_PIN_BAR,
+        //CandlePatternType.DOWN_RAILS,
+        //CandlePatternType.UP_RAILS,
+        //CandlePatternType.UP_DOJI,
+        //CandlePatternType.DOWN_DOJI,
+        CandlePatternType.DOWN_OUTER_BAR,
+        CandlePatternType.UP_OUTER_BAR,
+        CandlePatternType.UP_PPR,
+        CandlePatternType.DOWN_PPR,
     };
-    private const int PATTERN_CACHE_DEPTH_CANDLES = 10;
+    private const int PATTERN_CACHE_DEPTH_CANDLES = 2;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -259,13 +271,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 if (!hasTrendCandles)
                     continue;
 
-                List<CandlesResult> instantCandles = m_CandlePatternFilter
+                List<CandlesResult> instantCandles = m_CandlePatternFilter?
                     .GetCandlePatterns(index)?
                     .Where(a => a.IsBull == localPattern.IsBull && 
                                 m_InstantPatterns.Contains(a.Type))
                     .ToList();
                 AddSetup(localPattern, close, index, instantCandles?.Count == 0 ? null : instantCandles);
-                //ProcessCachedPatternsIfNeeded(index);
             }
         }
 
@@ -288,7 +299,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             {
                 OnTakeProfitInvoke(new LevelEventArgs(
                     args.TakeProfit.WithIndex(
-                        index, BarsProvider), args.TakeProfit, args.HasBreakeven));
+                        index, BarsProvider), args.TakeProfit, args.HasBreakeven, args.Comment));
                 isClosed = true;
             }
             else if (isBull && low <= args.StopLoss.Value ||
@@ -296,7 +307,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             {
                 OnStopLossInvoke(new LevelEventArgs(
                     args.StopLoss.WithIndex(
-                        index, BarsProvider), args.StopLoss, args.HasBreakeven));
+                        index, BarsProvider), args.StopLoss, args.HasBreakeven, args.Comment));
                 isClosed = true;
             }
             else if (args.CanUseBreakeven && (pattern.IsBull && args.BreakEvenPrice <= high ||
@@ -307,7 +318,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 args.HasBreakeven = true;
                 args.StopLoss = new BarPoint(
                     args.BreakEvenPrice, currentDt, args.StopLoss.BarTimeFrame, index);
-                OnBreakEvenInvoke(new LevelEventArgs(args.StopLoss, args.Level, true));
+                OnBreakEvenInvoke(new LevelEventArgs(args.StopLoss, args.Level, true, args.Comment));
             }
 
             if (!isClosed)

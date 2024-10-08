@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 using TradeKit.Core.PriceAction;
 using static TradeKit.Core.PriceAction.CandlePatternType;
 using CPS = TradeKit.Core.PriceAction.CandlePatternSettings;
@@ -25,24 +26,24 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         public static CandlePatternType[] GetPatternsForFiltering()
         {
-            //return Enum.GetValues<CandlePatternType>();
-            return new[]
-            {
-                //DARK_CLOUD,
-                //PIECING_LINE,
-                //DOWN_DOJI,
-                //UP_DOJI,
-                UP_PIN_BAR,
-                DOWN_PIN_BAR,
-                UP_PIN_BAR_TRIO,
-                DOWN_PIN_BAR_TRIO,
-                //HAMMER,
-                //INVERTED_HAMMER,
-                //UP_RAILS,
-                //DOWN_RAILS,
-                //UP_HARAMI,
-                //DOWN_HARAMI
-            };
+            return Enum.GetValues<CandlePatternType>();
+            //return new[]
+            //{
+            //    //DARK_CLOUD,
+            //    //PIECING_LINE,
+            //    //DOWN_DOJI,
+            //    //UP_DOJI,
+            //    UP_PIN_BAR,
+            //    DOWN_PIN_BAR,
+            //    UP_PIN_BAR_TRIO,
+            //    DOWN_PIN_BAR_TRIO,
+            //    //HAMMER,
+            //    //INVERTED_HAMMER,
+            //    //UP_RAILS,
+            //    //DOWN_RAILS,
+            //    //UP_HARAMI,
+            //    //DOWN_HARAMI
+            //};
         }
 
         private static readonly Dictionary<CPT, CPS>
@@ -282,8 +283,8 @@ namespace TradeKit.Core.AlgoBase
                       c[^1].H <= secHalf && c[^1].C < c[^2].L;
             }
 
-            return res;
-
+            //bool pb = IsPinBar(c[..^1], isUp);
+            return res;// && pb;
         }
 
         private static bool IsPinBar(Candle[] c, bool isUp)

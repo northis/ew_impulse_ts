@@ -117,9 +117,10 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="setupId">The setup identifier.</param>
         /// <param name="entryBarPoint">The entry bar point.</param>
-        public static string GetPositionId(string setupId, BarPoint entryBarPoint)
+        /// <param name="comment">We can use this to distinguish positions from each other.</param>
+        public static string GetPositionId(string setupId, BarPoint entryBarPoint, string comment = "")
         {
-            return $"{setupId}{entryBarPoint.OpenTime:O}";
+            return $"{setupId}{entryBarPoint.OpenTime:O}{comment}";
         }
 
         /// <summary>

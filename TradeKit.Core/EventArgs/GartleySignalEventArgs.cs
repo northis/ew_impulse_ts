@@ -15,7 +15,7 @@ namespace TradeKit.Core.EventArgs
             List<CandlesResult> candlePatterns=null)
             : base(level,
                 level.WithPrice(gartleyItem.TakeProfit1), 
-                level.WithPrice(gartleyItem.StopLoss), startViewBarIndex, breakevenRatio)
+                level.WithPrice(gartleyItem.StopLoss), startViewBarIndex, breakevenRatio, gartleyItem.PatternType.Format())
         {
             CandlePatterns = candlePatterns;
             GartleyItem = gartleyItem;
