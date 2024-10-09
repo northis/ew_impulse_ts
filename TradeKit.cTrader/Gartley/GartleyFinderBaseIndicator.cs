@@ -169,8 +169,7 @@ namespace TradeKit.CTrader.Gartley
                 zoneAlligator = new ZoneAlligatorFinder(m_BarsProvider);
 
             CandlePatternFinder cpf = UseCandlePatterns
-                ? new CandlePatternFinder(m_BarsProvider, false,
-                    new HashSet<CandlePatternType>(CandlePatternFinder.GetPatternsForFiltering()))
+                ? new CandlePatternFinder(m_BarsProvider)
                 : null;
 
             m_SetupFinder = new GartleySetupFinder(

@@ -19,7 +19,7 @@ namespace TradeKit.Core.PatternGeneration
             if (ReferenceEquals(y, null)) return false;
             if (x.GetType() != y.GetType()) return false;
 
-            return Equals(x.StopLossBarIndex, y.StopLossBarIndex) && Equals(x.Type, y.Type);
+            return Equals(x.StopLossBarIndex, y.StopLossBarIndex) && Equals(x.Type, y.Type) && Equals(x.IsBull, y.IsBull);
         }
 
         /// <summary>
@@ -35,6 +35,7 @@ namespace TradeKit.Core.PatternGeneration
 
             hashCode.Add(obj.Type);
             hashCode.Add(obj.StopLossBarIndex);
+            hashCode.Add(obj.IsBull);
             return hashCode.ToHashCode();
         }
     }

@@ -70,13 +70,13 @@ namespace TradeKit.CTrader.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.HAMMER"/> and <see cref="CandlePatternType.INVERTED_HAMMER"/> patterns.
         /// </summary>
-        [Parameter("Hammer", DefaultValue = true)]
+        [Parameter("Hammer", DefaultValue = false)]
         public bool UseHammer { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_PIN_BAR"/> and <see cref="CandlePatternType.DOWN_PIN_BAR"/> patterns.
         /// </summary>
-        [Parameter("Pin Bar", DefaultValue = true)]
+        [Parameter("Pin Bar", DefaultValue = false)]
         public bool PinBar { get; set; }
 
         /// <summary>
@@ -112,13 +112,13 @@ namespace TradeKit.CTrader.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_CPPR"/> and <see cref="CandlePatternType.DOWN_CPPR"/> patterns.
         /// </summary>
-        [Parameter("CPPR", DefaultValue = false)]
+        [Parameter("CPPR", DefaultValue = true)]
         public bool CPpr { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_RAILS"/> and <see cref="CandlePatternType.DOWN_RAILS"/> pattern.
         /// </summary>
-        [Parameter("Rails", DefaultValue = false)]
+        [Parameter("Rails", DefaultValue = true)]
         public bool Rails { get; set; }
 
         /// <summary>
@@ -136,31 +136,31 @@ namespace TradeKit.CTrader.PriceAction
         /// <summary>
         /// Gets or sets a value indicating whether we fill the patterns with color.
         /// </summary>
-        [Parameter("Fill with color", DefaultValue = false)]
+        [Parameter("Fill with color", DefaultValue = true)]
         public bool FillWithColor { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_DOJI"/> and <see cref="CandlePatternType.UP_DOJI"/> patterns.
         /// </summary>
-        [Parameter("Doji", DefaultValue = true)]
+        [Parameter("Doji", DefaultValue = false)]
         public bool Doji { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.UP_HARAMI""/> and <see cref="CandlePatternType.DOWN_HARAMI"/> patterns.
         /// </summary>
-        [Parameter("Harami", DefaultValue = true)]
+        [Parameter("Harami", DefaultValue = false)]
         public bool Harami { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.DARK_CLOUD"/> pattern.
         /// </summary>
-        [Parameter("Dark cloud", DefaultValue = true)]
+        [Parameter("Dark cloud", DefaultValue = false)]
         public bool DarkCloud { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use <see cref="CandlePatternType.PIECING_LINE"/> pattern.
         /// </summary>
-        [Parameter("Piecing line", DefaultValue = true)]
+        [Parameter("Piecing line", DefaultValue = false)]
         public bool PiecingLine { get; set; }
 
         private HashSet<CandlePatternType> GetPatternsType()

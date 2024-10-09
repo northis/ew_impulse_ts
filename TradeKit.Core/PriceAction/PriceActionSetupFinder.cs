@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.AlgoBase;
+﻿using System.Diagnostics;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.PatternGeneration;
@@ -56,18 +57,15 @@ namespace TradeKit.Core.PriceAction
         protected override void CheckSetup(int index)
         {
             int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - DEPTH_SHOW);
-
-            List<CandlesResult> localPatterns = null;
-            double close;
             bool noOpenedPatterns = m_CandlePatternsEntryMap.Count == 0 && m_PendingPatterns.Count == 0;
 
-            localPatterns = m_CandlePatternFinder.GetCandlePatterns(index);
+            List<CandlesResult> localPatterns = m_CandlePatternFinder.GetCandlePatterns(index);
             if (localPatterns == null && noOpenedPatterns)
                 return;
 
-            close = BarsProvider.GetClosePrice(index);
-
+            double close = BarsProvider.GetClosePrice(index);
             DateTime currentDt = BarsProvider.GetOpenTime(index);
+
             void AddPattern(CandlesResult localPattern, double price)
             {
                 PriceActionSignalEventArgs args = PriceActionSignalEventArgs.Create(
@@ -88,7 +86,8 @@ namespace TradeKit.Core.PriceAction
 
                 m_CandlePatternsEntryMap.Add(localPattern, args);
 
-                Logger.Write($"Added {localPattern.Type}");
+                string isBullArrow = localPattern.IsBull ? "\u2b06" : "\u2b07";
+                Logger.Write($"Added {localPattern.Type} {isBullArrow} ({currentDt:s})");
                 OnEnterInvoke(args);
             }
 

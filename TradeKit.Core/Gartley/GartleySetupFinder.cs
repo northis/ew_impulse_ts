@@ -29,29 +29,40 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
     private readonly HashSet<CandlePatternType> m_DelayedPatterns = new()
     {
-        //CandlePatternType.UP_PIN_BAR_TRIO,
-        //CandlePatternType.DOWN_PIN_BAR_TRIO,
-        //CandlePatternType.DOWN_RAILS,
-        //CandlePatternType.UP_RAILS
+        CandlePatternType.UP_PIN_BAR_TRIO,
+        CandlePatternType.DOWN_PIN_BAR_TRIO,
+        CandlePatternType.DOWN_RAILS,
+        CandlePatternType.UP_RAILS,
         CandlePatternType.DOWN_INNER_BAR,
         CandlePatternType.UP_INNER_BAR,
         CandlePatternType.DOWN_PPR_IB,
         CandlePatternType.UP_PPR_IB,
         CandlePatternType.UP_PPR,
         CandlePatternType.DOWN_PPR,
+        CandlePatternType.UP_CPPR,
+        CandlePatternType.DOWN_CPPR,
+        CandlePatternType.UP_OUTER_BAR_BODIES,
+        CandlePatternType.DOWN_OUTER_BAR_BODIES,
+        CandlePatternType.DARK_CLOUD,
+        CandlePatternType.PIECING_LINE,
+
     };
     private readonly HashSet<CandlePatternType> m_InstantPatterns = new()
     {
-        //CandlePatternType.UP_PIN_BAR,
-        //CandlePatternType.DOWN_PIN_BAR,
-        //CandlePatternType.DOWN_RAILS,
-        //CandlePatternType.UP_RAILS,
-        //CandlePatternType.UP_DOJI,
-        //CandlePatternType.DOWN_DOJI,
+        CandlePatternType.UP_PIN_BAR,
+        CandlePatternType.DOWN_PIN_BAR,
+        CandlePatternType.DOWN_RAILS,
+        CandlePatternType.UP_RAILS,
+        CandlePatternType.UP_DOJI,
+        CandlePatternType.DOWN_DOJI,
         CandlePatternType.DOWN_OUTER_BAR,
         CandlePatternType.UP_OUTER_BAR,
         CandlePatternType.UP_PPR,
         CandlePatternType.DOWN_PPR,
+        CandlePatternType.UP_OUTER_BAR_BODIES,
+        CandlePatternType.DOWN_OUTER_BAR_BODIES,
+        CandlePatternType.DARK_CLOUD,
+        CandlePatternType.PIECING_LINE,
     };
     private const int PATTERN_CACHE_DEPTH_CANDLES = 2;
 

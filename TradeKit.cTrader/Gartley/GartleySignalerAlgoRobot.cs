@@ -51,8 +51,7 @@ namespace TradeKit.CTrader.Gartley
 
 
             CandlePatternFinder cpf = GartleyParams.UseCandlePatterns
-                ? new CandlePatternFinder(cTraderBarsProvider, false,
-                    new HashSet<CandlePatternType>(CandlePatternFinder.GetPatternsForFiltering()))
+                ? new CandlePatternFinder(cTraderBarsProvider)
                 : null;
 
             double? breakEvenRatio = null;

@@ -21,31 +21,6 @@ namespace TradeKit.Core.AlgoBase
         private const double PIECING_LINE_DARK_CLOUD_C = 0.7;
         private const int MIN_BARS_INDEX = 9;//0..9
 
-        /// <summary>
-        /// Gets the patterns for filtering.
-        /// </summary>
-        public static CandlePatternType[] GetPatternsForFiltering()
-        {
-            return Enum.GetValues<CandlePatternType>();
-            //return new[]
-            //{
-            //    //DARK_CLOUD,
-            //    //PIECING_LINE,
-            //    //DOWN_DOJI,
-            //    //UP_DOJI,
-            //    UP_PIN_BAR,
-            //    DOWN_PIN_BAR,
-            //    UP_PIN_BAR_TRIO,
-            //    DOWN_PIN_BAR_TRIO,
-            //    //HAMMER,
-            //    //INVERTED_HAMMER,
-            //    //UP_RAILS,
-            //    //DOWN_RAILS,
-            //    //UP_HARAMI,
-            //    //DOWN_HARAMI
-            //};
-        }
-
         private static readonly Dictionary<CPT, CPS>
             PATTERN_DIRECTION_MAP = new()
             {
