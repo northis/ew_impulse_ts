@@ -124,7 +124,6 @@ namespace TradeKit.Core.Common
             }
             
             Logger.Write("Creating chart dictionaries...");
-
             foreach (KeyValuePair<string, TF> finder in m_SetupFindersMap)
             {
                 ITimeFrame chartTimeFrame = finder.Value.TimeFrame;
@@ -154,8 +153,7 @@ namespace TradeKit.Core.Common
 
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
         }
-
-
+        
         protected abstract IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity);
 
         /// <summary>
@@ -334,12 +332,12 @@ namespace TradeKit.Core.Common
             m_StopCount++;
             Logger.Write($"SL hit! {price}");
             ModifySymbolPositions(setupId, positionId);
-            ShowResultChart(sender, false);
+            string resultChartPath = ShowResultChart(sender, false);
 
             if (!TelegramReporter.IsReady)
                 return;
 
-            TelegramReporter.ReportStopLoss(positionId);
+            TelegramReporter.ReportStopLoss(positionId, resultChartPath);
         }
 
         /// <summary>
@@ -347,23 +345,24 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="setupFinder">The setup finder we want to check. See <see cref="TF"/></param>
         /// <param name="successTrade">True - TP hit, False - SL hit</param>
-        private void ShowResultChart(object setupFinder, bool successTrade)
+        private string ShowResultChart(object setupFinder, bool successTrade)
         {
             if (setupFinder is not TF sf ||
                 !m_ChartFileFinderMap.TryGetValue(sf.Id, out TK signalEventArgs))
             {
-                return;
+                return null;
             }
 
             if (m_IsBackTesting)
                 OnResultForManualAnalysis(signalEventArgs, sf, successTrade);
 
             if (!m_RobotParams.SaveChartForManualAnalysis)
-                return;
+                return null;
 
             IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
-            GeneratePlotImageFile(bp, signalEventArgs, true, successTrade);
+            string res = GeneratePlotImageFile(bp, signalEventArgs, true, successTrade);
             m_ChartFileFinderMap.Remove(sf.Id);
+            return res;
         }
 
         /// <summary>
@@ -377,14 +376,14 @@ namespace TradeKit.Core.Common
             m_TakeCount++;
             Logger.Write($"TP hit! {price}");
             ModifySymbolPositions(setupId, positionId);
-            ShowResultChart(sender, true);
+            string resultChartPath = ShowResultChart(sender, true);
 
             if (!TelegramReporter.IsReady)
             {
                 return;
             }
 
-            TelegramReporter.ReportTakeProfit(positionId);
+            TelegramReporter.ReportTakeProfit(positionId, resultChartPath);
         }
 
         /// <summary>

@@ -91,25 +91,28 @@ namespace TradeKit.Core.Telegram
         /// Reports the stop loss.
         /// </summary>
         /// <param name="posId">The position identifier.</param>
-        public void ReportStopLoss(string posId)
+        /// <param name="closeImagePath">The close image path.</param>
+        public void ReportStopLoss(string posId, string closeImagePath = null)
         {
             if (m_ReportClose)
             {
-                ReportClose(posId, "SL hit");
+                ReportClose(posId, "SL hit", closeImagePath);
                 m_SignalPostIds.Remove(posId);
                 m_OnSaveState?.Invoke(m_SignalPostIds);
             }
         }
 
+
         /// <summary>
         /// Reports the take profit.
         /// </summary>
         /// <param name="posId">The position identifier.</param>
-        public void ReportTakeProfit(string posId)
+        /// <param name="closeImagePath">The close image path.</param>
+        public void ReportTakeProfit(string posId, string closeImagePath = null)
         {
             if (m_ReportClose)
             {
-                ReportClose(posId, "TP hit");
+                ReportClose(posId, "TP hit", closeImagePath);
                 m_SignalPostIds.Remove(posId);
                 m_OnSaveState?.Invoke(m_SignalPostIds);
             }
@@ -130,15 +133,35 @@ namespace TradeKit.Core.Telegram
         /// </summary>
         /// <param name="posId">The position identifier.</param>
         /// <param name="text">The text.</param>
-        private void ReportClose(string posId, string text)
+        /// <param name="closeImagePath">The close image path.</param>
+        private void ReportClose(string posId, string text, string closeImagePath = null)
         {
             if (!m_SignalPostIds.TryGetValue(posId, out int postId))
             {
                 return;
             }
-            
-            m_TelegramBotClient.SendTextMessageAsync(
-                m_TelegramChatId, text, null, null, null, null, postId);
+
+            SendMessage(text, postId, null, closeImagePath);
+        }
+
+        Message SendMessage(string textToShow, int? postId = null,
+            InlineKeyboardMarkup chartLink = null, string imagePath = null)
+        {
+            if (string.IsNullOrEmpty(imagePath))
+            {
+                return m_TelegramBotClient
+                    .SendTextMessageAsync(m_TelegramChatId, textToShow, replyMarkup: chartLink,
+                        replyToMessageId: postId)
+                    .Result;
+            }
+
+            using FileStream fileStream = File.Open(imagePath, FileMode.Open);
+            string fileName = Path.GetFileName(imagePath);
+
+            return m_TelegramBotClient
+                .SendPhotoAsync(m_TelegramChatId, new InputMedia(fileStream, fileName), textToShow,
+                    replyMarkup: chartLink, replyToMessageId: postId)
+                .Result;
         }
 
         /// <summary>
@@ -197,7 +220,6 @@ namespace TradeKit.Core.Telegram
             }
 
             TimeSpan tfTs = TimeFrameHelper.GetTimeFrameInfo(signalArgs.SignalEventArgs.Level.BarTimeFrame).TimeSpan;
-
             if (!m_ProviderMap.TryGetValue(signalArgs.SymbolName, out string provPart))
             {
                 provPart = $"{DEFULT_PROVIDER}{signalArgs.SymbolName}";
@@ -211,23 +233,7 @@ namespace TradeKit.Core.Telegram
                     url: $"{Helper.PrivateChartUrl}?symbol={provPart}&interval={tfTs.TotalMinutes}")
             });
 
-            Message msgRes;
-            if (string.IsNullOrEmpty(signalArgs.PlotImagePath))
-            {
-                msgRes = m_TelegramBotClient
-                    .SendTextMessageAsync(m_TelegramChatId, alert, replyMarkup: chartLink)
-                    .Result;
-            }
-            else
-            {
-                using FileStream fileStream = File.Open(signalArgs.PlotImagePath, FileMode.Open);
-                string fileName = Path.GetFileName(signalArgs.PlotImagePath);
-
-                msgRes = m_TelegramBotClient
-                    .SendPhotoAsync(m_TelegramChatId, new InputMedia(fileStream, fileName), alert, replyMarkup: chartLink)
-                    .Result;
-            }
-
+            Message msgRes = SendMessage(alert, null, chartLink, signalArgs.PlotImagePath);
             string positionId = Helper.GetPositionId(signalArgs.SenderId,
                 signalArgs.SignalEventArgs.Level,
                 signalArgs.SignalEventArgs.Comment);

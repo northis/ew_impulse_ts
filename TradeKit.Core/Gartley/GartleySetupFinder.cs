@@ -29,8 +29,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
     private readonly HashSet<CandlePatternType> m_DelayedPatterns = new()
     {
-        CandlePatternType.UP_PIN_BAR_TRIO,
-        CandlePatternType.DOWN_PIN_BAR_TRIO,
+        //CandlePatternType.UP_PIN_BAR_TRIO,
+        //CandlePatternType.DOWN_PIN_BAR_TRIO,
         CandlePatternType.DOWN_RAILS,
         CandlePatternType.UP_RAILS,
         CandlePatternType.DOWN_INNER_BAR,
@@ -49,8 +49,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     };
     private readonly HashSet<CandlePatternType> m_InstantPatterns = new()
     {
-        CandlePatternType.UP_PIN_BAR,
-        CandlePatternType.DOWN_PIN_BAR,
+        //CandlePatternType.UP_PIN_BAR,
+        //CandlePatternType.DOWN_PIN_BAR,
         CandlePatternType.DOWN_RAILS,
         CandlePatternType.UP_RAILS,
         CandlePatternType.UP_DOJI,
@@ -114,7 +114,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="candlePatterns">The candle patterns.</param>
     private BarPoint GetNewStopLoss(List<CandlesResult> candlePatterns)
     {
-        if(candlePatterns == null || !candlePatterns.Any())
+        if (candlePatterns == null || !candlePatterns.Any())
             return null;
 
         bool isBull = candlePatterns.Select(a => a.IsBull).First();

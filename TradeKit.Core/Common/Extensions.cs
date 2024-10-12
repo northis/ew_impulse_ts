@@ -81,6 +81,15 @@ namespace TradeKit.Core.Common
             if (CANDLE_PATTERN_NAME_MAP.TryGetValue(type, out string val))
                 return val;
             return type.ToString();
+        } 
+        
+        /// <summary>
+        /// Gets the readable name from the <see cref="CandlePatternType"/> enum.
+        /// </summary>
+        /// <param name="type">The candle pattern type.</param>
+        public static string GetName(this CandlePatternType type)
+        {
+            return type.ToString().Replace("UP_","").Replace("DOWN_", "").Replace("_", " ");
         }
 #endif
         private static readonly Dictionary<GartleyPatternType, string> GARTLEY_PATTERN_NAME_MAP = new()

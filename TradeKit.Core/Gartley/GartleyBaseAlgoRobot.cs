@@ -3,6 +3,7 @@ using Plotly.NET;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
+using TradeKit.Core.PriceAction;
 using Shape = Plotly.NET.LayoutObjects.Shape;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
@@ -89,13 +90,13 @@ namespace TradeKit.Core.Gartley
         /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected override void OnDrawChart(
             GenericChart.GenericChart candlestickChart,
-            GartleySignalEventArgs signalEventArgs, 
+            GartleySignalEventArgs signalEventArgs,
             IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
         {
             GartleyItem gartley = signalEventArgs.GartleyItem;
             bool isBull = gartley.ItemX < gartley.ItemA;
-            
+
             Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
             Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
             Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath,
@@ -103,13 +104,13 @@ namespace TradeKit.Core.Gartley
                 Y0: gartley.ItemX.Value.ToFSharp(),
                 X1: gartley.ItemD.OpenTime.ToFSharp(),
                 Y1: gartley.ItemD.Value.ToFSharp(),
-                Path: SvgPathFromGartleyItem(gartley), 
-                Fillcolor: colorFill, 
+                Path: SvgPathFromGartleyItem(gartley),
+                Fillcolor: colorFill,
                 Line: Line.init(Color: colorFill));
             candlestickChart.WithShape(patternPath);
-            
+
             double levelStart = barProvider.GetClosePrice(barProvider.GetIndexByTime(gartley.ItemD.OpenTime));
-            GetSetupEndRender(gartley.ItemD.OpenTime, barProvider.TimeFrame, 
+            GetSetupEndRender(gartley.ItemD.OpenTime, barProvider.TimeFrame,
                 out DateTime setupStart, out DateTime setupEnd);
 
             Shape tp1 = GetSetupRectangle(
@@ -121,13 +122,15 @@ namespace TradeKit.Core.Gartley
             Shape sl = GetSetupRectangle(
                 setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
             candlestickChart.WithShape(sl);
-            
+
             if (signalEventArgs.DivergenceStart is not null)
             {
-                Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, LINE_WIDTH);
+                Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR,
+                    LINE_WIDTH);
                 candlestickChart.WithShape(div);
                 candlestickChart.WithAnnotation(GetAnnotation(
-                        signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, DIVERGENCE_NAME, chartDateTimes));
+                    signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR, DIVERGENCE_NAME,
+                    chartDateTimes));
             }
 
             void AddLine(BarPoint b1, BarPoint b2, double ratio)
@@ -138,7 +141,7 @@ namespace TradeKit.Core.Gartley
                 candlestickChart.WithAnnotation(GetAnnotation(
                     b1, b2, colorBorder, ratio.Ratio(), chartDateTimes));
             }
-            
+
             AddLine(gartley.ItemA, gartley.ItemC, gartley.AtoC);
             AddLine(gartley.ItemB, gartley.ItemD, gartley.BtoD);
             AddLine(gartley.ItemX, gartley.ItemD, gartley.XtoD);
@@ -146,12 +149,21 @@ namespace TradeKit.Core.Gartley
             if (gartley.XtoB != 0)
                 AddLine(gartley.ItemX, gartley.ItemB, gartley.XtoB);
 
-            double patternBottom = isBull ? Math.Min(gartley.ItemX.Value, gartley.ItemD.Value):
-                    Math.Min(gartley.ItemA.Value, gartley.ItemC.Value);
+            double patternBottom = isBull
+                ? Math.Min(gartley.ItemX.Value, gartley.ItemD.Value)
+                : Math.Min(gartley.ItemA.Value, gartley.ItemC.Value);
 
+            string patternPa = string.Empty;
+            CandlesResult pa = signalEventArgs.CandlePatterns?.FirstOrDefault();
+            if (pa is not null)
+            {
+                patternPa = $" ({pa.Type.GetName()})";
+            }
+
+            string nameDesc = $"{gartley.PatternType.Format()}{patternPa}";
             candlestickChart.WithAnnotation(ChartGenerator.GetAnnotation(
-                    gartley.ItemD.OpenTime, patternBottom, ChartGenerator.BLACK_COLOR, CHART_FONT_HEADER, colorBorder,
-                    gartley.PatternType.Format()));
+                gartley.ItemD.OpenTime, patternBottom, ChartGenerator.BLACK_COLOR, CHART_FONT_HEADER, colorBorder,
+                nameDesc));
         }
 
         /// <summary>
