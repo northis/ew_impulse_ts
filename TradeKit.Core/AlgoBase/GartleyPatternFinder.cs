@@ -340,13 +340,13 @@ namespace TradeKit.Core.AlgoBase
 
             //if (HasExtremaBetweenPoints(projection))
             //{
-            //    Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
+            //    //Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
             //    return null;
             //}
 
             //if (!IsInnerPointsPivot(projection))
             //{
-            //    Logger.Write($"{nameof(IsInnerPointsPivot)}: {projection.PatternType.PatternType}");
+            //    //Logger.Write($"{nameof(IsInnerPointsPivot)}: {projection.PatternType.PatternType}");
             //    return null;
             //}
 

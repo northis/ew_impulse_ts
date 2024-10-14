@@ -39,6 +39,7 @@
     <Compile Include="Gartley\GartleySignalerAlgoRobot.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\PriceActionHistogramIndicator.cs" />
+    <Compile Include="Indicators\SuperTrendIndicator.cs" />
     <Compile Include="Indicators\ZoneAlligatorIndicator.cs" />
     <Compile Include="Core\BarProvidersFactory.cs" />
     <Compile Include="Core\BaseIndicator.cs" />

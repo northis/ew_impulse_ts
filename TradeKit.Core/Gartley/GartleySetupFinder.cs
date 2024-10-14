@@ -29,8 +29,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
     private readonly HashSet<CandlePatternType> m_DelayedPatterns = new()
     {
-        //CandlePatternType.UP_PIN_BAR_TRIO,
-        //CandlePatternType.DOWN_PIN_BAR_TRIO,
+        CandlePatternType.UP_PIN_BAR_TRIO,
+        CandlePatternType.DOWN_PIN_BAR_TRIO,
         CandlePatternType.DOWN_RAILS,
         CandlePatternType.UP_RAILS,
         CandlePatternType.DOWN_INNER_BAR,

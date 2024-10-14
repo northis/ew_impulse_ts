@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
@@ -80,7 +81,6 @@ namespace TradeKit.Core.Common
             m_TimeFrames = !robotParams.UseTimeFramesList || string.IsNullOrEmpty(robotParams.TimeFramesToProceed)
                 ? new[] { timeFrameName }
                 : SplitString(robotParams.TimeFramesToProceed);
-
         }
 
         /// <summary>
@@ -152,6 +152,7 @@ namespace TradeKit.Core.Common
                 m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_RobotParams.PostCloseMessages, stateMap,  TradeManager.SaveState);
 
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
+            Debugger.Launch();
         }
         
         protected abstract IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity);
@@ -469,7 +470,7 @@ namespace TradeKit.Core.Common
         }
 
         private void OnEnter(object sender, TK e)
-        { 
+        {
             var sf = (TF)sender;
             if (!m_SymbolFindersMap.TryGetValue(sf.Symbol.Name, out TF[] finders))
             {
@@ -577,21 +578,21 @@ namespace TradeKit.Core.Common
 
             if (m_RobotParams.SaveChartForManualAnalysis || m_IsBackTesting)
                 m_ChartFileFinderMap[sf.Id] = e;
-            if (!TelegramReporter.IsReady)
-                return;
+            //if (!TelegramReporter.IsReady)
+            //    return;
 
             IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
             string plotImagePath = GeneratePlotImageFile(bp, e);
-            TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
-            {
-                Ask = TradeManager.GetAsk(symbol),
-                Bid = TradeManager.GetBid(symbol),
-                Digits = sf.Symbol.Digits,
-                SignalEventArgs = e,
-                SymbolName = sf.Symbol.Name,
-                SenderId = sf.Id,
-                PlotImagePath = plotImagePath
-            });
+            //TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
+            //{
+            //    Ask = TradeManager.GetAsk(symbol),
+            //    Bid = TradeManager.GetBid(symbol),
+            //    Digits = sf.Symbol.Digits,
+            //    SignalEventArgs = e,
+            //    SymbolName = sf.Symbol.Name,
+            //    SenderId = sf.Id,
+            //    PlotImagePath = plotImagePath
+            //});
         }
 
         /// <summary>
@@ -730,7 +731,6 @@ namespace TradeKit.Core.Common
             GenericChart.GenericChart[] layers =
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime)
                 ?? Array.Empty<GenericChart.GenericChart>();
-
             GenericChart.GenericChart resultChart = Chart.Combine(
                     layers.Concat(new[] { candlestickChart }))
                 .WithTitle(

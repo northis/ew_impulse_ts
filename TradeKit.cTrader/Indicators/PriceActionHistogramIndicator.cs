@@ -15,7 +15,7 @@ namespace TradeKit.CTrader.Indicators
     /// Calculates the count of the price action patterns.
     /// </summary>
     /// <seealso cref="Indicator" />
-    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
+    //[Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
     public class PriceActionHistogramIndicator : Indicator
     {
         private CandlePatternFinder m_CandlePatternFinder;

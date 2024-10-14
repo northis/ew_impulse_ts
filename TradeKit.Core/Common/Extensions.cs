@@ -89,7 +89,7 @@ namespace TradeKit.Core.Common
         /// <param name="type">The candle pattern type.</param>
         public static string GetName(this CandlePatternType type)
         {
-            return type.ToString().Replace("UP_","").Replace("DOWN_", "").Replace("_", " ");
+            return type.ToString().Replace("UP_","").Replace("DOWN_", "").Replace("_", " ").ToLower();
         }
 #endif
         private static readonly Dictionary<GartleyPatternType, string> GARTLEY_PATTERN_NAME_MAP = new()

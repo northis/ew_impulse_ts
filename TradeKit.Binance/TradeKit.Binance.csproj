@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BinanceAPI.NET" Version="36.1.6" />
+    <PackageReference Include="Binance.Net" Version="10.6.0" />
   </ItemGroup>
 
   <ItemGroup>
