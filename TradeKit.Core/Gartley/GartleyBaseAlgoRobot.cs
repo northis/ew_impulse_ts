@@ -89,7 +89,7 @@ namespace TradeKit.Core.Gartley
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected override void OnDrawChart(
-            GenericChart.GenericChart candlestickChart,
+            GenericChart candlestickChart,
             GartleySignalEventArgs signalEventArgs,
             IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
@@ -99,13 +99,13 @@ namespace TradeKit.Core.Gartley
 
             Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
             Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
-            Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath,
+            Shape patternPath = Shape.init(ShapeType:StyleParam.ShapeType.SvgPath,
                 X0: gartley.ItemX.OpenTime.ToFSharp(),
                 Y0: gartley.ItemX.Value.ToFSharp(),
                 X1: gartley.ItemD.OpenTime.ToFSharp(),
                 Y1: gartley.ItemD.Value.ToFSharp(),
                 Path: SvgPathFromGartleyItem(gartley),
-                Fillcolor: colorFill,
+                FillColor: colorFill,
                 Line: Line.init(Color: colorFill));
             candlestickChart.WithShape(patternPath);
 

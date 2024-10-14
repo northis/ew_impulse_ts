@@ -18,7 +18,7 @@ namespace TradeKit.Core.Common
         public static readonly Color SEMI_WHITE_COLOR = Color.fromARGB(80, 209, 212, 220);
         public const double CHART_FONT_MAIN = 24;
 
-        public static GenericChart.GenericChart GetCandlestickChart(
+        public static GenericChart GetCandlestickChart(
             List<JsonCandleExport> candles,
             string name)
         {
@@ -37,11 +37,11 @@ namespace TradeKit.Core.Common
                 d[i] = candles[i].OpenDate;
             }
 
-            GenericChart.GenericChart res = GetCandlestickChart(o, h, l, c, d, name);
+            GenericChart res = GetCandlestickChart(o, h, l, c, d, name);
             return res;
         }
 
-        public static GenericChart.GenericChart GetCandlestickChart(
+        public static GenericChart GetCandlestickChart(
             double[] o,
             double[] h,
             double[] l,
@@ -60,7 +60,7 @@ namespace TradeKit.Core.Common
                     Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
             };
 
-            GenericChart.GenericChart res = 
+            GenericChart res = 
                 GetCandlestickChart(o, h, l, c, d, name, rbs);
             return res;
         }
@@ -116,7 +116,7 @@ namespace TradeKit.Core.Common
             return annotation;
         }
 
-        public static GenericChart.GenericChart GetCandlestickChart(
+        public static GenericChart GetCandlestickChart(
             double[] o,
             double[] h,
             double[] l,
@@ -125,20 +125,20 @@ namespace TradeKit.Core.Common
             string name,
             Rangebreak[] rangeBreaks = null)
         {
-            GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
+            GenericChart candlestickChart = Chart2D.Chart.Candlestick
                 <double, double, double, double, DateTime, string>(
                     o,
                     h,
                     l,
                     c,
-                    d,
+                    X: d,
                     IncreasingColor: LONG_COLOR.ToFSharp(),
                     DecreasingColor: SHORT_COLOR.ToFSharp(),
                     Name: name,
                     ShowLegend: false);
 
-            GenericChart.GenericChart resultChart = Chart.Combine(
-                    Array.Empty<GenericChart.GenericChart>().Concat(new[] { candlestickChart }))
+            GenericChart resultChart = Chart.Combine(
+                    Array.Empty<GenericChart>().Concat(new[] { candlestickChart }))
                 .WithXAxisRangeSlider(RangeSlider.init(Visible: false))
                 .WithConfig(Config.init(
                     StaticPlot: true,
@@ -152,10 +152,15 @@ namespace TradeKit.Core.Common
                     Columns: 0,
                     XGap: 0d,
                     YGap: 0d))
-            .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks), GridColor: SEMI_WHITE_COLOR, ShowGrid: true))
-                .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    GridColor: SEMI_WHITE_COLOR, ShowGrid: true))
+                .WithXAxis(LinearAxis
+                    .init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                        Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks),
+                        GridColor: SEMI_WHITE_COLOR,
+                        ShowGrid: true))
+                .WithYAxis(LinearAxis
+                    .init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                        GridColor: SEMI_WHITE_COLOR,
+                        ShowGrid: true))
                 .WithYAxisStyle(Side: Side.Right, title: null);
 
             return resultChart;
@@ -188,7 +193,7 @@ namespace TradeKit.Core.Common
         {
             string name = model.Model.ToString().Replace("_", " ").ToUpperInvariant();
             List<JsonCandleExport> candles = model.Candles;
-            GenericChart.GenericChart chart = GetCandlestickChart(candles, name);
+            GenericChart chart = GetCandlestickChart(candles, name);
 
             const byte chartFontSizeCorrect = (byte)CHART_FONT_MAIN - 4;
             if (model.PatternKeyPoints != null)

@@ -110,7 +110,7 @@ namespace TradeKit.Core.PriceAction
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
-        protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, PriceActionSignalEventArgs signalEventArgs,
+        protected override void OnDrawChart(GenericChart candlestickChart, PriceActionSignalEventArgs signalEventArgs,
             IBarsProvider barProvider, List<DateTime> chartDateTimes)
         {
             CandlesResult pattern = signalEventArgs.ResultPattern;
