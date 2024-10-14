@@ -17,7 +17,7 @@ namespace TradeKit.Core.ElliottWave
         {
         }
 
-        protected override void OnDrawChart(GenericChart candlestickChart, EventArgs.ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
+        protected override void OnDrawChart(GenericChart.GenericChart candlestickChart, EventArgs.ImpulseSignalEventArgs signalEventArgs, IBarsProvider barProvider,
             List<DateTime> chartDateTimes)
         {
             string[] waveNotations = ElliottWavePatternHelper.ModelRules[ElliottModelType.IMPULSE].Models
@@ -41,7 +41,7 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="lastOpenDateTime">The last open date time.</param>
-        protected override GenericChart[] GetAdditionalChartLayers(
+        protected override GenericChart.GenericChart[] GetAdditionalChartLayers(
             EventArgs.ImpulseSignalEventArgs signalEventArgs, DateTime lastOpenDateTime)
         {
             double sl = signalEventArgs.StopLoss.Value;
@@ -49,15 +49,15 @@ namespace TradeKit.Core.ElliottWave
             DateTime startView = signalEventArgs.StartViewBarTime;
 
             bool useChannel = signalEventArgs.ChannelBarPoints.Length == 4;
-            var result = new List<GenericChart>();
+            var result = new List<GenericChart.GenericChart>();
 
-            GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
+            GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, tp), new(lastOpenDateTime, tp) },
                 LineColor: ChartGenerator.LONG_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
                 LineDash: DrawingStyle.Dash.ToFSharp());
             result.Add(tpLine);
-            GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
+            GenericChart.GenericChart slLine = Chart2D.Chart.Line<DateTime, double, string>(
                 new Tuple<DateTime, double>[] { new(startView, sl), new(lastOpenDateTime, sl) },
                 LineColor: ChartGenerator.SHORT_COLOR.ToFSharp(),
                 ShowLegend: false.ToFSharp(),
@@ -73,7 +73,7 @@ namespace TradeKit.Core.ElliottWave
                     if (wave == null)
                         continue;
 
-                    GenericChart waveLine =
+                    GenericChart.GenericChart waveLine =
                         Chart2D.Chart.Line<DateTime, double, string>(
                             new Tuple<DateTime, double>[]
                             {
