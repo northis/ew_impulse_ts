@@ -139,7 +139,8 @@ namespace TradeKit.Core.Rate
                 OnEnterInvoke(new SignalEventArgs(
                     LastEntry,
                     new BarPoint(tp, LastBar, m_MainBarsProvider),
-                    new BarPoint(slValue, slBar.Key, m_MainBarsProvider)));
+                    new BarPoint(slValue, slBar.Key, m_MainBarsProvider), 
+                    false));
             }
         }
     }

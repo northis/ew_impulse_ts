@@ -10,12 +10,14 @@ namespace TradeKit.Core.EventArgs
     public class SignalEventArgs : System.EventArgs
     {
         private readonly double? m_BreakevenRatio;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SignalEventArgs"/> class.
         /// </summary>
         /// <param name="level">The level.</param>
         /// <param name="takeProfit">The take profit level.</param>
         /// <param name="stopLoss">The stop loss.</param>
+        /// <param name="isLimit">True if it is a limit signal. <see cref="Level"/> is for limit.</param>
         /// <param name="startViewBarTime">The bar time we should visually analyze the chart from. Optional</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         /// <param name="comment">The optional comment text to show.</param>
@@ -23,6 +25,7 @@ namespace TradeKit.Core.EventArgs
             BarPoint level,
             BarPoint takeProfit,
             BarPoint stopLoss,
+            bool isLimit,
             DateTime startViewBarTime = default,
             double? breakevenRatio = null,
             string comment = null)
@@ -31,6 +34,7 @@ namespace TradeKit.Core.EventArgs
             Level = level;
             TakeProfit = takeProfit;
             StopLoss = stopLoss;
+            IsLimit = isLimit;
             StartViewBarTime = startViewBarTime;
             Comment = comment;
         }
@@ -50,6 +54,11 @@ namespace TradeKit.Core.EventArgs
         /// Set for breakeven
         /// </summary>
         public BarPoint StopLoss { get; set; }
+
+        /// <summary>
+        /// Gets true if it is a limit signal. <see cref="Level"/> is for limit
+        /// </summary>
+        public bool IsLimit { get; }
 
         /// <summary>
         /// Gets the start bar time we should visually analyze the chart from.

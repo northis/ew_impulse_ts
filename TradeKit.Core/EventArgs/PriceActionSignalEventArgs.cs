@@ -12,7 +12,7 @@ namespace TradeKit.Core.EventArgs
             CandlesResult resultPattern, 
             DateTime startViewBarIndex,
             double? breakevenRatio)
-            :base(level, takeProfit, stopLoss, startViewBarIndex, breakevenRatio)
+            :base(level, takeProfit, stopLoss, false, startViewBarIndex, breakevenRatio)
         {
             ResultPattern = resultPattern;
         }

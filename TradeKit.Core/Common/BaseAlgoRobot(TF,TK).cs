@@ -268,6 +268,8 @@ namespace TradeKit.Core.Common
                 sf.OnStopLoss += OnStopLoss;
                 sf.OnTakeProfit += OnTakeProfit;
                 sf.OnBreakEven += OnBreakeven;
+                sf.OnLimitActivated += OnLimitActivated;
+                sf.OnLimitCanceled += OnLimitCanceled;
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[finderId] = true;
                 Logger.Write($"{nameof(BarOpened)}: Bars initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
@@ -276,6 +278,16 @@ namespace TradeKit.Core.Common
             {
                 Logger.Write($"{nameof(BarOpened)}: {ex.Message}");
             }
+        }
+
+        private void OnLimitActivated(object sender, LevelEventArgs e)
+        {
+            throw new NotImplementedException();
+        }  
+        
+        private void OnLimitCanceled(object sender, LevelEventArgs e)
+        {
+            throw new NotImplementedException();
         }
 
         /// <summary>
