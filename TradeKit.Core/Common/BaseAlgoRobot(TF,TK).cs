@@ -46,6 +46,7 @@ namespace TradeKit.Core.Common
         private int m_TakeCount;
         private int m_StopCount;
         private bool m_IsInit;
+        private readonly string[] m_RestrictedChars = Path.GetInvalidPathChars().Select(a=>a.ToString()).ToArray();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseAlgoRobot{T,TK}"/> class.
@@ -152,7 +153,6 @@ namespace TradeKit.Core.Common
                 m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_RobotParams.PostCloseMessages, stateMap,  TradeManager.SaveState);
 
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
-            Debugger.Launch();
         }
         
         protected abstract IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity);
@@ -578,21 +578,21 @@ namespace TradeKit.Core.Common
 
             if (m_RobotParams.SaveChartForManualAnalysis || m_IsBackTesting)
                 m_ChartFileFinderMap[sf.Id] = e;
-            //if (!TelegramReporter.IsReady)
-            //    return;
+            if (!TelegramReporter.IsReady)
+                return;
 
             IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
             string plotImagePath = GeneratePlotImageFile(bp, e);
-            //TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
-            //{
-            //    Ask = TradeManager.GetAsk(symbol),
-            //    Bid = TradeManager.GetBid(symbol),
-            //    Digits = sf.Symbol.Digits,
-            //    SignalEventArgs = e,
-            //    SymbolName = sf.Symbol.Name,
-            //    SenderId = sf.Id,
-            //    PlotImagePath = plotImagePath
-            //});
+            TelegramReporter.ReportSignal(new TelegramReporter.SignalArgs
+            {
+                Ask = TradeManager.GetAsk(symbol),
+                Bid = TradeManager.GetBid(symbol),
+                Digits = sf.Symbol.Digits,
+                SignalEventArgs = e,
+                SymbolName = sf.Symbol.Name,
+                SenderId = sf.Id,
+                PlotImagePath = plotImagePath
+            });
         }
 
         /// <summary>
@@ -669,7 +669,7 @@ namespace TradeKit.Core.Common
             bool? successTrade = null)
         {
             DateTime startView = signalEventArgs.StartViewBarTime;
-            int firstIndex = barProvider.GetIndexByTime(signalEventArgs.StartViewBarTime);
+            int firstIndex = barProvider.GetIndexByTime(startView);
             int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
 
             int lastIndex = barProvider.Count - 1;
@@ -727,6 +727,16 @@ namespace TradeKit.Core.Common
                 s.O, s.H, s.L, s.C, s.D, barProvider.BarSymbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
                 out Rangebreak[] rbs);
 
+            string comment = signalEventArgs.Comment;
+            if (comment == null)
+                comment = string.Empty;
+            else
+            {
+                comment = ".";
+                foreach (string rStr in m_RestrictedChars) comment = comment.Replace(rStr, string.Empty);
+                comment = comment.Replace(" ", "_");
+            }
+
             OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
             GenericChart.GenericChart[] layers =
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime)
@@ -739,7 +749,7 @@ namespace TradeKit.Core.Common
 
             string fileName = startView.ToString("s").Replace(":", "-");
             string dirPath = Path.Combine(Helper.DirectoryToSaveResults,
-                $"{fileName}.{barProvider.BarSymbol}.{barProvider.TimeFrame.ShortName}");
+                $"{fileName}.{barProvider.BarSymbol.Name}.{barProvider.TimeFrame.ShortName}{comment}");
             Directory.CreateDirectory(dirPath);
 
             string imageName;

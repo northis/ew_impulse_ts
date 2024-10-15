@@ -19,6 +19,7 @@ namespace TradeKit.Core.Telegram
         private readonly TelegramBotClient m_TelegramBotClient;
         private readonly ChatId m_TelegramChatId;
         private readonly Dictionary<string, int> m_SignalPostIds;
+        private readonly Dictionary<string, SignalEventArgs> m_SignalEventArgsMap;
 
         private const string TOKEN_NAME = "IMPULSE_FINDER_BOT_TOKEN_NAME";
         private const string CHAT_ID = "IMPULSE_FINDER_BOT_CHAT_ID";
@@ -33,7 +34,7 @@ namespace TradeKit.Core.Telegram
             {"ETHUSD", "ETH"}
         };
 
-        private const string DEFULT_PROVIDER = "OANDA:";
+        private const string DEFAULT_PROVIDER = "OANDA:";
         private readonly Dictionary<string, string> m_ProviderMap = new()
         {
             {"BTCUSD", "BINANCE:BTCUSDT"},
@@ -75,6 +76,7 @@ namespace TradeKit.Core.Telegram
             
             m_TelegramChatId = new ChatId(chatId);
             IsReady = true;
+            m_SignalEventArgsMap = new Dictionary<string, SignalEventArgs>();//TODO get it saved to the local storage
         }
 
         /// <summary>
@@ -96,13 +98,13 @@ namespace TradeKit.Core.Telegram
         {
             if (m_ReportClose)
             {
-                ReportClose(posId, "SL hit", closeImagePath);
+                ReportClose(posId, "SL hit => -100%", closeImagePath);//TODO for breakeven this is not right
+                m_SignalEventArgsMap.Remove(posId);
                 m_SignalPostIds.Remove(posId);
                 m_OnSaveState?.Invoke(m_SignalPostIds);
             }
         }
-
-
+        
         /// <summary>
         /// Reports the take profit.
         /// </summary>
@@ -112,7 +114,19 @@ namespace TradeKit.Core.Telegram
         {
             if (m_ReportClose)
             {
-                ReportClose(posId, "TP hit", closeImagePath);
+                string stat = string.Empty;
+                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalEventArgs args))
+                {
+                    var toSl = Math.Abs(args.Level - args.StopLoss);
+                    if (toSl > 0)
+                    {
+                        double toSl100 = 100 * Math.Abs(args.Level - args.TakeProfit) / toSl;
+                        stat = $" => +{toSl100:N0}% of risk";
+                    }
+                }
+
+                m_SignalEventArgsMap.Remove(posId);
+                ReportClose(posId, $"TP hit{stat}", closeImagePath);
                 m_SignalPostIds.Remove(posId);
                 m_OnSaveState?.Invoke(m_SignalPostIds);
             }
@@ -222,7 +236,7 @@ namespace TradeKit.Core.Telegram
             TimeSpan tfTs = TimeFrameHelper.GetTimeFrameInfo(signalArgs.SignalEventArgs.Level.BarTimeFrame).TimeSpan;
             if (!m_ProviderMap.TryGetValue(signalArgs.SymbolName, out string provPart))
             {
-                provPart = $"{DEFULT_PROVIDER}{signalArgs.SymbolName}";
+                provPart = $"{DEFAULT_PROVIDER}{signalArgs.SymbolName}";
             }
 
             string alert = sb.ToString();
@@ -238,6 +252,7 @@ namespace TradeKit.Core.Telegram
                 signalArgs.SignalEventArgs.Level,
                 signalArgs.SignalEventArgs.Comment);
             m_SignalPostIds[positionId] = msgRes.MessageId;
+            m_SignalEventArgsMap[positionId] = signalEventArgs;
             m_OnSaveState?.Invoke(m_SignalPostIds);
         }
 

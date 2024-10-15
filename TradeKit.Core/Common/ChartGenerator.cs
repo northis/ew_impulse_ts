@@ -135,7 +135,10 @@ namespace TradeKit.Core.Common
                     IncreasingColor: LONG_COLOR.ToFSharp(),
                     DecreasingColor: SHORT_COLOR.ToFSharp(),
                     Name: name,
-                    ShowLegend: false);
+                    ShowLegend: false)
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks),
+                    ShowGrid: false));
 
             GenericChart.GenericChart resultChart = Chart.Combine(
                     Array.Empty<GenericChart.GenericChart>().Concat(new[] { candlestickChart }))
@@ -152,8 +155,9 @@ namespace TradeKit.Core.Common
                     Columns: 0,
                     XGap: 0d,
                     YGap: 0d))
-            .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
-                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks), GridColor: SEMI_WHITE_COLOR, ShowGrid: true))
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                    Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks), GridColor: SEMI_WHITE_COLOR,
+                    ShowGrid: true))
                 .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
                     GridColor: SEMI_WHITE_COLOR, ShowGrid: true))
                 .WithYAxisStyle(Side: Side.Right, title: null);
