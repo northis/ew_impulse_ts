@@ -732,7 +732,7 @@ namespace TradeKit.Core.Common
                 comment = string.Empty;
             else
             {
-                comment = ".";
+                comment = $".{comment}";
                 foreach (string rStr in m_RestrictedChars) comment = comment.Replace(rStr, string.Empty);
                 comment = comment.Replace(" ", "_");
             }

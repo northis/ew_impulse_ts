@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using Plotly.NET;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core.EventArgs
 {
@@ -95,5 +96,10 @@ namespace TradeKit.Core.EventArgs
                 return m_BreakEvenPrice ?? 0;
             }
         }
+
+        /// <summary>
+        /// Gets the whole range of the setup.
+        /// </summary>
+        public double WholeRange => Math.Abs(TakeProfit - StopLoss);
     }
 }

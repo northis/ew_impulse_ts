@@ -98,7 +98,18 @@ namespace TradeKit.Core.Telegram
         {
             if (m_ReportClose)
             {
-                ReportClose(posId, "SL hit => -100%", closeImagePath);//TODO for breakeven this is not right
+                string stat = string.Empty;
+                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalEventArgs args))
+                {
+                    double wholeRisk = args.WholeRange;
+                    if (wholeRisk > 0)
+                    {
+                        double toSl100 = 100 * Math.Abs(args.Level - args.StopLoss) / wholeRisk;
+                        stat = $" => -{toSl100:N0}%";
+                    }
+                }
+
+                ReportClose(posId, $"SL hit{stat}", closeImagePath);//TODO for breakeven this is not right
                 m_SignalEventArgsMap.Remove(posId);
                 m_SignalPostIds.Remove(posId);
                 m_OnSaveState?.Invoke(m_SignalPostIds);
@@ -117,11 +128,11 @@ namespace TradeKit.Core.Telegram
                 string stat = string.Empty;
                 if (m_SignalEventArgsMap.TryGetValue(posId, out SignalEventArgs args))
                 {
-                    var toSl = Math.Abs(args.Level - args.StopLoss);
-                    if (toSl > 0)
+                    double wholeRisk = args.WholeRange;
+                    if (wholeRisk > 0)
                     {
-                        double toSl100 = 100 * Math.Abs(args.Level - args.TakeProfit) / toSl;
-                        stat = $" => +{toSl100:N0}% of risk";
+                        double toSl100 = 100 * Math.Abs(args.Level - args.TakeProfit) / wholeRisk;
+                        stat = $" => +{toSl100:N0}%";
                     }
                 }
 
