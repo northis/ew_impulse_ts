@@ -110,7 +110,7 @@ namespace TradeKit.Core.Signals
                         new BarPoint(signal.Price ?? m_LastPrice, BarsProvider.GetIndexByTime(signal.DateTime),
                             BarsProvider),
                         new BarPoint(tp, LastBar, BarsProvider),
-                        new BarPoint(signal.StopLoss, LastBar, BarsProvider), false));
+                        new BarPoint(signal.StopLoss, LastBar, BarsProvider)));
                 }
 
                 m_Signals.Remove(matchedSignal.Key);

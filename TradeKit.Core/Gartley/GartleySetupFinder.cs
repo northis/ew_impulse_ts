@@ -184,7 +184,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         var args = new GartleySignalEventArgs(
             new BarPoint(close, index, m_MainBarsProvider),
-            localPattern, startView, false, divItem, m_BreakevenRatio, candlePatterns);
+            localPattern, startView, divItem, m_BreakevenRatio, candlePatterns);
 
         //BarPoint newStopLoss = GetNewStopLoss(candlePatterns);
         //if (newStopLoss != null)

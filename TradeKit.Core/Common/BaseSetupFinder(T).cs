@@ -79,16 +79,6 @@ namespace TradeKit.Core.Common
         public event EventHandler<LevelEventArgs> OnTakeProfit;
 
         /// <summary>
-        /// Occurs when on limit order is active.
-        /// </summary>
-        public event EventHandler<LevelEventArgs> OnLimitActivated;
-
-        /// <summary>
-        /// Occurs when on limit order is canceled.
-        /// </summary>
-        public event EventHandler<LevelEventArgs> OnLimitCanceled;
-
-        /// <summary>
         /// Raises the <see cref="E:OnStopLoss" /> event.
         /// </summary>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
@@ -104,24 +94,6 @@ namespace TradeKit.Core.Common
         protected void OnTakeProfitInvoke(LevelEventArgs e)
         {
             OnTakeProfit?.Invoke(this, e);
-        }
-
-        /// <summary>
-        /// Raises the <see cref="E:OnLimitActivated" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
-        protected void OnLimitActivatedInvoke(LevelEventArgs e)
-        {
-            OnLimitActivated?.Invoke(this, e);
-        }
-
-        /// <summary>
-        /// Raises the <see cref="E:OnLimitCanceled" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
-        protected void OnLimitCanceledInvoke(LevelEventArgs e)
-        {
-            OnLimitCanceled?.Invoke(this, e);
         }
 
         /// <summary>
