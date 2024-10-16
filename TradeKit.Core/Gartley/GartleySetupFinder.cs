@@ -1,8 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using TradeKit.Core.AlgoBase;
+﻿using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -64,7 +60,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.DARK_CLOUD,
         CandlePatternType.PIECING_LINE,
     };
-    private const int PATTERN_CACHE_DEPTH_CANDLES = 2;
+    private const int PATTERN_CACHE_DEPTH_CANDLES = 5;
+    private const double PATTERN_PROFIT_RANGE = 0.5;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -224,6 +221,9 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         List<GartleyItem> toDeleteFromCache = null;
         foreach (GartleyItem pendingPattern in m_PendingPatterns)
         {
+            if (!IsPatternProfitableNow(pendingPattern, close))
+                continue;
+
             List<CandlesResult> localCandlePatterns = candlePatterns
                 .Where(a => a.IsBull == pendingPattern.IsBull &&
                             m_DelayedPatterns.Contains(a.Type))
@@ -239,6 +239,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         toDeleteFromCache?.ForEach(a => m_PendingPatterns.Remove(a));
+    }
+
+    bool IsPatternProfitableNow(GartleyItem pendingPattern, double nowPrice)
+    {
+        double patternProfitable = Math.Abs(pendingPattern.TakeProfit1 - nowPrice) / pendingPattern.Range;
+        return patternProfitable >= PATTERN_PROFIT_RANGE;
     }
 
     /// <summary>
@@ -282,12 +288,20 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 if (!hasTrendCandles)
                     continue;
 
-                List<CandlesResult> instantCandles = m_CandlePatternFilter?
-                    .GetCandlePatterns(index)?
-                    .Where(a => a.IsBull == localPattern.IsBull && 
-                                m_InstantPatterns.Contains(a.Type))
-                    .ToList();
-                AddSetup(localPattern, close, index, instantCandles?.Count == 0 ? null : instantCandles);
+                if (IsPatternProfitableNow(localPattern, close))
+                {
+                    List<CandlesResult> instantCandles = m_CandlePatternFilter?
+                        .GetCandlePatterns(index)?
+                        .Where(a => a.IsBull == localPattern.IsBull &&
+                                    m_InstantPatterns.Contains(a.Type))
+                        .ToList();
+                    AddSetup(localPattern, close, index, instantCandles?.Count == 0 ? null : instantCandles);
+                }
+                else
+                {
+                    m_PendingPatterns.Add(localPattern);
+                }
+
             }
         }
 

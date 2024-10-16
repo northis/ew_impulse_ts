@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.AlgoBase;
+﻿using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.PatternGeneration;
@@ -12,10 +11,9 @@ namespace TradeKit.Core.PriceAction
     /// <seealso cref="BaseSetupFinder&lt;PriceActionSignalEventArgs&gt;" />
     public class PriceActionSetupFinder : BaseSetupFinder<PriceActionSignalEventArgs>
     {
-        private double? m_BreakevenRatio;
+        private readonly double? m_BreakevenRatio;
         private readonly IBarsProvider m_MainBarsProvider;
         private readonly SuperTrendItem m_SuperTrendItem;
-        private readonly GartleyPatternFinder m_GartleyPatternFinder;
         private const int DEPTH_SHOW = 10;
         private const double SL_ALLOWANCE = 0.1;
         private readonly CandlePatternFinder m_CandlePatternFinder;

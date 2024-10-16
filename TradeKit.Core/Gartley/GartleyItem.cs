@@ -56,6 +56,11 @@ namespace TradeKit.Core.Gartley
         public bool IsBull => ItemX.Value < ItemA.Value;
 
         /// <summary>
+        /// Gets the range [stop->take].
+        /// </summary>
+        public double Range => Math.Abs(StopLoss - TakeProfit1);
+
+        /// <summary>
         /// Returns a hash code for this instance.
         /// </summary>
         /// <returns>

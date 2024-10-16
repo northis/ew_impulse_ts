@@ -1,10 +1,8 @@
-﻿using System.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core.EventArgs;
-using TradeKit.Core.Gartley;
 using TradeKit.Core.Telegram;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
@@ -528,16 +526,18 @@ namespace TradeKit.Core.Common
                 tp += spreadNew * SPREAD_MARGIN_RATIO;
             }
 
-            double slLen = Math.Abs(priceNow - sl);
+            double slLen = Math.Abs(tp - sl);
             double tpLen = Math.Abs(priceNow - tp);
             
             double slP = Math.Round(slLen / sf.Symbol.PipSize);
             double tpP = Math.Round(tpLen / sf.Symbol.PipSize);
+            double rangeLen = Math.Abs(tp - sl);
+            double rangeP = Math.Round(rangeLen / sf.Symbol.PipSize);
 
             if (slP > 0)
             {
                 //System.Diagnostics.Debugger.Launch();
-                double volume = GetVolume(symbol, Math.Max(tpP, slP));
+                double volume = GetVolume(symbol, rangeP);
                 double volumeInLots = volume / symbol.LotSize;
 
                 if (volumeInLots > m_RobotParams.MaxVolumeLots)
