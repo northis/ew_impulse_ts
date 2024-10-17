@@ -4,7 +4,6 @@ using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.Indicators;
-using TradeKit.Core.PriceAction;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Gartley
@@ -22,6 +21,7 @@ namespace TradeKit.CTrader.Gartley
         /// <param name="gartleyParams">Gartley parameters.</param>
         public GartleySignalerAlgoRobot(Robot hostRobot, RobotParams robotParams, GartleyParams gartleyParams)
             : base(new CTraderManager(hostRobot), 
+                new CTraderStorageManager(hostRobot),
                 robotParams, 
                 gartleyParams, 
                 hostRobot.IsBacktesting,

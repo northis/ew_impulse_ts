@@ -14,11 +14,14 @@ namespace TradeKit.CTrader.Signals
         private readonly SignalsParams m_SignalsParams;
         private readonly CTraderManager m_TradeManager;
         public SignalsCheckAlgoRobot(Robot hostRobot, RobotParams robotParams, SignalsParams signalsParams) 
-            : this(hostRobot, new CTraderManager(hostRobot), robotParams, signalsParams)
+            : this(hostRobot, new CTraderManager(hostRobot), new CTraderStorageManager(hostRobot), robotParams, signalsParams)
         {
         }
 
-        private SignalsCheckAlgoRobot(Robot hostRobot, CTraderManager tradeManager, RobotParams robotParams, SignalsParams signalsParams) : base(new CTraderManager(hostRobot), robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        private SignalsCheckAlgoRobot(Robot hostRobot, CTraderManager tradeManager,
+            CTraderStorageManager storageManager, RobotParams robotParams, SignalsParams signalsParams) : base(
+            tradeManager, storageManager, robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName,
+            hostRobot.TimeFrame.Name)
         {
             m_HostRobot = hostRobot;
             m_SignalsParams = signalsParams;

@@ -8,7 +8,10 @@ namespace TradeKit.Core.Rate
         private readonly RateParams m_RateParams;
         private const string BOT_NAME = "RateSignalerRobot";
 
-        protected RateSignalerBaseAlgoRobot(ITradeManager tradeManager, RobotParams robotParams, RateParams rateParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
+        protected RateSignalerBaseAlgoRobot(ITradeManager tradeManager,
+            IStorageManager storageManager, RobotParams robotParams, RateParams rateParams, bool isBackTesting,
+            string symbolName, string timeFrameName) : base(tradeManager, storageManager, robotParams, isBackTesting,
+            symbolName, timeFrameName)
         {
             m_RateParams = rateParams;
         }

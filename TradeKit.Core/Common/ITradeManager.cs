@@ -68,16 +68,5 @@ namespace TradeKit.Core.Common
         /// Gets the account balance.
         /// </summary>
         double GetAccountBalance();
-
-        /// <summary>
-        /// Saves the trade state.
-        /// </summary>
-        /// <param name="stateMap">The state map.</param>
-        void SaveState(Dictionary<string, int> stateMap);
-
-        /// <summary>
-        /// Gets the saved state dictionary.
-        /// </summary>
-        Dictionary<string, int> GetSavedState();
     }
 }

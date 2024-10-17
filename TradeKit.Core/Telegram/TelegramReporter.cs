@@ -14,12 +14,12 @@ namespace TradeKit.Core.Telegram
     /// </summary>
     public class TelegramReporter
     {
+        private readonly IStorageManager m_StorageManager;
         private readonly bool m_ReportClose;
-        private readonly Action<Dictionary<string, int>> m_OnSaveState;
         private readonly TelegramBotClient m_TelegramBotClient;
         private readonly ChatId m_TelegramChatId;
         private readonly Dictionary<string, int> m_SignalPostIds;
-        private readonly Dictionary<string, SignalEventArgs> m_SignalEventArgsMap;
+        private readonly Dictionary<string, SignalArgs> m_SignalEventArgsMap;
 
         private const string TOKEN_NAME = "IMPULSE_FINDER_BOT_TOKEN_NAME";
         private const string CHAT_ID = "IMPULSE_FINDER_BOT_CHAT_ID";
@@ -46,14 +46,13 @@ namespace TradeKit.Core.Telegram
         /// </summary>
         /// <param name="botToken">The bot token.</param>
         /// <param name="chatId">The chat identifier.</param>
+        /// <param name="storageManager">Manager to save the state between runs.</param>
         /// <param name="reportClose">If true - the close messages will be posted (tp hit)</param>
-        /// <param name="signalPostIds">Optional signal-post id map to keep the state between runs.</param>
-        /// <param name="onSaveState">Delegate for saving the state (signal-post id map).</param>
-        public TelegramReporter(string botToken, string chatId, bool reportClose = true, Dictionary<string, int> signalPostIds = null, Action<Dictionary<string, int>> onSaveState = null)
+        public TelegramReporter(string botToken, string chatId, IStorageManager storageManager, bool reportClose = true)
         {
+            m_StorageManager = storageManager;
             m_ReportClose = reportClose;
-            m_OnSaveState = onSaveState;
-            m_SignalPostIds = signalPostIds ?? new Dictionary<string, int>();
+            m_SignalPostIds = storageManager.GetSavedState() ?? new Dictionary<string, int>();
             if (string.IsNullOrEmpty(botToken))
             {
                 botToken = Environment.GetEnvironmentVariable(TOKEN_NAME);
@@ -76,7 +75,7 @@ namespace TradeKit.Core.Telegram
             
             m_TelegramChatId = new ChatId(chatId);
             IsReady = true;
-            m_SignalEventArgsMap = new Dictionary<string, SignalEventArgs>();//TODO get it saved to the local storage
+            m_SignalEventArgsMap = new Dictionary<string, SignalArgs>();//TODO get it saved to the local storage
         }
 
         /// <summary>
@@ -99,23 +98,39 @@ namespace TradeKit.Core.Telegram
             if (m_ReportClose)
             {
                 string stat = string.Empty;
-                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalEventArgs args))
+                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
                 {
-                    double wholeRisk = args.WholeRange;
-                    if (wholeRisk > 0)
-                    {
-                        double toSl100 = 100 * Math.Abs(args.Level - args.StopLoss) / wholeRisk;
-                        stat = $" => -{toSl100:N0}%";
-                    }
+                    stat = GetStatistic(args, args.SignalEventArgs.StopLoss.Value, -1);
                 }
 
                 ReportClose(posId, $"SL hit{stat}", closeImagePath);//TODO for breakeven this is not right
                 m_SignalEventArgsMap.Remove(posId);
                 m_SignalPostIds.Remove(posId);
-                m_OnSaveState?.Invoke(m_SignalPostIds);
+                m_StorageManager.SaveState(m_SignalPostIds);
             }
         }
-        
+
+        private string GetStatistic(SignalArgs args, double targetLevel, int k = 1)
+        {
+            double wholeRisk = args.SignalEventArgs.WholeRange;
+            if (wholeRisk <= 0) 
+                return string.Empty;
+
+            double diff = k * Math.Abs(args.SignalEventArgs.Level.Value - targetLevel);
+            double diffP = diff * args.PipSize;
+            double toVal100 = 100 * diff / wholeRisk;
+            StatisticItem res = m_StorageManager.AddSetupResult(new StatisticItem
+            {
+                CloseDateTime = args.SignalEventArgs.Level.OpenTime,
+                ResultPercent = toVal100,
+                ResultPips = diffP
+            });
+
+            string resStr =
+                $" => {toVal100:N0}% | {diffP} pips (Daily {res.ResultPercent:N0}%, {res.ResultPips} pips)";
+            return resStr;
+        }
+
         /// <summary>
         /// Reports the take profit.
         /// </summary>
@@ -126,20 +141,15 @@ namespace TradeKit.Core.Telegram
             if (m_ReportClose)
             {
                 string stat = string.Empty;
-                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalEventArgs args))
+                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
                 {
-                    double wholeRisk = args.WholeRange;
-                    if (wholeRisk > 0)
-                    {
-                        double toSl100 = 100 * Math.Abs(args.Level - args.TakeProfit) / wholeRisk;
-                        stat = $" => +{toSl100:N0}%";
-                    }
+                    stat = GetStatistic(args, args.SignalEventArgs.TakeProfit.Value);
                 }
 
                 m_SignalEventArgsMap.Remove(posId);
                 ReportClose(posId, $"TP hit{stat}", closeImagePath);
                 m_SignalPostIds.Remove(posId);
-                m_OnSaveState?.Invoke(m_SignalPostIds);
+                m_StorageManager.SaveState(m_SignalPostIds);
             }
         }
 
@@ -263,8 +273,8 @@ namespace TradeKit.Core.Telegram
                 signalArgs.SignalEventArgs.Level,
                 signalArgs.SignalEventArgs.Comment);
             m_SignalPostIds[positionId] = msgRes.MessageId;
-            m_SignalEventArgsMap[positionId] = signalEventArgs;
-            m_OnSaveState?.Invoke(m_SignalPostIds);
+            m_SignalEventArgsMap[positionId] = signalArgs;
+            m_StorageManager.SaveState(m_SignalPostIds);
         }
 
         /// <summary>
@@ -304,6 +314,11 @@ namespace TradeKit.Core.Telegram
             /// Gets or sets the current ask.
             /// </summary>
             public double Ask { get; set; }
+
+            /// <summary>
+            /// Gets or sets size of pip for the symbol.
+            /// </summary>
+            public double PipSize { get; set; }
 
             /// <summary>
             /// Gets or sets the amount of digits for the <see cref="SymbolName"/>.

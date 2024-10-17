@@ -24,7 +24,10 @@ namespace TradeKit.Core.PriceAction
         private readonly Color m_SlColor = Color.fromARGB(80, 240, 0, 0);
         private readonly Color m_TpColor = Color.fromARGB(80, 0, 240, 0);
 
-        protected PriceActionBaseAlgoBot(ITradeManager tradeManager, RobotParams robotParams, PriceActionParams priceActionParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
+        protected PriceActionBaseAlgoBot(ITradeManager tradeManager, IStorageManager storageManager,
+            RobotParams robotParams, PriceActionParams priceActionParams, bool isBackTesting, string symbolName,
+            string timeFrameName) : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName,
+            timeFrameName)
         {
             m_PriceActionParams = priceActionParams;
         }

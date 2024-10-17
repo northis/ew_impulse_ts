@@ -9,8 +9,9 @@ namespace TradeKit.Core.Signals
     public abstract class SignalsCheckBaseAlgoRobot : BaseAlgoRobot<ParseSetupFinder, SignalEventArgs>
     {
         private const string BOT_NAME = "SignalsCheckRobot";
-
-        protected SignalsCheckBaseAlgoRobot(ITradeManager tradeManager, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
+        protected SignalsCheckBaseAlgoRobot(ITradeManager tradeManager, IStorageManager storageManager,
+            RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager,
+            storageManager, robotParams, isBackTesting, symbolName, timeFrameName)
         {
         }
 

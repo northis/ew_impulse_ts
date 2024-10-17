@@ -10,7 +10,6 @@ namespace TradeKit.CTrader.Core
     public class CTraderManager: CTraderViewManager, ITradeManager
     {
         private readonly Robot m_Robot;
-        protected const string STATE_SAVE_KEY = "ReportStateMap";
 
         private readonly Dictionary<PositionCloseReason, PositionClosedState> m_ReasonMapper =
             new()
@@ -105,16 +104,6 @@ namespace TradeKit.CTrader.Core
         public double GetAccountBalance()
         {
             return m_Robot.Account.Balance;
-        }
-
-        public void SaveState(Dictionary<string, int> stateMap)
-        {
-            m_Robot.LocalStorage.SetObject(STATE_SAVE_KEY, stateMap, LocalStorageScope.Device);
-        }
-
-        public Dictionary<string, int> GetSavedState()
-        {
-            return m_Robot.LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
         }
     }
 }

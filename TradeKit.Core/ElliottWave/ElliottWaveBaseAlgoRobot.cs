@@ -13,7 +13,9 @@ namespace TradeKit.Core.ElliottWave
     {
         private const string BOT_NAME = "ElliottWaveRobot";
 
-        protected ElliottWaveBaseAlgoRobot(ITradeManager tradeManager, RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
+        protected ElliottWaveBaseAlgoRobot(ITradeManager tradeManager, IStorageManager storageManager,
+            RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager,
+            storageManager, robotParams, isBackTesting, symbolName, timeFrameName)
         {
         }
 

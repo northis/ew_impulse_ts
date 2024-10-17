@@ -12,12 +12,15 @@ namespace TradeKit.CTrader.PriceAction
         private readonly PriceActionParams m_PriceActionParams;
         private readonly CTraderManager m_TradeManager;
 
-        public PriceActionAlgoRobot(Robot hostRobot, RobotParams robotParams, PriceActionParams priceActionParams) : this(hostRobot, new CTraderManager(hostRobot), robotParams, priceActionParams)
+        public PriceActionAlgoRobot(Robot hostRobot, RobotParams robotParams, PriceActionParams priceActionParams) : this(hostRobot, new CTraderManager(hostRobot),
+            new CTraderStorageManager(hostRobot), robotParams, priceActionParams)
         {
         }
 
-        private PriceActionAlgoRobot(Robot hostRobot, CTraderManager tradeManager, RobotParams robotParams, PriceActionParams priceActionParams) : 
-            base(tradeManager, robotParams, priceActionParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        private PriceActionAlgoRobot(Robot hostRobot, CTraderManager tradeManager, CTraderStorageManager storageManager,
+            RobotParams robotParams, PriceActionParams priceActionParams) :
+            base(tradeManager, storageManager, robotParams, priceActionParams, hostRobot.IsBacktesting,
+                hostRobot.SymbolName, hostRobot.TimeFrame.Name)
         {
             m_HostRobot = hostRobot;
             m_PriceActionParams = priceActionParams;

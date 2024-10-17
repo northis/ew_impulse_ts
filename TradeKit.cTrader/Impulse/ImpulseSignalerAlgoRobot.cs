@@ -15,12 +15,13 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         /// <param name="hostRobot">The host robot.</param>
         /// <param name="robotParams">The robot parameters.</param>
-        public ImpulseSignalerAlgoRobot(Robot hostRobot, RobotParams robotParams):this(hostRobot, new CTraderManager(hostRobot), robotParams)
+        public ImpulseSignalerAlgoRobot(Robot hostRobot, RobotParams robotParams) : this(hostRobot,
+            new CTraderManager(hostRobot), new CTraderStorageManager(hostRobot), robotParams)
         {
 
         }
 
-        private ImpulseSignalerAlgoRobot(Robot hostRobot, CTraderManager tradeManager, RobotParams robotParams) : base(tradeManager, robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        private ImpulseSignalerAlgoRobot(Robot hostRobot, CTraderManager tradeManager, CTraderStorageManager storageManager, RobotParams robotParams) : base(tradeManager, storageManager, robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
         {
             m_HostRobot = hostRobot;
             m_TradeManager = tradeManager;

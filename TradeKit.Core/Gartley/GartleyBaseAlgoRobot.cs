@@ -27,16 +27,19 @@ namespace TradeKit.Core.Gartley
         private readonly Color m_BullColorBorder = Color.fromARGB(240, 128, 240, 128);
 
         protected GartleyBaseAlgoRobot(
-            ITradeManager tradeManager, 
-            RobotParams robotParams, 
-            GartleyParams gartleyParams, 
-            bool isBackTesting, 
-            string symbolName, 
-            string timeFrameName) 
-            : base(tradeManager, robotParams, isBackTesting, symbolName, timeFrameName)
+            ITradeManager tradeManager,
+            IStorageManager storageManager,
+            RobotParams robotParams,
+            GartleyParams gartleyParams,
+            bool isBackTesting,
+            string symbolName,
+            string timeFrameName)
+            : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName, timeFrameName)
         {
             GartleyParams = gartleyParams;
         }
+
+
         protected GartleyParams GartleyParams { get; }
 
         protected HashSet<GartleyPatternType> GetPatternsType()

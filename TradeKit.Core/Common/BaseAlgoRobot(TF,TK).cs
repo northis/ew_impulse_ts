@@ -19,6 +19,7 @@ namespace TradeKit.Core.Common
         where TF : BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected readonly ITradeManager TradeManager;
+        private readonly IStorageManager m_StorageManager;
         private readonly RobotParams m_RobotParams;
         private readonly bool m_IsBackTesting;
         protected const double SPREAD_MARGIN_RATIO = 1.1;
@@ -50,18 +51,21 @@ namespace TradeKit.Core.Common
         /// Initializes a new instance of the <see cref="BaseAlgoRobot{T,TK}"/> class.
         /// </summary>
         /// <param name="tradeManager">Trade-related manager.</param>
+        /// <param name="storageManager">The storage manager.</param>
         /// <param name="robotParams">The robot parameters.</param>
         /// <param name="isBackTesting">if set to <c>true</c> if this a history trading.</param>
         /// <param name="symbolName">Name of the symbol.</param>
         /// <param name="timeFrameName">Name of the time frame.</param>
         protected BaseAlgoRobot(
             ITradeManager tradeManager,
+            IStorageManager storageManager,
             RobotParams robotParams,
             bool isBackTesting,
             string symbolName,
             string timeFrameName)
         {
             TradeManager = tradeManager;
+            m_StorageManager = storageManager;
             m_RobotParams = robotParams;
             m_IsBackTesting = isBackTesting;
 
@@ -146,9 +150,9 @@ namespace TradeKit.Core.Common
 
             TradeManager.PositionClosed += OnPositionsClosed;
 
-            Dictionary<string, int> stateMap = TradeManager.GetSavedState();
             TelegramReporter = new TelegramReporter(
-                m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_RobotParams.PostCloseMessages, stateMap,  TradeManager.SaveState);
+                m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_StorageManager,
+                m_RobotParams.PostCloseMessages);
 
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
         }
@@ -588,6 +592,7 @@ namespace TradeKit.Core.Common
                 Ask = TradeManager.GetAsk(symbol),
                 Bid = TradeManager.GetBid(symbol),
                 Digits = sf.Symbol.Digits,
+                PipSize = sf.Symbol.PipSize,
                 SignalEventArgs = e,
                 SymbolName = sf.Symbol.Name,
                 SenderId = sf.Id,

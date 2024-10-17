@@ -15,7 +15,7 @@ namespace TradeKit.CTrader.Rate
         {
         }
 
-        private RateSignalerAlgoRobot(Robot hostRobot, CTraderManager tradeManager, RobotParams robotParams, RateParams rateParams) : base(new CTraderManager(hostRobot), robotParams, rateParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        private RateSignalerAlgoRobot(Robot hostRobot, CTraderManager tradeManager,  RobotParams robotParams, RateParams rateParams) : base(new CTraderManager(hostRobot), new CTraderStorageManager(hostRobot), robotParams, rateParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
         {
             m_HostRobot = hostRobot;
             m_RateParams = rateParams;
