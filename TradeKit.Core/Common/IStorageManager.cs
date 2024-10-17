@@ -26,7 +26,7 @@
         /// <summary>
         /// Gets the latest.
         /// </summary>
-        /// <param name="period">The period.</param>
+        /// <param name="period">The period. Use <see cref="TimeSpan.Zero"/> to get all of them.</param>
         StatisticItem GetLatest(TimeSpan period);
     }
 }

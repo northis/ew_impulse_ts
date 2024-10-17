@@ -12,6 +12,7 @@ namespace TradeKit.Core.Gartley
 {
     public abstract class GartleyBaseAlgoRobot : BaseAlgoRobot<GartleySetupFinder, GartleySignalEventArgs>
     {
+        private readonly bool m_ShowGartley;
         private const string BOT_NAME = "GartleySignalerRobot";
         private const string DIVERGENCE_NAME = "Div";
         private const string SVG_PATH_TEMPLATE = "M {0} L {1} L {2} L {3} L {4} L {2} L {0} Z";
@@ -33,9 +34,11 @@ namespace TradeKit.Core.Gartley
             GartleyParams gartleyParams,
             bool isBackTesting,
             string symbolName,
-            string timeFrameName)
+            string timeFrameName,
+            bool showGartley = false)
             : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName, timeFrameName)
         {
+            m_ShowGartley = showGartley;
             GartleyParams = gartleyParams;
         }
 
@@ -85,6 +88,17 @@ namespace TradeKit.Core.Gartley
         }
 
         /// <summary>
+        /// Defines the start date we want to show the chart from.
+        /// </summary>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        protected override DateTime GetStartViewDate(GartleySignalEventArgs signalEventArgs)
+        {
+            return m_ShowGartley 
+                ? base.GetStartViewDate(signalEventArgs) 
+                : signalEventArgs.GartleyItem.ItemD.OpenTime;
+        }
+
+        /// <summary>
         /// Gets the additional chart layers.
         /// </summary>
         /// <param name="candlestickChart">The main chart with candles.</param>
@@ -100,17 +114,19 @@ namespace TradeKit.Core.Gartley
             GartleyItem gartley = signalEventArgs.GartleyItem;
             bool isBull = gartley.ItemX < gartley.ItemA;
 
-            Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
-            Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
-            Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath,
-                X0: gartley.ItemX.OpenTime.ToFSharp(),
-                Y0: gartley.ItemX.Value.ToFSharp(),
-                X1: gartley.ItemD.OpenTime.ToFSharp(),
-                Y1: gartley.ItemD.Value.ToFSharp(),
-                Path: SvgPathFromGartleyItem(gartley),
-                Fillcolor: colorFill,
-                Line: Line.init(Color: colorFill));
-            candlestickChart.WithShape(patternPath);
+            if (m_ShowGartley)
+            {
+                Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
+                Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath,
+                    X0: gartley.ItemX.OpenTime.ToFSharp(),
+                    Y0: gartley.ItemX.Value.ToFSharp(),
+                    X1: gartley.ItemD.OpenTime.ToFSharp(),
+                    Y1: gartley.ItemD.Value.ToFSharp(),
+                    Path: SvgPathFromGartleyItem(gartley),
+                    Fillcolor: colorFill,
+                    Line: Line.init(Color: colorFill));
+                candlestickChart.WithShape(patternPath);
+            }
 
             double levelStart = barProvider.GetClosePrice(barProvider.GetIndexByTime(gartley.ItemD.OpenTime));
             GetSetupEndRender(gartley.ItemD.OpenTime, barProvider.TimeFrame,
@@ -119,13 +135,18 @@ namespace TradeKit.Core.Gartley
             Shape tp1 = GetSetupRectangle(
                 setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit1);
             candlestickChart.WithShape(tp1);
-            Shape tp2 = GetSetupRectangle(
-                setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit2);
-            candlestickChart.WithShape(tp2);
             Shape sl = GetSetupRectangle(
                 setupStart, setupEnd, m_SlColor, levelStart, gartley.StopLoss);
             candlestickChart.WithShape(sl);
 
+            if (!m_ShowGartley)
+                return;
+
+            Shape tp2 = GetSetupRectangle(
+                setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit2);
+            candlestickChart.WithShape(tp2);
+
+            Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
             if (signalEventArgs.DivergenceStart is not null)
             {
                 Shape div = GetLine(signalEventArgs.DivergenceStart, gartley.ItemD, ChartGenerator.WHITE_COLOR,

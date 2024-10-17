@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -117,17 +118,19 @@ namespace TradeKit.Core.Telegram
                 return string.Empty;
 
             double diff = k * Math.Abs(args.SignalEventArgs.Level.Value - targetLevel);
-            double diffP = diff * args.PipSize;
-            double toVal100 = 100 * diff / wholeRisk;
+            double diffP = diff / args.PipSize;
+            double toVal = diff / wholeRisk;
             StatisticItem res = m_StorageManager.AddSetupResult(new StatisticItem
             {
                 CloseDateTime = args.SignalEventArgs.Level.OpenTime,
-                ResultPercent = toVal100,
+                ResultValue = toVal,
                 ResultPips = diffP
             });
 
+            StatisticItem all = m_StorageManager.GetLatest(TimeSpan.Zero);
+            string sign = k > 0 ? "+" : string.Empty;
             string resStr =
-                $" => {toVal100:N0}% | {diffP} pips (Daily {res.ResultPercent:N0}%, {res.ResultPips} pips)";
+                $": {sign}{toVal:N2}, {sign}{diffP:N0} pips{Environment.NewLine}Day {res.ResultValue:N2}, {res.ResultPips:N0} pips{Environment.NewLine}Σ {all.ResultValue:N2}, {all.ResultPips:N0} pips";
             return resStr;
         }
 
@@ -244,15 +247,15 @@ namespace TradeKit.Core.Telegram
 
             if (den > 0)
             {
-                sb.AppendLine($"Risk:Reward = {PriceFormat(nom / den, 2)}");
-                sb.AppendLine($"Spread:Reward = {PriceFormat(spread / den, 2)}");
+                sb.AppendLine($"Profit = {PriceFormat(100 * nom / den, 2)}%");
+                sb.AppendLine($"Spread = {PriceFormat(100 * spread / den, 2)}%");
             }
 
-            string comment = signalArgs.SignalEventArgs.Comment;
-            if (!string.IsNullOrEmpty(comment))
-            {
-                sb.AppendLine(comment);
-            }
+            //string comment = signalArgs.SignalEventArgs.Comment;
+            //if (!string.IsNullOrEmpty(comment))
+            //{
+            //    sb.AppendLine(comment);
+            //}
 
             TimeSpan tfTs = TimeFrameHelper.GetTimeFrameInfo(signalArgs.SignalEventArgs.Level.BarTimeFrame).TimeSpan;
             if (!m_ProviderMap.TryGetValue(signalArgs.SymbolName, out string provPart))

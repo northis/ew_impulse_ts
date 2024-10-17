@@ -6,7 +6,7 @@
     public class StatisticItem
     {
         public DateTime CloseDateTime { get; set; }
-        public double ResultPercent { get; set; }
+        public double ResultValue { get; set; }
         public double ResultPips { get; set; }
     }
 }

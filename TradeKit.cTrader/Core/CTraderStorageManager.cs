@@ -70,8 +70,10 @@ namespace TradeKit.CTrader.Core
             DateTime dt = DateTime.UtcNow;
             DateTime dayStart = dt.Add(-dt.TimeOfDay);
             List<StatisticItem> existedItems = GetStatisticItems();
-            StatisticItem last = existedItems.Last();
-            if (last.CloseDateTime.Day != statItem.CloseDateTime.Day ||
+            bool hasItems = existedItems.Count > 0;
+            StatisticItem last = hasItems ? existedItems.Last() : null;
+            if (!hasItems ||
+                last.CloseDateTime.Day != statItem.CloseDateTime.Day ||
                 dayStart < last.CloseDateTime)
             {
                 existedItems.Add(statItem);
@@ -79,7 +81,7 @@ namespace TradeKit.CTrader.Core
             }
             else
             {
-                last.ResultPercent += statItem.ResultPercent;
+                last.ResultValue += statItem.ResultValue;
                 last.ResultPips += statItem.ResultPips;
             }
 
@@ -90,25 +92,28 @@ namespace TradeKit.CTrader.Core
         /// <summary>
         /// Gets the latest.
         /// </summary>
-        /// <param name="period">The period.</param>
+        /// <param name="period">The period. Use <see cref="TimeSpan.Zero"/> to get all of them.</param>
         public StatisticItem GetLatest(TimeSpan period)
         {
+            bool isZero = period == TimeSpan.Zero;
             DateTime threshold = DateTime.UtcNow.Add(-period);
             StatisticItem lastDay = GetStatisticLastDay();
-            if (period < TimeSpan.FromDays(1))
+            if (period < TimeSpan.FromDays(1) && !isZero)
             {
                 return lastDay;
             }
 
             List<StatisticItem> currentItems = GetStatisticItems();
-            List<StatisticItem> latest = currentItems
-                .Where(a => a.CloseDateTime >= threshold)
-                .ToList();
+            List<StatisticItem> latest = isZero
+                ? currentItems
+                : currentItems
+                    .Where(a => a.CloseDateTime >= threshold)
+                    .ToList();
 
             var result = new StatisticItem
             {
                 CloseDateTime = threshold,
-                ResultPercent = latest.Sum(a => a.ResultPercent) + lastDay.ResultPercent,
+                ResultValue = latest.Sum(a => a.ResultValue) + lastDay.ResultValue,
                 ResultPips = latest.Sum(a => a.ResultPips) + lastDay.ResultPips
             };
 

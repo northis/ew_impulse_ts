@@ -660,6 +660,16 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
+        /// Defines the start date we want to show the chart from.
+        /// </summary>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        protected virtual DateTime GetStartViewDate(TK signalEventArgs)
+        {
+            DateTime startView = signalEventArgs.StartViewBarTime;
+            return startView;
+        }
+
+        /// <summary>
         /// Gets the path to the generated chart image file.
         /// </summary>
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
@@ -673,7 +683,7 @@ namespace TradeKit.Core.Common
             bool showTradeResult = false,
             bool? successTrade = null)
         {
-            DateTime startView = signalEventArgs.StartViewBarTime;
+            DateTime startView = GetStartViewDate(signalEventArgs);
             int firstIndex = barProvider.GetIndexByTime(startView);
             int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
 
