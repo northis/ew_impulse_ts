@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
@@ -32,8 +33,18 @@ namespace TradeKit.Core.Indicators
             Shift = shift;
         }
 
+        /// <summary>
+        /// Gets the source price for the calculation (median, close, etc.).
+        /// </summary>
+        /// <param name="index">The index.</param>
+        public virtual double GetPrice(int index)
+        {
+            return BarsProvider.GetMedianPrice(index);
+        }
+
         public override void OnCalculate(int index, DateTime openDateTime)
         {
+            //TODO get rid of the index usage, can be issues on int shift
             int index1 = checked(index + Shift);
             DateTime dtIndex1 = BarsProvider.GetOpenTime(index1);
             double num = 0d;
@@ -41,12 +52,12 @@ namespace TradeKit.Core.Indicators
 
             while (index2 <= index)
             {
-                num += BarsProvider.GetMedianPrice(index2);
+                num += GetPrice(index2);
                 checked { ++index2; }
             }
 
             double value = num / Periods;
-            SetResultValue(openDateTime, value);
+            SetResultValue(dtIndex1, value);
         }
     }
 }

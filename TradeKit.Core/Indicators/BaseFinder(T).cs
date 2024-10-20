@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators

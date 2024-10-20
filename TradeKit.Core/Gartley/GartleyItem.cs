@@ -61,6 +61,15 @@ namespace TradeKit.Core.Gartley
         public double Range => Math.Abs(StopLoss - TakeProfit1);
 
         /// <summary>
+        /// Gets the profit ratio.
+        /// </summary>
+        /// <param name="nowPrice">The current price.</param>
+        public double GetProfitRatio(double nowPrice)
+        {
+            return Math.Abs(TakeProfit1 - nowPrice) / Range;
+        }
+
+        /// <summary>
         /// Returns a hash code for this instance.
         /// </summary>
         /// <returns>

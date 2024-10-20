@@ -1,7 +1,6 @@
-﻿using System;
-using cAlgo.API;
-using cAlgo.API.Indicators;
-using TradeKit.Core.Common;
+﻿using cAlgo.API;
+using TradeKit.Core.Indicators;
+using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators
 {
@@ -12,22 +11,7 @@ namespace TradeKit.CTrader.Indicators
     [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
     public class SuperTrendIndicator : Indicator
     {
-        /// <summary>
-        /// Up value
-        /// </summary>
-        public const int UP_VALUE = 1;
-
-        /// <summary>
-        /// No value
-        /// </summary>
-        public const int NO_VALUE = 0;
-
-        /// <summary>
-        /// Down value
-        /// </summary>
-        public const int DOWN_VALUE = -1;
-
-        private Supertrend m_SuperTrend;
+        private SupertrendFinder m_SupertrendFinder;
 
         /// <summary>
         /// The period used for the calculation of the signal.
@@ -40,25 +24,19 @@ namespace TradeKit.CTrader.Indicators
         /// </summary>
         [Parameter(nameof(Multiplier), DefaultValue = 3)]
         public double Multiplier { get; set; }
-
-        /// <summary>
-        /// Gets or sets the histogram.
-        /// </summary>
-        [Output(nameof(Histogram), PlotType = PlotType.Histogram)]
-        public IndicatorDataSeries Histogram { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the histogram (diff flat sum).
         /// </summary>
-        [Output(nameof(HistogramFlat), PlotType = PlotType.Histogram)]
-        public IndicatorDataSeries HistogramFlat { get; set; }
+        [Output(nameof(HistogramFlatFlatCounter), PlotType = PlotType.Histogram, LineColor = "Purple")]
+        public IndicatorDataSeries HistogramFlatFlatCounter { get; set; }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
         protected override void Initialize()
         {
-            m_SuperTrend = Indicators.Supertrend(Periods, Multiplier);
+            m_SupertrendFinder = new SupertrendFinder(new CTraderBarsProvider(Bars, Symbol), Multiplier, Periods);
         }
 
         /// <summary>
@@ -66,46 +44,8 @@ namespace TradeKit.CTrader.Indicators
         /// </summary>
         public override void Calculate(int index)
         {
-            double down = m_SuperTrend.DownTrend[index];
-            double up = m_SuperTrend.UpTrend[index];
-
-            bool isDownNan = double.IsNaN(down);
-            bool isUpNan = double.IsNaN(up);
-
-            if (isDownNan && isUpNan || index <= 1)
-            {
-                Histogram[index] = NO_VALUE;
-                HistogramFlat[index] = NO_VALUE;
-                return;
-            }
-
-            if (isDownNan)
-            {
-                double upPrev = m_SuperTrend.UpTrend[index - 1];
-                if (!double.IsNaN(upPrev) && Math.Abs(upPrev - up) < double.Epsilon)
-                {
-                    Histogram[index] = 0;
-                    HistogramFlat[index] = HistogramFlat[index - 1] + 1;
-                }
-                else
-                {
-                    HistogramFlat[index] = NO_VALUE;
-                }
-
-                Histogram[index] = UP_VALUE;
-                return;
-            }
-
-            double downPrev = m_SuperTrend.DownTrend[index - 1];
-            if (!double.IsNaN(downPrev) && Math.Abs(downPrev - down) < double.Epsilon)
-            {
-                Histogram[index] = 0;
-                HistogramFlat[index] = HistogramFlat[index - 1] - 1;
-                return;
-            }
-
-            HistogramFlat[index] = NO_VALUE;
-            Histogram[index] = DOWN_VALUE;
+            int trend = m_SupertrendFinder.GetResultValue(index);
+            HistogramFlatFlatCounter[index] = trend * m_SupertrendFinder.FlatCounter.GetResultValue(index);
         }
     }
 }

@@ -1,156 +1,120 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
-    /*
-     *public class SupertrendIndicator : Indicator, Supertrend, StandardIndicator
-         {
-           private IndicatorDataSeries _upBuffer;
-           private IndicatorDataSeries _downBuffer;
-           private AverageTrueRange _averageTrueRange;
-           private IndicatorDataSeries _trend;
-       
-           [Parameter(DefaultValue = 10, MinValue = 1, MaxValue = 2000)]
-           public int Periods { get; set; }
-       
-           [Parameter(DefaultValue = 3.0)]
-           public double Multiplier { get; set; }
-       
-           [cTrader.Automate.Indicators.Attributes.Shift]
-           [Parameter(DefaultValue = 0, MinValue = 0, MaxValue = 200)]
-           public int Shift { get; set; }
-       
-           [Output("Up Trend", Color = Colors.Green, PlotType = PlotType.Points, Thickness = 2f)]
-           public IndicatorDataSeries UpTrend { get; set; }
-       
-           [Output("Down Trend", Color = Colors.Red, PlotType = PlotType.Points, Thickness = 2f)]
-           public IndicatorDataSeries DownTrend { get; set; }
-       
-           protected override void Initialize()
-           {
-             this._trend = this.CreateDataSeries();
-             this._upBuffer = this.CreateDataSeries();
-             this._downBuffer = this.CreateDataSeries();
-             this._averageTrueRange = this.Indicators.AverageTrueRange(this.Periods, MovingAverageType.Simple);
-           }
-       
-           private void InitDataSeries(int index)
-           {
-             this.UpTrend[checked (index + this.Shift)] = double.NaN;
-             this.DownTrend[checked (index + this.Shift)] = double.NaN;
-           }
-       
-           private void CalculateSuperTrendLogic(int index, double median, double averageTrueRangeValue)
-           {
-             if (this.MarketSeries.Close[index] > this._upBuffer[checked (index - 1)])
-               this._trend[index] = 1.0;
-             else if (this.MarketSeries.Close[index] < this._downBuffer[checked (index - 1)])
-             {
-               this._trend[index] = -1.0;
-             }
-             else
-             {
-               IndicatorDataSeries trend = this._trend;
-               int num1 = index;
-               double num2 = this._trend[checked (index - 1)];
-               double num3 = num2 == -1.0 ? -1.0 : (num2 != 1.0 ? this._trend[index] : 1.0);
-               int index1 = num1;
-               double num4 = num3;
-               trend[index1] = num4;
-             }
-             IndicatorDataSeries upBuffer = this._upBuffer;
-             int num5 = index;
-             double num6;
-             if (this._trend[index] < 0.0)
-             {
-               if (this._trend[checked (index - 1)] > 0.0)
-               {
-                 num6 = median + this.Multiplier * averageTrueRangeValue;
-                 goto label_11;
-               }
-               else if (this._upBuffer[index] > this._upBuffer[checked (index - 1)])
-               {
-                 num6 = this._upBuffer[checked (index - 1)];
-                 goto label_11;
-               }
-             }
-             num6 = this._upBuffer[index];
-       label_11:
-             int index2 = num5;
-             double num7 = num6;
-             upBuffer[index2] = num7;
-             IndicatorDataSeries downBuffer = this._downBuffer;
-             int num8 = index;
-             double num9;
-             if (this._trend[index] > 0.0)
-             {
-               if (this._trend[checked (index - 1)] < 0.0)
-               {
-                 num9 = median - this.Multiplier * averageTrueRangeValue;
-                 goto label_17;
-               }
-               else if (this._downBuffer[index] < this._downBuffer[checked (index - 1)])
-               {
-                 num9 = this._downBuffer[checked (index - 1)];
-                 goto label_17;
-               }
-             }
-             num9 = this._downBuffer[index];
-       label_17:
-             int index3 = num8;
-             double num10 = num9;
-             downBuffer[index3] = num10;
-           }
-       
-           private void DrawIndicator(int index)
-           {
-             if (this._trend[index] == 1.0)
-             {
-               this.UpTrend[checked (index + this.Shift)] = this._downBuffer[index];
-             }
-             else
-             {
-               if (this._trend[index] != -1.0)
-                 return;
-               this.DownTrend[checked (index + this.Shift)] = this._upBuffer[index];
-             }
-           }
-       
-           public override void Calculate(int index)
-           {
-             this.InitDataSeries(index);
-             double median = (this.MarketSeries.High[index] + this.MarketSeries.Low[index]) / 2.0;
-             double averageTrueRangeValue = this._averageTrueRange.Result[index];
-             this._upBuffer[index] = median + this.Multiplier * averageTrueRangeValue;
-             this._downBuffer[index] = median - this.Multiplier * averageTrueRangeValue;
-             if (index < 1)
-             {
-               this._trend[index] = 1.0;
-             }
-             else
-             {
-               this.CalculateSuperTrendLogic(index, median, averageTrueRangeValue);
-               this.DrawIndicator(index);
-             }
-           }
-         }
-     *
-     */
-    
-    public class SupertrendFinder : BaseFinder<double>
+    public class SupertrendFinder : BaseFinder<int>
     {
-        public SupertrendFinder(IBarsProvider barsProvider, bool useAutoCalculateEvent = true, int defaultCleanBarsCount = 500) : base(barsProvider, useAutoCalculateEvent, defaultCleanBarsCount)
+        public int Periods { get; set; }
+        public double Multiplier { get; set; }
+        public SimpleDoubleFinder Up { get; }
+        public SimpleDoubleFinder Down { get; }
+        public SimpleBaseFinder<int> FlatCounter { get; }
+
+        private readonly TrueRangeMovingAverageFinder m_MovingAverageFinder;
+
+        public const int UP_VALUE = 1;
+        public const int NO_VALUE = 0;
+        public const int DOWN_VALUE = -1;
+
+        public SupertrendFinder(IBarsProvider barsProvider, double multiplier = 3.0, int periods = 10,
+            bool useAutoCalculateEvent = true, int defaultCleanBarsCount = 500) : base(barsProvider,
+            useAutoCalculateEvent, defaultCleanBarsCount)
         {
+            Periods = periods;
+            Multiplier = multiplier;
+            Up = new SimpleDoubleFinder(barsProvider);
+            Down = new SimpleDoubleFinder(barsProvider);
+            FlatCounter = new SimpleBaseFinder<int>(barsProvider);
+            m_MovingAverageFinder = new TrueRangeMovingAverageFinder(barsProvider, Periods);
         }
 
         public override void OnCalculate(int index, DateTime openDateTime)
         {
-            throw new NotImplementedException();
+            double median = BarsProvider.GetMedianPrice(index);
+            double averageTrueRangeValue = m_MovingAverageFinder.GetResultValue(index);
+            Up.SetResult(openDateTime, median + Multiplier * averageTrueRangeValue);
+            Down.SetResult(openDateTime, median - Multiplier * averageTrueRangeValue);
+            if (index < 1)
+            {
+                SetResultValue(openDateTime, UP_VALUE);
+                FlatCounter.SetResult(openDateTime, NO_VALUE);
+                return;
+            }
+
+            double close = BarsProvider.GetClosePrice(index);
+            int prevIndex = checked(index - 1);
+            int prevValue = GetResultValue(prevIndex);
+            int currentValue;
+
+            if (close > Up.GetResultValue(prevIndex))
+                currentValue = UP_VALUE;
+            else if (close < Down.GetResultValue(prevIndex))
+                currentValue = DOWN_VALUE;
+            else
+                currentValue = prevValue == DOWN_VALUE
+                    ? DOWN_VALUE
+                    : prevValue != UP_VALUE
+                        ? GetResultValue(index)
+                        : UP_VALUE;
+
+            SetResultValue(openDateTime, currentValue);
+            double upValue;
+            if (currentValue < NO_VALUE)
+            {
+                if (prevValue > NO_VALUE)
+                {
+                    upValue = median + Multiplier * averageTrueRangeValue;
+                }
+                else if (Up.GetResultValue(index) > Up.GetResultValue(prevIndex))
+                {
+                    upValue = Up.GetResultValue(prevIndex);
+                }
+                else
+                {
+                    upValue = Up.GetResultValue(index);
+                }
+            }
+            else
+            {
+                upValue = Up.GetResultValue(index);
+            }
+
+            Up.SetResult(openDateTime, upValue);
+
+            double downValue;
+            if (currentValue > NO_VALUE)
+            {
+                if (prevValue < NO_VALUE)
+                {
+                    downValue = median - Multiplier * averageTrueRangeValue;
+                }
+                else if (Down.GetResultValue(index) < Down.GetResultValue(prevIndex))
+                {
+                    downValue = Down.GetResultValue(prevIndex);
+                }
+                else
+                {
+                    downValue = Down.GetResultValue(index);
+                }
+            }
+            else
+            {
+                downValue = Down.GetResultValue(index);
+            }
+
+            Down.SetResult(openDateTime, downValue);
+
+            if (currentValue == UP_VALUE && !double.IsNaN(downValue) &&
+                Math.Abs(Down.GetResultValue(prevIndex) - downValue) < double.Epsilon ||
+                currentValue == DOWN_VALUE && !double.IsNaN(upValue) &&
+                Math.Abs(Up.GetResultValue(prevIndex) - upValue) < double.Epsilon)
+            {
+                FlatCounter.SetResult(openDateTime, FlatCounter.GetResultValue(prevIndex) + 1);
+            }
+            else
+            {
+                FlatCounter.SetResult(openDateTime, NO_VALUE);
+            }
         }
     }
 }

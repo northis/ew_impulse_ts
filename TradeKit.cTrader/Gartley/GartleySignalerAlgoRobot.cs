@@ -45,9 +45,9 @@ namespace TradeKit.CTrader.Gartley
             IBarsProvider cTraderBarsProvider = CreateBarsProvider(timeFrame, symbolEntity);
             var ao = new AwesomeOscillatorFinder(cTraderBarsProvider);
 
-            ZoneAlligatorFinder zoneAlligator = null;
-            if (GartleyParams.UseTrendOnly) 
-                zoneAlligator = new ZoneAlligatorFinder(cTraderBarsProvider);
+            SupertrendFinder supertrendFinder = null;
+            if (GartleyParams.UseTrendOnly)
+                supertrendFinder = new SupertrendFinder(cTraderBarsProvider);
 
 
             CandlePatternFinder cpf = GartleyParams.UseCandlePatterns
@@ -61,7 +61,7 @@ namespace TradeKit.CTrader.Gartley
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity,
                 GartleyParams.Accuracy, GartleyParams.BarDepthCount, GartleyParams.UseDivergences,
-                zoneAlligator, patternTypes, ao, cpf, breakEvenRatio);
+                supertrendFinder, patternTypes, ao, cpf, breakEvenRatio);
 
             return setupFinder;
         }

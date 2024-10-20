@@ -20,6 +20,7 @@ namespace TradeKit.CTrader.Gartley
         BaseIndicator<GartleySetupFinder, GartleySignalEventArgs>
     {
         private GartleySetupFinder m_SetupFinder;
+        private SupertrendFinder m_SupertrendFinder;
         private IBarsProvider m_BarsProvider;
         private Color m_SlColor;
         private Color m_TpColor;
@@ -164,9 +165,9 @@ namespace TradeKit.CTrader.Gartley
                 ? new AwesomeOscillatorFinder(m_BarsProvider)
                 : null;
 
-            ZoneAlligatorFinder zoneAlligator = null;
+            m_SupertrendFinder = null;
             if (UseTrendOnly)
-                zoneAlligator = new ZoneAlligatorFinder(m_BarsProvider);
+                m_SupertrendFinder = new SupertrendFinder(m_BarsProvider, 3, 10, false);
 
             CandlePatternFinder cpf = UseCandlePatterns
                 ? new CandlePatternFinder(m_BarsProvider)
@@ -174,8 +175,14 @@ namespace TradeKit.CTrader.Gartley
 
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), Accuracy,
-                BarDepthCount, UseDivergences, zoneAlligator, patternTypes, ao, cpf);
+                BarDepthCount, UseDivergences, m_SupertrendFinder, patternTypes, ao, cpf);
             Subscribe(m_SetupFinder);
+        }
+
+        public override void Calculate(int index)
+        {
+            m_SupertrendFinder?.OnCalculate(index, m_BarsProvider.GetOpenTime(index));
+            base.Calculate(index);
         }
 
         /// <summary>

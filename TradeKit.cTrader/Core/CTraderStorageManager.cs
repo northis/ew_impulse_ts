@@ -1,6 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core.Common;
 
@@ -9,8 +8,9 @@ namespace TradeKit.CTrader.Core
     internal class CTraderStorageManager : IStorageManager
     {
         protected const string STATE_SAVE_KEY = "ReportStateMap";
-        protected const string STAT_SAVE_KEY = "StatisticState";
-        protected const string STAT_DAILY_SAVE_KEY = "StatisticDailyState";
+        protected const string STAT_ALL_SAVE_KEY = "StatisticStateAll";
+        protected const string TRADE_KIT_SCHEMA = "TradeKitSchema";
+        protected const string TRADE_KIT_SCHEMA_VAL = "2";
         private readonly Robot m_Robot;
 
         /// <summary>
@@ -20,8 +20,19 @@ namespace TradeKit.CTrader.Core
         public CTraderStorageManager(Robot robot)
         {
             m_Robot = robot;
+            if (Schema != TRADE_KIT_SCHEMA_VAL) ResetStatistic();
+            Schema = TRADE_KIT_SCHEMA_VAL;
         }
-        
+
+        /// <summary>
+        /// Gets or sets the schema.
+        /// </summary>
+        public string Schema
+        {
+            get => m_Robot.LocalStorage.GetObject<string>(TRADE_KIT_SCHEMA, LocalStorageScope.Device) ?? "0";
+            set => m_Robot.LocalStorage.SetObject(TRADE_KIT_SCHEMA, value, LocalStorageScope.Device);
+        }
+
         /// <summary>
         /// Saves the trade state.
         /// </summary>
@@ -39,84 +50,31 @@ namespace TradeKit.CTrader.Core
             return m_Robot.LocalStorage.GetObject<Dictionary<string, int>>(STATE_SAVE_KEY);
         }
 
-        /// <summary>
-        /// Gets the statistic items.
-        /// </summary>
-        private List<StatisticItem> GetStatisticItems()
+        private void ResetStatistic()
         {
-            List<StatisticItem> result =
-                m_Robot.LocalStorage.GetObject<List<StatisticItem>>(STAT_SAVE_KEY) ??
-                new List<StatisticItem>();
-            return result;
+            m_Robot.LocalStorage.SetObject(STAT_ALL_SAVE_KEY, new StatisticItem(), LocalStorageScope.Device);
         }
 
         /// <summary>
         /// Gets the last day statistic.
         /// </summary>
-        private StatisticItem GetStatisticLastDay()
+        public StatisticItem GetStatistic()
         {
-            StatisticItem result = m_Robot.LocalStorage.GetObject<StatisticItem>(STAT_DAILY_SAVE_KEY) ??
-                                   new StatisticItem();
+            StatisticItem result = m_Robot.LocalStorage.GetObject<StatisticItem>(STAT_ALL_SAVE_KEY)
+                                   ?? new StatisticItem();
             return result;
         }
 
         /// <summary>
         /// Adds the setup result.
         /// </summary>
-        /// <param name="statItem">The stat item.</param>
-        /// <returns></returns>
-        public StatisticItem AddSetupResult(StatisticItem statItem)
+        /// <param name="tradeResult">The new result to add.</param>
+        public StatisticItem AddSetupResult(double tradeResult)
         {
-            DateTime dt = DateTime.UtcNow;
-            DateTime dayStart = dt.Add(-dt.TimeOfDay);
-            List<StatisticItem> existedItems = GetStatisticItems();
-            bool hasItems = existedItems.Count > 0;
-            StatisticItem last = hasItems ? existedItems.Last() : null;
-            if (!hasItems ||
-                last.CloseDateTime.Day != statItem.CloseDateTime.Day ||
-                dayStart < last.CloseDateTime)
-            {
-                existedItems.Add(statItem);
-                last = statItem;
-            }
-            else
-            {
-                last.ResultValue += statItem.ResultValue;
-                last.ResultPips += statItem.ResultPips;
-            }
-
-            m_Robot.LocalStorage.SetObject(STAT_SAVE_KEY, existedItems, LocalStorageScope.Device);
-            return last;
-        }
-
-        /// <summary>
-        /// Gets the latest.
-        /// </summary>
-        /// <param name="period">The period. Use <see cref="TimeSpan.Zero"/> to get all of them.</param>
-        public StatisticItem GetLatest(TimeSpan period)
-        {
-            bool isZero = period == TimeSpan.Zero;
-            DateTime threshold = DateTime.UtcNow.Add(-period);
-            StatisticItem lastDay = GetStatisticLastDay();
-            if (period < TimeSpan.FromDays(1) && !isZero)
-            {
-                return lastDay;
-            }
-
-            List<StatisticItem> currentItems = GetStatisticItems();
-            List<StatisticItem> latest = isZero
-                ? currentItems
-                : currentItems
-                    .Where(a => a.CloseDateTime >= threshold)
-                    .ToList();
-
-            var result = new StatisticItem
-            {
-                CloseDateTime = threshold,
-                ResultValue = latest.Sum(a => a.ResultValue) + lastDay.ResultValue,
-                ResultPips = latest.Sum(a => a.ResultPips) + lastDay.ResultPips
-            };
-
+            StatisticItem result = GetStatistic();
+            result.ResultValue += tradeResult;
+            result.SetupsCount++;
+            m_Robot.LocalStorage.SetObject(STAT_ALL_SAVE_KEY, result, LocalStorageScope.Device);
             return result;
         }
     }

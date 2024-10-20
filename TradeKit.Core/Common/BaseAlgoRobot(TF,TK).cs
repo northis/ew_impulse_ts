@@ -22,6 +22,7 @@ namespace TradeKit.Core.Common
         private readonly IStorageManager m_StorageManager;
         private readonly RobotParams m_RobotParams;
         private readonly bool m_IsBackTesting;
+        private readonly bool m_GenerateChart;
         protected const double SPREAD_MARGIN_RATIO = 1.1;
         protected const int CHART_BARS_MARGIN_COUNT = 5;
         protected const double CHART_FONT_HEADER = 36;
@@ -56,18 +57,21 @@ namespace TradeKit.Core.Common
         /// <param name="isBackTesting">if set to <c>true</c> if this a history trading.</param>
         /// <param name="symbolName">Name of the symbol.</param>
         /// <param name="timeFrameName">Name of the time frame.</param>
+        /// <param name="generateChart">True (default) to generate chart image for each setup</param>
         protected BaseAlgoRobot(
             ITradeManager tradeManager,
             IStorageManager storageManager,
             RobotParams robotParams,
             bool isBackTesting,
             string symbolName,
-            string timeFrameName)
+            string timeFrameName,
+            bool generateChart = true)
         {
             TradeManager = tradeManager;
             m_StorageManager = storageManager;
             m_RobotParams = robotParams;
             m_IsBackTesting = isBackTesting;
+            m_GenerateChart = generateChart;
 
             m_SetupFindersMap = new Dictionary<string, TF>();
             m_FinderIdChartBarProviderMap = new Dictionary<string, IBarsProvider>();
@@ -485,14 +489,15 @@ namespace TradeKit.Core.Common
             double sl = e.StopLoss.Value;
             bool isLong = sl < tp;
             double spread = TradeManager.GetSpread(symbol);
+            double rangeLen = Math.Abs(tp - sl);
 
-            if (isLong && TradeManager.GetAsk(symbol) >= tp ||
-                spread > 0 && Math.Abs(sl - tp) / spread < Helper.MAX_SPREAD_RATIO)
+            if (spread > 0 && rangeLen / spread < Helper.MAX_SPREAD_RATIO)
             {
-                Logger.Write("Big spread, ignore the signal");
-
                 if (!m_RobotParams.AllowEnterOnBigSpread)
+                {
+                    Logger.Write("Big spread, ignore the signal");
                     return;
+                }
             }
 
             if (!m_RobotParams.AllowOvernightTrade && IsOvernightTrade(e, sf))
@@ -523,27 +528,37 @@ namespace TradeKit.Core.Common
             Logger.Write($"New setup found! {price}");
             double priceNow = isLong ? TradeManager.GetAsk(symbol) : TradeManager.GetBid(symbol);
 
-            double spreadNew = TradeManager.GetSpread(symbol);
             if (!isLong)
             {
-                sl += spreadNew * SPREAD_MARGIN_RATIO;
-                tp += spreadNew * SPREAD_MARGIN_RATIO;
+                sl += spread * SPREAD_MARGIN_RATIO;
+                tp += spread * SPREAD_MARGIN_RATIO;
             }
 
-            double slLen = Math.Abs(tp - sl);
-            double tpLen = Math.Abs(priceNow - tp);
-            
-            double slP = Math.Round(slLen / sf.Symbol.PipSize);
-            double tpP = Math.Round(tpLen / sf.Symbol.PipSize);
-            double rangeLen = Math.Abs(tp - sl);
-            double rangeP = Math.Round(rangeLen / sf.Symbol.PipSize);
-
-            if (slP > 0)
+            if (m_IsBackTesting || m_RobotParams.AllowToTrade)
             {
-                //System.Diagnostics.Debugger.Launch();
-                double volume = GetVolume(symbol, rangeP);
-                double volumeInLots = volume / symbol.LotSize;
+                double slLen = Math.Abs(priceNow - sl);
+                double slP = Math.Round(slLen / sf.Symbol.PipSize);
+                if (slP < 0)
+                    return;
 
+                double tpLen = Math.Abs(priceNow - tp);
+                double tpP = Math.Round(tpLen / sf.Symbol.PipSize);
+                double rangeP = Math.Round(rangeLen / sf.Symbol.PipSize);
+
+                // System.Diagnostics.Debugger.Launch();
+                double volume = GetVolume(symbol, rangeP);
+                if (m_RobotParams.MaxMoneyPerSetup > 0)
+                {
+                    double moneyPerSetup =
+                        m_RobotParams.RiskPercentFromDeposit * TradeManager.GetAccountBalance() / 100;
+
+                    // We want to limit money for one setup if calculated amount greater than MaxMoneyPerSetup
+                    double moneyLimitRatio = moneyPerSetup / m_RobotParams.MaxMoneyPerSetup;
+                    if (moneyLimitRatio > 1)
+                        volume /= moneyLimitRatio;
+                }
+
+                double volumeInLots = volume / symbol.LotSize;
                 if (volumeInLots > m_RobotParams.MaxVolumeLots)
                 {
                     Logger.Write(
@@ -551,34 +566,31 @@ namespace TradeKit.Core.Common
                     return;
                 }
 
-                if (m_IsBackTesting || m_RobotParams.AllowToTrade)
-                {
-                    OrderResult order = TradeManager.OpenOrder(
-                        isLong, sf.Symbol, volume, GetBotName(), slP, tpP,
-                        Helper.GetPositionId(sf.Id, e.Level));
+                OrderResult order = TradeManager.OpenOrder(
+                    isLong, sf.Symbol, volume, GetBotName(), slP, tpP,
+                    Helper.GetPositionId(sf.Id, e.Level));
 
-                    if (order?.IsSuccessful == true)
-                    {
-                        TradeManager.SetTakeProfitPrice(order.Position, tp);
-                        TradeManager.SetStopLossPrice(order.Position, sl);
-                        m_PositionFinderMap[sf.Id].Add(order.Position.Id);
-                    }
+                if (order?.IsSuccessful == true)
+                {
+                    TradeManager.SetTakeProfitPrice(order.Position, tp);
+                    TradeManager.SetStopLossPrice(order.Position, sl);
+                    m_PositionFinderMap[sf.Id].Add(order.Position.Id);
                 }
             }
-            
+
             //if (IsBacktesting && !SaveChartForManualAnalysis)
             //{
             //    return;
             //}
-            
+
             Directory.CreateDirectory(Helper.DirectoryToSaveResults);
-            //if (!SaveChartForManualAnalysis)
-            //{
-            //    foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveResults))
-            //    {
-            //        File.Delete(file);
-            //    }
-            //}
+            if (!m_RobotParams.SaveChartForManualAnalysis)
+            {
+                foreach (string file in Directory.GetFiles(Helper.DirectoryToSaveResults))
+                {
+                    File.Delete(file);
+                }
+            }
 
             if (m_RobotParams.SaveChartForManualAnalysis || m_IsBackTesting)
                 m_ChartFileFinderMap[sf.Id] = e;
@@ -683,6 +695,9 @@ namespace TradeKit.Core.Common
             bool showTradeResult = false,
             bool? successTrade = null)
         {
+            if (!m_GenerateChart)
+                return null;
+
             DateTime startView = GetStartViewDate(signalEventArgs);
             int firstIndex = barProvider.GetIndexByTime(startView);
             int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
@@ -795,12 +810,12 @@ namespace TradeKit.Core.Common
         /// Gets the volume for the symbol given and allowed points for stop loss.
         /// </summary>
         /// <param name="symbol">The symbol.</param>
-        /// <param name="slPoints">The SL in points.</param>
+        /// <param name="rangePoints">The length in points.</param>
         /// <returns>Size of a position calculated.</returns>
-        protected virtual double GetVolume(ISymbol symbol, double slPoints)
+        protected virtual double GetVolume(ISymbol symbol, double rangePoints)
         {
             double volume = symbol.GetVolume(
-                GetCurrentRisk, TradeManager.GetAccountBalance(), slPoints);
+                GetCurrentRisk, TradeManager.GetAccountBalance(), rangePoints);
             return volume;
         }
 

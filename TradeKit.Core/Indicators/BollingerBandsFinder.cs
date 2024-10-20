@@ -17,12 +17,12 @@ namespace TradeKit.Core.Indicators
             m_StandardDeviations = standardDeviations;
             m_Sma = new SimpleMovingAverageFinder(barsProvider, periods);
             m_Sda = new StandardDeviationFinder(barsProvider, periods);
-            Bottom = new SimpleFinder(barsProvider);
-            Top = new SimpleFinder(barsProvider);
+            Bottom = new SimpleDoubleFinder(barsProvider);
+            Top = new SimpleDoubleFinder(barsProvider);
         }
 
-        public SimpleFinder Bottom { get; }
-        public SimpleFinder Top { get; }
+        public SimpleDoubleFinder Bottom { get; }
+        public SimpleDoubleFinder Top { get; }
 
         public override void OnCalculate(int index, DateTime openDateTime)
         {

@@ -36,7 +36,7 @@ namespace TradeKit.Core.Gartley
             string symbolName,
             string timeFrameName,
             bool showGartley = false)
-            : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName, timeFrameName)
+            : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName, timeFrameName, false)
         {
             m_ShowGartley = showGartley;
             GartleyParams = gartleyParams;
@@ -114,21 +114,7 @@ namespace TradeKit.Core.Gartley
             GartleyItem gartley = signalEventArgs.GartleyItem;
             bool isBull = gartley.ItemX < gartley.ItemA;
 
-            if (m_ShowGartley)
-            {
-                Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
-                Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath,
-                    X0: gartley.ItemX.OpenTime.ToFSharp(),
-                    Y0: gartley.ItemX.Value.ToFSharp(),
-                    X1: gartley.ItemD.OpenTime.ToFSharp(),
-                    Y1: gartley.ItemD.Value.ToFSharp(),
-                    Path: SvgPathFromGartleyItem(gartley),
-                    Fillcolor: colorFill,
-                    Line: Line.init(Color: colorFill));
-                candlestickChart.WithShape(patternPath);
-            }
-
-            double levelStart = barProvider.GetClosePrice(barProvider.GetIndexByTime(gartley.ItemD.OpenTime));
+            double levelStart = signalEventArgs.Level.Value;
             GetSetupEndRender(gartley.ItemD.OpenTime, barProvider.TimeFrame,
                 out DateTime setupStart, out DateTime setupEnd);
 
@@ -141,6 +127,17 @@ namespace TradeKit.Core.Gartley
 
             if (!m_ShowGartley)
                 return;
+
+            Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
+            Shape patternPath = Shape.init(StyleParam.ShapeType.SvgPath,
+                X0: gartley.ItemX.OpenTime.ToFSharp(),
+                Y0: gartley.ItemX.Value.ToFSharp(),
+                X1: gartley.ItemD.OpenTime.ToFSharp(),
+                Y1: gartley.ItemD.Value.ToFSharp(),
+                Path: SvgPathFromGartleyItem(gartley),
+                Fillcolor: colorFill,
+                Line: Line.init(Color: colorFill));
+            candlestickChart.WithShape(patternPath);
 
             Shape tp2 = GetSetupRectangle(
                 setupStart, setupEnd, m_TpColor, levelStart, gartley.TakeProfit2);

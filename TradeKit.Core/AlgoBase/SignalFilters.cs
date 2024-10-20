@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 using TradeKit.Core.Indicators;
 
 namespace TradeKit.Core.AlgoBase
@@ -48,6 +49,25 @@ namespace TradeKit.Core.AlgoBase
             if (value < ZoneAlligatorFinder.NO_VALUE)
                 return TrendType.BEARISH;
 
+            return TrendType.NO_TREND;
+        }
+
+        /// <summary>
+        /// Gets the trend based on the "Supertrend" indicator.
+        /// </summary>
+        /// <param name="supertrendFinder">The zone alligator input.</param>
+        /// <param name="dateTimeBar">The date and time of the current bar .</param>
+        /// <param name="flatBarsAge">How many bars the flat is being continued, 0 if there is no flat (strong trend zone)</param>
+        public static TrendType GetTrend(
+            SupertrendFinder supertrendFinder, DateTime dateTimeBar, out int flatBarsAge)
+        {
+            int value = supertrendFinder.GetResultValue(dateTimeBar);
+            flatBarsAge = supertrendFinder.FlatCounter.GetResultValue(dateTimeBar);
+
+            if (value > SupertrendFinder.NO_VALUE)
+                return TrendType.BULLISH;
+            if (value < SupertrendFinder.NO_VALUE)
+                return TrendType.BEARISH;
             return TrendType.NO_TREND;
         }
 

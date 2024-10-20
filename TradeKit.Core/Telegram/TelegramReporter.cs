@@ -27,15 +27,15 @@ namespace TradeKit.Core.Telegram
 
         private readonly Dictionary<string, string> m_SymbolsMap = new()
         {
-            {"XAUUSD", "GOLD"},
-            {"XAGUSD", "SILVER"},
+            //{"XAUUSD", "GOLD"},
+            //{"XAGUSD", "SILVER"},
             {"US 30", "US30"},
             {"US TECH 100", "NAS100"},
-            {"BTCUSD", "BTC"},
-            {"ETHUSD", "ETH"}
+            //{"BTCUSD", "BTC"},
+            //{"ETHUSD", "ETH"}
         };
 
-        private const string DEFAULT_PROVIDER = "OANDA:";
+        private const string DEFAULT_PROVIDER = "ICMARKETS:";
         private readonly Dictionary<string, string> m_ProviderMap = new()
         {
             {"BTCUSD", "BINANCE:BTCUSDT"},
@@ -120,17 +120,10 @@ namespace TradeKit.Core.Telegram
             double diff = k * Math.Abs(args.SignalEventArgs.Level.Value - targetLevel);
             double diffP = diff / args.PipSize;
             double toVal = diff / wholeRisk;
-            StatisticItem res = m_StorageManager.AddSetupResult(new StatisticItem
-            {
-                CloseDateTime = args.SignalEventArgs.Level.OpenTime,
-                ResultValue = toVal,
-                ResultPips = diffP
-            });
-
-            StatisticItem all = m_StorageManager.GetLatest(TimeSpan.Zero);
+            StatisticItem res = m_StorageManager.AddSetupResult(toVal);
             string sign = k > 0 ? "+" : string.Empty;
             string resStr =
-                $": {sign}{toVal:N2}, {sign}{diffP:N0} pips{Environment.NewLine}Day {res.ResultValue:N2}, {res.ResultPips:N0} pips{Environment.NewLine}Σ {all.ResultValue:N2}, {all.ResultPips:N0} pips";
+                $": {sign}{PriceFormat(toVal, 2)}, {sign}{diffP:N0} pips; Σ={PriceFormat(res.ResultValue, 2)} ({res.SetupsCount:N0}).";
             return resStr;
         }
 
@@ -232,8 +225,8 @@ namespace TradeKit.Core.Telegram
             double sl = signalEventArgs.StopLoss.Value;
             double tp = signalEventArgs.TakeProfit.Value;
 
-            double nom = Math.Abs(price - sl);
-            double den = Math.Abs(price - tp);
+            double nom = Math.Abs(price - tp);
+            double den = Math.Abs(sl - tp);
 
             var sb = new StringBuilder();
             string symbolViewName = 
@@ -241,13 +234,16 @@ namespace TradeKit.Core.Telegram
                 ? preDefValue 
                 : signalArgs.SymbolName.Replace(" ", "");
 
-            sb.AppendLine($"#{symbolViewName} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
+            sb.AppendLine($"#setup #{symbolViewName} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
             sb.AppendLine($"TP {PriceFormat(signalEventArgs.TakeProfit.Value, signalArgs.Digits)}");
             sb.AppendLine($"SL {PriceFormat(signalEventArgs.StopLoss.Value, signalArgs.Digits)}");
 
             if (den > 0)
             {
-                sb.AppendLine($"Profit = {PriceFormat(100 * nom / den, 2)}%");
+                double profit = nom / den;
+
+                sb.AppendLine(
+                    $"Profit = {PriceFormat(profit, 2)}; {PriceFormat(nom / signalArgs.PipSize, 0)} pips; Δ={PriceFormat(100 * nom / price, 2)}%");
                 sb.AppendLine($"Spread = {PriceFormat(100 * spread / den, 2)}%");
             }
 

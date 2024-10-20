@@ -436,10 +436,10 @@ namespace TradeKit.Core.Common
         /// <param name="symbol">The symbol</param>
         /// <param name="riskPercentage">Risk percentage amount</param>
         /// <param name="accountBalance">The account balance</param>
-        /// <param name="stopLossInPips">Stop loss amount in Pips</param>
-        public static double GetVolume(this ISymbol symbol, double riskPercentage, double accountBalance, double stopLossInPips)
+        /// <param name="rangeInPips">Setup range in Pips</param>
+        public static double GetVolume(this ISymbol symbol, double riskPercentage, double accountBalance, double rangeInPips)
         {
-            return riskPercentage / (Math.Abs(stopLossInPips) * symbol.PipValue / accountBalance * 100);
+            return riskPercentage / (Math.Abs(rangeInPips) * symbol.PipValue / accountBalance * 100);
         }
     }
 }

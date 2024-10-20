@@ -19,7 +19,7 @@ namespace TradeKit.Core.Common
         public const int EXTREMA_MAX = 200;
         public const double PERCENT_ALLOWANCE_SL = 2;
         public const double PERCENT_ALLOWANCE_TP = 0;
-        public const double MAX_SPREAD_RATIO = 0.15;
+        public const double MAX_SPREAD_RATIO = 0.1;
         public const int MIN_IMPULSE_SCALE = 5;
         public const int MAX_IMPULSE_SCALE = 200;
         public const int STEP_IMPULSE_SCALE = 50;

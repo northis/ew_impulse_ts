@@ -4,7 +4,12 @@
     /// Helper for saving data between runs.
     /// </summary>
     public interface IStorageManager
-    {   
+    {
+        /// <summary>
+        /// Gets or sets the schema.
+        /// </summary>
+        string Schema { get; set; }
+
         /// <summary>
         /// Saves the trade state.
         /// </summary>
@@ -19,14 +24,12 @@
         /// <summary>
         /// Adds the setup result.
         /// </summary>
-        /// <param name="statItem">The stat item.</param>
-        /// <returns>The updated day result.</returns>
-        StatisticItem AddSetupResult(StatisticItem statItem);
+        /// <param name="tradeResult">The new result to add.</param>
+        StatisticItem AddSetupResult(double tradeResult);
 
         /// <summary>
-        /// Gets the latest.
+        /// Gets the last day statistic.
         /// </summary>
-        /// <param name="period">The period. Use <see cref="TimeSpan.Zero"/> to get all of them.</param>
-        StatisticItem GetLatest(TimeSpan period);
+        StatisticItem GetStatistic();
     }
 }

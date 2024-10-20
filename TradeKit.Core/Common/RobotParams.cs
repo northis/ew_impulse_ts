@@ -7,6 +7,7 @@
         double RiskPercentFromDeposit,
         double RiskPercentFromDepositMax,
         double MaxVolumeLots,
+        double MaxMoneyPerSetup,
         bool AllowToTrade,
         bool AllowEnterOnBigSpread,
         bool UseProgressiveVolume,
@@ -34,6 +35,11 @@
         /// Gets or sets the max allowed volume in lots.
         /// </summary>
         public double MaxVolumeLots { get; } = MaxVolumeLots;
+
+        /// <summary>
+        /// Gets or sets the max allowed money for setup.
+        /// </summary>
+        public double MaxMoneyPerSetup { get; } = MaxMoneyPerSetup;
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can trade.

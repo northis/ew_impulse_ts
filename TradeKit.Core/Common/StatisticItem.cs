@@ -5,8 +5,7 @@
     /// </summary>
     public class StatisticItem
     {
-        public DateTime CloseDateTime { get; set; }
         public double ResultValue { get; set; }
-        public double ResultPips { get; set; }
+        public int SetupsCount { get; set; }
     }
 }

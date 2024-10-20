@@ -29,7 +29,8 @@ namespace TradeKit.CTrader.Core
         {
             return new RobotParams(RiskPercentFromDeposit,
                 RiskPercentFromDepositMax, 
-                MaxVolumeLots, 
+                MaxVolumeLots,
+                MaxMoneyPerSetup,
                 AllowToTrade, 
                 AllowEnterOnBigSpread, 
                 UseProgressiveVolume,
@@ -59,6 +60,12 @@ namespace TradeKit.CTrader.Core
         public double RiskPercentFromDepositMax { get; set; }
 
         /// <summary>
+        /// Gets or sets the max money (stop-take range) per setup. Use 0 to disable.
+        /// </summary>
+        [Parameter(nameof(MaxMoneyPerSetup), DefaultValue = 0, MinValue = 0, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxMoneyPerSetup { get; set; }
+
+        /// <summary>
         /// Gets or sets the max allowed volume in lots.
         /// </summary>
         [Parameter(nameof(MaxVolumeLots), DefaultValue = Helper.ALLOWED_VOLUME_LOTS, MaxValue = Helper.MAX_ALLOWED_VOLUME_LOTS, MinValue = Helper.MIN_ALLOWED_VOLUME_LOTS, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -77,7 +84,7 @@ namespace TradeKit.CTrader.Core
         public bool AllowOvernightTrade { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether this bot can open positions while big spread (spread/(tp-sl) ratio more than <see cref="Helper.MAX_SPREAD_RATIO"/>.
+        /// Gets or sets a value indicating whether this bot can open positions while big spread (spread/(tp-sl)) ratio more than <see cref="Helper.MAX_SPREAD_RATIO"/>.
         /// </summary>
         [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowEnterOnBigSpread { get; set; }
