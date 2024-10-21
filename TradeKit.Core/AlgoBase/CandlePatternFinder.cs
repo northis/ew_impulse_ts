@@ -72,73 +72,73 @@ namespace TradeKit.Core.AlgoBase
                 },
                 {
                     UP_PIN_BAR, cdParams => 
-                        IsPinBar(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsPinBar(cdParams.Candles, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[UP_PIN_BAR].BarsCount
                         : 0
                 },
                 {
                     DOWN_PIN_BAR, cdParams => 
-                        IsPinBar(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsPinBar(cdParams.Candles, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DOWN_PIN_BAR].BarsCount
                         : 0
                 },
                 {
                     UP_PIN_BAR_TRIO, cdParams =>
-                        IsPinBarTrio(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsPinBarTrio(cdParams.Candles, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                             ? PATTERN_DIRECTION_MAP[UP_PIN_BAR_TRIO].BarsCount
                             : 0
                 },
                 {
                     DOWN_PIN_BAR_TRIO, cdParams =>
-                        IsPinBarTrio(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsPinBarTrio(cdParams.Candles, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                             ? PATTERN_DIRECTION_MAP[DOWN_PIN_BAR_TRIO].BarsCount
                             : 0
                 },
                 {
                     UP_OUTER_BAR, cdParams => 
-                        IsOuterBar(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsOuterBar(cdParams.Candles, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[UP_OUTER_BAR].BarsCount
                         : 0
                 },
                 {
                     DOWN_OUTER_BAR, cdParams => 
-                        IsOuterBar(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsOuterBar(cdParams.Candles, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DOWN_OUTER_BAR].BarsCount
                         : 0
                 },
                 {
                     UP_OUTER_BAR_BODIES, cdParams => 
-                        IsOuterBarBodies(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsOuterBarBodies(cdParams.Candles, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[UP_OUTER_BAR_BODIES].BarsCount
                         : 0
                 },
                 {
                     DOWN_OUTER_BAR_BODIES, cdParams => IsOuterBarBodies(cdParams.Candles, false) && 
-                                                           IsStrengthBar(cdParams.Candles[^1], false)
+                                                           IsStrengthBarInner(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DOWN_OUTER_BAR_BODIES].BarsCount
                         : 0
                 },
                 {
                     UP_INNER_BAR, cdParams => 
-                        IsInnerBar(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsInnerBar(cdParams.Candles, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[UP_INNER_BAR].BarsCount
                         : 0
                 },
                 {
                     DOWN_INNER_BAR, cdParams =>
-                        IsInnerBar(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsInnerBar(cdParams.Candles, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DOWN_INNER_BAR].BarsCount
                         : 0
                 },
                 {
                     UP_PPR, cdParams => 
-                        IsPpr(cdParams.Candles, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsPpr(cdParams.Candles, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[UP_PPR].BarsCount
                         : 0
                 },
                 {
                     DOWN_PPR, cdParams => 
-                        IsPpr(cdParams.Candles, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsPpr(cdParams.Candles, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DOWN_PPR].BarsCount
                         : 0
                 },
@@ -180,37 +180,37 @@ namespace TradeKit.Core.AlgoBase
                 },
                 {
                     UP_DOJI, cdParams => 
-                        IsDoji(cdParams, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsDoji(cdParams, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[UP_DOJI].BarsCount
                         : 0
                 },
                 {
                     DOWN_DOJI, cdParams => 
-                        IsDoji(cdParams, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsDoji(cdParams, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DOWN_DOJI].BarsCount
                         : 0
                 },
                 {
                     PIECING_LINE, cdParams =>
-                        IsPiecingLineDarkCloud(cdParams, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsPiecingLineDarkCloud(cdParams, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                         ? PATTERN_DIRECTION_MAP[PIECING_LINE].BarsCount
                         : 0
                 },
                 {
                     DARK_CLOUD, cdParams =>
-                        IsPiecingLineDarkCloud(cdParams, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsPiecingLineDarkCloud(cdParams, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                         ? PATTERN_DIRECTION_MAP[DARK_CLOUD].BarsCount
                         : 0
                 },
                 {
                     UP_HARAMI, cdParams =>
-                        IsHarami(cdParams, true) && IsStrengthBar(cdParams.Candles[^1], true)
+                        IsHarami(cdParams, true) && IsStrengthBarInner(cdParams.Candles[^1], true)
                             ? PATTERN_DIRECTION_MAP[UP_HARAMI].BarsCount
                             : 0
                 },
                 {
                     DOWN_HARAMI, cdParams =>
-                        IsHarami(cdParams, false) && IsStrengthBar(cdParams.Candles[^1], false)
+                        IsHarami(cdParams, false) && IsStrengthBarInner(cdParams.Candles[^1], false)
                             ? PATTERN_DIRECTION_MAP[DOWN_HARAMI].BarsCount
                             : 0
                 }
@@ -521,12 +521,12 @@ namespace TradeKit.Core.AlgoBase
             return res;
         }
 
-        private static bool IsStrengthBar(Candle candle, bool isUp)
+        private static bool IsStrengthBarInner(Candle candle, bool isUp)
         {
             if (!m_useStrengthBar)
                 return true;
 
-            bool res = Math.Abs(candle.C - (isUp ? candle.H : candle.L)) < candle.BodyLow / 100;
+            bool res = Helper.IsStrengthBar(candle, isUp);
             return res;
         }
 

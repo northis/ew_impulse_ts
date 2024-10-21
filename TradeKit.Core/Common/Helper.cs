@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Json;
+﻿using System.Diagnostics;
+using TradeKit.Core.Json;
 
 namespace TradeKit.Core.Common
 {
@@ -196,6 +197,24 @@ namespace TradeKit.Core.Common
             }
 
             return candlesForExport;
+        }
+
+        /// <summary>
+        /// Determines whether this candle is a strength bar.
+        /// </summary>
+        /// <param name="candle">The candle.</param>
+        /// <param name="isUp">if set to <c>true</c> [is up].</param>
+        /// <returns>
+        ///   <c>true</c> this candle is a strength bar; otherwise, <c>false</c>.
+        /// </returns>
+        public static bool IsStrengthBar(Candle candle, bool isUp)
+        {
+            double l = Math.Abs(candle.C- candle.O);
+            if (l <= 0)
+                return false;
+
+            bool res = Math.Abs(candle.C - (isUp ? candle.H : candle.L)) / l < 0.1;
+            return res;
         }
 
         /// <summary>

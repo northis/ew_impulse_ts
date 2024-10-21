@@ -61,7 +61,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.DARK_CLOUD,
         CandlePatternType.PIECING_LINE,
     };
-    private const int PATTERN_CACHE_DEPTH_CANDLES = 5;
+    private const int PATTERN_CACHE_DEPTH_CANDLES = 2;
     private const double PATTERN_PROFIT_RANGE = 0.5;//[0->1]
 
     /// <summary>
@@ -134,16 +134,28 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         if (m_Supertrend != null)
         {
-            TrendType trend = SignalFilters.GetTrend(m_Supertrend, localPattern.ItemD.OpenTime, out int flatBarsAge);
-            if (localPattern.IsBull)
+            var last = index - localPattern.ItemC.BarIndex;
+            TrendType trend = SignalFilters.GetTrend(
+                m_Supertrend, BarsProvider.GetOpenTime(index), out int flatBarsAge);
+
+            //if (flatBarsAge < last)
+            //    return;
+            //bool isDirectSetup = index == localPattern.ItemD.BarIndex;
+            bool isCounterTrend = localPattern.IsBull ? trend == TrendType.BEARISH : trend == TrendType.BULLISH;
+
+            if (isCounterTrend)
             {
-                if (trend == TrendType.BEARISH && flatBarsAge == 0)
+                if (flatBarsAge < last)
+                {
                     return;
-            }
-            else
-            {
-                if (trend == TrendType.BULLISH && flatBarsAge == 0)
-                    return;
+                }
+
+                //if (isDirectSetup)
+                //{
+                //    Debugger.Launch();
+                //    m_PendingPatterns.Add(localPattern);
+                //    return;
+                //}
             }
         }
 
@@ -223,8 +235,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 continue;
 
             List<CandlesResult> localCandlePatterns = candlePatterns
-                .Where(a => a.IsBull == pendingPattern.IsBull &&
-                            m_DelayedPatterns.Contains(a.Type))
+                .Where(a => a.IsBull == pendingPattern.IsBull/* &&
+                            m_DelayedPatterns.Contains(a.Type)*/)
                 .ToList();
             if (localCandlePatterns.Count < 1)
             {
@@ -243,7 +255,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 toAddSetup.MaxBy(a => a.Key.GetProfitRatio(close));
             //foreach (KeyValuePair<GartleyItem, List<CandlesResult>> pendingPatternPair in toAddSetup)
             //{
-            AddSetup(pendingPatternPair.Key, close, index, pendingPatternPair.Value);
+                AddSetup(pendingPatternPair.Key, close, index, pendingPatternPair.Value);
             //}
         }
 
@@ -262,6 +274,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="index">Index of the current candle.</param>
     protected override void CheckSetup(int index)
     {
+        DateTime currentDt = BarsProvider.GetOpenTime(index);
+        m_Supertrend?.OnCalculate(index, currentDt);
         ProcessCachedPatternsIfNeeded(index);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
@@ -277,6 +291,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) ||
                     m_PatternsEntryMap.ContainsKey(localPattern))
                     continue;
+
+                if (Helper.IsStrengthBar(Candle.FromIndex(BarsProvider, localPattern.ItemD.BarIndex),
+                        !localPattern.IsBull))
+                {
+                    continue;
+                }
 
                 bool hasTrendCandles = false;
                 for (int i = localPattern.ItemC.BarIndex + 1;
@@ -347,7 +367,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                                               !pattern.IsBull && args.BreakEvenPrice >= low) &&
                      !args.HasBreakeven)
             {
-                DateTime currentDt = BarsProvider.GetOpenTime(index);
                 args.HasBreakeven = true;
                 args.StopLoss = new BarPoint(
                     args.BreakEvenPrice, currentDt, args.StopLoss.BarTimeFrame, index);

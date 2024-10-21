@@ -41,8 +41,7 @@ namespace TradeKit.Core.Gartley
             m_ShowGartley = showGartley;
             GartleyParams = gartleyParams;
         }
-
-
+        
         protected GartleyParams GartleyParams { get; }
 
         protected HashSet<GartleyPatternType> GetPatternsType()

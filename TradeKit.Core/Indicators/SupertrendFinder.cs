@@ -2,6 +2,8 @@
 
 namespace TradeKit.Core.Indicators
 {
+    
+
     public class SupertrendFinder : BaseFinder<int>
     {
         public int Periods { get; set; }
@@ -16,8 +18,8 @@ namespace TradeKit.Core.Indicators
         public const int NO_VALUE = 0;
         public const int DOWN_VALUE = -1;
 
-        public SupertrendFinder(IBarsProvider barsProvider, double multiplier = 3.0, int periods = 10,
-            bool useAutoCalculateEvent = true, int defaultCleanBarsCount = 500) : base(barsProvider,
+        public SupertrendFinder(IBarsProvider barsProvider, double multiplier = 3, int periods = 10,
+            bool useAutoCalculateEvent = false, int defaultCleanBarsCount = 500) : base(barsProvider,
             useAutoCalculateEvent, defaultCleanBarsCount)
         {
             Periods = periods;

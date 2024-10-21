@@ -167,7 +167,7 @@ namespace TradeKit.CTrader.Gartley
 
             m_SupertrendFinder = null;
             if (UseTrendOnly)
-                m_SupertrendFinder = new SupertrendFinder(m_BarsProvider, 3, 10, false);
+                m_SupertrendFinder = new SupertrendFinder(m_BarsProvider);
 
             CandlePatternFinder cpf = UseCandlePatterns
                 ? new CandlePatternFinder(m_BarsProvider)
