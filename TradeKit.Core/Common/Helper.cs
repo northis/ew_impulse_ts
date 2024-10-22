@@ -209,7 +209,7 @@ namespace TradeKit.Core.Common
         /// </returns>
         public static bool IsStrengthBar(Candle candle, bool isUp)
         {
-            double l = Math.Abs(candle.C- candle.O);
+            double l = candle.Length;
             if (l <= 0)
                 return false;
 

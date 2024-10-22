@@ -46,8 +46,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     };
     private readonly HashSet<CandlePatternType> m_InstantPatterns = new()
     {
-        //CandlePatternType.UP_PIN_BAR,
-        //CandlePatternType.DOWN_PIN_BAR,
+        CandlePatternType.UP_PIN_BAR,
+        CandlePatternType.DOWN_PIN_BAR,
         CandlePatternType.DOWN_RAILS,
         CandlePatternType.UP_RAILS,
         CandlePatternType.UP_DOJI,
@@ -62,7 +62,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.PIECING_LINE,
     };
     private const int PATTERN_CACHE_DEPTH_CANDLES = 2;
-    private const double PATTERN_PROFIT_RANGE = 0.5;//[0->1]
+    private const double PATTERN_PROFIT_RANGE = 0.35;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -235,8 +235,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 continue;
 
             List<CandlesResult> localCandlePatterns = candlePatterns
-                .Where(a => a.IsBull == pendingPattern.IsBull/* &&
-                            m_DelayedPatterns.Contains(a.Type)*/)
+                .Where(a => a.IsBull == pendingPattern.IsBull &&
+                            m_DelayedPatterns.Contains(a.Type))
                 .ToList();
             if (localCandlePatterns.Count < 1)
             {
@@ -255,7 +255,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 toAddSetup.MaxBy(a => a.Key.GetProfitRatio(close));
             //foreach (KeyValuePair<GartleyItem, List<CandlesResult>> pendingPatternPair in toAddSetup)
             //{
-                AddSetup(pendingPatternPair.Key, close, index, pendingPatternPair.Value);
+            AddSetup(pendingPatternPair.Key, close, index, pendingPatternPair.Value);
             //}
         }
 
@@ -292,29 +292,29 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                     m_PatternsEntryMap.ContainsKey(localPattern))
                     continue;
 
-                if (Helper.IsStrengthBar(Candle.FromIndex(BarsProvider, localPattern.ItemD.BarIndex),
-                        !localPattern.IsBull))
-                {
-                    continue;
-                }
+                //if (Helper.IsStrengthBar(Candle.FromIndex(BarsProvider, localPattern.ItemD.BarIndex),
+                //        !localPattern.IsBull))
+                //{
+                //    continue;
+                //}
 
-                bool hasTrendCandles = false;
-                for (int i = localPattern.ItemC.BarIndex + 1;
-                     i <= localPattern.ItemD.BarIndex;
-                     i++)
-                {
-                    double openValue = BarsProvider.GetOpenPrice(i);
-                    double closeValue = BarsProvider.GetClosePrice(i);
+                //bool hasTrendCandles = false;
+                //for (int i = localPattern.ItemC.BarIndex + 1;
+                //     i <= localPattern.ItemD.BarIndex;
+                //     i++)
+                //{
+                //    double openValue = BarsProvider.GetOpenPrice(i);
+                //    double closeValue = BarsProvider.GetClosePrice(i);
 
-                    if (openValue < closeValue == localPattern.IsBull)
-                    {
-                        hasTrendCandles = true;
-                        break;
-                    }
-                }
+                //    if (openValue < closeValue == localPattern.IsBull)
+                //    {
+                //        hasTrendCandles = true;
+                //        break;
+                //    }
+                //}
 
-                if (!hasTrendCandles)
-                    continue;
+                //if (!hasTrendCandles)
+                //    continue;
 
                 if (IsPatternProfitableNow(localPattern, close))
                 {
@@ -325,11 +325,10 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                         .ToList();
                     AddSetup(localPattern, close, index, instantCandles?.Count == 0 ? null : instantCandles);
                 }
-                else
+                else if (m_CandlePatternFilter != null)
                 {
                     m_PendingPatterns.Add(localPattern);
                 }
-
             }
         }
 
