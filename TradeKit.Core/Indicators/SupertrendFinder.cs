@@ -18,7 +18,7 @@ namespace TradeKit.Core.Indicators
         public const int NO_VALUE = 0;
         public const int DOWN_VALUE = -1;
 
-        public SupertrendFinder(IBarsProvider barsProvider, double multiplier = 3, int periods = 10,
+        public SupertrendFinder(IBarsProvider barsProvider, double multiplier = 1.5, int periods = 10,
             bool useAutoCalculateEvent = false, int defaultCleanBarsCount = 500) : base(barsProvider,
             useAutoCalculateEvent, defaultCleanBarsCount)
         {

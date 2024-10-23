@@ -56,6 +56,7 @@ namespace TradeKit.Core.Common
             Symbol = symbol;
             BarsProvider = mainBarsProvider;
             TimeFrame = mainBarsProvider.TimeFrame;
+            Logger.Write($"Trade Kit version {Helper.VERSION}");
         }
 
         /// <summary>

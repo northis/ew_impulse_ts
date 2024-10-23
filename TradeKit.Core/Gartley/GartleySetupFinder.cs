@@ -62,7 +62,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.PIECING_LINE,
     };
     private const int PATTERN_CACHE_DEPTH_CANDLES = 2;
-    private const double PATTERN_PROFIT_RANGE = 0.35;//[0->1]
+    private const double PATTERN_PROFIT_RANGE = 0.5;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -134,29 +134,13 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         if (m_Supertrend != null)
         {
-            var last = index - localPattern.ItemC.BarIndex;
+            int last = index - localPattern.ItemC.BarIndex;
             TrendType trend = SignalFilters.GetTrend(
                 m_Supertrend, BarsProvider.GetOpenTime(index), out int flatBarsAge);
-
-            //if (flatBarsAge < last)
-            //    return;
-            //bool isDirectSetup = index == localPattern.ItemD.BarIndex;
             bool isCounterTrend = localPattern.IsBull ? trend == TrendType.BEARISH : trend == TrendType.BULLISH;
 
-            if (isCounterTrend)
-            {
-                if (flatBarsAge < last)
-                {
-                    return;
-                }
-
-                //if (isDirectSetup)
-                //{
-                //    Debugger.Launch();
-                //    m_PendingPatterns.Add(localPattern);
-                //    return;
-                //}
-            }
+            if (isCounterTrend && flatBarsAge < last)
+                return;
         }
 
         BarPoint divItem = null;
