@@ -15,18 +15,19 @@ namespace TradeKit.CTrader.Gartley
             return new GartleyParams(
                 BarDepthCount, 
                 Accuracy, 
-                UseGartley, 
-                UseButterfly, 
-                UseShark, 
-                UseCrab, 
-                UseBat,
-                UseAltBat, 
-                UseCypher, 
-                UseDeepCrab, 
+                true, 
+                true, 
+                true, 
+                true, 
+                true,
+                true, 
+                true, 
+                true, 
                 UseDivergences,
                 UseCandlePatterns,
                 UseTrendOnly, 
-                BreakEvenRatio);
+                BreakEvenRatio,
+                MinPatternSizeBars);
         }
 
         #region Input parameters
@@ -42,55 +43,7 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter(nameof(Accuracy), DefaultValue = Helper.GARTLEY_ACCURACY, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
         public double Accuracy { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseGartley), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseGartley { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseButterfly), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseButterfly { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.SHARK"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseShark), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseShark { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CRAB"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseCrab), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseCrab { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BAT"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseBat), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseBat { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseAltBat), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseAltBat { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CYPHER"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseCypher), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseCypher { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
-        /// </summary>
-        [Parameter(nameof(UseDeepCrab), DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseDeepCrab { get; set; }
-
+        
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
@@ -114,6 +67,12 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
         public double BreakEvenRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the minimum pattern size in bars.
+        /// </summary>
+        [Parameter(nameof(MinPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000)]
+        public int MinPatternSizeBars { get; set; }
         #endregion
     }
 }

@@ -17,7 +17,8 @@
         bool UseDivergences,
         bool UseCandlePatterns,
         bool UseTrendOnly,
-        double BreakEvenRatio)
+        double BreakEvenRatio,
+        int MinPatternSizeBars)
     {
 
         /// <summary>
@@ -74,6 +75,11 @@
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
         public bool UseDivergences { get; set; } = UseDivergences;
+
+        /// <summary>
+        /// Gets or sets the minimum pattern size in bars.
+        /// </summary>
+        public int MinPatternSizeBars { get; set; } = MinPatternSizeBars;
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use candle patterns (Price Action).

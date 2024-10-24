@@ -41,7 +41,6 @@ namespace TradeKit.CTrader.Gartley
         protected override GartleySetupFinder CreateSetupFinder(
             ITimeFrame timeFrame, ISymbol symbolEntity)
         {
-            HashSet<GartleyPatternType> patternTypes = GetPatternsType();
             IBarsProvider cTraderBarsProvider = CreateBarsProvider(timeFrame, symbolEntity);
             var ao = new AwesomeOscillatorFinder(cTraderBarsProvider);
 
@@ -61,7 +60,8 @@ namespace TradeKit.CTrader.Gartley
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity,
                 GartleyParams.Accuracy, GartleyParams.BarDepthCount, GartleyParams.UseDivergences,
-                supertrendFinder, patternTypes, ao, cpf, breakEvenRatio);
+                GartleyParams.MinPatternSizeBars,
+                supertrendFinder, ao, cpf, breakEvenRatio);
 
             return setupFinder;
         }

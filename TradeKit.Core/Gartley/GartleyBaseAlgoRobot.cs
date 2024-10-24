@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Plotly.NET;
+﻿using Plotly.NET;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -43,30 +42,7 @@ namespace TradeKit.Core.Gartley
         }
         
         protected GartleyParams GartleyParams { get; }
-
-        protected HashSet<GartleyPatternType> GetPatternsType()
-        {
-            var res = new HashSet<GartleyPatternType>();
-            if (GartleyParams.UseGartley)
-                res.Add(GartleyPatternType.GARTLEY);
-            if (GartleyParams.UseButterfly)
-                res.Add(GartleyPatternType.BUTTERFLY);
-            if (GartleyParams.UseShark)
-                res.Add(GartleyPatternType.SHARK);
-            if (GartleyParams.UseCrab)
-                res.Add(GartleyPatternType.CRAB);
-            if (GartleyParams.UseBat)
-                res.Add(GartleyPatternType.BAT);
-            if (GartleyParams.UseAltBat)
-                res.Add(GartleyPatternType.ALT_BAT);
-            if (GartleyParams.UseCypher)
-                res.Add(GartleyPatternType.CYPHER);
-            if (GartleyParams.UseDeepCrab)
-                res.Add(GartleyPatternType.DEEP_CRAB);
-
-            return res;
-        }
-
+        
         /// <summary>
         /// Gets the name of the bot.
         /// </summary>

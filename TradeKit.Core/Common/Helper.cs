@@ -37,7 +37,7 @@ namespace TradeKit.Core.Common
         public const string TRADE_SETTINGS_NAME = "⚖ Trade Settings (manual)";
         public const string SYMBOL_SETTINGS_NAME = "€ Symbol Settings";
         public const int GARTLEY_BARS_COUNT = 300;
-        public const double GARTLEY_ACCURACY = 0.8;
+        public const double GARTLEY_ACCURACY = 0.75;
 
         public const int MACD_LONG_CYCLE = 26;
         public const int MACD_SHORT_CYCLE = 12;

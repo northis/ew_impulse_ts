@@ -57,54 +57,6 @@ namespace TradeKit.CTrader.Gartley
         public double Accuracy { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.GARTLEY"/> pattern.
-        /// </summary>
-        [Parameter("Gartley", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseGartley { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BUTTERFLY"/> pattern.
-        /// </summary>
-        [Parameter("Butterfly", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseButterfly { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.SHARK"/> pattern.
-        /// </summary>
-        [Parameter("Shark", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseShark { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CRAB"/> pattern.
-        /// </summary>
-        [Parameter("Crab", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseCrab { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.BAT"/> pattern.
-        /// </summary>
-        [Parameter("Bat", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseBat { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.ALT_BAT"/> pattern.
-        /// </summary>
-        [Parameter("Alternative Bat", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseAltBat { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.CYPHER"/> pattern.
-        /// </summary>
-        [Parameter("Cypher", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseCypher { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether we should use <see cref="GartleyPatternType.DEEP_CRAB"/> pattern.
-        /// </summary>
-        [Parameter("Deep Crab", DefaultValue = true, Group = Helper.GARTLEY_GROUP_NAME)]
-        public bool UseDeepCrab { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
         [Parameter("Use divergences", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -113,7 +65,7 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets a value indicating whether we should use candle patterns (Price Action) with the patterns.
         /// </summary>
-        [Parameter("Use candle patterns", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Use candle patterns", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseCandlePatterns { get; set; }
         
         /// <summary>
@@ -122,28 +74,11 @@ namespace TradeKit.CTrader.Gartley
         [Parameter("Trend only patterns", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
 
-        private HashSet<GartleyPatternType> GetPatternsType()
-        {
-            var res = new HashSet<GartleyPatternType>();
-            if (UseGartley)
-                res.Add(GartleyPatternType.GARTLEY);
-            if (UseButterfly)
-                res.Add(GartleyPatternType.BUTTERFLY);
-            if (UseShark)
-                res.Add(GartleyPatternType.SHARK);
-            if (UseCrab)
-                res.Add(GartleyPatternType.CRAB);
-            if (UseBat)
-                res.Add(GartleyPatternType.BAT);
-            if (UseAltBat)
-                res.Add(GartleyPatternType.ALT_BAT);
-            if (UseCypher)
-                res.Add(GartleyPatternType.CYPHER);
-            if (UseDeepCrab)
-                res.Add(GartleyPatternType.DEEP_CRAB);
-
-            return res;
-        }
+        /// <summary>
+        /// Gets or sets the minimum pattern size in bars.
+        /// </summary>
+        [Parameter(nameof(MinPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int MinPatternSizeBars { get; set; }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -159,7 +94,6 @@ namespace TradeKit.CTrader.Gartley
             m_BullColorBorder = Color.FromHex("#F090EE90");
 
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
-            HashSet<GartleyPatternType> patternTypes = GetPatternsType();
 
             AwesomeOscillatorFinder ao = UseDivergences || ShowDivergences
                 ? new AwesomeOscillatorFinder(m_BarsProvider)
@@ -175,7 +109,7 @@ namespace TradeKit.CTrader.Gartley
 
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), Accuracy,
-                BarDepthCount, UseDivergences, m_SupertrendFinder, patternTypes, ao, cpf);
+                BarDepthCount, UseDivergences, MinPatternSizeBars, m_SupertrendFinder, ao, cpf);
             Subscribe(m_SetupFinder);
         }
 
