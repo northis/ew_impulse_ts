@@ -20,17 +20,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Resources\MLModels.Designer.cs">
-      <DependentUpon>MLModels.resx</DependentUpon>
+    <Compile Update="Resources\ResHolder.Designer.cs">
+      <DependentUpon>ResHolder.resx</DependentUpon>
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
     </Compile>
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Resources\MLModels.resx">
+    <EmbeddedResource Update="Resources\ResHolder.resx">
       <SubType>Designer</SubType>
-      <LastGenOutput>MLModels.Designer.cs</LastGenOutput>
+      <LastGenOutput>ResHolder.Designer.cs</LastGenOutput>
       <Generator>ResXFileCodeGenerator</Generator>
     </EmbeddedResource>
   </ItemGroup>

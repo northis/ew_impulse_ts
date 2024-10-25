@@ -416,9 +416,9 @@ namespace TradeKit.Core.ML
             float[] vector = vectorResult.Item1;
 
             var res = new Dictionary<string, ClassPrediction> {
-                {"lbfgs", Predict<ClassPrediction>(MLModels.classification_lbfgs_ent, vector)},
-                {"sdca", Predict<ClassPrediction>(MLModels.classification_sdca, vector)},
-                {"sdca_ent", Predict<ClassPrediction>(MLModels.classification_sdca_ent, vector)}
+                {"lbfgs", Predict<ClassPrediction>(ResHolder.classification_lbfgs_ent, vector)},
+                {"sdca", Predict<ClassPrediction>(ResHolder.classification_sdca, vector)},
+                {"sdca_ent", Predict<ClassPrediction>(ResHolder.classification_sdca_ent, vector)}
             };
 
             return res;

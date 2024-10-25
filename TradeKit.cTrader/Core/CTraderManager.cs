@@ -46,7 +46,18 @@ namespace TradeKit.CTrader.Core
                 GetSymbol(position.SymbolName),
                 position.VolumeInUnits,
                 position.TradeType == TradeType.Buy ? PositionType.BUY : PositionType.SELL,
-                position.Comment);
+                position.Comment, 
+                position.EntryTime,
+                m_Robot.Time, 
+                position.StopLoss, 
+                position.TakeProfit,
+                position.Swap, 
+                position.Quantity, 
+                position.NetProfit, 
+                position.GrossProfit, 
+                position.EntryPrice,
+                position.CurrentPrice, 
+                position.Commissions);
         }
 
         private Position ToPosition(IPosition position)
