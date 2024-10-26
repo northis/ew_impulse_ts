@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using TradeKit.Core.Json;
 
 namespace TradeKit.Core.Common
@@ -198,6 +199,16 @@ namespace TradeKit.Core.Common
             }
 
             return candlesForExport;
+        }
+
+        /// <summary>
+        /// Format the price using accuracy given.
+        /// </summary>
+        /// <param name="price">The price.</param>
+        /// <param name="digits">The digits after the dot.</param>
+        public static string PriceFormat(double price, int digits)
+        {
+            return price.ToString($"F{digits}", CultureInfo.InvariantCulture);
         }
 
         /// <summary>

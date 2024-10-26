@@ -23,6 +23,7 @@ namespace TradeKit.Core.Common
         private readonly RobotParams m_RobotParams;
         private readonly bool m_IsBackTesting;
         private readonly bool m_GenerateChart;
+        private readonly bool m_GenerateReport;
         protected const double SPREAD_MARGIN_RATIO = 1.1;
         protected const int CHART_BARS_MARGIN_COUNT = 5;
         protected const double CHART_FONT_HEADER = 36;
@@ -58,6 +59,7 @@ namespace TradeKit.Core.Common
         /// <param name="symbolName">Name of the symbol.</param>
         /// <param name="timeFrameName">Name of the time frame.</param>
         /// <param name="generateChart">True (default) to generate chart image for each setup</param>
+        /// <param name="generateReport">True to generate report image for each setup. False is default.</param>
         protected BaseAlgoRobot(
             ITradeManager tradeManager,
             IStorageManager storageManager,
@@ -65,13 +67,15 @@ namespace TradeKit.Core.Common
             bool isBackTesting,
             string symbolName,
             string timeFrameName,
-            bool generateChart = true)
+            bool generateChart = true,
+            bool generateReport = false)
         {
             TradeManager = tradeManager;
             m_StorageManager = storageManager;
             m_RobotParams = robotParams;
             m_IsBackTesting = isBackTesting;
             m_GenerateChart = generateChart;
+            m_GenerateReport = generateReport;
 
             m_SetupFindersMap = new Dictionary<string, TF>();
             m_FinderIdChartBarProviderMap = new Dictionary<string, IBarsProvider>();
@@ -339,8 +343,9 @@ namespace TradeKit.Core.Common
             m_StopCount++;
             Logger.Write($"SL hit! {price}");
             ModifySymbolPositions(setupId, positionId);
-            string resultChartPath = ShowResultChart(sender, false);
-
+            string resultChartPath = m_GenerateReport
+                ? GenerateReportFile(bp, TradeManager.GetPositions().Where(a => a.Id == sf.)):
+                ShowResultChart(sender, false);
             if (!TelegramReporter.IsReady)
                 return;
 
@@ -681,6 +686,33 @@ namespace TradeKit.Core.Common
             return startView;
         }
 
+        private string GenerateReportFile(IBarsProvider barProvider, string positionId)
+        {
+            TradeManager.GetClosedPosition()
+
+            string folder = GetDirectoryToSave(barProvider);
+            string path = ReportGenerator.GetPngReport(position, folder);
+            return path;
+        }
+
+        private string GetDirectoryToSave(IBarsProvider barProvider, string prefix="", string comment="")
+        {
+            if (comment == null)
+                comment = string.Empty;
+            else
+            {
+                comment = $".{comment}";
+                foreach (string rStr in m_RestrictedChars) comment = comment.Replace(rStr, string.Empty);
+                comment = comment.Replace(" ", "_");
+            }
+
+            string dirPath = Path.Combine(Helper.DirectoryToSaveResults,
+                $"{prefix}.{barProvider.BarSymbol.Name}.{barProvider.TimeFrame.ShortName}{comment}");
+            Directory.CreateDirectory(dirPath);
+
+            return dirPath;
+        }
+
         /// <summary>
         /// Gets the path to the generated chart image file.
         /// </summary>
@@ -757,16 +789,6 @@ namespace TradeKit.Core.Common
                 s.O, s.H, s.L, s.C, s.D, barProvider.BarSymbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
                 out Rangebreak[] rbs);
 
-            string comment = signalEventArgs.Comment;
-            if (comment == null)
-                comment = string.Empty;
-            else
-            {
-                comment = $".{comment}";
-                foreach (string rStr in m_RestrictedChars) comment = comment.Replace(rStr, string.Empty);
-                comment = comment.Replace(" ", "_");
-            }
-
             OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
             GenericChart.GenericChart[] layers =
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime)
@@ -777,9 +799,8 @@ namespace TradeKit.Core.Common
                     $@"{barProvider.BarSymbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
                     Font.init(Size: CHART_FONT_HEADER));
 
-            string fileName = startView.ToString("s").Replace(":", "-");
-            string dirPath = Path.Combine(Helper.DirectoryToSaveResults,
-                $"{fileName}.{barProvider.BarSymbol.Name}.{barProvider.TimeFrame.ShortName}{comment}");
+            string dirPath = GetDirectoryToSave(barProvider, 
+                startView.ToString("s").Replace(":", "-"), signalEventArgs.Comment);
             Directory.CreateDirectory(dirPath);
 
             string imageName;

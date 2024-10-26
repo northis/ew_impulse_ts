@@ -80,16 +80,6 @@ namespace TradeKit.Core.Telegram
         }
 
         /// <summary>
-        /// Prices the format.
-        /// </summary>
-        /// <param name="price">The price.</param>
-        /// <param name="digits">The digits.</param>
-        private string PriceFormat(double price, int digits)
-        {
-            return price.ToString($"F{digits}", CultureInfo.InvariantCulture);
-        }
-
-        /// <summary>
         /// Reports the stop loss.
         /// </summary>
         /// <param name="posId">The position identifier.</param>
@@ -123,7 +113,7 @@ namespace TradeKit.Core.Telegram
             StatisticItem res = m_StorageManager.AddSetupResult(toVal);
             string sign = k > 0 ? "+" : string.Empty;
             string resStr =
-                $": {sign}{PriceFormat(toVal, 2)}, {sign}{diffP:N0} pips; Σ={PriceFormat(res.ResultValue, 2)} ({res.SetupsCount:N0}).";
+                $": {sign}{Helper.PriceFormat(toVal, 2)}, {sign}{diffP:N0} pips; Σ={Helper.PriceFormat(res.ResultValue, 2)} ({res.SetupsCount:N0}).";
             return resStr;
         }
 
@@ -234,17 +224,17 @@ namespace TradeKit.Core.Telegram
                 ? preDefValue 
                 : signalArgs.SymbolName.Replace(" ", "");
 
-            sb.AppendLine($"#setup #{symbolViewName} {tradeType} {PriceFormat(price, signalArgs.Digits)}");
-            sb.AppendLine($"TP {PriceFormat(signalEventArgs.TakeProfit.Value, signalArgs.Digits)}");
-            sb.AppendLine($"SL {PriceFormat(signalEventArgs.StopLoss.Value, signalArgs.Digits)}");
+            sb.AppendLine($"#setup #{symbolViewName} {tradeType} {Helper.PriceFormat(price, signalArgs.Digits)}");
+            sb.AppendLine($"TP {Helper.PriceFormat(signalEventArgs.TakeProfit.Value, signalArgs.Digits)}");
+            sb.AppendLine($"SL {Helper.PriceFormat(signalEventArgs.StopLoss.Value, signalArgs.Digits)}");
 
             if (den > 0)
             {
                 double profit = nom / den;
 
                 sb.AppendLine(
-                    $"Profit = {PriceFormat(profit, 2)}; {PriceFormat(nom / signalArgs.PipSize, 0)} pips; Δ={PriceFormat(100 * nom / price, 2)}%");
-                sb.AppendLine($"Spread = {PriceFormat(100 * spread / den, 2)}%");
+                    $"Profit = {Helper.PriceFormat(profit, 2)}; {Helper.PriceFormat(nom / signalArgs.PipSize, 0)} pips; Δ={Helper.PriceFormat(100 * nom / price, 2)}%");
+                sb.AppendLine($"Spread = {Helper.PriceFormat(100 * spread / den, 2)}%");
             }
 
             //string comment = signalArgs.SignalEventArgs.Comment;

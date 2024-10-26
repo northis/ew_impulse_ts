@@ -40,6 +40,16 @@ namespace TradeKit.CTrader.Core
             return positions;
         }
 
+        public IPosition GetClosedPosition(int positionId, double? tp, double? sl)
+        {
+            HistoricalTrade res = m_Robot.History.FirstOrDefault(a => a.PositionId == positionId);
+            if (res == null)
+                return null;
+
+            IPosition pos = ToIPosition(res, tp, sl);
+            return pos;
+        }
+
         private IPosition ToIPosition(Position position)
         {
             return new CTraderPosition(position.Id,
@@ -57,6 +67,26 @@ namespace TradeKit.CTrader.Core
                 position.GrossProfit, 
                 position.EntryPrice,
                 position.CurrentPrice, 
+                position.Commissions);
+        } 
+        
+        private IPosition ToIPosition(HistoricalTrade position, double? tp, double? sl)
+        {
+            return new CTraderPosition(position.PositionId,
+                GetSymbol(position.SymbolName),
+                position.VolumeInUnits,
+                position.TradeType == TradeType.Buy ? PositionType.BUY : PositionType.SELL,
+                position.Comment, 
+                position.EntryTime,
+                position.ClosingTime,
+                tp,
+                sl,
+                position.Swap, 
+                position.Quantity, 
+                position.NetProfit, 
+                position.GrossProfit, 
+                position.EntryPrice,
+                position.ClosingPrice, 
                 position.Commissions);
         }
 
