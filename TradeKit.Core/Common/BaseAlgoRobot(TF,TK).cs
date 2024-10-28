@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
@@ -40,6 +41,7 @@ namespace TradeKit.Core.Common
         private readonly Dictionary<string, ISymbol> m_SymbolsMap;
         private readonly Dictionary<string, bool> m_BarsInitMap;
         private readonly Dictionary<string, List<int>> m_PositionFinderMap;
+        private readonly Dictionary<string, ClosedPositionEventArgs> m_ClosedPositionMap;
         private readonly Dictionary<string, TK> m_ChartFileFinderMap;
         private readonly string[] m_Symbols;
         private readonly string[] m_TimeFrames;
@@ -84,6 +86,7 @@ namespace TradeKit.Core.Common
             m_SymbolFindersMap = new Dictionary<string, TF[]>();
             m_PositionFinderMap = new Dictionary<string, List<int>>();
             m_ChartFileFinderMap = new Dictionary<string, TK>();
+            m_ClosedPositionMap = new Dictionary<string, ClosedPositionEventArgs>();
             m_CurrentRisk = robotParams.RiskPercentFromDeposit;
 
             m_Symbols = !robotParams.UseSymbolsList || string.IsNullOrEmpty(robotParams.SymbolsToProceed)
@@ -159,7 +162,7 @@ namespace TradeKit.Core.Common
             TradeManager.PositionClosed += OnPositionsClosed;
 
             TelegramReporter = new TelegramReporter(
-                m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_StorageManager,
+                m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, GetBotName(), m_StorageManager,
                 m_RobotParams.PostCloseMessages);
 
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
@@ -230,16 +233,21 @@ namespace TradeKit.Core.Common
 
         private void OnPositionsClosed(object sender, ClosedPositionEventArgs args)
         {
-            if (args.State == PositionClosedState.STOP_LOSS)
+            bool isSl = args.State == PositionClosedState.STOP_LOSS;
+            bool isTp = args.State == PositionClosedState.TAKE_PROFIT;
+
+            if ((m_RobotParams.AllowToTrade || m_IsBackTesting) && !string.IsNullOrEmpty(args.Position.Comment))
+            {
+                m_ClosedPositionMap[args.Position.Comment] = args;
+            }
+
+            if (isSl)
             {
                 UpRisk();
                 return;
             }
 
-            if (args.State == PositionClosedState.TAKE_PROFIT)
-            {
-                DownRisk();
-            }
+            if (isTp) DownRisk();
         }
 
         private void BarOpened(object obj, System.EventArgs args)
@@ -334,7 +342,35 @@ namespace TradeKit.Core.Common
             TF sf = (TF)sender;
             setupId = sf.Id;
             GetEventStrings(sender, e.Level, out price);
-            positionId = Helper.GetPositionId(setupId, e.FromLevel, e.Comment);
+            positionId = Helper.GetPositionId(GetBotName(), setupId, e.FromLevel, e.Comment);
+        }
+
+        /// <summary>
+        /// Called when on position close.
+        /// </summary>
+        /// <param name="sender">The sender (setup finder object).</param>
+        /// <param name="setupId">The setup identifier.</param>
+        /// <param name="positionId">The position identifier.</param>
+        /// <param name="successTrade">if set to <c>true</c> we close the trade with success.</param>
+        /// <returns>Path to the final report or chart result image file.</returns>
+        private string OnPositionClose(object sender, string setupId, string positionId, bool successTrade)
+        {
+            ModifySymbolPositions(setupId, positionId);
+            ClosedPositionEventArgs closedArgs = null;
+            if (m_RobotParams.AllowToTrade || m_IsBackTesting) 
+                m_ClosedPositionMap.Remove(positionId, out closedArgs);
+
+            if (sender is not TF sf ||
+                !m_ChartFileFinderMap.TryGetValue(sf.Id, out TK signalEventArgs))
+            {
+                return null;
+            }
+
+            string resultChartPath = m_GenerateReport && closedArgs != null
+                ? GenerateReportFile(closedArgs, sf.TimeFrame.ShortName)
+                : ShowResultChart(sf, signalEventArgs, successTrade);
+
+            return resultChartPath;
         }
         
         protected void OnStopLoss(object sender, LevelEventArgs e)
@@ -342,10 +378,8 @@ namespace TradeKit.Core.Common
             HandleClose(sender, e, out string price, out string setupId, out string positionId);
             m_StopCount++;
             Logger.Write($"SL hit! {price}");
-            ModifySymbolPositions(setupId, positionId);
-            string resultChartPath = m_GenerateReport
-                ? GenerateReportFile(bp, TradeManager.GetPositions().Where(a => a.Id == sf.)):
-                ShowResultChart(sender, false);
+            string resultChartPath = OnPositionClose(sender, setupId, positionId, false);
+
             if (!TelegramReporter.IsReady)
                 return;
 
@@ -355,16 +389,11 @@ namespace TradeKit.Core.Common
         /// <summary>
         /// Generates the second result chart for the setup finder
         /// </summary>
-        /// <param name="setupFinder">The setup finder we want to check. See <see cref="TF"/></param>
+        /// <param name="sf">The setup finder we want to check. See <see cref="TF"/></param>
+        /// <param name="signalEventArgs">The signal arguments we want to check. See <see cref="TK"/></param>
         /// <param name="successTrade">True - TP hit, False - SL hit</param>
-        private string ShowResultChart(object setupFinder, bool successTrade)
+        private string ShowResultChart(TF sf, TK signalEventArgs, bool successTrade)
         {
-            if (setupFinder is not TF sf ||
-                !m_ChartFileFinderMap.TryGetValue(sf.Id, out TK signalEventArgs))
-            {
-                return null;
-            }
-
             if (m_IsBackTesting)
                 OnResultForManualAnalysis(signalEventArgs, sf, successTrade);
 
@@ -387,13 +416,10 @@ namespace TradeKit.Core.Common
             HandleClose(sender, e, out string price, out string setupId, out string positionId);
             m_TakeCount++;
             Logger.Write($"TP hit! {price}");
-            ModifySymbolPositions(setupId, positionId);
-            string resultChartPath = ShowResultChart(sender, true);
+            string resultChartPath = OnPositionClose(sender, setupId, positionId, true);
 
             if (!TelegramReporter.IsReady)
-            {
                 return;
-            }
 
             TelegramReporter.ReportTakeProfit(positionId, resultChartPath);
         }
@@ -573,7 +599,7 @@ namespace TradeKit.Core.Common
 
                 OrderResult order = TradeManager.OpenOrder(
                     isLong, sf.Symbol, volume, GetBotName(), slP, tpP,
-                    Helper.GetPositionId(sf.Id, e.Level));
+                    Helper.GetPositionId(GetBotName(), sf.Id, e.Level, e.Comment));
 
                 if (order?.IsSuccessful == true)
                 {
@@ -686,16 +712,16 @@ namespace TradeKit.Core.Common
             return startView;
         }
 
-        private string GenerateReportFile(IBarsProvider barProvider, string positionId)
+        private string GenerateReportFile(ClosedPositionEventArgs closedArgs, string tfName)
         {
-            TradeManager.GetClosedPosition()
-
-            string folder = GetDirectoryToSave(barProvider);
-            string path = ReportGenerator.GetPngReport(position, folder);
+            IPosition position = TradeManager.GetClosedPosition(closedArgs.Position.Comment, closedArgs.Position.TakeProfit,
+                closedArgs.Position.StopLoss);
+            string folder = GetDirectoryToSave(tfName, position.Symbol.Name, "report", "0");
+            string path = ReportGenerator.GetPngReport(position, closedArgs.State, folder);
             return path;
         }
 
-        private string GetDirectoryToSave(IBarsProvider barProvider, string prefix="", string comment="")
+        private string GetDirectoryToSave(string tfName, string symbolName, string prefix = "", string comment = "")
         {
             if (comment == null)
                 comment = string.Empty;
@@ -707,7 +733,7 @@ namespace TradeKit.Core.Common
             }
 
             string dirPath = Path.Combine(Helper.DirectoryToSaveResults,
-                $"{prefix}.{barProvider.BarSymbol.Name}.{barProvider.TimeFrame.ShortName}{comment}");
+                $"{prefix}.{symbolName}.{tfName}{comment}");
             Directory.CreateDirectory(dirPath);
 
             return dirPath;
@@ -799,7 +825,7 @@ namespace TradeKit.Core.Common
                     $@"{barProvider.BarSymbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
                     Font.init(Size: CHART_FONT_HEADER));
 
-            string dirPath = GetDirectoryToSave(barProvider, 
+            string dirPath = GetDirectoryToSave(barProvider.TimeFrame.ShortName, barProvider.BarSymbol.Name,
                 startView.ToString("s").Replace(":", "-"), signalEventArgs.Comment);
             Directory.CreateDirectory(dirPath);
 

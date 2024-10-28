@@ -15,6 +15,7 @@ namespace TradeKit.Core.Telegram
     /// </summary>
     public class TelegramReporter
     {
+        private readonly string m_SourceBotId;
         private readonly IStorageManager m_StorageManager;
         private readonly bool m_ReportClose;
         private readonly TelegramBotClient m_TelegramBotClient;
@@ -47,10 +48,16 @@ namespace TradeKit.Core.Telegram
         /// </summary>
         /// <param name="botToken">The bot token.</param>
         /// <param name="chatId">The chat identifier.</param>
+        /// <param name="sourceBotId">The ID of the calling robot</param>
         /// <param name="storageManager">Manager to save the state between runs.</param>
         /// <param name="reportClose">If true - the close messages will be posted (tp hit)</param>
-        public TelegramReporter(string botToken, string chatId, IStorageManager storageManager, bool reportClose = true)
+        public TelegramReporter(string botToken, 
+            string chatId,
+            string sourceBotId,
+            IStorageManager storageManager, 
+            bool reportClose = true)
         {
+            m_SourceBotId = sourceBotId;
             m_StorageManager = storageManager;
             m_ReportClose = reportClose;
             m_SignalPostIds = storageManager.GetSavedState() ?? new Dictionary<string, int>();
@@ -258,7 +265,7 @@ namespace TradeKit.Core.Telegram
             });
 
             Message msgRes = SendMessage(alert, null, chartLink, signalArgs.PlotImagePath);
-            string positionId = Helper.GetPositionId(signalArgs.SenderId,
+            string positionId = Helper.GetPositionId(m_SourceBotId, signalArgs.SenderId,
                 signalArgs.SignalEventArgs.Level,
                 signalArgs.SignalEventArgs.Comment);
             m_SignalPostIds[positionId] = msgRes.MessageId;

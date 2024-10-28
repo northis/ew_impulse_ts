@@ -1,8 +1,16 @@
-﻿using System.Drawing;
+﻿using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.Text;
+using ShimSkiaSharp;
+using SkiaSharp;
 using Svg;
+using Svg.Skia;
+using Svg.Skia.TypefaceProviders;
 using TradeKit.Core.Resources;
+using SKColorSpace = SkiaSharp.SKColorSpace;
+using SKPicture = SkiaSharp.SKPicture;
 
 namespace TradeKit.Core.Common
 {
@@ -21,6 +29,7 @@ namespace TradeKit.Core.Common
         private const string SL_COLOR_KEY = "{SL_COLOR}";
         private const string TP_COLOR_KEY = "{TP_COLOR}";
         private const string VALUE_COLOR_KEY = "{VALUE_COLOR}";
+        private const string PROFIT_COLOR_KEY = "{PROFIT_COLOR}";
 
         private const string SYMBOL_KEY = "{SYMBOL}";
         private const string TRADE_TYPE_KEY = "{TRADE_TYPE}";
@@ -76,12 +85,18 @@ namespace TradeKit.Core.Common
         private const string VALUE_COLOR_LIGHT_VALUE = "80, 80, 80";
         private const string VALUE_COLOR_DARK_VALUE = "193, 193, 193";
 
+        private const string LOSS_COLOR_LIGHT_VALUE = "234, 74, 50";
+        private const string LOSS_COLOR_DARK_VALUE = "234, 74, 50";
+
+        private const string PROFIT_COLOR_LIGHT_VALUE = "0, 122, 255";
+        private const string PROFIT_COLOR_DARK_VALUE = "0, 122, 255";
+
         private const string PLACEHOLDER = "-";
         private const string TP_HIT_SUFFIX = ", [tp]";
         private const string SL_HIT_SUFFIX = ", [sl]";
         private const string BUY_VALUE = "buy";
         private const string SELL_VALUE = "sell";
-        private const string DATE_FORMAT = "YYYY.MM.DD HH:mm:ss";
+        private const string DATE_FORMAT = "yyyy.MM.dd HH:mm:ss";
 
         private const int REPORT_WIDTH = 1170;
         private const int REPORT_HEIGHT = 470;
@@ -89,10 +104,10 @@ namespace TradeKit.Core.Common
 
         static ReportGenerator()
         {
-            TRADE_RESULT_TEMPLATE = Encoding.Unicode.GetString(ResHolder.tradeResultTemplate);
+            TRADE_RESULT_TEMPLATE = Encoding.UTF8.GetString(ResHolder.tradeResultTemplate);
         }
 
-        private static string GetSvg(IPosition position, bool isLight)
+        private static string GetSvg(IPosition position, PositionClosedState state, bool isLight)
         {
             bool isUp = position.Type == PositionType.BUY;
 
@@ -121,14 +136,14 @@ namespace TradeKit.Core.Common
 
             string tpText = PLACEHOLDER;
             string slText = PLACEHOLDER;
-            string reason = string.Empty;
+            string reason = position.CloseDateTime.HasValue
+                ? position.CloseDateTime.Value.ToString(DATE_FORMAT)
+                : string.Empty;
             string barColor = TRANSPARENT_COLOR_VALUE;
             bool isTpHit = false;
             if (position.TakeProfit.HasValue)
             {
-                isTpHit = isUp
-                    ? position.CurrentPrice >= position.TakeProfit
-                    : position.CurrentPrice <= position.TakeProfit;
+                isTpHit = state == PositionClosedState.TAKE_PROFIT;
                 sb.Replace(TP_COLOR_KEY,
                     isTpHit
                         ? isLight ? TP_COLOR_LIGHT_VALUE : TP_COLOR_DARK_VALUE
@@ -140,15 +155,13 @@ namespace TradeKit.Core.Common
                 if (isTpHit)
                 {
                     barColor = isLight ? TP_BAR_COLOR_LIGHT_VALUE : TP_BAR_COLOR_DARK_VALUE;
-                    reason = TP_HIT_SUFFIX;
+                    reason += TP_HIT_SUFFIX;
                 }
             }
 
             if (position.StopLoss.HasValue)
             {
-                bool isSlHit = (isUp
-                    ? position.CurrentPrice <= position.StopLoss
-                    : position.CurrentPrice >= position.StopLoss)&& !isTpHit;
+                bool isSlHit = state == PositionClosedState.STOP_LOSS && !isTpHit;
 
                 sb.Replace(SL_COLOR_KEY,
                     isSlHit
@@ -161,7 +174,7 @@ namespace TradeKit.Core.Common
                 if (isSlHit)
                 {
                     barColor = isLight ? SL_BAR_COLOR_LIGHT_VALUE : SL_BAR_COLOR_DARK_VALUE;
-                    reason = SL_HIT_SUFFIX;
+                    reason += SL_HIT_SUFFIX;
                 }
             }
 
@@ -179,6 +192,13 @@ namespace TradeKit.Core.Common
             sb.Replace(CHARGES_KEY, Helper.PriceFormat(position.Charges, DEFAULT_ACCURACY_DIGITS));
             sb.Replace(GROSS_PROFIT_KEY, Helper.PriceFormat(position.GrossProfit, DEFAULT_ACCURACY_DIGITS));
 
+            sb.Replace(PROFIT_COLOR_KEY,
+                position.GrossProfit > 0
+                    ? isLight ? PROFIT_COLOR_LIGHT_VALUE : PROFIT_COLOR_DARK_VALUE
+                    : isLight
+                        ? LOSS_COLOR_LIGHT_VALUE
+                        : LOSS_COLOR_DARK_VALUE);
+
             sb.Replace(ENTRY_DATETIME_KEY, position.EnterDateTime.ToString(DATE_FORMAT));
             sb.Replace(CLOSE_DATETIME_REASON_KEY,
                 position.CloseDateTime.HasValue
@@ -192,19 +212,24 @@ namespace TradeKit.Core.Common
         /// Gets the PNG report from the position object given.
         /// </summary>
         /// <param name="position">The position.</param>
+        /// <param name="state">The reason of closing</param>
         /// <param name="folderToSave">The folder to save.</param>
         /// <param name="isLight">if set to <c>true</c> we want to use light theme for the report, otherwise - dark one.</param>
         /// <returns>Path to the generated .png file.</returns>
-        public static string GetPngReport(IPosition position, string folderToSave, bool isLight = true)
+        public static string GetPngReport(IPosition position, PositionClosedState state, string folderToSave, bool isLight = true)
         {
-            string pathSvg = GetSvg(position, isLight);
-            SvgDocument svg = SvgDocument.FromSvg<SvgDocument>(pathSvg);
-            svg.Width = REPORT_WIDTH;
-            svg.Height = REPORT_HEIGHT;
-            string fileName = $"{GetTempString}.png";
-            string pngPath = Path.Combine(folderToSave, fileName);
-            using Bitmap bitmap = svg.Draw();
-            bitmap?.Save(pngPath);
+            Debugger.Launch();
+            string svgBody = GetSvg(position, state, isLight);
+            //string svgPath = Path.Combine(folderToSave, $"{GetTempString}.svg");
+            //File.WriteAllText(svgPath, svgBody);
+
+            string pngPath = Path.Combine(folderToSave, $"{GetTempString}.png");
+            using var svg = new SKSvg();
+            SKPicture ss = svg.FromSvg(svgBody);
+            if (ss == null)
+                return null;
+
+            svg.Save(pngPath, SKColors.Empty);
             return pngPath;
         }
 

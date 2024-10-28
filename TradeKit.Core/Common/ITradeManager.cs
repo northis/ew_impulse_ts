@@ -16,7 +16,9 @@ namespace TradeKit.Core.Common
         /// Gets the closed position.
         /// </summary>
         /// <param name="positionId">The position identifier.</param>
-        IPosition GetClosedPosition(int positionId);
+        /// <param name="tp">The tp.</param>
+        /// <param name="sl">The sl.</param>
+        IPosition GetClosedPosition(string positionId, double? tp, double? sl);
 
         /// <summary>
         /// Occurs when a position is being closed.

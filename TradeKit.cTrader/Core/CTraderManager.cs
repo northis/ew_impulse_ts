@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.Common;
@@ -29,7 +30,7 @@ namespace TradeKit.CTrader.Core
         private void PositionsClosed(PositionClosedEventArgs obj)
         {
             PositionClosedState reason = m_ReasonMapper[obj.Reason];
-            PositionClosed?.Invoke(this, new ClosedPositionEventArgs(reason));
+            PositionClosed?.Invoke(this, new ClosedPositionEventArgs(reason, ToIPosition(obj.Position)));
         }
 
         public IPosition[] GetPositions()
@@ -40,9 +41,10 @@ namespace TradeKit.CTrader.Core
             return positions;
         }
 
-        public IPosition GetClosedPosition(int positionId, double? tp, double? sl)
+        public IPosition GetClosedPosition(string positionId, double? tp, double? sl)
         {
-            HistoricalTrade res = m_Robot.History.FirstOrDefault(a => a.PositionId == positionId);
+            
+            HistoricalTrade res = m_Robot.History.FirstOrDefault(a => a.Comment == positionId);
             if (res == null)
                 return null;
 
@@ -79,8 +81,8 @@ namespace TradeKit.CTrader.Core
                 position.Comment, 
                 position.EntryTime,
                 position.ClosingTime,
-                tp,
                 sl,
+                tp,
                 position.Swap, 
                 position.Quantity, 
                 position.NetProfit, 

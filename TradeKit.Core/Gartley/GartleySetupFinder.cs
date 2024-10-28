@@ -315,7 +315,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             {
                 OnTakeProfitInvoke(new LevelEventArgs(
                     args.TakeProfit.WithIndex(
-                        index, BarsProvider), args.TakeProfit, args.HasBreakeven, args.Comment));
+                        index, BarsProvider), args.Level, args.HasBreakeven, args.Comment));
                 isClosed = true;
             }
             else if (isBull && low <= args.StopLoss.Value ||
@@ -323,7 +323,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             {
                 OnStopLossInvoke(new LevelEventArgs(
                     args.StopLoss.WithIndex(
-                        index, BarsProvider), args.StopLoss, args.HasBreakeven, args.Comment));
+                        index, BarsProvider), args.Level, args.HasBreakeven, args.Comment));
                 isClosed = true;
             }
             else if (args.CanUseBreakeven && (pattern.IsBull && args.BreakEvenPrice <= high ||

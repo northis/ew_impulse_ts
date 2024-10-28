@@ -35,12 +35,12 @@ namespace TradeKit.Core.Gartley
             string symbolName,
             string timeFrameName,
             bool showGartley = false)
-            : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName, timeFrameName, false)
+            : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName, timeFrameName, false, true)
         {
             m_ShowGartley = showGartley;
             GartleyParams = gartleyParams;
         }
-        
+
         protected GartleyParams GartleyParams { get; }
         
         /// <summary>
