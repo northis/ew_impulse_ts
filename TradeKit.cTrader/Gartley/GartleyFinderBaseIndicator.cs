@@ -94,22 +94,9 @@ namespace TradeKit.CTrader.Gartley
             m_BullColorBorder = Color.FromHex("#F090EE90");
 
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
-
-            AwesomeOscillatorFinder ao = UseDivergences || ShowDivergences
-                ? new AwesomeOscillatorFinder(m_BarsProvider)
-                : null;
-
-            m_SupertrendFinder = null;
-            if (UseTrendOnly)
-                m_SupertrendFinder = new SupertrendFinder(m_BarsProvider);
-
-            CandlePatternFinder cpf = UseCandlePatterns
-                ? new CandlePatternFinder(m_BarsProvider)
-                : null;
-
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), Accuracy,
-                BarDepthCount, UseDivergences, MinPatternSizeBars, m_SupertrendFinder, ao, cpf);
+                BarDepthCount, ShowDivergences, UseDivergences, UseTrendOnly, UseCandlePatterns, MinPatternSizeBars);
             Subscribe(m_SetupFinder);
         }
 
@@ -231,11 +218,11 @@ namespace TradeKit.CTrader.Gartley
                         e.StopLoss.Value, m_SlColor, LINE_WIDTH)
                     .SetFilled();
                 Chart.DrawRectangle($"TP1{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
-                        e.GartleyItem.TakeProfit1, m_TpColor, LINE_WIDTH)
+                        e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
                     .SetFilled();
-                Chart.DrawRectangle($"TP2{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
-                        e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
-                    .SetFilled();
+                //Chart.DrawRectangle($"TP2{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
+                //        e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
+                //    .SetFilled();
             }
 
             BarPoint div = e.DivergenceStart;

@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
 
 namespace TradeKit.Core.AlgoBase
@@ -10,8 +11,8 @@ namespace TradeKit.Core.AlgoBase
 
         private readonly int m_BarsDepth;
 //#if GARTLEY_PROD
-        private const double SL_RATIO = 0.28;
-        private const double TP1_RATIO = 0.37;
+        private const double SL_RATIO = 0.272;
+        private const double TP1_RATIO = 0.382;
 
 //#else
         //private const double SL_RATIO = 0.35;
@@ -33,7 +34,7 @@ namespace TradeKit.Core.AlgoBase
 
         private const int MIN_PERIOD = 1;
         private DateTime? m_BorderDateTime;
-        private readonly double[] m_Allowances = {0.5};
+        private readonly double[] m_Allowances = {0.175};
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
@@ -338,22 +339,22 @@ namespace TradeKit.Core.AlgoBase
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
 
-            //if (HasExtremaBetweenPoints(projection))
-            //{
-            //    //Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
-            //    return null;
-            //}
+            if (HasExtremaBetweenPoints(projection))
+            {
+                //Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
+                return null;
+            }
 
-            //if (!IsInnerPointsPivot(projection))
-            //{
-            //    //Logger.Write($"{nameof(IsInnerPointsPivot)}: {projection.PatternType.PatternType}");
-            //    return null;
-            //}
+            if (!IsInnerPointsPivot(projection))
+            {
+                //Logger.Write($"{nameof(IsInnerPointsPivot)}: {projection.PatternType.PatternType}");
+                return null;
+            }
 
             double xB = aB / xA;
-            double xD = cD / xA;
-            double bD = cD / aB;
-            double aC = xC / xA;
+            double xD = aD / xC;
+            double bD = cD / cB;
+            double aC = cB / aB;
 
             var accuracyList = new List<double>
             {
@@ -361,6 +362,7 @@ namespace TradeKit.Core.AlgoBase
                 GetRatio(projection.AtoC, aC),
                 GetRatio(projection.BtoD, bD)
             };
+
             if(projection.XtoB > 0)
                 accuracyList.Add(GetRatio(projection.XtoB, xB));
 
@@ -392,7 +394,7 @@ namespace TradeKit.Core.AlgoBase
             if (def > MAX_SL_TP_RATIO_ALLOWED)
             {
                 //Logger.Write("SL/TP is too big.");
-                return null;
+                //return null;
             }
             
             var item = new GartleyItem(Convert.ToInt32(accuracy * 100),

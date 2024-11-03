@@ -42,26 +42,15 @@ namespace TradeKit.CTrader.Gartley
             ITimeFrame timeFrame, ISymbol symbolEntity)
         {
             IBarsProvider cTraderBarsProvider = CreateBarsProvider(timeFrame, symbolEntity);
-            var ao = new AwesomeOscillatorFinder(cTraderBarsProvider);
-
-            SupertrendFinder supertrendFinder = null;
-            if (GartleyParams.UseTrendOnly)
-                supertrendFinder = new SupertrendFinder(cTraderBarsProvider);
-
-
-            CandlePatternFinder cpf = GartleyParams.UseCandlePatterns
-                ? new CandlePatternFinder(cTraderBarsProvider)
-                : null;
-
-            double? breakEvenRatio = null;
-            if (GartleyParams.BreakEvenRatio > 0)
-                breakEvenRatio = GartleyParams.BreakEvenRatio;
-
             var setupFinder = new GartleySetupFinder(
                 cTraderBarsProvider, symbolEntity,
-                GartleyParams.Accuracy, GartleyParams.BarDepthCount, GartleyParams.UseDivergences,
-                GartleyParams.MinPatternSizeBars,
-                supertrendFinder, ao, cpf, breakEvenRatio);
+                GartleyParams.Accuracy, 
+                GartleyParams.BarDepthCount,
+                false, 
+                GartleyParams.UseDivergences,
+                GartleyParams.UseTrendOnly, 
+                GartleyParams.UseCandlePatterns,
+                GartleyParams.MinPatternSizeBars);
 
             return setupFinder;
         }

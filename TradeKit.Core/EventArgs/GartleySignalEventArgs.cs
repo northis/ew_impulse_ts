@@ -12,10 +12,13 @@ namespace TradeKit.Core.EventArgs
             DateTime startViewBarIndex,
             BarPoint divergenceStart = null,
             double? breakevenRatio = null,
-            List<CandlesResult> candlePatterns=null)
+            List<CandlesResult> candlePatterns = null,
+            double? tp = null,
+            double? sl = null)
             : base(level,
-                level.WithPrice(gartleyItem.TakeProfit1), 
-                level.WithPrice(gartleyItem.StopLoss), startViewBarIndex, breakevenRatio, gartleyItem.PatternType.Format())
+                level.WithPrice(tp ?? gartleyItem.TakeProfit1),
+                level.WithPrice(sl ?? gartleyItem.StopLoss), startViewBarIndex, breakevenRatio,
+                gartleyItem.PatternType.Format())
         {
             CandlePatterns = candlePatterns;
             GartleyItem = gartleyItem;

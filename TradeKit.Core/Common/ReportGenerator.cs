@@ -218,11 +218,7 @@ namespace TradeKit.Core.Common
         /// <returns>Path to the generated .png file.</returns>
         public static string GetPngReport(IPosition position, PositionClosedState state, string folderToSave, bool isLight = true)
         {
-            Debugger.Launch();
             string svgBody = GetSvg(position, state, isLight);
-            //string svgPath = Path.Combine(folderToSave, $"{GetTempString}.svg");
-            //File.WriteAllText(svgPath, svgBody);
-
             string pngPath = Path.Combine(folderToSave, $"{GetTempString}.png");
             using var svg = new SKSvg();
             SKPicture ss = svg.FromSvg(svgBody);

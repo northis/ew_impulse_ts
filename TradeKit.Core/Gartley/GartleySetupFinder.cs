@@ -16,6 +16,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly bool m_FilterByDivergence;
     private readonly int m_MinPatternSizeBars;
     private readonly SupertrendFinder m_Supertrend;
+    private readonly ZoneAlligatorFinder m_ZoneAlligatorFinder;
     private readonly AwesomeOscillatorFinder m_AwesomeOscillator;
     private readonly CandlePatternFinder m_CandlePatternFilter;
     private readonly double? m_BreakevenRatio;
@@ -62,8 +63,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.DARK_CLOUD,
         CandlePatternType.PIECING_LINE,
     };
-    private const int PATTERN_CACHE_DEPTH_CANDLES = 2;
-    private const double PATTERN_PROFIT_RANGE = 0.5;//[0->1]
+    private const int PATTERN_CACHE_DEPTH_CANDLES = 20;
+    private const double PATTERN_PROFIT_RANGE = 0.4;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -72,29 +73,44 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="symbol">The symbol.</param>
     /// <param name="accuracy">The accuracy filter - from 0 to 1.</param>
     /// <param name="barsDepth">How many bars we should analyze backwards.</param>
+    /// <param name="findDivergence">If true - we will find divergences with the patterns.</param>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
+    /// <param name="filterByTrend">If true - use only the patterns the same direction as the trend.</param>
+    /// <param name="filterByPriceAction">If true - use only the patterns with Price Action candle patterns.</param>
     /// <param name="minPatternSizeBars">The minimum pattern size (duration) in bars</param>
-    /// <param name="supertrendFinder">For filtering by the trend.</param>
-    /// <param name="awesomeOscillator">AO indicator instance.</param>
-    /// <param name="candlePatternFilter">Candle patterns filter.</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null if you don't want to use the breakeven.</param>
     public GartleySetupFinder(
         IBarsProvider mainBarsProvider,
         ISymbol symbol,
         double accuracy,
         int barsDepth,
+        bool findDivergence,
         bool filterByDivergence,
+        bool filterByTrend,
+        bool filterByPriceAction,
         int minPatternSizeBars,
-        SupertrendFinder supertrendFinder = null,
-        AwesomeOscillatorFinder awesomeOscillator = null,
-        CandlePatternFinder candlePatternFilter = null,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)
     {
+        AwesomeOscillatorFinder ao = filterByDivergence || findDivergence
+            ? new AwesomeOscillatorFinder(mainBarsProvider)
+            : null;
+
+        if (filterByTrend)
+        {
+            m_Supertrend = new SupertrendFinder(mainBarsProvider, useAutoCalculateEvent: false);
+            m_ZoneAlligatorFinder =
+                new ZoneAlligatorFinder(mainBarsProvider, jawsPeriods: 26, jawsShift: 0, teethPeriods: 16,
+                    teethShift: 0, lipsPeriods: 10, lipsShift: 0, useAutoCalculateEvent: false);
+        }
+
+        CandlePatternFinder cpf = filterByPriceAction
+            ? new CandlePatternFinder(mainBarsProvider)
+            : null;
+
         m_MainBarsProvider = mainBarsProvider;
-        m_AwesomeOscillator = awesomeOscillator;
-        m_CandlePatternFilter = candlePatternFilter;
+        m_AwesomeOscillator = ao;
+        m_CandlePatternFilter = cpf;
         m_BreakevenRatio = breakevenRatio;
-        m_Supertrend = supertrendFinder;
         m_FilterByDivergence = filterByDivergence;
         m_MinPatternSizeBars = minPatternSizeBars;
 
@@ -103,7 +119,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
         m_PendingPatterns = new HashSet<GartleyItem>(comparer);
-        m_FilterByDivergence = awesomeOscillator != null && filterByDivergence;
     }
 
     /// <summary>
@@ -133,14 +148,23 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             return;
         }
 
-        if (m_Supertrend != null)
+        if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
-            int last = index - localPattern.ItemC.BarIndex;
-            TrendType trend = SignalFilters.GetTrend(
-                m_Supertrend, BarsProvider.GetOpenTime(index), out int flatBarsAge);
-            bool isCounterTrend = localPattern.IsBull ? trend == TrendType.BEARISH : trend == TrendType.BULLISH;
+            //TrendType wantedTrend = localPattern.IsBull ? TrendType.BULLISH : TrendType.BEARISH;
+            //if (wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemD.OpenTime, out _) ||
+            //    wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemC.OpenTime, out _) ||
+            //    wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemA.OpenTime, out _) ||
+            //    wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemX.OpenTime, out _))
+            //{
+            //    return;
+            //};
 
-            if (isCounterTrend && flatBarsAge < last)
+            TrendType trendAlligator = SignalFilters.GetTrend(
+                m_ZoneAlligatorFinder, BarsProvider.GetOpenTime(index));
+            bool isCounterTrend = /*(localPattern.IsBull ? trend != TrendType.BULLISH : trend != TrendType.BEARISH) ||*/
+                (localPattern.IsBull ? trendAlligator == TrendType.BEARISH : trendAlligator == TrendType.BULLISH);
+
+            if (isCounterTrend)
                 return;
         }
 
@@ -174,8 +198,27 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         DateTime startView = m_MainBarsProvider.GetOpenTime(localPattern.ItemX.BarIndex);
+
+        //double tpP = Math.Abs(close - localPattern.TakeProfit1);
+        //double slP = Math.Abs(close - localPattern.StopLoss) * 1.1;
+        double? tp = null;
+        double? sl = null;
+        //if (tpP > slP)
+        //{
+        //    tpP = slP * 5;
+        //    slP *= 2;
+        //}
+        //else
+        //{
+        //    tpP = slP * 3;
+        //    slP *= 2;
+        //}
+
+        //tp = localPattern.IsBull ? close + tpP : close - tpP;
+        //sl = localPattern.IsBull ? close - slP : close + slP;
+
         var args = new GartleySignalEventArgs(new BarPoint(close, index, m_MainBarsProvider),
-            localPattern, startView, divItem, m_BreakevenRatio, candlePatterns);
+            localPattern, startView, divItem, m_BreakevenRatio, candlePatterns, tp, sl);
 
         //BarPoint newStopLoss = GetNewStopLoss(candlePatterns);
         //if (newStopLoss != null)
@@ -237,10 +280,10 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         if (toAddSetup != null)
         {
             KeyValuePair<GartleyItem, List<CandlesResult>> pendingPatternPair =
-                toAddSetup.MaxBy(a => a.Key.GetProfitRatio(close));
+                toAddSetup.MaxBy(a => (a.Key.IsBull ? -1 : 1) * a.Key.StopLoss);
             //foreach (KeyValuePair<GartleyItem, List<CandlesResult>> pendingPatternPair in toAddSetup)
             //{
-            AddSetup(pendingPatternPair.Key, close, index, pendingPatternPair.Value);
+                AddSetup(pendingPatternPair.Key, close, index, pendingPatternPair.Value);
             //}
         }
 
@@ -261,6 +304,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     {
         DateTime currentDt = BarsProvider.GetOpenTime(index);
         m_Supertrend?.OnCalculate(index, currentDt);
+        m_ZoneAlligatorFinder?.OnCalculate(index, currentDt);
         ProcessCachedPatternsIfNeeded(index);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
@@ -310,8 +354,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             GartleySignalEventArgs args = m_PatternsEntryMap[pattern];
             bool isBull = pattern.IsBull;
             bool isClosed = false;
-            if (isBull && high >= pattern.TakeProfit1 ||
-                !isBull && low <= pattern.TakeProfit1)
+            if (isBull && high >= args.TakeProfit.Value ||
+                !isBull && low <= args.TakeProfit.Value)
             {
                 OnTakeProfitInvoke(new LevelEventArgs(
                     args.TakeProfit.WithIndex(

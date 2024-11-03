@@ -320,7 +320,7 @@ namespace TradeKit.Core.Common
                 else
                 {
                     posIds.Remove(position.Id);
-                    TradeManager.Close(position);
+                    //TradeManager.Close(position);
                 }
 
                 break;

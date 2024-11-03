@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Gartley
 {
@@ -194,9 +195,9 @@ namespace TradeKit.Core.Gartley
 
             m_XdToDbMapSortedItems.Clear();// Reset the previous map
 
-            foreach (RealLevel mapBd in m_RatioToBdLevelsMap.OrderBy(a => a.Ratio))
+            foreach (RealLevel mapBd in m_RatioToBdLevelsMap.OrderByDescending(a => a.Ratio))
             {
-                foreach (RealLevel mapXd in m_RatioToXdLevelsMap.OrderBy(a => a.Ratio))
+                foreach (RealLevel mapXd in m_RatioToXdLevelsMap.OrderByDescending(a => a.Ratio))
                 {
                     var toAdd = new RealLevelCombo(mapXd, mapBd);
                     if (toAdd.Max < toAdd.Min)
@@ -231,7 +232,7 @@ namespace TradeKit.Core.Gartley
                 ItemC = null;
             }
 
-            foreach (RealLevel levelRange in m_RatioToAcLevelsMap)
+            foreach (RealLevel levelRange in m_RatioToAcLevelsMap.OrderByDescending(a => a.Ratio))
             {
                 if (IsBull)
                 {
@@ -244,9 +245,9 @@ namespace TradeKit.Core.Gartley
                     if (ItemC != null && ItemC.Value < value) continue;
                 }
 
-                if (dt <= ItemB.OpenTime)//TODO do we need this?
+                if (dt <= ItemB.OpenTime) //TODO do we need this?
                     break;
-                
+
                 if (IsBull && m_Min < ItemB && m_MinDate > ItemB.OpenTime ||
                     !IsBull && m_Max > ItemB && m_MaxDate > ItemB.OpenTime)
                 {
@@ -261,7 +262,7 @@ namespace TradeKit.Core.Gartley
                     ItemBSecond = null;
                     XtoBSecond = 0;
                 }
-                
+
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
                 AtoC = levelRange.Ratio;
                 break;
@@ -290,8 +291,7 @@ namespace TradeKit.Core.Gartley
                 levelsToDelete.Add(levelRange);
             }
 
-            foreach (RealLevelCombo levelRangeCombo in
-                     m_XdToDbMapSortedItems.OrderBy(a => a.Xd.Ratio))
+            foreach (RealLevelCombo levelRangeCombo in m_XdToDbMapSortedItems.OrderBy(a => a.Bd.Ratio))
             {
                 if (IsBull)
                 {
@@ -465,13 +465,6 @@ namespace TradeKit.Core.Gartley
                 return ProjectionState.NO_PROJECTION;
 
             DateTime currentDt = m_BarsProvider.GetOpenTime(index);
-            //if (ItemX.OpenTime is { Day: 12, Month: 6, Year: 2024, Hour:13 } &&
-            //    ItemA.OpenTime is { Day: 13, Month: 6, Year: 2024, Hour: 13 } &&
-            //    m_BarsProvider.GetOpenTime(index) is { Day: 17, Month: 6, Year: 2024, Hour: 21 } &&
-            //    PatternType.PatternType == GartleyPatternType.CYPHER)
-            //{
-            //    Debugger.Launch();
-            //}
 
             bool prevPatternIsReady = m_PatternIsReady;
             bool prevProjectionIsReady = m_ProjectionIsReady;
