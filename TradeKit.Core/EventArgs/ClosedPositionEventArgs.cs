@@ -2,15 +2,13 @@
 
 namespace TradeKit.Core.EventArgs
 {
-    public class ClosedPositionEventArgs : System.EventArgs
+    public class ClosedPositionEventArgs : OpenedPositionEventArgs
     {
-        public ClosedPositionEventArgs(PositionClosedState state, IPosition position)
+        public ClosedPositionEventArgs(PositionClosedState state, IPosition position):base(position)
         {
             State = state;
-            Position = position;
         }
 
         public PositionClosedState State { get; }
-        public IPosition Position { get; }
     }
 }

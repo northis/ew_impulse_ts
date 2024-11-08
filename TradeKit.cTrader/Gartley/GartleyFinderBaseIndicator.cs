@@ -77,8 +77,8 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.
         /// </summary>
-        [Parameter(nameof(MinPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
-        public int MinPatternSizeBars { get; set; }
+        [Parameter(nameof(MaxPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int MaxPatternSizeBars { get; set; }
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -96,7 +96,7 @@ namespace TradeKit.CTrader.Gartley
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), Accuracy,
-                BarDepthCount, ShowDivergences, UseDivergences, UseTrendOnly, UseCandlePatterns, MinPatternSizeBars);
+                BarDepthCount, ShowDivergences, UseDivergences, UseTrendOnly, UseCandlePatterns, MaxPatternSizeBars);
             Subscribe(m_SetupFinder);
         }
 

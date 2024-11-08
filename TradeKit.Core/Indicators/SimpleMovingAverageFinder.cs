@@ -19,7 +19,7 @@ namespace TradeKit.Core.Indicators
         /// Initializes a new instance of the <see cref="SimpleMovingAverageFinder"/> class.
         /// </summary>
         /// <param name="barsProvider">The bar provider.</param>
-        /// <param name="useAutoCalculateEvent">True if the instance should use <see cref="IBarsProvider.BarOpened"/> event for calculate the results. If false - the child classes should handle it manually.</param>
+        /// <param name="useAutoCalculateEvent">True if the instance should use <see cref="IBarsProvider.BarClosed"/> event for calculate the results. If false - the child classes should handle it manually.</param>
         /// <param name="periods">The periods.</param>
         /// <param name="shift">The shift.</param>
         /// <exception cref="ArgumentOutOfRangeException">periods</exception>

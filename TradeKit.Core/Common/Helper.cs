@@ -118,13 +118,12 @@ namespace TradeKit.Core.Common
         /// <summary>
         /// Gets the position identifier (string).
         /// </summary>
-        /// <param name="botId">The robot id.</param>
         /// <param name="setupId">The setup identifier.</param>
         /// <param name="entryBarPoint">The entry bar point.</param>
         /// <param name="comment">We can use this to distinguish positions from each other.</param>
-        public static string GetPositionId(string botId, string setupId, BarPoint entryBarPoint, string comment = "")
+        public static string GetPositionId(string setupId, BarPoint entryBarPoint, string comment = "")
         {
-            return $"{botId}{setupId}{entryBarPoint.OpenTime:O}{comment}";
+            return $"{setupId}{entryBarPoint.OpenTime:O}{comment}";
         }
 
         /// <summary>

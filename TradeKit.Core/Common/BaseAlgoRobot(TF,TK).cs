@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
@@ -49,7 +48,7 @@ namespace TradeKit.Core.Common
         private int m_TakeCount;
         private int m_StopCount;
         private bool m_IsInit;
-        private readonly string[] m_RestrictedChars = Path.GetInvalidPathChars().Select(a=>a.ToString()).ToArray();
+        private readonly string[] m_RestrictedChars = Path.GetInvalidPathChars().Select(a => a.ToString()).ToArray();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseAlgoRobot{T,TK}"/> class.
@@ -106,6 +105,7 @@ namespace TradeKit.Core.Common
                 return;
 
             m_IsInit = true;
+            TradeManager.SetBotName(GetBotName());
             HashSet<string> symbolsAvailable = TradeManager.GetSymbolNamesAvailable();
 
             foreach (string symbol in m_Symbols)
@@ -160,9 +160,8 @@ namespace TradeKit.Core.Common
             }
 
             TradeManager.PositionClosed += OnPositionsClosed;
-
             TelegramReporter = new TelegramReporter(
-                m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, GetBotName(), m_StorageManager,
+                m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_StorageManager,
                 m_RobotParams.PostCloseMessages);
 
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
@@ -285,7 +284,9 @@ namespace TradeKit.Core.Common
                 sf.OnEnter += OnEnter;
                 sf.OnStopLoss += OnStopLoss;
                 sf.OnTakeProfit += OnTakeProfit;
-                sf.OnBreakEven += OnBreakeven;
+                sf.OnActivated += OnActivated;
+                sf.OnCanceled += OnCanceled;
+                sf.OnBreakeven += OnBreakeven;
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[finderId] = true;
                 Logger.Write($"{nameof(BarOpened)}: Bars initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
@@ -320,7 +321,7 @@ namespace TradeKit.Core.Common
                 else
                 {
                     posIds.Remove(position.Id);
-                    //TradeManager.Close(position);
+                    TradeManager.Close(position);
                 }
 
                 break;
@@ -328,7 +329,7 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Handles the close.
+        /// Handles the order (setup) event.
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
@@ -336,13 +337,13 @@ namespace TradeKit.Core.Common
         /// <param name="setupId">The setup identifier.</param>
         /// <param name="positionId">The position identifier.</param>
         /// <returns>True, if the positions exist</returns>
-        protected void HandleClose(object sender, LevelEventArgs e,
+        protected void HandleOrderEvent(object sender, LevelEventArgs e,
             out string price, out string setupId, out string positionId)
         {
             TF sf = (TF)sender;
             setupId = sf.Id;
             GetEventStrings(sender, e.Level, out price);
-            positionId = Helper.GetPositionId(GetBotName(), setupId, e.FromLevel, e.Comment);
+            positionId = Helper.GetPositionId(setupId, e.FromLevel, e.Comment);
         }
 
         /// <summary>
@@ -375,9 +376,9 @@ namespace TradeKit.Core.Common
         
         protected void OnStopLoss(object sender, LevelEventArgs e)
         {
-            HandleClose(sender, e, out string price, out string setupId, out string positionId);
+            HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
             m_StopCount++;
-            Logger.Write($"SL hit! {price}");
+            Logger.Write($"SL hit! ({positionId})");
             string resultChartPath = OnPositionClose(sender, setupId, positionId, false);
 
             if (!TelegramReporter.IsReady)
@@ -413,9 +414,9 @@ namespace TradeKit.Core.Common
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnTakeProfit(object sender, LevelEventArgs e)
         {
-            HandleClose(sender, e, out string price, out string setupId, out string positionId);
+            HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
             m_TakeCount++;
-            Logger.Write($"TP hit! {price}");
+            Logger.Write($"TP hit! ({positionId})");
             string resultChartPath = OnPositionClose(sender, setupId, positionId, true);
 
             if (!TelegramReporter.IsReady)
@@ -425,20 +426,51 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
+        /// Called when the order is cancelled.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected void OnCanceled(object sender, LevelEventArgs e)
+        {
+            HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
+            TradeManager.CancelOrder(positionId);
+            Logger.Write($"Order is canceled! ({positionId})");
+
+            if (!TelegramReporter.IsReady)
+                return;
+
+            TelegramReporter.ReportCanceled(positionId);
+        }
+
+        /// <summary>
+        /// Called when the order is cancelled.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected void OnActivated(object sender, LevelEventArgs e)
+        {
+            HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
+            Logger.Write($"Order is activated! ({positionId})");
+
+            if (!TelegramReporter.IsReady)
+                return;
+
+            TelegramReporter.ReportActivated(positionId);
+        }
+
+        /// <summary>
         /// Called when breakeven is hit
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnBreakeven(object sender, LevelEventArgs e)
         {
-            HandleClose(sender, e, out string price, out string setupId, out string positionId);
-            Logger.Write($"Breakeven is set! {price}");
+            HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
+            Logger.Write($"Breakeven is set! {positionId}");
             ModifySymbolPositions(setupId, positionId, e.Level.Value);
 
             if (!TelegramReporter.IsReady)
-            {
                 return;
-            }
 
             TelegramReporter.ReportBreakeven(positionId);
         }
@@ -576,7 +608,6 @@ namespace TradeKit.Core.Common
                 double tpP = Math.Round(tpLen / sf.Symbol.PipSize);
                 double rangeP = Math.Round(rangeLen / sf.Symbol.PipSize);
 
-                // System.Diagnostics.Debugger.Launch();
                 double volume = GetVolume(symbol, rangeP);
                 if (m_RobotParams.MaxMoneyPerSetup > 0)
                 {
@@ -599,7 +630,7 @@ namespace TradeKit.Core.Common
 
                 OrderResult order = TradeManager.OpenOrder(
                     isLong, sf.Symbol, volume, GetBotName(), slP, tpP,
-                    Helper.GetPositionId(GetBotName(), sf.Id, e.Level, e.Comment));
+                    Helper.GetPositionId(sf.Id, e.Level, e.Comment), e.IsLimit ? e.Level.Value : null);
 
                 if (order?.IsSuccessful == true)
                 {

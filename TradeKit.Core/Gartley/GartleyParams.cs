@@ -18,7 +18,7 @@
         bool UseCandlePatterns,
         bool UseTrendOnly,
         double BreakEvenRatio,
-        int MinPatternSizeBars)
+        int MaxPatternSizeBars)
     {
 
         /// <summary>
@@ -79,7 +79,7 @@
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.
         /// </summary>
-        public int MinPatternSizeBars { get; set; } = MinPatternSizeBars;
+        public int MaxPatternSizeBars { get; set; } = MaxPatternSizeBars;
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use candle patterns (Price Action).

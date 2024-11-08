@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
+using PuppeteerSharp;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 
@@ -11,6 +11,7 @@ namespace TradeKit.CTrader.Core
     public class CTraderManager: CTraderViewManager, ITradeManager
     {
         private readonly Robot m_Robot;
+        private string m_BotName;
 
         private readonly Dictionary<PositionCloseReason, PositionClosedState> m_ReasonMapper =
             new()
@@ -25,10 +26,30 @@ namespace TradeKit.CTrader.Core
         {
             m_Robot = robot;
             m_Robot.Positions.Closed += PositionsClosed;
+            m_Robot.Positions.Opened += PositionsOpened;
+        }
+
+        private bool IsOwn(Position pos)
+        {
+            if (string.IsNullOrEmpty(m_BotName) || pos.Label != m_BotName)
+                return false;
+
+            return true;
+        }
+
+        private void PositionsOpened(PositionOpenedEventArgs obj)
+        {
+            if (!IsOwn(obj.Position))
+                return;
+
+            PositionOpened?.Invoke(this, new OpenedPositionEventArgs(ToIPosition(obj.Position)));
         }
 
         private void PositionsClosed(PositionClosedEventArgs obj)
         {
+            if (!IsOwn(obj.Position))
+                return;
+
             PositionClosedState reason = m_ReasonMapper[obj.Reason];
             PositionClosed?.Invoke(this, new ClosedPositionEventArgs(reason, ToIPosition(obj.Position)));
         }
@@ -39,6 +60,11 @@ namespace TradeKit.CTrader.Core
                     .Select(ToIPosition)
                     .ToArray();
             return positions;
+        }
+
+        public void SetBotName(string name)
+        {
+            m_BotName = name;
         }
 
         public IPosition GetClosedPosition(string positionId, double? tp, double? sl)
@@ -108,13 +134,61 @@ namespace TradeKit.CTrader.Core
         /// </summary>
         public event EventHandler<ClosedPositionEventArgs> PositionClosed;
 
-        public OrderResult OpenOrder(bool isLong, ISymbol symbol, double volume, string botName, double stopInPips, double takeInPips,
-            string positionId)
+        /// <summary>
+        /// Occurs when the position is opened.
+        /// </summary>
+        public event EventHandler<OpenedPositionEventArgs> PositionOpened;
+
+        /// <summary>
+        /// Opens the trade order.
+        /// </summary>
+        /// <param name="positionId">The position identifier.</param>
+        public OrderResult CancelOrder(string positionId)
+        {
+            PendingOrder pendingOrder = m_Robot.PendingOrders
+                .FirstOrDefault(a => a.Label == m_BotName && a.Comment == positionId);
+            if (pendingOrder == null)
+                return null;
+
+            TradeResult orderResult = pendingOrder.Cancel();
+            return new OrderResult(orderResult.IsSuccessful, ToIPosition(orderResult.Position));
+        }
+
+        /// <summary>
+        /// Opens the trade order.
+        /// </summary>
+        /// <param name="isLong">if set to <c>true</c> when it is buy trade; false for sell.</param>
+        /// <param name="symbol">The symbol.</param>
+        /// <param name="volume">The volume.</param>
+        /// <param name="botName">Name of the bot.</param>
+        /// <param name="stopInPips">The stop in pips.</param>
+        /// <param name="takeInPips">The take in pips.</param>
+        /// <param name="positionId">The position identifier.</param>
+        /// <param name="limitPrice">The limit price for pending orders</param>
+        public OrderResult OpenOrder(
+            bool isLong, 
+            ISymbol symbol, 
+            double volume, 
+            string botName, 
+            double stopInPips, 
+            double takeInPips,
+            string positionId,
+            double? limitPrice)
         {
             double normalizedVolume = GetCTraderSymbol(symbol.Name).NormalizeVolumeInUnits(volume);
 
-            TradeResult order = m_Robot.ExecuteMarketOrder(
-                isLong ? TradeType.Buy: TradeType.Sell, symbol.Name, normalizedVolume, botName, stopInPips, takeInPips, positionId);
+            TradeResult order;
+            TradeType tradeType = isLong ? TradeType.Buy : TradeType.Sell;
+            if (limitPrice.HasValue)
+            {
+                order = m_Robot.PlaceLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value, botName,
+                    stopInPips, takeInPips, null, positionId);
+            }
+            else
+            {
+                order = m_Robot.ExecuteMarketOrder(tradeType, symbol.Name, normalizedVolume, botName, stopInPips,
+                    takeInPips, positionId);
+            }
 
             return order.Position == null ? null : new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
         }

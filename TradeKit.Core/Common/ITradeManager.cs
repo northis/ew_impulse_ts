@@ -13,6 +13,12 @@ namespace TradeKit.Core.Common
         IPosition[] GetPositions();
 
         /// <summary>
+        /// Sets the name of the bot associated with this trade manager to filter positions.
+        /// </summary>
+        /// <param name="name">The name.</param>
+        void SetBotName(string name);
+
+        /// <summary>
         /// Gets the closed position.
         /// </summary>
         /// <param name="positionId">The position identifier.</param>
@@ -26,6 +32,11 @@ namespace TradeKit.Core.Common
         event EventHandler<ClosedPositionEventArgs> PositionClosed;
 
         /// <summary>
+        /// Occurs when a position is being opened.
+        /// </summary>
+        event EventHandler<OpenedPositionEventArgs> PositionOpened;
+
+        /// <summary>
         /// Opens the trade order.
         /// </summary>
         /// <param name="isLong">if set to <c>true</c> when it is buy trade; false for sell.</param>
@@ -35,6 +46,7 @@ namespace TradeKit.Core.Common
         /// <param name="stopInPips">The stop in pips.</param>
         /// <param name="takeInPips">The take in pips.</param>
         /// <param name="positionId">The position identifier.</param>
+        /// <param name="limitPrice">The limit price for pending orders</param>
         /// <returns>Result of the operation</returns>
         OrderResult OpenOrder(
             bool isLong,
@@ -43,7 +55,14 @@ namespace TradeKit.Core.Common
             string botName,
             double stopInPips,
             double takeInPips,
-            string positionId);
+            string positionId,
+            double? limitPrice);
+
+        /// <summary>
+        /// Opens the trade order.
+        /// </summary>
+        /// <param name="positionId">The position identifier.</param>
+        OrderResult CancelOrder(string positionId);
 
         /// <summary>
         /// Sets the stop loss price.

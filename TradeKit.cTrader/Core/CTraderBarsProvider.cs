@@ -21,7 +21,6 @@ namespace TradeKit.CTrader.Core
         /// <param name="symbolEntity">The symbol entity.</param>
         public CTraderBarsProvider(Bars bars, Symbol symbolEntity) : this(bars, symbolEntity.ToISymbol())
         {
-
         }
 
         /// <summary>
@@ -54,7 +53,7 @@ namespace TradeKit.CTrader.Core
 
         private void OnBarOpened(BarOpenedEventArgs obj)
         {
-            BarOpened?.Invoke(this, System.EventArgs.Empty);
+            BarOpened?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.AlgoBase;
+﻿using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -14,7 +13,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 {
     private readonly IBarsProvider m_MainBarsProvider;
     private readonly bool m_FilterByDivergence;
-    private readonly int m_MinPatternSizeBars;
+    private readonly int m_MaxPatternSizeBars;
     private readonly SupertrendFinder m_Supertrend;
     private readonly ZoneAlligatorFinder m_ZoneAlligatorFinder;
     private readonly AwesomeOscillatorFinder m_AwesomeOscillator;
@@ -24,28 +23,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly GartleyPatternFinder m_PatternFinder;
     private readonly GartleyItemComparer m_GartleyItemComparer = new();
     private readonly Dictionary<GartleyItem, GartleySignalEventArgs> m_PatternsEntryMap;
-    private readonly HashSet<GartleyItem> m_PendingPatterns;
 
-    private readonly HashSet<CandlePatternType> m_DelayedPatterns = new()
-    {
-        CandlePatternType.UP_PIN_BAR_TRIO,
-        CandlePatternType.DOWN_PIN_BAR_TRIO,
-        CandlePatternType.DOWN_RAILS,
-        CandlePatternType.UP_RAILS,
-        CandlePatternType.DOWN_INNER_BAR,
-        CandlePatternType.UP_INNER_BAR,
-        CandlePatternType.DOWN_PPR_IB,
-        CandlePatternType.UP_PPR_IB,
-        CandlePatternType.UP_PPR,
-        CandlePatternType.DOWN_PPR,
-        CandlePatternType.UP_CPPR,
-        CandlePatternType.DOWN_CPPR,
-        CandlePatternType.UP_OUTER_BAR_BODIES,
-        CandlePatternType.DOWN_OUTER_BAR_BODIES,
-        CandlePatternType.DARK_CLOUD,
-        CandlePatternType.PIECING_LINE,
-
-    };
     private readonly HashSet<CandlePatternType> m_InstantPatterns = new()
     {
         CandlePatternType.UP_PIN_BAR,
@@ -63,8 +41,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.DARK_CLOUD,
         CandlePatternType.PIECING_LINE,
     };
-    private const int PATTERN_CACHE_DEPTH_CANDLES = 20;
-    private const double PATTERN_PROFIT_RANGE = 0.4;//[0->1]
+    private const double PATTERN_PROFIT_RANGE = 0.5;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -77,7 +54,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
     /// <param name="filterByTrend">If true - use only the patterns the same direction as the trend.</param>
     /// <param name="filterByPriceAction">If true - use only the patterns with Price Action candle patterns.</param>
-    /// <param name="minPatternSizeBars">The minimum pattern size (duration) in bars</param>
+    /// <param name="maxPatternSizeBars">The minimum pattern size (duration) in bars</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null if you don't want to use the breakeven.</param>
     public GartleySetupFinder(
         IBarsProvider mainBarsProvider,
@@ -88,7 +65,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool filterByDivergence,
         bool filterByTrend,
         bool filterByPriceAction,
-        int minPatternSizeBars,
+        int maxPatternSizeBars,
         double? breakevenRatio = null) : base(mainBarsProvider, symbol)
     {
         AwesomeOscillatorFinder ao = filterByDivergence || findDivergence
@@ -112,53 +89,22 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_CandlePatternFilter = cpf;
         m_BreakevenRatio = breakevenRatio;
         m_FilterByDivergence = filterByDivergence;
-        m_MinPatternSizeBars = minPatternSizeBars;
+        m_MaxPatternSizeBars = maxPatternSizeBars;
 
         m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth);
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
-        m_PendingPatterns = new HashSet<GartleyItem>(comparer);
-    }
-
-    /// <summary>
-    /// Gets the new stop loss or null if no items in the collection passed.
-    /// NOTE! We think this collection has only bullish or only bearish patterns, this is essential!
-    /// </summary>
-    /// <param name="candlePatterns">The candle patterns.</param>
-    private BarPoint GetNewStopLoss(List<CandlesResult> candlePatterns)
-    {
-        if (candlePatterns == null || !candlePatterns.Any())
-            return null;
-
-        bool isBull = candlePatterns.Select(a => a.IsBull).First();
-        CandlesResult result = isBull 
-            ? candlePatterns.MinBy(a => a.StopLoss) 
-            : candlePatterns.MaxBy(a => a.StopLoss);
-
-        return new BarPoint(result.StopLoss, result.StopLossBarIndex, m_MainBarsProvider);
     }
 
     private void AddSetup(
         GartleyItem localPattern, double close, int index, List<CandlesResult> candlePatterns = null)
     {
-        if (m_CandlePatternFilter != null && candlePatterns == null)
-        {
-            m_PendingPatterns.Add(localPattern);
-            return;
-        }
+        bool isLimit = !IsPatternProfitableNow(localPattern, close) &&
+                       (m_CandlePatternFilter == null || m_CandlePatternFilter != null && candlePatterns == null);
 
         if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
-            //TrendType wantedTrend = localPattern.IsBull ? TrendType.BULLISH : TrendType.BEARISH;
-            //if (wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemD.OpenTime, out _) ||
-            //    wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemC.OpenTime, out _) ||
-            //    wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemA.OpenTime, out _) ||
-            //    wantedTrend != SignalFilters.GetTrend(m_Supertrend, localPattern.ItemX.OpenTime, out _))
-            //{
-            //    return;
-            //};
-
             TrendType trendAlligator = SignalFilters.GetTrend(
                 m_ZoneAlligatorFinder, BarsProvider.GetOpenTime(index));
             bool isCounterTrend = /*(localPattern.IsBull ? trend != TrendType.BULLISH : trend != TrendType.BEARISH) ||*/
@@ -198,96 +144,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         DateTime startView = m_MainBarsProvider.GetOpenTime(localPattern.ItemX.BarIndex);
-
-        //double tpP = Math.Abs(close - localPattern.TakeProfit1);
-        //double slP = Math.Abs(close - localPattern.StopLoss) * 1.1;
-        double? tp = null;
-        double? sl = null;
-        //if (tpP > slP)
-        //{
-        //    tpP = slP * 5;
-        //    slP *= 2;
-        //}
-        //else
-        //{
-        //    tpP = slP * 3;
-        //    slP *= 2;
-        //}
-
-        //tp = localPattern.IsBull ? close + tpP : close - tpP;
-        //sl = localPattern.IsBull ? close - slP : close + slP;
-
-        var args = new GartleySignalEventArgs(new BarPoint(close, index, m_MainBarsProvider),
-            localPattern, startView, divItem, m_BreakevenRatio, candlePatterns, tp, sl);
-
-        //BarPoint newStopLoss = GetNewStopLoss(candlePatterns);
-        //if (newStopLoss != null)
-        //    args.StopLoss = newStopLoss;
+        var args = new GartleySignalEventArgs(isLimit ? localPattern.ItemD : new BarPoint(close, index, m_MainBarsProvider),
+            localPattern, startView, isLimit, divItem, m_BreakevenRatio, candlePatterns);
 
         OnEnterInvoke(args);
         m_PatternsEntryMap[localPattern] = args;
         Logger.Write($"Added {localPattern.PatternType}");
-    }
-
-    private void ProcessCachedPatternsIfNeeded(int index)
-    {
-        if (m_CandlePatternFilter == null)
-            return;
-
-        int prevIndex = index - PATTERN_CACHE_DEPTH_CANDLES;
-        if (prevIndex < 0)
-        {
-            m_PendingPatterns.Clear();
-            return;
-        }
-
-        DateTime prevDt = m_MainBarsProvider.GetOpenTime(prevIndex);
-
-        double high = m_MainBarsProvider.GetHighPrice(index);
-        double low = m_MainBarsProvider.GetLowPrice(index);
-        double close = m_MainBarsProvider.GetClosePrice(index);
-
-        m_PendingPatterns.RemoveWhere(a => a.ItemD.OpenTime < prevDt);
-        m_PendingPatterns.RemoveWhere(a => a.IsBull ? a.StopLoss > low : a.StopLoss < high);
-        m_PendingPatterns.RemoveWhere(a => a.IsBull ? a.TakeProfit1 < high : a.TakeProfit1 > low);
-
-        List<CandlesResult> candlePatterns = m_CandlePatternFilter.GetCandlePatterns(index);
-        if (candlePatterns == null || !candlePatterns.Any())
-            return;
-
-        List<GartleyItem> toDeleteFromCache = null;
-        List<KeyValuePair<GartleyItem, List<CandlesResult>>> toAddSetup = null;
-        foreach (GartleyItem pendingPattern in m_PendingPatterns)
-        {
-            if (!IsPatternProfitableNow(pendingPattern, close))
-                continue;
-
-            List<CandlesResult> localCandlePatterns = candlePatterns
-                .Where(a => a.IsBull == pendingPattern.IsBull &&
-                            m_DelayedPatterns.Contains(a.Type))
-                .ToList();
-            if (localCandlePatterns.Count < 1)
-            {
-                continue;
-            }
-
-            toAddSetup ??= new List<KeyValuePair<GartleyItem, List<CandlesResult>>>();
-            toAddSetup.Add(new KeyValuePair<GartleyItem, List<CandlesResult>>(pendingPattern, localCandlePatterns));
-            toDeleteFromCache ??= new List<GartleyItem>();
-            toDeleteFromCache.Add(pendingPattern);
-        }
-
-        if (toAddSetup != null)
-        {
-            KeyValuePair<GartleyItem, List<CandlesResult>> pendingPatternPair =
-                toAddSetup.MaxBy(a => (a.Key.IsBull ? -1 : 1) * a.Key.StopLoss);
-            //foreach (KeyValuePair<GartleyItem, List<CandlesResult>> pendingPatternPair in toAddSetup)
-            //{
-                AddSetup(pendingPatternPair.Key, close, index, pendingPatternPair.Value);
-            //}
-        }
-
-        toDeleteFromCache?.ForEach(a => m_PendingPatterns.Remove(a));
     }
 
     bool IsPatternProfitableNow(GartleyItem pendingPattern, double nowPrice)
@@ -305,7 +167,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         DateTime currentDt = BarsProvider.GetOpenTime(index);
         m_Supertrend?.OnCalculate(index, currentDt);
         m_ZoneAlligatorFinder?.OnCalculate(index, currentDt);
-        ProcessCachedPatternsIfNeeded(index);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
         var localPatterns = m_PatternFinder.FindGartleyPatterns(index);
@@ -321,22 +182,15 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                     m_PatternsEntryMap.ContainsKey(localPattern))
                     continue;
 
-                if (localPattern.ItemD.BarIndex - localPattern.ItemX.BarIndex < m_MinPatternSizeBars)
+                if (localPattern.ItemD.BarIndex - localPattern.ItemX.BarIndex > m_MaxPatternSizeBars)
                     continue;
 
-                if (IsPatternProfitableNow(localPattern, close))
-                {
-                    List<CandlesResult> instantCandles = m_CandlePatternFilter?
-                        .GetCandlePatterns(index)?
-                        .Where(a => a.IsBull == localPattern.IsBull &&
-                                    m_InstantPatterns.Contains(a.Type))
-                        .ToList();
-                    AddSetup(localPattern, close, index, instantCandles?.Count == 0 ? null : instantCandles);
-                }
-                else if (m_CandlePatternFilter != null)
-                {
-                    m_PendingPatterns.Add(localPattern);
-                }
+                List<CandlesResult> instantCandles = m_CandlePatternFilter?
+                    .GetCandlePatterns(index)?
+                    .Where(a => a.IsBull == localPattern.IsBull &&
+                                m_InstantPatterns.Contains(a.Type))
+                    .ToList();
+                AddSetup(localPattern, close, index, instantCandles?.Count == 0 ? null : instantCandles);
             }
         }
 
@@ -347,56 +201,76 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         foreach (GartleyItem pattern in m_PatternsEntryMap.Keys)
         {
             if (localPatterns != null && localPatterns.Contains(pattern))
-            {
                 continue;
-            }
 
             GartleySignalEventArgs args = m_PatternsEntryMap[pattern];
-            bool isBull = pattern.IsBull;
-            bool isClosed = false;
-            if (isBull && high >= args.TakeProfit.Value ||
-                !isBull && low <= args.TakeProfit.Value)
-            {
-                OnTakeProfitInvoke(new LevelEventArgs(
-                    args.TakeProfit.WithIndex(
-                        index, BarsProvider), args.Level, args.HasBreakeven, args.Comment));
-                isClosed = true;
-            }
-            else if (isBull && low <= args.StopLoss.Value ||
-                     !isBull && high >= args.StopLoss.Value)
-            {
-                OnStopLossInvoke(new LevelEventArgs(
-                    args.StopLoss.WithIndex(
-                        index, BarsProvider), args.Level, args.HasBreakeven, args.Comment));
-                isClosed = true;
-            }
-            else if (args.CanUseBreakeven && (pattern.IsBull && args.BreakEvenPrice <= high ||
-                                              !pattern.IsBull && args.BreakEvenPrice >= low) &&
-                     !args.HasBreakeven)
-            {
-                args.HasBreakeven = true;
-                args.StopLoss = new BarPoint(
-                    args.BreakEvenPrice, currentDt, args.StopLoss.BarTimeFrame, index);
-                OnBreakEvenInvoke(new LevelEventArgs(args.StopLoss, args.Level, true, args.Comment));
-            }
+            bool isClosed = CheckArgLevel(args, low, high, index, currentDt);
 
             if (!isClosed)
-            {
                 continue;
-            }
 
             toRemove ??= new List<GartleyItem>();
             toRemove.Add(pattern);
         }
 
         if (toRemove == null)
-        {
             return;
+
+        foreach (GartleyItem toRemoveItem in toRemove) m_PatternsEntryMap.Remove(toRemoveItem);
+    }
+
+    private bool CheckArgLevel(
+        GartleySignalEventArgs args, double low, double high, int index, DateTime currentDt)
+    {
+        bool isBull = args.TakeProfit > args.StopLoss;
+        bool isClosed = false;
+        bool isWaitingLimit = args.IsLimit && !args.IsActive;//It can be active within one bar
+
+        if (isBull && high >= args.TakeProfit.Value ||
+            !isBull && low <= args.TakeProfit.Value)
+        {
+            var levelArgs = new LevelEventArgs(
+                args.TakeProfit.WithIndex(
+                    index, BarsProvider), args.Level, args.HasBreakeven, args.Comment);
+
+            if (isWaitingLimit)
+                OnCanceledInvoke(levelArgs);
+            else
+                OnTakeProfitInvoke(levelArgs);
+
+            isClosed = true;
+        }
+        else if (isBull && low <= args.StopLoss.Value ||
+                 !isBull && high >= args.StopLoss.Value)
+        {
+            var levelArgs = new LevelEventArgs(
+                args.StopLoss.WithIndex(
+                    index, BarsProvider), args.Level, args.HasBreakeven, args.Comment);
+
+            if (isWaitingLimit)
+                OnCanceledInvoke(levelArgs);
+            else
+                OnStopLossInvoke(levelArgs);
+
+            isClosed = true;
+        }
+        else if (args.CanUseBreakeven && (isBull && args.BreakEvenPrice <= high ||
+                                          !isBull && args.BreakEvenPrice >= low) &&
+                 !args.HasBreakeven)
+        {
+            args.HasBreakeven = true;
+            args.StopLoss = new BarPoint(
+                args.BreakEvenPrice, currentDt, args.StopLoss.BarTimeFrame, index);
+            OnBreakEvenInvoke(new LevelEventArgs(args.StopLoss, args.Level, true, args.Comment));
         }
 
-        foreach (GartleyItem toRemoveItem in toRemove)
+        if (isWaitingLimit && !isClosed && (isBull && args.Level.Value > low ||
+                                            !isBull && args.Level.Value < high))
         {
-            m_PatternsEntryMap.Remove(toRemoveItem);
+            args.IsActive = true;
+            OnActivatedInvoke(new LevelEventArgs(args.Level, args.Level, true, args.Comment));
         }
+
+        return isClosed;
     }
 }

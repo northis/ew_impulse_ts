@@ -1,5 +1,7 @@
-﻿using cAlgo.API;
+﻿using System.Linq;
+using cAlgo.API;
 using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 
 namespace TradeKit.CTrader.Core
 {
@@ -7,11 +9,15 @@ namespace TradeKit.CTrader.Core
     /// Base (ro)bot with common operations for trading
     /// </summary>
     /// <seealso cref="Robot" />
-    public abstract class CTraderBaseRobot : Robot
+    public abstract class CTraderBaseRobot<T, TF, TK> : Robot where T
+        : BaseAlgoRobot<TF,TK> where TF : BaseSetupFinder<TK> where TK : SignalEventArgs
     {
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
-        
+        protected const string NO_INIT_BOT = "BASE_ROBOT_NO_INIT";
+
+        private Bars m_ProtectiveMinBars;
+
         /// <summary>
         /// Initializes the logic class for robot.
         /// </summary>
@@ -23,7 +29,20 @@ namespace TradeKit.CTrader.Core
         protected abstract void DisposeAlgoRobot();
 
         /// <summary>
-        /// Joins the robot parameters into one record.
+        /// Gets the algo robot.
+        /// </summary>
+        protected abstract T GetAlgoRobot();
+
+        /// <summary>
+        /// Gets the bot identifier to govern only its own positions.
+        /// </summary>
+        private string GetBotName()
+        {
+            return GetAlgoRobot()?.GetBotName() ?? NO_INIT_BOT;
+        }
+
+        /// <summary>
+        ///Joins the robot parameters into one record.
         /// </summary>
         protected RobotParams GetRobotParams()
         {
@@ -152,6 +171,32 @@ namespace TradeKit.CTrader.Core
         {
             Logger.SetWrite(a => Print(a));
             InitAlgoRobot();
+
+            m_ProtectiveMinBars ??= MarketData.GetBars(TimeFrame.Minute);
+            m_ProtectiveMinBars.BarClosed -= OnProtectiveMinBars_BarClosed;
+            m_ProtectiveMinBars.BarClosed += OnProtectiveMinBars_BarClosed;
+        }
+
+        private void OnProtectiveMinBars_BarClosed(BarClosedEventArgs obj)
+        {
+            SecurePositions();
+        }
+
+        private void SecurePositions()
+        {
+            foreach (Position position in Positions.Where(a => a.Label == GetBotName() && a.Label != NO_INIT_BOT))
+            {
+                Bars bars = MarketData.GetBars(TimeFrame.Minute, position.SymbolName);
+                Bar lb = bars.LastBar;
+
+                if (position.TradeType == TradeType.Buy || !position.TakeProfit.HasValue)
+                    continue;
+
+                if (position.TakeProfit.Value > lb.Low)//The position is still open, we should close it manually
+                {
+                    position.Close();
+                }
+            }
         }
 
         /// <summary>

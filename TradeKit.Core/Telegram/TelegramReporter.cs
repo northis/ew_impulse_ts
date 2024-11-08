@@ -15,7 +15,6 @@ namespace TradeKit.Core.Telegram
     /// </summary>
     public class TelegramReporter
     {
-        private readonly string m_SourceBotId;
         private readonly IStorageManager m_StorageManager;
         private readonly bool m_ReportClose;
         private readonly TelegramBotClient m_TelegramBotClient;
@@ -48,16 +47,13 @@ namespace TradeKit.Core.Telegram
         /// </summary>
         /// <param name="botToken">The bot token.</param>
         /// <param name="chatId">The chat identifier.</param>
-        /// <param name="sourceBotId">The ID of the calling robot</param>
         /// <param name="storageManager">Manager to save the state between runs.</param>
         /// <param name="reportClose">If true - the close messages will be posted (tp hit)</param>
         public TelegramReporter(string botToken, 
             string chatId,
-            string sourceBotId,
             IStorageManager storageManager, 
             bool reportClose = true)
         {
-            m_SourceBotId = sourceBotId;
             m_StorageManager = storageManager;
             m_ReportClose = reportClose;
             m_SignalPostIds = storageManager.GetSavedState() ?? new Dictionary<string, int>();
@@ -93,19 +89,16 @@ namespace TradeKit.Core.Telegram
         /// <param name="closeImagePath">The close image path.</param>
         public void ReportStopLoss(string posId, string closeImagePath = null)
         {
-            if (m_ReportClose)
-            {
-                string stat = string.Empty;
-                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
-                {
-                    stat = GetStatistic(args, args.SignalEventArgs.StopLoss.Value, -1);
-                }
+            if (!m_ReportClose) return;
 
-                ReportClose(posId, $"SL hit{stat}", closeImagePath);//TODO for breakeven this is not right
-                m_SignalEventArgsMap.Remove(posId);
-                m_SignalPostIds.Remove(posId);
-                m_StorageManager.SaveState(m_SignalPostIds);
+            string stat = string.Empty;
+            if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
+            {
+                stat = GetStatistic(args, args.SignalEventArgs.StopLoss.Value, -1);
             }
+
+            ReportPositionInfo(posId, $"SL hit{stat}", closeImagePath);//TODO for breakeven this is not right
+            RemoveSignal(posId);
         }
 
         private string GetStatistic(SignalArgs args, double targetLevel, int k = 1)
@@ -131,19 +124,23 @@ namespace TradeKit.Core.Telegram
         /// <param name="closeImagePath">The close image path.</param>
         public void ReportTakeProfit(string posId, string closeImagePath = null)
         {
-            if (m_ReportClose)
-            {
-                string stat = string.Empty;
-                if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
-                {
-                    stat = GetStatistic(args, args.SignalEventArgs.TakeProfit.Value);
-                }
+            if (!m_ReportClose) return;
 
-                m_SignalEventArgsMap.Remove(posId);
-                ReportClose(posId, $"TP hit{stat}", closeImagePath);
-                m_SignalPostIds.Remove(posId);
-                m_StorageManager.SaveState(m_SignalPostIds);
+            string stat = string.Empty;
+            if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
+            {
+                stat = GetStatistic(args, args.SignalEventArgs.TakeProfit.Value);
             }
+
+            ReportPositionInfo(posId, $"TP hit{stat}", closeImagePath);
+            RemoveSignal(posId);
+        }
+
+        private void RemoveSignal(string posId)
+        {
+            m_SignalEventArgsMap.Remove(posId);
+            m_SignalPostIds.Remove(posId);
+            m_StorageManager.SaveState(m_SignalPostIds);
         }
 
         /// <summary>
@@ -153,16 +150,38 @@ namespace TradeKit.Core.Telegram
         public void ReportBreakeven(string posId)
         {
             if (m_ReportClose)
-                ReportClose(posId, "Move the stop to the entry point");
+                ReportPositionInfo(posId, "Move the stop to the entry point");
         }
 
         /// <summary>
-        /// Reports the close of the position.
+        /// Reports the order cancellation.
+        /// </summary>
+        /// <param name="posId">The position identifier.</param>
+        public void ReportCanceled(string posId)
+        {
+            if (m_ReportClose)
+                ReportPositionInfo(posId, "Cancel the order.");
+
+            RemoveSignal(posId);
+        }
+
+        /// <summary>
+        /// Reports the order activation.
+        /// </summary>
+        /// <param name="posId">The position identifier.</param>
+        public void ReportActivated(string posId)
+        {
+            if (m_ReportClose)
+                ReportPositionInfo(posId, "The order is active.");
+        }
+
+        /// <summary>
+        /// Reports the info about the position.
         /// </summary>
         /// <param name="posId">The position identifier.</param>
         /// <param name="text">The text.</param>
         /// <param name="closeImagePath">The close image path.</param>
-        private void ReportClose(string posId, string text, string closeImagePath = null)
+        private void ReportPositionInfo(string posId, string text, string closeImagePath = null)
         {
             if (!m_SignalPostIds.TryGetValue(posId, out int postId))
             {
@@ -265,7 +284,7 @@ namespace TradeKit.Core.Telegram
             });
 
             Message msgRes = SendMessage(alert, null, chartLink, signalArgs.PlotImagePath);
-            string positionId = Helper.GetPositionId(m_SourceBotId, signalArgs.SenderId,
+            string positionId = Helper.GetPositionId(signalArgs.SenderId,
                 signalArgs.SignalEventArgs.Level,
                 signalArgs.SignalEventArgs.Comment);
             m_SignalPostIds[positionId] = msgRes.MessageId;

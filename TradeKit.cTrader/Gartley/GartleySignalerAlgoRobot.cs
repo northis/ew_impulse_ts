@@ -28,7 +28,7 @@ namespace TradeKit.CTrader.Gartley
                 hostRobot.SymbolName, 
                 hostRobot.TimeFrame.Name)
         {
-            m_HostRobot = hostRobot;
+            m_HostRobot = hostRobot; 
             m_CTraderManager = (CTraderManager)TradeManager;
             Init();
         }
@@ -50,7 +50,7 @@ namespace TradeKit.CTrader.Gartley
                 GartleyParams.UseDivergences,
                 GartleyParams.UseTrendOnly, 
                 GartleyParams.UseCandlePatterns,
-                GartleyParams.MinPatternSizeBars);
+                GartleyParams.MaxPatternSizeBars);
 
             return setupFinder;
         }

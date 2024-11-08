@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
@@ -18,7 +16,7 @@ namespace TradeKit.Core.Indicators
         public IBarsProvider BarsProvider { get; }
 
         /// <summary>
-        /// True if the instance should use <see cref="IBarsProvider.BarOpened"/> event for calculate the results. If false - the child classes should handle it manually.
+        /// True if the instance should use <see cref="IBarsProvider.BarClosed"/> event for calculate the results. If false - the child classes should handle it manually.
         /// </summary>
         public bool UseAutoCalculateEvent { get; }
 
@@ -26,7 +24,7 @@ namespace TradeKit.Core.Indicators
         /// Initializes a new instance of the <see cref="BaseFinder{T}"/> class.
         /// </summary>
         /// <param name="barsProvider">The bar provider.</param>
-        /// <param name="useAutoCalculateEvent">True if the instance should use <see cref="IBarsProvider.BarOpened"/> event for calculate the results. If false - the child classes should handle it manually.</param>
+        /// <param name="useAutoCalculateEvent">True if the instance should use <see cref="IBarsProvider.BarClosed"/> event for calculate the results. If false - the child classes should handle it manually.</param>
         /// <param name="defaultCleanBarsCount">The depth of how long we should keep the values.</param>
         protected BaseFinder(
             IBarsProvider barsProvider,
@@ -38,13 +36,13 @@ namespace TradeKit.Core.Indicators
             BarsProvider = barsProvider;
 
             if (UseAutoCalculateEvent)
-                BarsProvider.BarOpened += OnBarOpened;
+                BarsProvider.BarOpened += OnBarClosed;
 
             m_DefaultCleanDuration = TimeFrameHelper.TimeFrames[BarsProvider.TimeFrame.Name].TimeSpan;
             Result = new SortedDictionary<DateTime, T>();
         }
 
-        private void OnBarOpened(object sender, System.EventArgs e)
+        private void OnBarClosed(object sender, System.EventArgs e)
         {
             Calculate(BarsProvider.Count - 1);
         }

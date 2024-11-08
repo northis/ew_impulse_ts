@@ -10,12 +10,14 @@ namespace TradeKit.Core.EventArgs
     public class SignalEventArgs : System.EventArgs
     {
         private readonly double? m_BreakevenRatio;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SignalEventArgs"/> class.
         /// </summary>
         /// <param name="level">The level.</param>
         /// <param name="takeProfit">The take profit level.</param>
         /// <param name="stopLoss">The stop loss.</param>
+        /// <param name="isLimit"><c>True</c> when we want to open limit order with <see cref="Level"/> price. Default value is <c>false</c>.</param>
         /// <param name="startViewBarTime">The bar time we should visually analyze the chart from. Optional</param>
         /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null f you don't want to use the breakeven.</param>
         /// <param name="comment">The optional comment text to show.</param>
@@ -23,10 +25,13 @@ namespace TradeKit.Core.EventArgs
             BarPoint level,
             BarPoint takeProfit,
             BarPoint stopLoss,
+            bool isLimit = false,
             DateTime startViewBarTime = default,
             double? breakevenRatio = null,
             string comment = null)
         {
+            IsLimit = isLimit;
+            IsActive = !isLimit;
             m_BreakevenRatio = breakevenRatio;
             Level = level;
             TakeProfit = takeProfit;
@@ -39,6 +44,16 @@ namespace TradeKit.Core.EventArgs
         /// Gets the entry level.
         /// </summary>
         public BarPoint Level { get; }
+
+        /// <summary>
+        /// <c>True</c> when we want to open limit order with <see cref="Level"/> price
+        /// </summary>
+        public bool IsLimit { get; }
+
+        /// <summary>
+        /// <c>True</c> when either the order was activated or it is not limit one.
+        /// </summary>
+        public bool IsActive { get; set; }
 
         /// <summary>
         /// Gets the take profit level.

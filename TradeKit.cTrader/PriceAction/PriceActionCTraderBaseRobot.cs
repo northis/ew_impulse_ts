@@ -1,11 +1,14 @@
 ﻿using cAlgo.API;
 using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 using TradeKit.Core.PriceAction;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.PriceAction
 {
-    public abstract class PriceActionCTraderBaseRobot : CTraderBaseRobot
+    public abstract class PriceActionCTraderBaseRobot<T> 
+        : CTraderBaseRobot<T, PriceActionSetupFinder, PriceActionSignalEventArgs>
+        where T : BaseAlgoRobot<PriceActionSetupFinder, PriceActionSignalEventArgs>
     {
         /// <summary>
         /// Joins the Price Action-specific parameters into one record.
@@ -22,7 +25,8 @@ namespace TradeKit.CTrader.PriceAction
         /// <summary>
         /// Gets or sets a breakeven level. Use 0 to disable
         /// </summary>
-        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
+        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN,
+            MaxValue = Helper.BREAKEVEN_MAX)]
         public double BreakEvenRatio { get; set; }
 
         /// <summary>
@@ -96,6 +100,7 @@ namespace TradeKit.CTrader.PriceAction
         /// </summary>
         [Parameter("Use strength bar", DefaultValue = false)]
         public bool UseStrengthBar { get; set; }
+
         #endregion
     }
 }

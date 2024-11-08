@@ -48,7 +48,7 @@
     <Compile Include="Indicators\ExactZigzagIndicator.cs" />
     <Compile Include="Indicators\PivotPointsIndicator.cs" />
     <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
-    <Compile Include="PriceAction\GartleyCTraderBaseRobot.cs" />
+    <Compile Include="PriceAction\PriceActionCTraderBaseRobot.cs" />
     <Compile Include="PriceAction\PriceActionAlgoRobot.cs" />
     <Compile Include="PriceAction\PriceActionBaseIndicator.cs" />
     <Compile Include="Rate\RateCTraderBaseRobot.cs" />

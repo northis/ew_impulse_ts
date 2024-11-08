@@ -1,11 +1,13 @@
 ﻿using cAlgo.API;
 using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 using TradeKit.Core.Rate;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Rate
 {
-    public abstract class RateCTraderBaseRobot : CTraderBaseRobot
+    public abstract class RateCTraderBaseRobot<T> : CTraderBaseRobot<T,RateSetupFinder, SignalEventArgs>
+        where T : BaseAlgoRobot<RateSetupFinder, SignalEventArgs>
     {
         /// <summary>
         /// Joins the Rate strategy-specific parameters into one record.

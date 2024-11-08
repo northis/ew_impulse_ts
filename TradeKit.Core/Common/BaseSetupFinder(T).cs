@@ -65,9 +65,19 @@ namespace TradeKit.Core.Common
         public event EventHandler<T> OnEnter;
 
         /// <summary>
-        /// Occurs when a break even should be set for the setup.
+        /// Occurs when a breakeven should be set for the setup.
         /// </summary>
-        public event EventHandler<LevelEventArgs> OnBreakEven;
+        public event EventHandler<LevelEventArgs> OnBreakeven;
+
+        /// <summary>
+        /// Occurs on limit order is canceled.
+        /// </summary>
+        public event EventHandler<LevelEventArgs> OnCanceled;
+
+        /// <summary>
+        /// Occurs on limit order is activated.
+        /// </summary>
+        public event EventHandler<LevelEventArgs> OnActivated;
 
         /// <summary>
         /// Occurs on stop loss.
@@ -95,6 +105,24 @@ namespace TradeKit.Core.Common
         protected void OnTakeProfitInvoke(LevelEventArgs e)
         {
             OnTakeProfit?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="E:OnCanceled" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected void OnCanceledInvoke(LevelEventArgs e)
+        {
+            OnCanceled?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="E:OnActivated" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected void OnActivatedInvoke(LevelEventArgs e)
+        {
+            OnActivated?.Invoke(this, e);
         }
 
         /// <summary>
@@ -131,7 +159,7 @@ namespace TradeKit.Core.Common
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnBreakEvenInvoke(LevelEventArgs e)
         {
-            OnBreakEven?.Invoke(this, e);
+            OnBreakeven?.Invoke(this, e);
         }
     }
 }

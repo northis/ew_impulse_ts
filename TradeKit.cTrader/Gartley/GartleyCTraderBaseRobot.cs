@@ -1,11 +1,14 @@
 ﻿using cAlgo.API;
 using TradeKit.Core.Common;
+using TradeKit.Core.EventArgs;
 using TradeKit.Core.Gartley;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Gartley
 {
-    public abstract class GartleyCTraderBaseRobot : CTraderBaseRobot
+    public abstract class GartleyCTraderBaseRobot<T> : 
+        CTraderBaseRobot<T, GartleySetupFinder, GartleySignalEventArgs> 
+        where T : BaseAlgoRobot<GartleySetupFinder, GartleySignalEventArgs>
     {
         /// <summary>
         /// Joins the Gartley-specific parameters into one record.
@@ -27,7 +30,7 @@ namespace TradeKit.CTrader.Gartley
                 UseCandlePatterns,
                 UseTrendOnly, 
                 BreakEvenRatio,
-                MinPatternSizeBars);
+                MaxPatternSizeBars);
         }
 
         #region Input parameters
@@ -65,14 +68,14 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets a breakeven level. Use 0 to disable
         /// </summary>
-        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX)]
+        [Parameter(nameof(BreakEvenRatio), DefaultValue = 0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX, Group = Helper.TRADE_SETTINGS_NAME)]
         public double BreakEvenRatio { get; set; }
 
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.
         /// </summary>
-        [Parameter(nameof(MinPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000)]
-        public int MinPatternSizeBars { get; set; }
+        [Parameter(nameof(MaxPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int MaxPatternSizeBars { get; set; }
         #endregion
     }
 }

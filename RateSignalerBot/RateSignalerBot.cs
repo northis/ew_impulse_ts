@@ -8,7 +8,7 @@ namespace RateSignalerBot
     /// </summary>
     /// <seealso cref="RateCTraderBaseRobot" />
     [Robot(AccessRights = AccessRights.FullAccess)]
-    public class RateSignalerBot : RateCTraderBaseRobot
+    public class RateSignalerBot : RateCTraderBaseRobot<RateSignalerAlgoRobot>
     {
         private RateSignalerAlgoRobot m_RateSignalerAlgoRobot;
         protected override void InitAlgoRobot()
@@ -20,6 +20,11 @@ namespace RateSignalerBot
         protected override void DisposeAlgoRobot()
         {
             m_RateSignalerAlgoRobot.Dispose();
+        }
+
+        protected override RateSignalerAlgoRobot GetAlgoRobot()
+        {
+            return m_RateSignalerAlgoRobot;
         }
     }
 }
