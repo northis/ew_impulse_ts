@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.AlgoBase;
+﻿using Plotly.NET.TraceObjects;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -213,6 +214,11 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             toRemove.Add(pattern);
         }
 
+        RemoveIfNeeded(toRemove);
+    }
+
+    private void RemoveIfNeeded(List<GartleyItem> toRemove)
+    {
         if (toRemove == null)
             return;
 
@@ -272,5 +278,35 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         return isClosed;
+    }
+
+    public override void CheckTick(SymbolTickEventArgs tick)
+    {
+        List<GartleyItem> toRemove = null;
+        foreach (GartleyItem pattern in m_PatternsEntryMap.Keys)
+        {
+            GartleySignalEventArgs args = m_PatternsEntryMap[pattern];
+            if (!args.IsLimit || args.IsActive)
+                continue;
+
+            bool isBull = args.TakeProfit > args.StopLoss;
+            if (isBull && tick.Ask < args.Level.Value || !isBull && tick.Bid > args.Level.Value)
+            {
+                args.IsActive = true;
+                OnActivatedInvoke(new LevelEventArgs(args.Level, args.Level, true, args.Comment));
+                continue;
+            }
+
+            if (isBull && (tick.Bid < args.StopLoss.Value || tick.Bid > args.TakeProfit.Value) ||
+                !isBull && (tick.Ask > args.StopLoss.Value || tick.Ask < args.TakeProfit.Value))
+            {
+                args.IsActive = true;
+                OnCanceledInvoke(new LevelEventArgs(args.Level, args.Level, true, args.Comment));
+                toRemove ??= new List<GartleyItem>();
+                toRemove.Add(pattern);
+            }
+        }
+
+        RemoveIfNeeded(toRemove);
     }
 }

@@ -130,6 +130,15 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         protected abstract void CheckSetup(int index);
+
+        /// <summary>
+        /// Checks the tick. Used for quick update the state of the setup finder. Optional.
+        /// </summary>
+        /// <param name="tick">The <see cref="SymbolTickEventArgs"/> instance containing the event data.</param>
+        public virtual void CheckTick(SymbolTickEventArgs tick)
+        {
+
+        }
         
         /// <summary>
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.

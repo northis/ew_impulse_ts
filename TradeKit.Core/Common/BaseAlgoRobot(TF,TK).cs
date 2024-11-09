@@ -160,13 +160,25 @@ namespace TradeKit.Core.Common
             }
 
             TradeManager.PositionClosed += OnPositionsClosed;
+            TradeManager.OnTick += TradeManagerOnTick;
             TelegramReporter = new TelegramReporter(
                 m_RobotParams.TelegramBotToken, m_RobotParams.ChatId, m_StorageManager,
                 m_RobotParams.PostCloseMessages);
 
             Logger.Write($"OnStart is OK, is telegram ready: {TelegramReporter.IsReady}");
         }
-        
+
+        private void TradeManagerOnTick(object sender, SymbolTickEventArgs e)
+        {
+            if (!m_SymbolFindersMap.TryGetValue(e.Symbol.Name, out TF[] setupFinders))
+                return;
+
+            foreach (TF sf in setupFinders)
+            {
+                sf.CheckTick(e);
+            }
+        }
+
         protected abstract IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity);
 
         /// <summary>

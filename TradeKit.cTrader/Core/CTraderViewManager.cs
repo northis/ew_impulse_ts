@@ -4,6 +4,7 @@ using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Core.Common;
+using SymbolTickEventArgs = TradeKit.Core.EventArgs.SymbolTickEventArgs;
 
 namespace TradeKit.CTrader.Core
 {
@@ -75,9 +76,23 @@ namespace TradeKit.CTrader.Core
             Symbol valueLocal = GetCTraderSymbol(symbolName);
 
             value = valueLocal.ToISymbol();
+            valueLocal.Tick += OnSymbolTick;
             m_ISymbolMap[symbolName] = value;
             return value;
         }
+
+        private void OnSymbolTick(cAlgo.API.SymbolTickEventArgs obj)
+        {
+            if (!m_ISymbolMap.TryGetValue(obj.SymbolName, out ISymbol value))
+                return;
+
+            OnTick?.Invoke(value, new SymbolTickEventArgs(obj.Bid, obj.Ask, value));
+        }
+
+        /// <summary>
+        /// Occurs when new tick came.
+        /// </summary>
+        public event EventHandler<SymbolTickEventArgs> OnTick;
 
         public HashSet<string> GetSymbolNamesAvailable()
         {

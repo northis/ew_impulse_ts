@@ -1,4 +1,6 @@
-﻿namespace TradeKit.Core.Common
+﻿using TradeKit.Core.EventArgs;
+
+namespace TradeKit.Core.Common
 {
     public interface ISymbol
     {

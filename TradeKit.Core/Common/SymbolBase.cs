@@ -1,4 +1,6 @@
-﻿namespace TradeKit.Core.Common
+﻿using TradeKit.Core.EventArgs;
+
+namespace TradeKit.Core.Common
 {
     public class SymbolBase : ISymbol
     {
@@ -48,20 +50,5 @@
         /// Gets the monetary value of one pip.
         /// </summary>
         public double PipValue { get; }
-
-        public double GetSpread()
-        {
-            throw new NotImplementedException();
-        }
-
-        public double GetAsk()
-        {
-            throw new NotImplementedException();
-        }
-
-        public double GetBid()
-        {
-            throw new NotImplementedException();
-        }
     }
 }

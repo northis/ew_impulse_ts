@@ -1,4 +1,6 @@
-﻿namespace TradeKit.Core.Common
+﻿using TradeKit.Core.EventArgs;
+
+namespace TradeKit.Core.Common
 {
     /// <summary>
     /// Helper for trade-related logic (view-only, for indicators).
@@ -52,5 +54,10 @@
         /// <param name="symbol">The symbol.</param>
         /// <param name="volumeInPoints">The volume in points.</param>
         double NormalizeVolumeInUnits(ISymbol symbol, double volumeInPoints);
+        
+        /// <summary>
+        /// Occurs when new tick came.
+        /// </summary>
+        event EventHandler<SymbolTickEventArgs> OnTick;
     }
 }
