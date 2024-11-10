@@ -173,8 +173,8 @@ namespace TradeKit.CTrader.Core
             InitAlgoRobot();
 
             m_ProtectiveMinBars ??= MarketData.GetBars(TimeFrame.Minute);
-            m_ProtectiveMinBars.BarClosed -= OnProtectiveMinBars_BarClosed;
-            m_ProtectiveMinBars.BarClosed += OnProtectiveMinBars_BarClosed;
+            //m_ProtectiveMinBars.BarClosed -= OnProtectiveMinBars_BarClosed;
+            //m_ProtectiveMinBars.BarClosed += OnProtectiveMinBars_BarClosed;
         }
 
         private void OnProtectiveMinBars_BarClosed(BarClosedEventArgs obj)

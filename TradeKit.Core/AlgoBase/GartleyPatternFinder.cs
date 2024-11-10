@@ -11,7 +11,7 @@ namespace TradeKit.Core.AlgoBase
 
         private readonly int m_BarsDepth;
 //#if GARTLEY_PROD
-        private const double SL_RATIO = 0.382;
+        private const double SL_RATIO = 0.272;
         private const double TP1_RATIO = 0.382;
 
 //#else
