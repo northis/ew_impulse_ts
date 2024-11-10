@@ -1,4 +1,4 @@
-﻿using Plotly.NET.TraceObjects;
+﻿using System.Diagnostics;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -42,7 +42,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.DARK_CLOUD,
         CandlePatternType.PIECING_LINE,
     };
-    private const double PATTERN_PROFIT_RANGE = 0.5;//[0->1]
+    private const double PATTERN_PROFIT_RANGE = 0.1;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -300,7 +300,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             if (isBull && (tick.Bid < args.StopLoss.Value || tick.Bid > args.TakeProfit.Value) ||
                 !isBull && (tick.Ask > args.StopLoss.Value || tick.Ask < args.TakeProfit.Value))
             {
-                args.IsActive = true;
+                Debugger.Launch();
+                args.IsActive = false;
                 OnCanceledInvoke(new LevelEventArgs(args.Level, args.Level, true, args.Comment));
                 toRemove ??= new List<GartleyItem>();
                 toRemove.Add(pattern);
@@ -308,5 +309,13 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         RemoveIfNeeded(toRemove);
+    }
+
+    public override void NotifyManualClose(GartleySignalEventArgs args, ClosedPositionEventArgs closeArgs)
+    {
+        RemoveIfNeeded(new List<GartleyItem>{ args.GartleyItem });
+
+        BarPoint lastBar = new BarPoint(closeArgs.Position.CurrentPrice, BarsProvider.Count - 1, BarsProvider);
+        OnManualCloseInvoke(new LevelEventArgs(lastBar, args.Level, true, args.Comment));
     }
 }

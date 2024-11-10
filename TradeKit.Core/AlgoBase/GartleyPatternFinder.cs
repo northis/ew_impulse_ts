@@ -11,7 +11,7 @@ namespace TradeKit.Core.AlgoBase
 
         private readonly int m_BarsDepth;
 //#if GARTLEY_PROD
-        private const double SL_RATIO = 0.272;
+        private const double SL_RATIO = 0.382;
         private const double TP1_RATIO = 0.382;
 
 //#else
@@ -34,7 +34,7 @@ namespace TradeKit.Core.AlgoBase
 
         private const int MIN_PERIOD = 1;
         private DateTime? m_BorderDateTime;
-        private readonly double[] m_Allowances = {0.175};
+        private readonly double[] m_Allowances = {0.1};
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.

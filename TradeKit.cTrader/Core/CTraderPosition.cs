@@ -5,7 +5,7 @@ namespace TradeKit.CTrader.Core
 {
     internal class CTraderPosition : IPosition
     {
-        public CTraderPosition(int id, ISymbol symbol, double volumeInUnits, PositionType type, string comment,
+        public CTraderPosition(int id, ISymbol symbol, double volumeInUnits, PositionType type, string label, string comment,
             DateTime enterDateTime, DateTime? closeDateTime, double? stopLoss, double? takeProfit, double swap, double quantity, double netProfit, double grossProfit, double entryPrice, double currentPrice, double charges = 0)
         {
             Id = id;
@@ -24,6 +24,7 @@ namespace TradeKit.CTrader.Core
             GrossProfit = grossProfit;
             EntryPrice = entryPrice;
             CurrentPrice = currentPrice;
+            Label = label;
         }
 
         /// <summary>
@@ -50,6 +51,11 @@ namespace TradeKit.CTrader.Core
         /// Gets the comment.
         /// </summary>
         public string Comment { get; }
+
+        /// <summary>
+        /// Gets the label.
+        /// </summary>
+        public string Label { get; }
 
         /// <summary>
         /// Gets the swap.

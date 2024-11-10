@@ -28,6 +28,11 @@
         string Comment { get; }
 
         /// <summary>
+        /// Gets the label.
+        /// </summary>
+        string Label { get; }
+
+        /// <summary>
         /// Gets the swap.
         /// </summary>
         double Swap { get; }

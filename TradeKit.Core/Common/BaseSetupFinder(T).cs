@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.EventArgs;
+﻿using Plotly.NET;
+using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core.Common
 {
@@ -90,12 +91,26 @@ namespace TradeKit.Core.Common
         public event EventHandler<LevelEventArgs> OnTakeProfit;
 
         /// <summary>
+        /// Occurs when on the position of the setup is closed manually.
+        /// </summary>
+        public event EventHandler<LevelEventArgs> OnManualClose;
+
+        /// <summary>
         /// Raises the <see cref="E:OnStopLoss" /> event.
         /// </summary>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnStopLossInvoke(LevelEventArgs e)
         {
             OnStopLoss?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="E:OnManualClose" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected void OnManualCloseInvoke(LevelEventArgs e)
+        {
+            OnManualClose?.Invoke(this, e);
         }
 
         /// <summary>
@@ -139,7 +154,17 @@ namespace TradeKit.Core.Common
         {
 
         }
-        
+
+        /// <summary>
+        /// Notifies the setup finder that the position was closed manually.
+        /// </summary>
+        /// <param name="signalEventArgs">The signal args of the original setup finder.</param>
+        /// <param name="args">Closing arguments</param>
+        public virtual void NotifyManualClose(T signalEventArgs, ClosedPositionEventArgs args)
+        {
+
+        }
+
         /// <summary>
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
         /// </summary>

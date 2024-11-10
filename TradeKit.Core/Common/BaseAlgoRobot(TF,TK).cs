@@ -1,9 +1,12 @@
-﻿using System.Globalization;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Telegram;
+using static Plotly.NET.StyleParam.ColorComponentBound;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
 using Shape = Plotly.NET.LayoutObjects.Shape;
@@ -39,7 +42,9 @@ namespace TradeKit.Core.Common
         private readonly Dictionary<string, IBarsProvider> m_FinderIdChartBarProviderMap;
         private readonly Dictionary<string, ISymbol> m_SymbolsMap;
         private readonly Dictionary<string, bool> m_BarsInitMap;
-        private readonly Dictionary<string, List<int>> m_PositionFinderMap;
+        private readonly Dictionary<string, List<int>> m_FinderPositionMap;
+        private readonly Dictionary<string, TK> m_PositionSignalArgsMap;
+        private readonly Dictionary<int, TF> m_PositionFinderMap;
         private readonly Dictionary<string, ClosedPositionEventArgs> m_ClosedPositionMap;
         private readonly Dictionary<string, TK> m_ChartFileFinderMap;
         private readonly string[] m_Symbols;
@@ -79,11 +84,13 @@ namespace TradeKit.Core.Common
             m_GenerateReport = generateReport;
 
             m_SetupFindersMap = new Dictionary<string, TF>();
+            m_PositionSignalArgsMap = new Dictionary<string, TK>();
             m_FinderIdChartBarProviderMap = new Dictionary<string, IBarsProvider>();
+            m_PositionFinderMap = new Dictionary<int, TF>();
             m_BarsInitMap = new Dictionary<string, bool>();
             m_SymbolsMap = new Dictionary<string, ISymbol>();
             m_SymbolFindersMap = new Dictionary<string, TF[]>();
-            m_PositionFinderMap = new Dictionary<string, List<int>>();
+            m_FinderPositionMap = new Dictionary<string, List<int>>();
             m_ChartFileFinderMap = new Dictionary<string, TK>();
             m_ClosedPositionMap = new Dictionary<string, ClosedPositionEventArgs>();
             m_CurrentRisk = robotParams.RiskPercentFromDeposit;
@@ -244,14 +251,30 @@ namespace TradeKit.Core.Common
 
         private void OnPositionsClosed(object sender, ClosedPositionEventArgs args)
         {
+            if (args.Position.Label != GetBotName())
+                return;
+
+            string positionId = args.Position.Comment;
+            if(string.IsNullOrEmpty(positionId))
+                return;
+
             bool isSl = args.State == PositionClosedState.STOP_LOSS;
             bool isTp = args.State == PositionClosedState.TAKE_PROFIT;
-
-            if ((m_RobotParams.AllowToTrade || m_IsBackTesting) && !string.IsNullOrEmpty(args.Position.Comment))
+            
+            if (m_RobotParams.AllowToTrade || m_IsBackTesting)
             {
                 m_ClosedPositionMap[args.Position.Comment] = args;
             }
 
+            if (m_PositionFinderMap.Remove(args.Position.Id, out TF sf))
+            {
+                if (m_PositionSignalArgsMap.Remove(positionId, out TK signalEventArgs))
+                {
+                    if (!isSl && !isTp)// We don't want ot handle usual closing, just manual or securing ones
+                        sf.NotifyManualClose(signalEventArgs, args);
+                }
+            }
+            
             if (isSl)
             {
                 UpRisk();
@@ -259,6 +282,12 @@ namespace TradeKit.Core.Common
             }
 
             if (isTp) DownRisk();
+        }
+
+        private TF GetSetupFinder(ISymbol symbol, ITimeFrame timeFrame)
+        {
+            string finderId = BaseSetupFinder<TK>.GetId(symbol.Name, timeFrame.Name);
+            return m_SetupFindersMap.GetValueOrDefault(finderId);
         }
 
         private void BarOpened(object obj, System.EventArgs args)
@@ -275,13 +304,13 @@ namespace TradeKit.Core.Common
                     return;
                 }
 
-                string finderId = BaseSetupFinder<TK>.GetId(barsProvider.BarSymbol.Name, barsProvider.TimeFrame.Name);
-                if (!m_SetupFindersMap.TryGetValue(finderId, out TF sf))
+                TF sf = GetSetupFinder(barsProvider.BarSymbol, barsProvider.TimeFrame);
+                if (sf ==null)
                 {
                     return;
                 }
 
-                if (m_BarsInitMap[finderId])
+                if (m_BarsInitMap[sf.Id])
                 {
                     //Logger.Write($"{nameof(BarOpened)}: {obj.Bars.SymbolName} {obj.Bars.TimeFrame.ShortName}");
                     sf.CheckBar(index);
@@ -299,14 +328,25 @@ namespace TradeKit.Core.Common
                 sf.OnActivated += OnActivated;
                 sf.OnCanceled += OnCanceled;
                 sf.OnBreakeven += OnBreakeven;
+                sf.OnManualClose += OnManualClose;
                 //sf.IsInSetup = false; //TODO
-                m_BarsInitMap[finderId] = true;
+                m_BarsInitMap[sf.Id] = true;
                 Logger.Write($"{nameof(BarOpened)}: Bars initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
             }
             catch (Exception ex)
             {
                 Logger.Write($"{nameof(BarOpened)}: {ex.Message}");
             }
+        }
+
+        private void OnManualClose(object sender, LevelEventArgs e)
+        {
+            HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
+            string resultChartPath = OnPositionClose(sender, setupId, positionId, true);
+            if (!TelegramReporter.IsReady)
+                return;
+
+            TelegramReporter.ReportManualClose(positionId, e.Level.Value, resultChartPath);
         }
 
         /// <summary>
@@ -318,7 +358,7 @@ namespace TradeKit.Core.Common
         private void ModifySymbolPositions(
             string setupId, string posId, double? breakEvenPrice = null)
         {
-            if (!m_PositionFinderMap.TryGetValue(setupId, out List<int> posIds)
+            if (!m_FinderPositionMap.TryGetValue(setupId, out List<int> posIds)
                 || posIds == null || posIds.Count == 0)
                 return;
 
@@ -596,12 +636,14 @@ namespace TradeKit.Core.Common
 
             m_EnterCount++;
 
-            if (!m_PositionFinderMap.ContainsKey(sf.Id))
-                m_PositionFinderMap[sf.Id] = new List<int>();
+            if (!m_FinderPositionMap.ContainsKey(sf.Id))
+                m_FinderPositionMap[sf.Id] = new List<int>();
 
             GetEventStrings(sender, e.Level, out string price);
             Logger.Write($"New setup found! {price}");
-            double priceNow = isLong ? TradeManager.GetAsk(symbol) : TradeManager.GetBid(symbol);
+            double priceNow = e.IsLimit 
+                ? e.Level.Value
+                : isLong ? TradeManager.GetAsk(symbol) : TradeManager.GetBid(symbol);
 
             if (!isLong)
             {
@@ -640,15 +682,22 @@ namespace TradeKit.Core.Common
                     return;
                 }
 
+                string stringPositionId = Helper.GetPositionId(sf.Id, e.Level, e.Comment);
                 OrderResult order = TradeManager.OpenOrder(
-                    isLong, sf.Symbol, volume, GetBotName(), slP, tpP,
-                    Helper.GetPositionId(sf.Id, e.Level, e.Comment), e.IsLimit ? e.Level.Value : null);
+                    isLong, sf.Symbol, volume, GetBotName(), slP, tpP, stringPositionId
+                    , e.IsLimit ? e.Level.Value : null);
 
                 if (order?.IsSuccessful == true)
                 {
-                    TradeManager.SetTakeProfitPrice(order.Position, tp);
-                    TradeManager.SetStopLossPrice(order.Position, sl);
-                    m_PositionFinderMap[sf.Id].Add(order.Position.Id);
+                    if (!e.IsLimit)// foolproof only for active positions
+                    {
+                        TradeManager.SetTakeProfitPrice(order.Position, tp);
+                        TradeManager.SetStopLossPrice(order.Position, sl);
+                    }
+
+                    m_FinderPositionMap[sf.Id].Add(order.Position.Id);
+                    m_PositionFinderMap[order.Position.Id]= sf;
+                    m_PositionSignalArgsMap[stringPositionId] = e;
                 }
             }
 

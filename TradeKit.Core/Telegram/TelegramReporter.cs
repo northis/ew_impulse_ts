@@ -136,6 +136,26 @@ namespace TradeKit.Core.Telegram
             RemoveSignal(posId);
         }
 
+        /// <summary>
+        /// Reports the manual closing.
+        /// </summary>
+        /// <param name="posId">The position identifier.</param>
+        /// <param name="price">The current price.</param>
+        /// <param name="closeImagePath">The close image path.</param>
+        public void ReportManualClose(string posId, double price, string closeImagePath = null)
+        {
+            if (!m_ReportClose) return;
+
+            string stat = string.Empty;
+            if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
+            {
+                stat = GetStatistic(args, price);
+            }
+
+            ReportPositionInfo(posId, $"Manually closed{stat}", closeImagePath);
+            RemoveSignal(posId);
+        }
+
         private void RemoveSignal(string posId)
         {
             m_SignalEventArgsMap.Remove(posId);
@@ -229,12 +249,12 @@ namespace TradeKit.Core.Telegram
             string tradeType;
             if (isLong)
             {
-                price = signalArgs.Ask;
+                price = signalEventArgs.IsLimit ? signalEventArgs.Level.Value : signalArgs.Ask;
                 tradeType = "BUY";
             }
             else
             {
-                price = signalArgs.Bid;
+                price = signalEventArgs.IsLimit ? signalEventArgs.Level.Value : signalArgs.Bid;
                 tradeType = "SELL";
             }
 
@@ -249,6 +269,9 @@ namespace TradeKit.Core.Telegram
                 m_SymbolsMap.TryGetValue(signalArgs.SymbolName, out string preDefValue)
                 ? preDefValue 
                 : signalArgs.SymbolName.Replace(" ", "");
+
+            if (signalArgs.SignalEventArgs.IsLimit)
+                tradeType += " limit";
 
             sb.AppendLine($"#setup #{symbolViewName} {tradeType} {Helper.PriceFormat(price, signalArgs.Digits)}");
             sb.AppendLine($"TP {Helper.PriceFormat(signalEventArgs.TakeProfit.Value, signalArgs.Digits)}");

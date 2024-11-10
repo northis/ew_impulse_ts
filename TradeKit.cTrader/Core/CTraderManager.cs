@@ -57,8 +57,9 @@ namespace TradeKit.CTrader.Core
         public IPosition[] GetPositions()
         {
             IPosition[] positions = m_Robot.Positions
-                    .Select(ToIPosition)
-                    .ToArray();
+                .Where(a => a.Label == m_BotName)
+                .Select(ToIPosition)
+                .ToArray();
             return positions;
         }
 
@@ -69,7 +70,6 @@ namespace TradeKit.CTrader.Core
 
         public IPosition GetClosedPosition(string positionId, double? tp, double? sl)
         {
-            
             HistoricalTrade res = m_Robot.History.FirstOrDefault(a => a.Comment == positionId);
             if (res == null)
                 return null;
@@ -80,11 +80,15 @@ namespace TradeKit.CTrader.Core
 
         private IPosition ToIPosition(Position position)
         {
+            if (position == null)
+                return null;
+
             return new CTraderPosition(position.Id,
                 GetSymbol(position.SymbolName),
                 position.VolumeInUnits,
                 position.TradeType == TradeType.Buy ? PositionType.BUY : PositionType.SELL,
-                position.Comment, 
+                m_BotName,
+                position.Comment,
                 position.EntryTime,
                 m_Robot.Time, 
                 position.StopLoss, 
@@ -96,15 +100,39 @@ namespace TradeKit.CTrader.Core
                 position.EntryPrice,
                 position.CurrentPrice, 
                 position.Commissions);
-        } 
-        
+        }
+        private IPosition ToIPosition(PendingOrder pendingOrder)
+        {
+            if (pendingOrder == null)
+                return null;
+
+            return new CTraderPosition(pendingOrder.Id,
+                GetSymbol(pendingOrder.SymbolName),
+                pendingOrder.VolumeInUnits,
+                pendingOrder.TradeType == TradeType.Buy ? PositionType.BUY : PositionType.SELL,
+                pendingOrder.Comment,
+                m_BotName,
+                m_Robot.Time,
+                null,
+                pendingOrder.StopLoss,
+                pendingOrder.TakeProfit,
+                0,
+                pendingOrder.Quantity,
+                0,
+                0,
+                pendingOrder.TargetPrice,
+                pendingOrder.CurrentPrice,
+                0);
+        }
+
         private IPosition ToIPosition(HistoricalTrade position, double? tp, double? sl)
         {
             return new CTraderPosition(position.PositionId,
                 GetSymbol(position.SymbolName),
                 position.VolumeInUnits,
                 position.TradeType == TradeType.Buy ? PositionType.BUY : PositionType.SELL,
-                position.Comment, 
+                position.Comment,
+                m_BotName,
                 position.EntryTime,
                 position.ClosingTime,
                 sl,
@@ -178,19 +206,22 @@ namespace TradeKit.CTrader.Core
             double normalizedVolume = GetCTraderSymbol(symbol.Name).NormalizeVolumeInUnits(volume);
 
             TradeResult order;
+            IPosition pos;
             TradeType tradeType = isLong ? TradeType.Buy : TradeType.Sell;
             if (limitPrice.HasValue)
             {
                 order = m_Robot.PlaceLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value, botName,
                     stopInPips, takeInPips, null, positionId);
+                pos = ToIPosition(order.PendingOrder);
             }
             else
             {
                 order = m_Robot.ExecuteMarketOrder(tradeType, symbol.Name, normalizedVolume, botName, stopInPips,
                     takeInPips, positionId);
+                pos = ToIPosition(order.Position);
             }
 
-            return order.Position == null ? null : new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
+            return pos == null ? null : new OrderResult(order.IsSuccessful, pos);
         }
 
         public void SetStopLossPrice(IPosition position, double? price)
