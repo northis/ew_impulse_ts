@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Gartley
 {

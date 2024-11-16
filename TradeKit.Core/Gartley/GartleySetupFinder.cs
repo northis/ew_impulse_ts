@@ -42,7 +42,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.DARK_CLOUD,
         CandlePatternType.PIECING_LINE,
     };
-    private const double PATTERN_PROFIT_RANGE = 0.1;//[0->1]
+    private const double PATTERN_PROFIT_RANGE = 0.6;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -92,7 +92,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_FilterByDivergence = filterByDivergence;
         m_MaxPatternSizeBars = maxPatternSizeBars;
 
-        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth);
+        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth, GartleySearchMode.PROJECTIONS);//TODO git it to the settings
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
@@ -102,7 +102,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         GartleyItem localPattern, double close, int index, List<CandlesResult> candlePatterns = null)
     {
         bool isLimit = !IsPatternProfitableNow(localPattern, close) &&
-                       (m_CandlePatternFilter == null || m_CandlePatternFilter != null && candlePatterns == null);
+                       (m_CandlePatternFilter == null || m_CandlePatternFilter != null && candlePatterns == null) ||
+                       localPattern.IsFromProjection;
 
         if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
