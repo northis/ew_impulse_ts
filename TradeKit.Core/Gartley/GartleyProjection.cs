@@ -451,6 +451,11 @@ namespace TradeKit.Core.Gartley
         }
 
         /// <summary>
+        /// Gets or sets a value indicating if this projection is accepted by outer criteria.
+        /// </summary>
+        public bool AcceptFlag { get; set; }
+
+        /// <summary>
         /// Updates the projections based on new extrema.
         /// </summary>
         /// <param name="index">The point we want to calculate against.</param>

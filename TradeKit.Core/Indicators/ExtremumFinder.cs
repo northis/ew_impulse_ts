@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
@@ -60,10 +61,7 @@ namespace TradeKit.Core.Indicators
 
             if (IsUpDirection ? low < DeviationPrice : high > DeviationPrice)
             {
-                var extremum = new BarPoint(
-                    IsUpDirection ? low : high,
-                    index, BarsProvider);
-                SetExtremum(extremum);
+                SetExtremum(Extremum);
                 IsUpDirection = !IsUpDirection;
             }
         }

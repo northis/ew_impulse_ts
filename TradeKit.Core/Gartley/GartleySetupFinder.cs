@@ -92,7 +92,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_FilterByDivergence = filterByDivergence;
         m_MaxPatternSizeBars = maxPatternSizeBars;
 
-        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth, GartleySearchMode.PROJECTIONS);//TODO git it to the settings
+        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth, GartleySearchMode.BOTH);//TODO git it to the settings
 
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
@@ -301,7 +301,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             if (isBull && (tick.Bid < args.StopLoss.Value || tick.Bid > args.TakeProfit.Value) ||
                 !isBull && (tick.Ask > args.StopLoss.Value || tick.Ask < args.TakeProfit.Value))
             {
-                Debugger.Launch();
                 args.IsActive = false;
                 OnCanceledInvoke(new LevelEventArgs(args.Level, args.Level, true, args.Comment));
                 toRemove ??= new List<GartleyItem>();

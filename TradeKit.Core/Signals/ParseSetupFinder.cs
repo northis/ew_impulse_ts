@@ -130,7 +130,7 @@ namespace TradeKit.Core.Signals
             }
 
             string text = File.ReadAllText(m_SignalHistoryFilePath);
-            TelegramHistorySignal[]? history = null;
+            TelegramHistorySignal[] history = null;
             try
             {
                 history = JsonConvert.DeserializeObject<SymbolDataExportJson>(text)?.Messages;
@@ -181,7 +181,7 @@ namespace TradeKit.Core.Signals
                             NUMBER_STYLES, CultureInfo.InvariantCulture, out double enterPrice))
                         signalOut.Price = enterPrice;
 
-                    signalOut.IsLong = signal.Groups[1].Value?.ToLowerInvariant() == "buy";
+                    signalOut.IsLong = signal.Groups[1].Value.ToLowerInvariant() == "buy";
                     isTrueSignal = true;
                 }
 
@@ -206,7 +206,7 @@ namespace TradeKit.Core.Signals
                 }
 
                 var tpList = new List<double>();
-                foreach (Match? match in tpsCollection)
+                foreach (Match match in tpsCollection)
                 {
                     if (match == null || !double.TryParse(match.Groups[3].Value,
                             NUMBER_STYLES, CultureInfo.InvariantCulture, out double tpPrice))

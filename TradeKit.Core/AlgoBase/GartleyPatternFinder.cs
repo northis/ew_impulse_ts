@@ -246,15 +246,27 @@ namespace TradeKit.Core.AlgoBase
             {
                 foreach (GartleyProjection activeProjection in activeProjections)
                 {
-                    ProjectionState updateResult = activeProjection.Update(index);
-                    if (updateResult == ProjectionState.PROJECTION_FORMED && m_Mode != GartleySearchMode.PATTERNS)
+                    if (activeProjection.ItemC is { OpenTime: { Day: 6, Month: 8, Hour: 20 } })
                     {
-                        //Debugger.Launch();
+                        Debugger.Launch();
+                    }
+                    ProjectionState updateResult = activeProjection.Update(index);
+                    if (updateResult is ProjectionState.PROJECTION_FORMED)
+                    {
+                        activeProjection.AcceptFlag = false;
+                    }
+
+                    if (updateResult is ProjectionState.PROJECTION_SAME or ProjectionState.PROJECTION_FORMED && 
+                        m_Mode != GartleySearchMode.PATTERNS && 
+                        !activeProjection.AcceptFlag)
+                    {
+
                         List<GartleyItem> patternsFromProjections = CreateProjectionPatterns(activeProjection);
                         if (patternsFromProjections is { Count: > 0 })
                         {
                             patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
                             patternsFromProjections.ForEach(a => patterns.Add(a));
+                            activeProjection.AcceptFlag = true;
                         }
                     }
 
@@ -262,6 +274,7 @@ namespace TradeKit.Core.AlgoBase
                         continue;// Got only new patterns (not projections)
 
                     GartleyItem pattern = CreatePattern(activeProjection);
+
                     if (pattern == null)
                         continue;
 
@@ -311,7 +324,6 @@ namespace TradeKit.Core.AlgoBase
 
         private bool HasExtremaBetweenPoints(GartleyProjection projection)
         {
-
             bool result = HasExtremaBetweenPoints(projection.ItemX, projection.ItemA) ||
                           HasExtremaBetweenPoints(projection.ItemA, projection.ItemB) ||
                           HasExtremaBetweenPoints(projection.ItemB, projection.ItemC) ||
@@ -334,9 +346,13 @@ namespace TradeKit.Core.AlgoBase
             List<GartleyItem> result = null;
             foreach (RealLevelCombo projectionLevel in projectionsReady)
             {
-                double dItem =  projectionLevel.Min + (projectionLevel.Max - projectionLevel.Min) / 2;
+                double dItem = projection.IsBull ? projectionLevel.Max : projectionLevel.Min;
+                projection.XtoD = projectionLevel.Xd.Ratio;
+                projection.BtoD = projectionLevel.Bd.Ratio;
+                projection.ItemD = projection.ItemC.WithPrice(dItem);
 
-                GartleyItem res = CreatePattern(projection, dItem);
+                //Debugger.Launch();
+                GartleyItem res = CreatePattern(projection);
                 if (res == null)
                     continue;
 
@@ -351,35 +367,31 @@ namespace TradeKit.Core.AlgoBase
         /// Creates the pattern if it is possible
         /// </summary>
         /// <param name="projection">The Gartley projection with ready pattern state</param>
-        /// <param name="dProjectionValue">Possible value of the D item to build from unfinished projection.</param>
+        /// <param name="isFromProjection"><c>True</c> if this pattern isn't finished so we should use limit order.</param>
         /// <returns><see cref="GartleyItem"/> if it is valid or null if it doesn't</returns>
-        private GartleyItem CreatePattern(GartleyProjection projection, double? dProjectionValue =null)
+        private GartleyItem CreatePattern(GartleyProjection projection, bool isFromProjection = false)
         {
-            bool isFromProjection = dProjectionValue.HasValue;
-            BarPoint itemD = isFromProjection
-                ? projection.ItemC.WithPrice(dProjectionValue.Value)
-                : projection.ItemD;
             
             if (projection.ItemX == null ||
                 projection.ItemA == null ||
                 projection.ItemB == null ||
                 projection.ItemC == null ||
-                itemD == null)
+                projection.ItemD == null)
                 return null;
 
             if (0d == projection.ItemX.Value || 
                 0d == projection.ItemA.Value || 
                 0d == projection.ItemB.Value || 
                 0d == projection.ItemC.Value || 
-                0d == itemD.Value)
+                0d == projection.ItemD.Value)
                 return null;
 
             double xA = Math.Abs(projection.ItemA - projection.ItemX);
             double aB = Math.Abs(projection.ItemB - projection.ItemA);
             double cB = Math.Abs(projection.ItemC - projection.ItemB);
-            double cD = Math.Abs(projection.ItemC - itemD);
+            double cD = Math.Abs(projection.ItemC - projection.ItemD);
             double xC = Math.Abs(projection.ItemC - projection.ItemX);
-            double aD = Math.Abs(projection.ItemA - itemD);
+            double aD = Math.Abs(projection.ItemA - projection.ItemD);
 
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
@@ -416,27 +428,27 @@ namespace TradeKit.Core.AlgoBase
                 return null;
 
             bool isBull = projection.IsBull;
-            double closeD = m_BarsProvider.GetClosePrice(itemD.BarIndex);
+            double closeD = m_BarsProvider.GetClosePrice(projection.ItemD.BarIndex);
 
             double actualSize = projection.PatternType.SetupType == GartleySetupType.AD ? aD : cD;
 
             double slLen = actualSize * SL_RATIO;
             double tp1Len = actualSize * TP1_RATIO;
-            double sl = isBull ? -slLen + itemD : slLen + itemD;
+            double sl = isBull ? -slLen + projection.ItemD : slLen + projection.ItemD;
             //double tp1Len = Math.Abs(sl - closeD);
 
-            double tp1 = isBull ? tp1Len + itemD : -tp1Len + itemD;
-            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
+            double tp1 = isBull ? tp1Len + projection.ItemD : -tp1Len + projection.ItemD;
+            if (!isFromProjection && (!isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0))
             {
                 //Logger.Write("TP is already hit.");
                 return null;
             }
 
             double tp2Len = actualSize * TP2_RATIO;
-            double tp2 = isBull ? tp2Len + itemD : -tp2Len + itemD;
+            double tp2 = isBull ? tp2Len + projection.ItemD : -tp2Len + projection.ItemD;
 
             double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
-            if (def > MAX_SL_TP_RATIO_ALLOWED)
+            if (!isFromProjection && def > MAX_SL_TP_RATIO_ALLOWED)
             {
                 //Logger.Write("SL/TP is too big.");
                 //return null;
@@ -448,7 +460,7 @@ namespace TradeKit.Core.AlgoBase
                 projection.ItemA,
                 projection.ItemB,
                 projection.ItemC,
-                itemD,
+                projection.ItemD,
                 sl, tp1, tp2,
                 xD, projection.XtoD,
                 aC, projection.AtoC,

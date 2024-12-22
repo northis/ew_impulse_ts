@@ -8,7 +8,7 @@ namespace TradeKit.CTrader.Indicators
     /// Calculates "Super Trend" - one of the most popular trend trading indicators.
     /// </summary>
     /// <seealso cref="Indicator" />
-    [Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
+    //[Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
     public class SuperTrendIndicator : Indicator
     {
         private SupertrendFinder m_SupertrendFinder;
