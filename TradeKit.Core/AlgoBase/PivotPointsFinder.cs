@@ -4,6 +4,12 @@ namespace TradeKit.Core.AlgoBase
 {
     public class PivotPointsFinder
     {
+        public class OnExtremumEventArgs : System.EventArgs
+        {
+            public BarPoint EventExtremum;
+            public bool IsMax;
+        }
+
         private int m_Period;
         private int m_PeriodX2;
         private readonly IBarsProvider m_BarsProvider;
@@ -93,6 +99,11 @@ namespace TradeKit.Core.AlgoBase
             AllExtrema.Clear();
             DefaultValue = double.NaN;
         }
+
+        /// <summary>
+        /// Occurs on set extremum.
+        /// </summary>
+        public event EventHandler<OnExtremumEventArgs> OnSetExtremum;
 
         /// <summary>
         /// Resets and sets the specified period.
@@ -190,6 +201,12 @@ namespace TradeKit.Core.AlgoBase
                 HighValues[dt] = max;
                 HighExtrema.Add(dt);
                 AllExtrema.Add(dt);
+                OnSetExtremum?.Invoke(this,
+                    new OnExtremumEventArgs
+                    {
+                        EventExtremum = new BarPoint(max, index, m_BarsProvider), 
+                        IsMax = true
+                    });
             }
             else if(m_FillWithNans)
                 HighValues[dt] = DefaultValue;
@@ -199,6 +216,12 @@ namespace TradeKit.Core.AlgoBase
                 LowValues[dt] = min;
                 LowExtrema.Add(dt);
                 AllExtrema.Add(dt);
+                OnSetExtremum?.Invoke(this,
+                    new OnExtremumEventArgs
+                    {
+                        EventExtremum = new BarPoint(min, index, m_BarsProvider), 
+                        IsMax = false
+                    });
             }
             else if (m_FillWithNans)
                 LowValues[dt] = DefaultValue;

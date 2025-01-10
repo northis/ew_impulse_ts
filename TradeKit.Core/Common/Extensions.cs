@@ -425,7 +425,7 @@ namespace TradeKit.Core.Common
                     break;
                 }
 
-                candle.IsHighFirst = highIndex < lowIndex;
+                candle.IsHighFirst = highIndex > lowIndex;
                 break;
             }
         }

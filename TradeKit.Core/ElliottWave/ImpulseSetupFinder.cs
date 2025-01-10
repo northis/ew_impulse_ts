@@ -56,7 +56,7 @@ namespace TradeKit.Core.ElliottWave
                  i <= Helper.MAX_IMPULSE_SCALE;
                  i += Helper.STEP_IMPULSE_SCALE)
             {
-                m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider));
+                m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider, barProvidersFactory));
             }
 
             m_PatternFinder = new ElliottWavePatternFinder(
