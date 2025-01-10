@@ -87,11 +87,6 @@ namespace TradeKit.Core.Indicators
                 return;
             }
 
-            if (currentDateTime is { Day: 6, Month: 1, Year: 2025, Hour: 11 })
-            {
-                Debugger.Launch();
-            }
-
             if (m_CurrentHigh.HasValue)
             {
                 if (m_CurrentHighDateTime < currentDateTime)
