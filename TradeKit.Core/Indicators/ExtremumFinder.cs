@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.AlgoBase;
+﻿using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
@@ -54,20 +53,12 @@ namespace TradeKit.Core.Indicators
             double lowLocal = BarsProvider.GetLowPrice(currentIndex);
             DateTime currentDateTime = BarsProvider.GetOpenTime(currentIndex);
 
-            if (currentDateTime is { Day: 10, Month: 1, Year: 2025, Hour: 13, Minute: 0 })
-            {
-
-            }
-
             //NOTE fillWithNans is false so we don't need to check for NaN.
             bool useHigh = m_PivotPointsFinder.HighValues.TryGetValue(currentDateTime, out double high);
             bool useLow = m_PivotPointsFinder.LowValues.TryGetValue(currentDateTime, out double low);
 
             double? prevHigh = null;
             DateTime? prevHighDateTime = null;
-
-            double? prevLow = null;
-            DateTime? prevLowDateTime = null;
 
             if (!m_CurrentHigh.HasValue || m_CurrentHigh <= highLocal)
             {
@@ -80,9 +71,6 @@ namespace TradeKit.Core.Indicators
 
             if (!m_CurrentLow.HasValue || m_CurrentLow >= lowLocal)
             {
-                prevLow = m_CurrentLow;
-                prevLowDateTime = m_CurrentLowDateTime;
-
                 m_CurrentLow = lowLocal;
                 m_CurrentLowDateTime = currentDateTime;
             }
@@ -117,11 +105,6 @@ namespace TradeKit.Core.Indicators
             {
                 if (m_CurrentHighDateTime < currentDateTime)
                 {
-                    //if (isHighFirst != false && prevLow.HasValue && prevLowDateTime.HasValue)
-                    //{
-                    //    SetExtremumInner(new BarPoint(prevLow.Value, prevLowDateTime.Value, BarsProvider), true);
-                    //}
-
                     SetExtremumInner(new BarPoint(m_CurrentHigh.Value, m_CurrentHighDateTime.Value, BarsProvider), true);
 
                 }
@@ -131,7 +114,7 @@ namespace TradeKit.Core.Indicators
                 }
             }
 
-            if (isHighFirst == true)
+            if (isHighFirst == true && !IsUpDirection)
             {
                 SetExtremumInner(new BarPoint(high, currentIndex, BarsProvider), true);
             }

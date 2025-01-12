@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.Common;
@@ -18,7 +17,7 @@ public class ExactZigzagIndicator : Indicator
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_ExtremumFinder = new ExtremumFinder(3,
+        m_ExtremumFinder = new ExtremumFinder(2,
             m_BarProvider, new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this)));
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
@@ -44,8 +43,10 @@ public class ExactZigzagIndicator : Indicator
             return;
         }
 
-        const int baseColorValue = 50;
+        const int baseColorValue = 10;
         const int maxColorValue = 255;
+        const int colorRatioValue = 240;
+        const double rangeForUse = 0.1;
         //Debugger.Launch();
 
         List<double> devs = new List<double>();
@@ -70,19 +71,23 @@ public class ExactZigzagIndicator : Indicator
         }
 
         double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-        if (sqrtDev > 1)
-            sqrtDev = 1;
+        if (sqrtDev > rangeForUse)
+        {
+            m_CurrentExtremum = e.EventExtremum;
+            return;
+        }
 
-        int resultColorAdd = baseColorValue + Convert.ToInt32(sqrtDev * 500);
+        double smoothDegree = 1 - sqrtDev;
+        int resultColorAdd = baseColorValue + Convert.ToInt32(smoothDegree * colorRatioValue);
         if (resultColorAdd > maxColorValue) resultColorAdd = maxColorValue;
 
-        Color color = Color.FromArgb(resultColorAdd, resultColorAdd, resultColorAdd);
+        Color color = Color.FromArgb(sqrtDev > rangeForUse ? 0 : 255, resultColorAdd, resultColorAdd, resultColorAdd);
 
         string id = $"{barIndex}{e.EventExtremum.Value}";
         Chart.DrawTrendLine($"ES{id}",
             m_CurrentExtremum.BarIndex, m_CurrentExtremum.Value, e.EventExtremum.BarIndex, e.EventExtremum.Value,
-            color, 5);
-        Chart.DrawText($"T{id}", Convert.ToInt32(sqrtDev * 100).ToString(), e.EventExtremum.OpenTime,
+            color, 3);
+        Chart.DrawText($"T{id}", Convert.ToInt32(smoothDegree * 100).ToString(), e.EventExtremum.OpenTime,
             e.EventExtremum.Value, color);
         m_CurrentExtremum = e.EventExtremum;
     }
