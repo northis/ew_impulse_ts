@@ -12,6 +12,8 @@ namespace TradeKit.Core.Indicators
         private readonly int m_Period;
         private double? m_CurrentHigh;
         private DateTime? m_CurrentHighDateTime;
+        private double? m_CurrentLow;
+        private DateTime? m_CurrentLowDateTime;
         private readonly IBarProvidersFactory m_BarProvidersFactory;
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
@@ -49,12 +51,25 @@ namespace TradeKit.Core.Indicators
                 return;
 
             double highLocal = BarsProvider.GetHighPrice(currentIndex);
+            double lowLocal = BarsProvider.GetLowPrice(currentIndex);
             DateTime currentDateTime = BarsProvider.GetOpenTime(currentIndex);
 
-            double? prevHigh =null;
+            if (currentDateTime is { Day: 10, Month: 1, Year: 2025, Hour: 13, Minute: 0 })
+            {
+
+            }
+
+            //NOTE fillWithNans is false so we don't need to check for NaN.
+            bool useHigh = m_PivotPointsFinder.HighValues.TryGetValue(currentDateTime, out double high);
+            bool useLow = m_PivotPointsFinder.LowValues.TryGetValue(currentDateTime, out double low);
+
+            double? prevHigh = null;
             DateTime? prevHighDateTime = null;
 
-            if (!m_CurrentHigh.HasValue || m_CurrentHigh < highLocal)
+            double? prevLow = null;
+            DateTime? prevLowDateTime = null;
+
+            if (!m_CurrentHigh.HasValue || m_CurrentHigh <= highLocal)
             {
                 prevHigh = m_CurrentHigh;
                 prevHighDateTime = m_CurrentHighDateTime;
@@ -63,9 +78,14 @@ namespace TradeKit.Core.Indicators
                 m_CurrentHighDateTime = currentDateTime;
             }
 
-            //NOTE fillWithNans is false so we don't need to check for NaN.
-            bool useHigh = m_PivotPointsFinder.HighValues.TryGetValue(currentDateTime, out double high);
-            bool useLow = m_PivotPointsFinder.LowValues.TryGetValue(currentDateTime, out double low);
+            if (!m_CurrentLow.HasValue || m_CurrentLow >= lowLocal)
+            {
+                prevLow = m_CurrentLow;
+                prevLowDateTime = m_CurrentLowDateTime;
+
+                m_CurrentLow = lowLocal;
+                m_CurrentLowDateTime = currentDateTime;
+            }
 
             if (!useHigh && !useLow)
             {
@@ -74,15 +94,21 @@ namespace TradeKit.Core.Indicators
             }
 
             bool? isHighFirst = null;
+            Candle candle = Candle.FromIndex(BarsProvider, currentIndex);
+            candle.InitIsHighFirst(m_BarProvidersFactory.GetBarsProvider, BarsProvider.TimeFrame);
             if (useHigh && useLow)
             {
-                Candle candle = Candle.FromIndex(BarsProvider, currentIndex);
-                candle.InitIsHighFirst(m_BarProvidersFactory.GetBarsProvider, BarsProvider.TimeFrame);
                 isHighFirst = candle.IsHighFirst == true;
             }
 
             if (!useLow)
             {
+                if (candle.IsHighFirst == false)
+                {
+                    m_CurrentLow = null;
+                    m_CurrentLowDateTime = null;
+                }
+
                 //Skip highs, use lows only
                 return;
             }
@@ -91,22 +117,26 @@ namespace TradeKit.Core.Indicators
             {
                 if (m_CurrentHighDateTime < currentDateTime)
                 {
-                    Extremum = new BarPoint(m_CurrentHigh.Value, m_CurrentHighDateTime.Value, BarsProvider);
-                    SetExtremum(Extremum);
+                    //if (isHighFirst != false && prevLow.HasValue && prevLowDateTime.HasValue)
+                    //{
+                    //    SetExtremumInner(new BarPoint(prevLow.Value, prevLowDateTime.Value, BarsProvider), true);
+                    //}
+
+                    SetExtremumInner(new BarPoint(m_CurrentHigh.Value, m_CurrentHighDateTime.Value, BarsProvider), true);
 
                 }
                 else if (isHighFirst != true && prevHigh.HasValue && prevHighDateTime.HasValue)
                 {
-                    Extremum = new BarPoint(prevHigh.Value, prevHighDateTime.Value, BarsProvider);
-                    SetExtremum(Extremum);
+                    SetExtremumInner(new BarPoint(prevHigh.Value, prevHighDateTime.Value, BarsProvider), true);
                 }
             }
 
             if (isHighFirst == true)
             {
-                Extremum = new BarPoint(high, currentIndex, BarsProvider);
-                SetExtremum(Extremum);
+                SetExtremumInner(new BarPoint(high, currentIndex, BarsProvider), true);
             }
+
+            SetExtremumInner(new BarPoint(low, currentIndex, BarsProvider), false);
 
             if (isHighFirst == false)
             {
@@ -119,8 +149,29 @@ namespace TradeKit.Core.Indicators
                 m_CurrentHighDateTime = null;
             }
 
-            Extremum = new BarPoint(low, currentIndex, BarsProvider);
-            SetExtremum(Extremum);
+            m_CurrentLow = null;
+            m_CurrentLowDateTime = null;
+        }
+
+        private void SetExtremumInner(BarPoint extremum, bool isUp)
+        {
+            if (IsUpDirection == isUp)
+            {
+                if (isUp)
+                {
+                    if (m_CurrentLow.HasValue && m_CurrentLowDateTime.HasValue)
+                        SetExtremum(new BarPoint(m_CurrentLow.Value, m_CurrentLowDateTime.Value, BarsProvider));
+                }
+                else
+                {
+                    if (m_CurrentHigh.HasValue && m_CurrentHighDateTime.HasValue)
+                        SetExtremum(new BarPoint(m_CurrentHigh.Value, m_CurrentHighDateTime.Value, BarsProvider));
+                }
+            }
+
+            SetExtremum(extremum);
+            IsUpDirection = isUp;
         }
     }
+
 }
