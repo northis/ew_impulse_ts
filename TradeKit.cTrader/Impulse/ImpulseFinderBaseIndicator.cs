@@ -71,7 +71,7 @@ namespace TradeKit.CTrader.Impulse
         {
             int levelIndex = e.Level.BarIndex;
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
-            Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
+            //Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
 
             BarPoint start = e.Model.Wave0;
             BarPoint currentBar = start;
@@ -80,11 +80,6 @@ namespace TradeKit.CTrader.Impulse
                 Chart.DrawTrendLine($"Impulse{levelIndex}+{wave.OpenTime}",
                     currentBar.OpenTime, currentBar.Value, wave.OpenTime, wave.Value, Color.LightBlue);
                 currentBar = wave;
-            }
-
-            foreach (BarPoint channelBarPoint in e.ChannelBarPoints)
-            {
-                Chart.DrawIcon($"Ch{levelIndex}-{channelBarPoint.BarIndex}", ChartIconType.Square, channelBarPoint.BarIndex, channelBarPoint.Value, Color.Yellow);
             }
 
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");

@@ -77,7 +77,7 @@ namespace TradeKit.Core.Indicators
 
             if (!useHigh && !useLow)
             {
-                Logger.Write("No pivot points - check the logic!");
+                //Logger.Write("No pivot points - check the logic!");
                 return;
             }
 

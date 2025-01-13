@@ -28,17 +28,17 @@ namespace TradeKit.Core.Common
             {
                 new(Minute1, TimeSpan.FromMinutes(1), Minute1, Minute5),
                 new(Minute5, TimeSpan.FromMinutes(5), Minute1, Minute10),
-                new(Minute10, TimeSpan.FromMinutes(10), Minute1, Minute15),
-                new(Minute15, TimeSpan.FromMinutes(15), Minute1, Minute30),
-                new(Minute20, TimeSpan.FromMinutes(20), Minute1, Minute30),
-                new(Minute30, TimeSpan.FromMinutes(30), Minute1, Minute45),
-                new(Minute45, TimeSpan.FromMinutes(45), Minute1, Hour1),
-                new(Hour1, TimeSpan.FromHours(1), Minute1, Hour2),
-                new(Hour2, TimeSpan.FromHours(2), Minute15, Hour4),
-                new(Hour4, TimeSpan.FromHours(4), Minute15, Day1),
-                new(Day1, TimeSpan.FromDays(1), Day1, Week1),
-                new(Week1, TimeSpan.FromDays(7), Hour4, Month1),
-                new(Month1, TimeSpan.FromDays(30), Hour4, Month1)
+                new(Minute10, TimeSpan.FromMinutes(10), Minute5, Minute15),
+                new(Minute15, TimeSpan.FromMinutes(15), Minute5, Minute30),
+                new(Minute20, TimeSpan.FromMinutes(20), Minute10, Minute30),
+                new(Minute30, TimeSpan.FromMinutes(30), Minute15, Minute45),
+                new(Minute45, TimeSpan.FromMinutes(45), Minute20, Hour1),
+                new(Hour1, TimeSpan.FromHours(1), Minute30, Hour2),
+                new(Hour2, TimeSpan.FromHours(2), Hour1, Hour4),
+                new(Hour4, TimeSpan.FromHours(4), Hour2, Day1),
+                new(Day1, TimeSpan.FromDays(1), Hour4, Week1),
+                new(Week1, TimeSpan.FromDays(7), Day1, Month1),
+                new(Month1, TimeSpan.FromDays(30), Week1, Month1)
             };
 
             TimeFrames = timeFramesList.ToDictionary(a => a.TimeFrame.Name, a => a);

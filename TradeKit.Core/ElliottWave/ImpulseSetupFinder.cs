@@ -10,8 +10,6 @@ namespace TradeKit.Core.ElliottWave
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
-        private readonly IBarProvidersFactory m_BarProvidersFactory;
-        private readonly PivotPointsFinder m_PivotPointsFinder;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
         private readonly ElliottWavePatternFinder m_PatternFinder;
@@ -49,12 +47,9 @@ namespace TradeKit.Core.ElliottWave
             IBarProvidersFactory barProvidersFactory)
             : base(mainBarsProvider, mainBarsProvider.BarSymbol)
         {
-            m_BarProvidersFactory = barProvidersFactory;
-            m_PivotPointsFinder = new PivotPointsFinder(Helper.PIVOT_PERIOD, BarsProvider);
-
-            for (int i = Helper.MIN_IMPULSE_SCALE;
-                 i <= Helper.MAX_IMPULSE_SCALE;
-                 i += Helper.STEP_IMPULSE_SCALE)
+            for (int i = Helper.MIN_IMPULSE_PERIOD;
+                 i <= Helper.MAX_IMPULSE_PERIOD;
+                 i += Helper.STEP_IMPULSE_PERIOD)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider, barProvidersFactory));
             }
@@ -122,136 +117,6 @@ namespace TradeKit.Core.ElliottWave
             }
 
             return isInitialMove;
-        }
-
-        private DateTime? GetPrevious(
-            SortedSet<DateTime> sortedSet,
-            DateTime currentDt)
-        {
-            DateTime? prevDt = null;
-
-            foreach (DateTime dt in sortedSet.Reverse())
-            {
-                if (dt < currentDt)
-                {
-                    prevDt = dt;
-                    break;
-                }
-            }
-
-            if (prevDt == null)
-                return null;
-
-            return prevDt;
-        }
-
-        void PreparePivotPointsFinder(
-            DateTime startDate, DateTime endDate, DateTime endImpulseDate, bool isUp)
-        {
-            int endIndex = BarsProvider.GetIndexByTime(endDate);
-            int startIndex = BarsProvider.GetIndexByTime(startDate);
-            double period = endIndex - startIndex;
-
-            period /= 1.5;
-            for (;;)
-            {
-                m_PivotPointsFinder.Reset((int)period);
-                m_PivotPointsFinder.Calculate(startDate, endImpulseDate);
-
-                if (period < Helper.PIVOT_PERIOD)
-                    return;
-
-                if (isUp)
-                {
-                    if (m_PivotPointsFinder.LowExtrema.Count > 1 &&
-                        m_PivotPointsFinder.LowExtrema.Contains(endDate) &&
-                        m_PivotPointsFinder.HighExtrema.Count > 0)
-                        return;
-                }
-                else
-                {
-                    if (m_PivotPointsFinder.HighExtrema.Count > 1 &&
-                        m_PivotPointsFinder.HighExtrema.Contains(endDate) &&
-                        m_PivotPointsFinder.LowExtrema.Count > 0)
-                        return;
-                }
-
-                period /= 1.5;
-            }
-        }
-
-        private bool CheckChannel(
-            BarPoint impulseStart, BarPoint impulseEnd, DateTime viewDt, out BarPoint[] bars)
-        {
-            bool isUp = impulseEnd > impulseStart;
-
-            // We want to discover view zone (before the impulse) + the impulse itself
-            // to be able to calculate extreme points.
-            PreparePivotPointsFinder(
-                viewDt, impulseStart.OpenTime, impulseEnd.OpenTime, isUp);
-            bars = Array.Empty<BarPoint>();
-
-            if (isUp)
-            {
-                if (!m_PivotPointsFinder.LowValues.ContainsKey(impulseStart.OpenTime))
-                    return false;
-
-            }
-            else
-            {
-                if (!m_PivotPointsFinder.HighValues.ContainsKey(impulseStart.OpenTime))
-                    return false;
-            }
-
-            DateTime? prevLowDt = GetPrevious(
-                m_PivotPointsFinder.LowExtrema,
-                impulseStart.OpenTime);
-            if (prevLowDt == null)
-                return false;
-
-            DateTime? prevHighDt = GetPrevious(
-                m_PivotPointsFinder.HighExtrema,
-                impulseStart.OpenTime);
-            if (prevHighDt == null)
-                return false;
-            
-            int prevLowBarIndex = BarsProvider.GetIndexByTime(prevLowDt.Value);
-            int prevHighBarIndex = BarsProvider.GetIndexByTime(prevHighDt.Value);
-            double prevLowBarValue = m_PivotPointsFinder.LowValues[prevLowDt.Value];
-            double prevHighBarValue = m_PivotPointsFinder.HighValues[prevHighDt.Value];
-            
-            double k;
-            double b;
-            if (isUp)
-            {
-                k = (impulseStart.Value - prevLowBarValue)
-                    / ( impulseStart.BarIndex - prevLowBarIndex);
-                b = prevHighBarValue - prevHighBarIndex * k;
-            }
-            else
-            {
-                k = (impulseStart.Value - prevHighBarValue)
-                    / (impulseStart.BarIndex - prevHighBarIndex);
-                b = prevLowBarValue - prevLowBarIndex * k;
-            }
-            
-            double edgeChannel = k * impulseEnd.BarIndex + b;
-
-            bool res = isUp 
-                ? impulseEnd.Value > edgeChannel 
-                : impulseEnd.Value < edgeChannel;
-
-            if (res)
-            {
-                bars = new BarPoint[4];
-
-                bars[isUp ? 2 : 0] = new BarPoint(prevHighBarValue, prevHighBarIndex, BarsProvider);
-                bars[1] = impulseStart;
-                bars[isUp ? 0 : 2] = new BarPoint(prevLowBarValue, prevLowBarIndex, BarsProvider);
-                bars[3] = new BarPoint(edgeChannel, impulseEnd.BarIndex, BarsProvider);
-            }
-
-            return true;// TODO use this value
         }
         
         /// <summary>
@@ -356,12 +221,6 @@ namespace TradeKit.Core.ElliottWave
                     return;
                 }
 
-                if (!CheckChannel(startItem.Value, endItem.Value, edgeExtremum.OpenTime,
-                        out BarPoint[] channelBarPoints))
-                {
-                    //return;
-                }
-
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)
                 {
@@ -440,8 +299,7 @@ namespace TradeKit.Core.ElliottWave
                     slArg,
                     outExtrema,
                     viewDateTime,
-                    comment, 
-                    channelBarPoints));
+                    comment));
                 // Here we should give a trade signal.
             }
 
@@ -523,6 +381,7 @@ namespace TradeKit.Core.ElliottWave
         {
             foreach (ExtremumFinder finder in m_ExtremumFinders)
             {
+                finder.OnCalculate(index, BarsProvider.GetOpenTime(index));
                 if (IsSetup(LastBar, finder))
                 {
                     break;

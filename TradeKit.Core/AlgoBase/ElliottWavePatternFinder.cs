@@ -175,6 +175,41 @@ namespace TradeKit.Core.AlgoBase
             return result;
         }
 
+        public bool IsSmoothImpulse(BarPoint start, BarPoint end, out double smoothDegree)
+        {
+            double fullZigzagLength = Math.Abs(start.Value - end.Value);
+            const double rangeForUse = 0.08;
+
+            bool isUp = end > start;
+            List<double> devs = new List<double>();
+
+            int indexDiff = end.BarIndex - start.BarIndex;
+            double dx = fullZigzagLength / (indexDiff > 0 ? indexDiff : 0.5);
+            for (int i = start.BarIndex; i <= end.BarIndex; i++)
+            {
+                int count = i - start.BarIndex;
+                Candle candle = Candle.FromIndex(m_BarsProviderMain, i);
+                double midPoint = candle.L + candle.Length / 2;
+
+                double currDx = count * dx;
+                var part = Math.Abs((isUp
+                    ? start.Value + currDx
+                    : start.Value - currDx) - midPoint) / fullZigzagLength;
+
+                devs.Add(part);
+            }
+
+            double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
+            if (sqrtDev > rangeForUse)
+            {
+                smoothDegree = 0;
+                return false;
+            }
+
+            smoothDegree = 1 - sqrtDev;
+            return true;
+        }
+
         private bool IsImpulseByPivots(
             BarPoint start, BarPoint end, out ImpulseElliottModelResult result)
         {
@@ -440,7 +475,8 @@ namespace TradeKit.Core.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ImpulseElliottModelResult result)
         {
-            bool isImpulse = IsImpulseByPivots(start, end, out result);//replace
+            bool isImpulse = IsSmoothImpulse(start, end, out double _);//replace
+            result = new ImpulseElliottModelResult { Wave0 = start, Wave5 = end };
             return isImpulse;
         }
     }

@@ -6,17 +6,15 @@ namespace TradeKit.Core.EventArgs
     public class ImpulseSignalEventArgs : SignalEventArgs
     {
         public ImpulseElliottModelResult Model { get; }
-        public BarPoint[] ChannelBarPoints { get; }
 
         public BarPoint[] WavePoints { get; }
 
         public ImpulseSignalEventArgs(
             BarPoint level, BarPoint takeProfit, BarPoint stopLoss, ImpulseElliottModelResult model,
-            DateTime startViewBarIndex, string comment, BarPoint[] channelBarPoints)
+            DateTime startViewBarIndex, string comment)
             : base(level, takeProfit, stopLoss, false, startViewBarIndex, null, comment)
         {
             Model = model;
-            ChannelBarPoints = channelBarPoints;
             WavePoints = new[] { model.Wave1, model.Wave2, model.Wave3, model.Wave4, model.Wave5 };
         }
     }

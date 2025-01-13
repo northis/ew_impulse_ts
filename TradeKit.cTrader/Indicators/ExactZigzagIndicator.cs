@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using cAlgo.API;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.Indicators;
 using TradeKit.CTrader.Core;
@@ -17,8 +16,9 @@ public class ExactZigzagIndicator : Indicator
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_ExtremumFinder = new ExtremumFinder(2,
-            m_BarProvider, new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this)));
+        var factory = new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this));
+        m_ExtremumFinder = new ExtremumFinder(2, m_BarProvider, factory);
+        m_ElliottWavePatternFinder = new ElliottWavePatternFinder(TimeFrame.ToITimeFrame(), factory);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
@@ -46,42 +46,18 @@ public class ExactZigzagIndicator : Indicator
         const int baseColorValue = 10;
         const int maxColorValue = 255;
         const int colorRatioValue = 240;
-        const double rangeForUse = 0.1;
         //Debugger.Launch();
-
-        List<double> devs = new List<double>();
-        double fullZigzagLength = Math.Abs(m_CurrentExtremum.Value - e.EventExtremum.Value);
-
-        bool isUp = e.EventExtremum > m_CurrentExtremum;
-
-        int indexDiff = e.EventExtremum.BarIndex - m_CurrentExtremum.BarIndex;
-        double dx = fullZigzagLength / (indexDiff > 0 ? indexDiff : 0.5);
-        for (int i = m_CurrentExtremum.BarIndex; i <= e.EventExtremum.BarIndex; i++)
-        {
-            int count = i - m_CurrentExtremum.BarIndex;
-            Candle candle = Candle.FromIndex(m_BarProvider, i);
-            double midPoint = candle.L + candle.Length / 2;
-
-            double currDx = count * dx;
-            var part = Math.Abs((isUp
-                ? m_CurrentExtremum.Value + currDx
-                : m_CurrentExtremum.Value - currDx) - midPoint) / fullZigzagLength;
-
-            devs.Add(part);
-        }
-
-        double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-        if (sqrtDev > rangeForUse)
+        if (!m_ElliottWavePatternFinder.IsSmoothImpulse(
+                m_CurrentExtremum, e.EventExtremum, out double smoothDegree))
         {
             m_CurrentExtremum = e.EventExtremum;
             return;
         }
 
-        double smoothDegree = 1 - sqrtDev;
         int resultColorAdd = baseColorValue + Convert.ToInt32(smoothDegree * colorRatioValue);
         if (resultColorAdd > maxColorValue) resultColorAdd = maxColorValue;
 
-        Color color = Color.FromArgb(sqrtDev > rangeForUse ? 0 : 255, resultColorAdd, resultColorAdd, resultColorAdd);
+        Color color = Color.FromArgb(resultColorAdd, resultColorAdd, resultColorAdd);
 
         string id = $"{barIndex}{e.EventExtremum.Value}";
         Chart.DrawTrendLine($"ES{id}",
@@ -96,6 +72,7 @@ public class ExactZigzagIndicator : Indicator
     //public IndicatorDataSeries Value { get; set; }
 
     private ExtremumFinder m_ExtremumFinder;
+    private ElliottWavePatternFinder m_ElliottWavePatternFinder;
 
     public override void Calculate(int index)
     {

@@ -49,7 +49,6 @@ namespace TradeKit.Core.ElliottWave
             double tp = signalEventArgs.TakeProfit.Value;
             DateTime startView = signalEventArgs.StartViewBarTime;
 
-            bool useChannel = signalEventArgs.ChannelBarPoints.Length == 4;
             var result = new List<GenericChart.GenericChart>();
 
             GenericChart.GenericChart tpLine = Chart2D.Chart.Line<DateTime, double, string>(
@@ -88,35 +87,6 @@ namespace TradeKit.Core.ElliottWave
                     currentBar = wave;
                 }
             }
-
-            if (!useChannel)
-            {
-                return result.ToArray();
-            }
-
-            BarPoint channelBottom1 = signalEventArgs.ChannelBarPoints[0];
-            BarPoint channelBottom2 = signalEventArgs.ChannelBarPoints[1];
-                
-            result.Add(Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[]
-                {
-                    new(channelBottom1.OpenTime, channelBottom1.Value),
-                    new(channelBottom2.OpenTime, channelBottom2.Value)
-                },
-                LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
-                ShowLegend: false.ToFSharp(),
-                LineDash: DrawingStyle.DashDot.ToFSharp()));
-
-
-            BarPoint channelTop1 = signalEventArgs.ChannelBarPoints[2];
-            BarPoint channelTop2 = signalEventArgs.ChannelBarPoints[3];
-
-            result.Add(Chart2D.Chart.Line<DateTime, double, string>(
-                new Tuple<DateTime, double>[]
-                    {new(channelTop1.OpenTime, channelTop1.Value), new(channelTop2.OpenTime, channelTop2.Value)},
-                LineColor: ChartGenerator.WHITE_COLOR.ToFSharp(),
-                ShowLegend: false.ToFSharp(),
-                LineDash: DrawingStyle.Dot.ToFSharp()));
 
             return result.ToArray();
         }
