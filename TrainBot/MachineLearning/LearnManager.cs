@@ -1,5 +1,4 @@
 using TradeKit.Core.Common;
-using TradeKit.Core.ML;
 using TrainBot.Root;
 
 namespace TrainBot.MachineLearning;
@@ -36,18 +35,18 @@ public class LearnManager
     {
         try
         {
-            IEnumerable<LearnFilesItem> filesToLearnPositive = Directory
-                .EnumerateDirectories(m_Settings.PositiveFolder)
-                .Select(a => LearnFilesItem.FromDirPath(true, a));
-            IEnumerable<LearnFilesItem> filesToLearnNegative = Directory
-                .EnumerateDirectories(m_Settings.NegativeFolder)
-                .Select(a => LearnFilesItem.FromDirPath(false, a));
+            //IEnumerable<LearnFilesItem> filesToLearnPositive = Directory
+            //    .EnumerateDirectories(m_Settings.PositiveFolder)
+            //    .Select(a => LearnFilesItem.FromDirPath(true, a));
+            //IEnumerable<LearnFilesItem> filesToLearnNegative = Directory
+            //    .EnumerateDirectories(m_Settings.NegativeFolder)
+            //    .Select(a => LearnFilesItem.FromDirPath(false, a));
 
-            IEnumerable<LearnFilesItem> dataToLearn =
-                filesToLearnPositive.Concat(filesToLearnNegative);
+            //IEnumerable<LearnFilesItem> dataToLearn =
+            //    filesToLearnPositive.Concat(filesToLearnNegative);
 
-            TradeKit.Core.ML.MachineLearning.RunLearnFiles(
-                dataToLearn, m_Settings.MlFolder);
+            //TradeKit.Core.ML.MachineLearning.RunLearnFiles(
+            //    dataToLearn, m_Settings.MlFolder);
         }
         catch (Exception ex)
         {

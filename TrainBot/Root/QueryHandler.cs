@@ -3,6 +3,7 @@ using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
 using TradeKit.Core.Common;
 using TrainBot.Commands;
@@ -77,8 +78,8 @@ namespace TrainBot.Root
                     streamReaders[i] = reader;
                     var stream = new InputFileStream(
                         reader.BaseStream, Path.GetFileName(path));
-                    var photo = new InputMediaPhoto(stream);
-                    photos[i] = photo;
+                    //var photo = new InputMediaPhoto(stream);
+                    //photos[i] = photo;
                 }
 
                 await actionToSend(photos);

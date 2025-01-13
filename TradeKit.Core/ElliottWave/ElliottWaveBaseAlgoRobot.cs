@@ -3,7 +3,6 @@ using Plotly.NET.LayoutObjects;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.Json;
-using TradeKit.Core.ML;
 using static Plotly.NET.StyleParam;
 using Color = Plotly.NET.Color;
 
@@ -199,20 +198,20 @@ namespace TradeKit.Core.ElliottWave
 
             var symbol = TradeManager.GetSymbol(barProvider.BarSymbol.Name);
 
-            float[] vector = MachineLearning.GetModelVector(
-                candlesForExport, startWave.Value, endWave.Value,
-                Helper.ML_IMPULSE_VECTOR_RANK, symbol.Digits).Item1;
+            //float[] vector = MachineLearning.GetModelVector(
+            //    candlesForExport, startWave.Value, endWave.Value,
+            //    Helper.ML_IMPULSE_VECTOR_RANK, symbol.Digits).Item1;
 
-            var saveToLog = new ModelInput
-            {
-                ClassType = (uint) ElliottModelType.IMPULSE, 
-                Vector = vector
-            };
+            //var saveToLog = new ModelInput
+            //{
+            //    ClassType = (uint) ElliottModelType.IMPULSE, 
+            //    Vector = vector
+            //};
 
-            string csvFilePath = Path.Join(
-                Helper.DirectoryToSaveResults, Helper.ML_CSV_STAT_FILE_NAME);
-            using StreamWriter sw = new StreamWriter(csvFilePath, true);
-            sw.WriteLine(saveToLog);
+            //string csvFilePath = Path.Join(
+            //    Helper.DirectoryToSaveResults, Helper.ML_CSV_STAT_FILE_NAME);
+            //using StreamWriter sw = new StreamWriter(csvFilePath, true);
+            //sw.WriteLine(saveToLog);
         }
     }
 }

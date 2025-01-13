@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using Telegram.Bot.Types.ReplyMarkups;
 using TradeKit.Core;
+using TradeKit.Core.Common;
 using TradeKit.Core.Json;
 using TrainBot.Commands.Common;
 using TrainBot.Commands.Enums;

@@ -130,7 +130,7 @@ namespace TrainBot.Root
             }
             else
             {
-                botBotClient.StartReceiving(UpdateHandler, PollingErrorHandler);
+                //botBotClient.StartReceiving(UpdateHandler, PollingErrorHandler);
             }
         }
 
