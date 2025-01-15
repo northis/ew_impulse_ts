@@ -36,6 +36,7 @@
     <Compile Include="Core\CTraderViewManager.cs" />
     <Compile Include="Gartley\GartleyCTraderBaseRobot.cs" />
     <Compile Include="Gartley\GartleySignalerAlgoRobot.cs" />
+    <Compile Include="Impulse\ImpulseCTraderBaseRobot.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\PriceActionHistogramIndicator.cs" />
     <Compile Include="Indicators\SuperTrendIndicator.cs" />

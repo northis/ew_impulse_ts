@@ -14,7 +14,7 @@ namespace TradeKit.Core.ElliottWave
 
         protected ElliottWaveBaseAlgoRobot(ITradeManager tradeManager, IStorageManager storageManager,
             RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName) : base(tradeManager,
-            storageManager, robotParams, isBackTesting, symbolName, timeFrameName)
+            storageManager, robotParams, isBackTesting, symbolName, timeFrameName, true, true)
         {
         }
 

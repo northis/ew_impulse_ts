@@ -8,9 +8,8 @@ namespace TradeKit.Core.AlgoBase
     /// </summary>
     public class ElliottWavePatternFinder
     {
+        private readonly double m_ImpulseMaxSmoothDegree;
         private readonly IBarsProvider m_BarsProviderMain;
-        private readonly IBarsProvider m_BarsProviderMinor;
-        private readonly IBarsProvider m_BarsProviderMinorX2;
         private readonly TimeFrameInfo m_MainFrameInfo;
         private readonly TimeSpan m_TimeSpanMinPeriod;
         private readonly PivotPointsFinder m_PivotPointsFinder;
@@ -28,19 +27,15 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         /// <param name="mainTimeFrame">The main TF</param>
         /// <param name="barProvidersFactory">The bar provider factory (to get moe info).</param>
+        /// <param name="impulseMaxSmoothDegree">The smooth impulse maximum degree.</param>
         public ElliottWavePatternFinder(
             ITimeFrame mainTimeFrame,
-            IBarProvidersFactory barProvidersFactory)
+            IBarProvidersFactory barProvidersFactory,
+            double impulseMaxSmoothDegree = Helper.IMPULSE_MAX_SMOOTH_DEGREE)
         {
+            m_ImpulseMaxSmoothDegree = impulseMaxSmoothDegree;
             m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame.Name];
             m_BarsProviderMain = barProvidersFactory.GetBarsProvider(mainTimeFrame);
-            var tfInfo = TimeFrameHelper.GetPreviousTimeFrameInfo(mainTimeFrame);
-
-            m_BarsProviderMinor = barProvidersFactory.GetBarsProvider(tfInfo.TimeFrame);
-            m_BarsProviderMinorX2 = tfInfo.TimeFrame == tfInfo.PrevTimeFrame
-                ? null
-                : barProvidersFactory.GetBarsProvider(tfInfo.PrevTimeFrame);
-
             m_PivotPointsFinder = new PivotPointsFinder(
                 MIN_PERIOD, m_BarsProviderMain);//min val
 
@@ -178,7 +173,6 @@ namespace TradeKit.Core.AlgoBase
         public bool IsSmoothImpulse(BarPoint start, BarPoint end, out double smoothDegree)
         {
             double fullZigzagLength = Math.Abs(start.Value - end.Value);
-            const double rangeForUse = 0.08;
 
             bool isUp = end > start;
             List<double> devs = new List<double>();
@@ -200,7 +194,7 @@ namespace TradeKit.Core.AlgoBase
             }
 
             double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-            if (sqrtDev > rangeForUse)
+            if (sqrtDev > m_ImpulseMaxSmoothDegree)
             {
                 smoothDegree = 0;
                 return false;

@@ -43,7 +43,7 @@ namespace TradeKit.CTrader.Signals
             }
 
             foreach (IPosition position in 
-                     TradeManager.GetPositions().Where(a => a.Comment == GetBotName()))
+                     TradeManager.GetPositions().Where(a => a.Label == GetBotName()))
             {
                 TradeManager.SetBreakeven(position);
             }

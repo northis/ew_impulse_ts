@@ -9,22 +9,26 @@ namespace TradeKit.CTrader.Impulse
     {
         private readonly Robot m_HostRobot;
         private readonly CTraderManager m_TradeManager;
+        private readonly ImpulseParams m_ImpulseParams;
+
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSignalerAlgoRobot"/> class.
         /// </summary>
         /// <param name="hostRobot">The host robot.</param>
         /// <param name="robotParams">The robot parameters.</param>
-        public ImpulseSignalerAlgoRobot(Robot hostRobot, RobotParams robotParams) : this(hostRobot,
-            new CTraderManager(hostRobot), new CTraderStorageManager(hostRobot), robotParams)
+        /// <param name="impulseParams">The impulse parameters.</param>
+        public ImpulseSignalerAlgoRobot(Robot hostRobot, RobotParams robotParams, ImpulseParams impulseParams) : this(hostRobot,
+            new CTraderManager(hostRobot), new CTraderStorageManager(hostRobot), robotParams, impulseParams)
         {
 
         }
 
-        private ImpulseSignalerAlgoRobot(Robot hostRobot, CTraderManager tradeManager, CTraderStorageManager storageManager, RobotParams robotParams) : base(tradeManager, storageManager, robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
+        private ImpulseSignalerAlgoRobot(Robot hostRobot, CTraderManager tradeManager, CTraderStorageManager storageManager, RobotParams robotParams, ImpulseParams impulseParams) : base(tradeManager, storageManager, robotParams, hostRobot.IsBacktesting, hostRobot.SymbolName, hostRobot.TimeFrame.Name)
         {
             m_HostRobot = hostRobot;
             m_TradeManager = tradeManager;
+            m_ImpulseParams = impulseParams;
             Init();
         }
 
@@ -46,7 +50,7 @@ namespace TradeKit.CTrader.Impulse
                 m_TradeManager.GetCTraderSymbol(symbolEntity.Name), 
                 m_HostRobot.MarketData, 
                 m_TradeManager);
-            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory);
+            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory, m_ImpulseParams);
             return sf;
         }
     }

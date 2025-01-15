@@ -13,6 +13,7 @@ namespace TradeKit.Core.ElliottWave
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
         private readonly ElliottWavePatternFinder m_PatternFinder;
+        private readonly int m_BarsCount;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.4;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
@@ -42,20 +43,23 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         /// <param name="mainBarsProvider">The main bar provider.</param>
         /// <param name="barProvidersFactory">The bar provider factory.</param>
+        /// <param name="impulseParams">The impulse parameters.</param>
         public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider,
-            IBarProvidersFactory barProvidersFactory)
+            IBarProvidersFactory barProvidersFactory,
+            ImpulseParams impulseParams)
             : base(mainBarsProvider, mainBarsProvider.BarSymbol)
         {
-            for (int i = Helper.MIN_IMPULSE_PERIOD;
-                 i <= Helper.MAX_IMPULSE_PERIOD;
+            for (int i = impulseParams.StartPeriod;
+                 i <= impulseParams.EndPeriod;
                  i += Helper.STEP_IMPULSE_PERIOD)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider, barProvidersFactory));
             }
 
+            m_BarsCount = impulseParams.BarsCount;
             m_PatternFinder = new ElliottWavePatternFinder(
-                BarsProvider.TimeFrame, barProvidersFactory);
+                BarsProvider.TimeFrame, barProvidersFactory, impulseParams.SmoothDegree);
         }
 
         /// <summary>
@@ -151,7 +155,7 @@ namespace TradeKit.Core.ElliottWave
             void CheckImpulse()
             {
                 int barsCount = endItem.Value.BarIndex - startItem.Value.BarIndex + 1;
-                if (barsCount < Helper.MINIMUM_BARS_IN_IMPULSE)
+                if (barsCount < m_BarsCount)
                 {
                     //Debugger.Launch();
                     //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
@@ -290,16 +294,13 @@ namespace TradeKit.Core.ElliottWave
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
 
-                string waves = $"Wave 2 {outExtrema.Wave2Type}, wave 4 {outExtrema.Wave4Type}";
-                string comment = waves;
-
-                OnEnterInvoke(new ImpulseSignalEventArgs(
+               OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
                     outExtrema,
                     viewDateTime,
-                    comment));
+                    string.Empty));
                 // Here we should give a trade signal.
             }
 
