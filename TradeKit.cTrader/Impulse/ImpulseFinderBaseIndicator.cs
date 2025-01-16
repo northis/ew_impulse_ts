@@ -28,9 +28,45 @@ namespace TradeKit.CTrader.Impulse
             var barProvidersFactory = new BarProvidersFactory(
                 Symbol, MarketData, cTraderViewManager);
             m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame.ToITimeFrame());
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory);
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, barProvidersFactory, GetImpulseParams());
             Subscribe(m_SetupFinder);
         }
+
+
+        /// <summary>
+        /// Joins the EW-specific parameters into one record.
+        /// </summary>
+        protected ImpulseParams GetImpulseParams()
+        {
+            return new ImpulseParams(StartPeriod, EndPeriod, SmoothDegree, BarsCount);
+        }
+
+        #region Input parameters
+
+        /// <summary>
+        /// Gets or sets the start period.
+        /// </summary>
+        [Parameter(nameof(StartPeriod), DefaultValue = Helper.MIN_IMPULSE_PERIOD, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int StartPeriod { get; set; }
+
+        /// <summary>
+        /// Gets or sets the end period.
+        /// </summary>
+        [Parameter(nameof(EndPeriod), DefaultValue = Helper.MAX_IMPULSE_PERIOD, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int EndPeriod { get; set; }
+
+        /// <summary>
+        /// Gets or sets the bars count.
+        /// </summary>
+        [Parameter(nameof(BarsCount), DefaultValue = Helper.MINIMUM_BARS_IN_IMPULSE, MinValue = 3, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int BarsCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the smooth degree of the impulse.
+        /// </summary>
+        [Parameter(nameof(SmoothDegree), DefaultValue = Helper.IMPULSE_MAX_SMOOTH_DEGREE, MinValue = 0.01, MaxValue = 0.4, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
+        public double SmoothDegree { get; set; }
+        #endregion
 
         /// <summary>
         /// Called when stop event loss occurs.

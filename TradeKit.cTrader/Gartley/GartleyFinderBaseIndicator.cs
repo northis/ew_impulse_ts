@@ -1,13 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
-using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.Indicators;
-using TradeKit.Core.PriceAction;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Gartley

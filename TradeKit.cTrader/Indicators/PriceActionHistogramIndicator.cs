@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
-using TradeKit.Core.Indicators;
 using TradeKit.Core.PriceAction;
 using TradeKit.CTrader.Core;
 

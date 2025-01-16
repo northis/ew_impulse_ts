@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
-using PuppeteerSharp;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 

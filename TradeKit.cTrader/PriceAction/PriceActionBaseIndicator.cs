@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;

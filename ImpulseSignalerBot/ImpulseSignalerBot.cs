@@ -1,7 +1,4 @@
 using cAlgo.API;
-using TradeKit.Core.ElliottWave;
-using TradeKit.Core.EventArgs;
-using TradeKit.CTrader.Core;
 using TradeKit.CTrader.Impulse;
 
 namespace ImpulseSignalerBot
@@ -11,13 +8,14 @@ namespace ImpulseSignalerBot
     /// </summary>
     /// <seealso cref="Indicator" />
     [Robot(AccessRights = AccessRights.FullAccess)]
-    public class ImpulseSignalerRobot : CTraderBaseRobot<ImpulseSignalerAlgoRobot, ImpulseSetupFinder, ImpulseSignalEventArgs>
+    public class ImpulseSignalerRobot : ImpulseCTraderBaseRobot<ImpulseSignalerAlgoRobot>
     {
         private ImpulseSignalerAlgoRobot m_ImpulseSignalerAlgoRobot;
 
         protected override void InitAlgoRobot()
         {
-            m_ImpulseSignalerAlgoRobot = new ImpulseSignalerAlgoRobot(this, GetRobotParams());
+            m_ImpulseSignalerAlgoRobot = new ImpulseSignalerAlgoRobot(
+                this, GetRobotParams(), GetImpulseParams());
         }
 
         protected override void DisposeAlgoRobot()
