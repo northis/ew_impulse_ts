@@ -1,9 +1,32 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core.AlgoBase
 {
     public static class CandleTransformer
     {
+        /// <summary>
+        /// Gets the index of the overlapsed.
+        /// </summary>
+        /// <param name="start">The start.</param>
+        /// <param name="end">The end.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="isUp">if set to <c>true</c> [is up].</param>
+        /// <returns></returns>
+        public static double GetOverlapsedIndex(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider, bool isUp)
+        {
+            var candles = new List<ICandle>();
+            for (int i = start.BarIndex; i <= end.BarIndex; i++)
+            {
+                Candle cdl = Candle.FromIndex(barsProvider, i);
+                candles.Add(cdl);
+            }
+
+            GetProfile(candles, isUp, out double overlapsedIndex);
+            return overlapsedIndex;
+        }
+
         /// <summary>
         /// Gets the profile for the set of candles.
         /// </summary>
@@ -26,6 +49,8 @@ namespace TradeKit.Core.AlgoBase
                 max = Math.Max(max, candle.H);
             }
 
+            double length = max - min;
+            int countToCompare = candles.Count - 1;//except the current candle
             double currentPoint = isUp ? min : max;
             double overlapsedIndexLocal = 0;
             overlapsedIndex = overlapsedIndexLocal;
@@ -48,10 +73,9 @@ namespace TradeKit.Core.AlgoBase
                     return;
                 }
 
-                overlapsedIndexLocal += diff * cdlCount;
+                overlapsedIndexLocal += diff / length * cdlCount / countToCompare;
             }
 
-            overlapsedIndex = overlapsedIndexLocal;
             IOrderedEnumerable<double> orderedPoints = isUp 
                 ? points.OrderBy(a => a) 
                 : points.OrderByDescending(a => a);
@@ -64,6 +88,7 @@ namespace TradeKit.Core.AlgoBase
                 NextPoint(nextPoint);
                 currentPoint = nextPoint;
             }
+            overlapsedIndex = overlapsedIndexLocal;
 
             return profileInner;
         }

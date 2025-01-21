@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.AlgoBase;
+﻿using System.Diagnostics;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -14,9 +15,11 @@ namespace TradeKit.Core.ElliottWave
         ExtremumFinder m_PreFinder;
         private readonly ElliottWavePatternFinder m_PatternFinder;
         private readonly int m_BarsCount;
+        private readonly double m_ImpulseSizeCoefficient;
+        private readonly double m_OverlapseCoefficient;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.4;
-        private const double TRIGGER_LEVEL_RATIO = 0.5;
+        private const double TRIGGER_LEVEL_RATIO = 0.61;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -58,6 +61,8 @@ namespace TradeKit.Core.ElliottWave
             }
 
             m_BarsCount = impulseParams.BarsCount;
+            m_ImpulseSizeCoefficient = impulseParams.MinSizePercent / 100;
+            m_OverlapseCoefficient = impulseParams.MaxOverlapsePercent / 100;
             m_PatternFinder = new ElliottWavePatternFinder(
                 BarsProvider.TimeFrame, barProvidersFactory, impulseParams.SmoothDegree);
         }
@@ -154,13 +159,9 @@ namespace TradeKit.Core.ElliottWave
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
-                int barsCount = endItem.Value.BarIndex - startItem.Value.BarIndex + 1;
+                int barsCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
                 if (barsCount < m_BarsCount)
-                {
-                    //Debugger.Launch();
-                    //Logger.Write($"{m_Symbol}, {State.TimeFrame}: too few bars");
                     return;
-                }
 
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
@@ -168,6 +169,15 @@ namespace TradeKit.Core.ElliottWave
                 bool isImpulseUp = endValue > startValue;
                 double max = isImpulseUp ? endValue : startValue;
                 double min = isImpulseUp ? startValue : endValue;
+
+                if (max <= 0 || (max - min) / max < m_ImpulseSizeCoefficient)
+                    return;
+
+                double overlapsedIndex = CandleTransformer.GetOverlapsedIndex(
+                    startItem.Value, endItem.Value, BarsProvider, isImpulseUp);
+                if (overlapsedIndex > m_OverlapseCoefficient)
+                    return;
+
                 for (int i = endItem.Value.BarIndex + 1; i < index; i++)
                 {
                     if (max <= BarsProvider.GetHighPrice(i) ||

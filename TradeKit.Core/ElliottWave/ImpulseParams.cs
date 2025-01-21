@@ -7,6 +7,8 @@
         int StartPeriod,
         int EndPeriod,
         double SmoothDegree,
+        double MinSizePercent,
+        double MaxOverlapsePercent,
         int BarsCount)
     {
     }

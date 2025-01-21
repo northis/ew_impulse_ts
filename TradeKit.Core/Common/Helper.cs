@@ -17,15 +17,17 @@ namespace TradeKit.Core.Common
         public const string ENV_PRIVATE_URL_KEY = "TRADE_KIT_TW_URL";
         public static string PrivateChartUrl = Environment.GetEnvironmentVariable(ENV_PRIVATE_URL_KEY) ?? "https://www.tradingview.com/chart/";
 
-        public const double MINIMUM_BARS_IN_IMPULSE = 10;
+        public const double MINIMUM_BARS_IN_IMPULSE = 5;
         public const double BARS_DEPTH = 30000;
         public const double PERCENT_ALLOWANCE_SL = 2;
         public const double PERCENT_ALLOWANCE_TP = 0;
         public const double MAX_SPREAD_RATIO = 0.1;
         public const int MIN_IMPULSE_PERIOD = 2;
-        public const int MAX_IMPULSE_PERIOD = 6;
+        public const double MIN_SIZE_PERCENT = 0.1;
+        public const double MIN_OVERLAPSE_PERCENT = 0.1;
+        public const int MAX_IMPULSE_PERIOD = 4;
         public const int STEP_IMPULSE_PERIOD = 1;
-        public const double IMPULSE_MAX_SMOOTH_DEGREE = 0.08;
+        public const double IMPULSE_MAX_SMOOTH_DEGREE = 0.1;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;
