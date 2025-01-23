@@ -99,13 +99,13 @@ namespace TradeKit.CTrader.Core
         /// <summary>
         /// Gets or sets a value indicating whether this bot can pass positions overnight (to the next trade day).
         /// </summary>
-        [Parameter(nameof(AllowOvernightTrade), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(AllowOvernightTrade), DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowOvernightTrade { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this bot can open positions while big spread (spread/(tp-sl)) ratio more than <see cref="Helper.MAX_SPREAD_RATIO"/>.
         /// </summary>
-        [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(AllowEnterOnBigSpread), DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool AllowEnterOnBigSpread { get; set; }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace TradeKit.CTrader.Core
         /// <summary>
         /// Gets the symbol names.
         /// </summary>
-        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY,US 30,US TECH 100,USDNOK,USDSEK,USDDDK", Group = Helper.SYMBOL_SETTINGS_NAME)]
+        [Parameter(nameof(SymbolsToProceed), DefaultValue = "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY", Group = Helper.SYMBOL_SETTINGS_NAME)]
         public string SymbolsToProceed { get; set; }
 
         /// <summary>

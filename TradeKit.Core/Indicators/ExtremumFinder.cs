@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.AlgoBase;
+﻿using System.Diagnostics;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
@@ -60,6 +61,20 @@ namespace TradeKit.Core.Indicators
             double? prevHigh = null;
             DateTime? prevHighDateTime = null;
 
+            if (m_CurrentHighDateTime.HasValue && m_CurrentLowDateTime.HasValue)
+            {
+                if (IsUpDirection && m_CurrentHighDateTime < m_CurrentLowDateTime)
+                {
+                    m_CurrentHighDateTime = null;
+                    m_CurrentHigh = null;
+                }
+                else if (!IsUpDirection && m_CurrentLowDateTime < m_CurrentHighDateTime)
+                {
+                    m_CurrentLowDateTime = null;
+                    m_CurrentLow = null;
+                }
+            }
+
             if (!m_CurrentHigh.HasValue || m_CurrentHigh <= highLocal)
             {
                 prevHigh = m_CurrentHigh;
@@ -118,6 +133,13 @@ namespace TradeKit.Core.Indicators
             {
                 SetExtremumInner(new BarPoint(high, currentIndex, BarsProvider), true);
             }
+
+            //TODO
+            //if (m_CurrentLow.HasValue && m_CurrentLowDateTime.HasValue && m_CurrentLow < low)
+            //{
+            //    SetExtremumInner(new BarPoint(m_CurrentLow.Value, m_CurrentLowDateTime.Value, BarsProvider), false);
+            // find maximum between m_CurrentLowDateTime && currentIndex
+            //}
 
             SetExtremumInner(new BarPoint(low, currentIndex, BarsProvider), false);
 

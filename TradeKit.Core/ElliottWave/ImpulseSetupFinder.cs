@@ -18,8 +18,8 @@ namespace TradeKit.Core.ElliottWave
         private readonly double m_ImpulseSizeCoefficient;
         private readonly double m_OverlapseCoefficient;
 
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.4;
-        private const double TRIGGER_LEVEL_RATIO = 0.61;
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.3;
+        private const double TRIGGER_LEVEL_RATIO = 0.5;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -64,7 +64,7 @@ namespace TradeKit.Core.ElliottWave
             m_ImpulseSizeCoefficient = impulseParams.MinSizePercent / 100;
             m_OverlapseCoefficient = impulseParams.MaxOverlapsePercent / 100;
             m_PatternFinder = new ElliottWavePatternFinder(
-                BarsProvider.TimeFrame, barProvidersFactory, impulseParams.SmoothDegree);
+                BarsProvider.TimeFrame, barProvidersFactory, impulseParams.SmoothDegreePercent / 100);
         }
 
         /// <summary>

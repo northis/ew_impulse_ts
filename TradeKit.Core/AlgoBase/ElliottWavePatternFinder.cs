@@ -31,7 +31,7 @@ namespace TradeKit.Core.AlgoBase
         public ElliottWavePatternFinder(
             ITimeFrame mainTimeFrame,
             IBarProvidersFactory barProvidersFactory,
-            double impulseMaxSmoothDegree = Helper.IMPULSE_MAX_SMOOTH_DEGREE)
+            double impulseMaxSmoothDegree = Helper.IMPULSE_MAX_SMOOTH_DEGREE_PERCENT)
         {
             m_ImpulseMaxSmoothDegree = impulseMaxSmoothDegree;
             m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame.Name];

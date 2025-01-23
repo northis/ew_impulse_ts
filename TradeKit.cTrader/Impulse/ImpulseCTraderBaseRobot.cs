@@ -16,7 +16,7 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                StartPeriod, EndPeriod, SmoothDegree, MinSizePercent, MaxOverlapsePercent, BarsCount);
+                StartPeriod, EndPeriod, SmoothDegreePercent, MinSizePercent, MaxOverlapsePercent, BarsCount);
         }
 
         #region Input parameters
@@ -54,8 +54,8 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// Gets or sets the smooth degree of the impulse.
         /// </summary>
-        [Parameter(nameof(SmoothDegree), DefaultValue = Helper.IMPULSE_MAX_SMOOTH_DEGREE, MinValue = 0.01, MaxValue = 0.4, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
-        public double SmoothDegree { get; set; }
+        [Parameter(nameof(SmoothDegreePercent), DefaultValue = Helper.IMPULSE_MAX_SMOOTH_DEGREE_PERCENT, MinValue = 0.5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.05)]
+        public double SmoothDegreePercent { get; set; }
         #endregion
     }
 }

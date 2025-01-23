@@ -179,7 +179,13 @@ namespace TradeKit.Core.AlgoBase
             bool gotHigh = true;
             bool gotLow = true;
 
-            for (int i = index - m_Period; i < index + m_Period; i++)
+            int lastExtremumIndex = AllExtrema.Count > 0 
+                ? m_BarsProvider.GetIndexByTime(AllExtrema.Max()) 
+                : 0;
+
+            int leftStartIndex = Math.Max(index - m_Period, lastExtremumIndex);
+
+            for (int i = leftStartIndex; i < index + m_Period; i++)
             {
                 if (i == index)
                     continue;

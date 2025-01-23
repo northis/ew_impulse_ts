@@ -24,6 +24,9 @@ namespace TradeKit.Core.AlgoBase
             }
 
             GetProfile(candles, isUp, out double overlapsedIndex);
+            if (overlapsedIndex > 1)
+                overlapsedIndex = 1;
+
             return overlapsedIndex;
         }
 

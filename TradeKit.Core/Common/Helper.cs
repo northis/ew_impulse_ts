@@ -24,10 +24,10 @@ namespace TradeKit.Core.Common
         public const double MAX_SPREAD_RATIO = 0.1;
         public const int MIN_IMPULSE_PERIOD = 2;
         public const double MIN_SIZE_PERCENT = 0.1;
-        public const double MIN_OVERLAPSE_PERCENT = 0.1;
+        public const double MIN_OVERLAPSE_PERCENT = 15;
         public const int MAX_IMPULSE_PERIOD = 4;
         public const int STEP_IMPULSE_PERIOD = 1;
-        public const double IMPULSE_MAX_SMOOTH_DEGREE = 0.1;
+        public const double IMPULSE_MAX_SMOOTH_DEGREE_PERCENT = 15;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;
