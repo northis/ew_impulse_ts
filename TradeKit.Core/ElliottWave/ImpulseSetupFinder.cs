@@ -64,7 +64,8 @@ namespace TradeKit.Core.ElliottWave
             m_ImpulseSizeCoefficient = impulseParams.MinSizePercent / 100;
             m_OverlapseCoefficient = impulseParams.MaxOverlapsePercent / 100;
             m_PatternFinder = new ElliottWavePatternFinder(
-                BarsProvider.TimeFrame, barProvidersFactory, impulseParams.SmoothDegreePercent / 100);
+                BarsProvider.TimeFrame, barProvidersFactory, impulseParams.SmoothDegreePercent / 100,
+                impulseParams.MaxOverlapseLengthPercent / 100);
         }
 
         /// <summary>

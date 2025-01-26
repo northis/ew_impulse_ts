@@ -1,5 +1,7 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
+using static Plotly.NET.StyleParam.Range;
 
 namespace TradeKit.Core.AlgoBase
 {
@@ -9,12 +11,13 @@ namespace TradeKit.Core.AlgoBase
     public class ElliottWavePatternFinder
     {
         private readonly double m_ImpulseMaxSmoothDegree;
+        private readonly double m_ImpulseMaxOverlapseLength;
         private readonly IBarsProvider m_BarsProviderMain;
         private readonly TimeFrameInfo m_MainFrameInfo;
         private readonly TimeSpan m_TimeSpanMinPeriod;
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
-        private const int MIN_PERIOD = 1;
+        private const int MIN_PERIOD = 2;
 
         private record CheckParams(
             bool IsUp,
@@ -28,12 +31,15 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="mainTimeFrame">The main TF</param>
         /// <param name="barProvidersFactory">The bar provider factory (to get moe info).</param>
         /// <param name="impulseMaxSmoothDegree">The smooth impulse maximum degree.</param>
+        /// <param name="impulseMaxOverlapseLength">The impulse maximum overlapse length.</param>
         public ElliottWavePatternFinder(
             ITimeFrame mainTimeFrame,
             IBarProvidersFactory barProvidersFactory,
-            double impulseMaxSmoothDegree = Helper.IMPULSE_MAX_SMOOTH_DEGREE_PERCENT)
+            double impulseMaxSmoothDegree,
+            double impulseMaxOverlapseLength)
         {
             m_ImpulseMaxSmoothDegree = impulseMaxSmoothDegree;
+            m_ImpulseMaxOverlapseLength = impulseMaxOverlapseLength;
             m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame.Name];
             m_BarsProviderMain = barProvidersFactory.GetBarsProvider(mainTimeFrame);
             m_PivotPointsFinder = new PivotPointsFinder(
@@ -49,11 +55,8 @@ namespace TradeKit.Core.AlgoBase
             Func<DateTime, double, bool> isStopPrice)
         {
             var scores = new SortedDictionary<DateTime, (int, double)>();
-            foreach (DateTime dt in values.Keys)
+            foreach (DateTime dt in GetKeysRange(values, startDate, endDate))
             {
-                if (dt <= startDate || dt >= endDate || double.IsNaN(values[dt]))
-                    continue;
-
                 double currentPrice = values[dt];
                 int rewindScore = 0;
 
@@ -201,7 +204,110 @@ namespace TradeKit.Core.AlgoBase
             }
 
             smoothDegree = 1 - sqrtDev;
+            if (GetMaxOverlapseScore(start, end) > m_ImpulseMaxOverlapseLength)
+            {
+                return false;
+            }
+
             return true;
+        }
+
+        private SortedDictionary<DateTime, double> GetPoints(
+            BarPoint start, BarPoint end, Func<int, double> valueByIndex)
+        {
+            var res = new SortedDictionary<DateTime, double>();
+            var startIndex = start.BarIndex;
+            var endIndex = end.BarIndex;
+
+            for (int i = startIndex; i <= endIndex; i++)
+            {
+                res.Add(m_BarsProviderMain.GetOpenTime(i), valueByIndex(i));
+            }
+
+            return res;
+        }
+
+        /// <summary>
+        /// Gets the maximum overlapse score.
+        /// </summary>
+        /// <param name="start">The start.</param>
+        /// <param name="end">The end.</param>
+        /// <returns></returns>
+        public double GetMaxOverlapseScore(BarPoint start, BarPoint end)
+        {
+            m_PivotPointsFinder.Reset();
+            m_PivotPointsFinder.Calculate(
+                start.OpenTime.Subtract(m_TimeSpanMinPeriod),
+                end.OpenTime.Add(m_TimeSpanMinPeriod));
+
+            bool isUp = end > start;
+            double length = Math.Abs(end - start);
+
+            int hValsCount = GetKeysRange(
+                    m_PivotPointsFinder.HighValues, start.OpenTime, end.OpenTime)
+                .Count();
+            int lValsCount = GetKeysRange(
+                    m_PivotPointsFinder.LowValues, start.OpenTime, end.OpenTime)
+                .Count();
+
+            SortedDictionary<DateTime, double> hVals = hValsCount > 0
+                ? m_PivotPointsFinder.HighValues
+                : GetPoints(start, end, a => m_BarsProviderMain.GetHighPrice(a));
+
+            SortedDictionary<DateTime, double> lVals = lValsCount > 0
+                ? m_PivotPointsFinder.LowValues 
+                : GetPoints(start, end, a => m_BarsProviderMain.GetLowPrice(a));
+
+            SortedDictionary<DateTime, double> inputKeys = isUp 
+                ? hVals
+                : lVals;
+
+            SortedDictionary<DateTime, double> inputCounterKeys = isUp
+                ? lVals
+                : hVals;
+
+            SortedDictionary<DateTime, (double, DateTime)> scores = 
+                new SortedDictionary<DateTime, (double, DateTime)>();
+            foreach (DateTime dt in GetKeysRange(inputKeys, start.OpenTime, end.OpenTime))
+            {
+                double currentPrice = inputKeys[dt];
+                foreach (DateTime inputCounterKey in GetKeysRange(inputCounterKeys, dt, end.OpenTime))
+                {
+                    if (inputCounterKey == dt)
+                        continue;
+
+                    double localLength = (isUp ? 1 : -1) *
+                                         (currentPrice - inputCounterKeys[inputCounterKey]);
+                    if (localLength < 0)
+                        break;
+
+                    if (!scores.ContainsKey(dt) || scores[dt].Item1 < localLength)
+                    {
+                        scores[dt] = new ValueTuple<double, DateTime>(localLength, inputCounterKey);
+                    }
+                }
+            }
+
+            if (scores.Count > 0)
+            {
+                // TODO use distance between peaks, not only the length
+                double result = scores.Values.Max(a => a.Item1) / length;
+                return result;
+            }
+
+            return 0;
+        }
+
+        private IEnumerable<DateTime> GetKeysRange(
+            SortedDictionary<DateTime, double> inputKeys, DateTime dateStart, DateTime dateEnd)
+        {
+            foreach (DateTime dt in inputKeys.Keys)
+            {
+                if (dt <= dateStart || dt >= dateEnd || double.IsNaN(inputKeys[dt]))
+                    continue;
+
+                yield return dt;
+            }
         }
 
         private bool IsImpulseByPivots(
@@ -215,7 +321,8 @@ namespace TradeKit.Core.AlgoBase
                 start.OpenTime.Subtract(m_TimeSpanMinPeriod),
                 end.OpenTime.Add(m_TimeSpanMinPeriod));
 
-            SortedDictionary<DateTime, (int, double)> highs = GetExtremaScored(m_PivotPointsFinder.HighValues, start.OpenTime,
+            SortedDictionary<DateTime, (int, double)> highs = GetExtremaScored(
+                m_PivotPointsFinder.HighValues, start.OpenTime,
                 end.OpenTime,
                 (d, p) => m_BarsProviderMain.GetHighPrice(d) >= p);
             SortedDictionary<DateTime, (int, double)> lows = GetExtremaScored(

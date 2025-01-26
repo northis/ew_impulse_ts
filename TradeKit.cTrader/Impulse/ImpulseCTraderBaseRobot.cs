@@ -16,7 +16,7 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                StartPeriod, EndPeriod, SmoothDegreePercent, MinSizePercent, MaxOverlapsePercent, BarsCount);
+                StartPeriod, EndPeriod, SmoothDegreePercent, MinSizePercent, MaxOverlapsePercent, MaxOverlapseLengthPercent, BarsCount);
         }
 
         #region Input parameters
@@ -44,6 +44,12 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         [Parameter(nameof(MaxOverlapsePercent), DefaultValue = Helper.MIN_OVERLAPSE_PERCENT, MinValue = 0.01, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxOverlapsePercent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum length of the impulse in percent of the entire impulse.
+        /// </summary>
+        [Parameter(nameof(MaxOverlapseLengthPercent), DefaultValue = Helper.MAX_OVERLAPSE_LENGTH_PERCENT, MinValue = 0.01, MaxValue = 90, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxOverlapseLengthPercent { get; set; }
 
         /// <summary>
         /// Gets or sets the bars count.

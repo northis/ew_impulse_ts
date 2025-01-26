@@ -25,6 +25,7 @@ namespace TradeKit.Core.Common
         public const int MIN_IMPULSE_PERIOD = 2;
         public const double MIN_SIZE_PERCENT = 0.1;
         public const double MIN_OVERLAPSE_PERCENT = 15;
+        public const double MAX_OVERLAPSE_LENGTH_PERCENT = 15;
         public const int MAX_IMPULSE_PERIOD = 4;
         public const int STEP_IMPULSE_PERIOD = 1;
         public const double IMPULSE_MAX_SMOOTH_DEGREE_PERCENT = 15;

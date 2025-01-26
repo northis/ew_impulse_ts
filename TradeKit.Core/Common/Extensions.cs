@@ -389,7 +389,7 @@ namespace TradeKit.Core.Common
 
             ITimeFrame currentTimeFrame = candleTimeFrame;
 
-            for (; ; )
+            for (;;)
             {
                 var prevTimeFrame = TimeFrameHelper.GetPreviousTimeFrameInfo(currentTimeFrame).TimeFrame;
                 if (currentTimeFrame == prevTimeFrame)

@@ -9,6 +9,7 @@
         double SmoothDegreePercent,
         double MinSizePercent,
         double MaxOverlapsePercent,
+        double MaxOverlapseLengthPercent,
         int BarsCount)
     {
     }

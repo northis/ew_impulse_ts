@@ -18,7 +18,8 @@ public class ExactZigzagIndicator : Indicator
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
         var factory = new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this));
         m_ExtremumFinder = new ExtremumFinder(10, m_BarProvider, factory);
-        m_ElliottWavePatternFinder = new ElliottWavePatternFinder(TimeFrame.ToITimeFrame(), factory);
+        m_ElliottWavePatternFinder = new ElliottWavePatternFinder(TimeFrame.ToITimeFrame(), factory,
+            50d / 100, 50d / 100);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
@@ -54,6 +55,8 @@ public class ExactZigzagIndicator : Indicator
 
         double overlapsedIndex = CandleTransformer.GetOverlapsedIndex(
             m_CurrentExtremum, e.EventExtremum, m_BarProvider, isUp);
+        double overlapsedMaxLength = m_ElliottWavePatternFinder.GetMaxOverlapseScore(
+            m_CurrentExtremum, e.EventExtremum);
 
         int resultColorAdd = baseColorValue + Convert.ToInt32(smoothDegree * colorRatioValue);
         if (resultColorAdd > maxColorValue) resultColorAdd = maxColorValue;
@@ -64,7 +67,9 @@ public class ExactZigzagIndicator : Indicator
         Chart.DrawTrendLine($"ES{id}",
             m_CurrentExtremum.BarIndex, m_CurrentExtremum.Value, e.EventExtremum.BarIndex, e.EventExtremum.Value,
             color, 3);
-        Chart.DrawText($"T{id}", $"{100 - Convert.ToInt32(smoothDegree * 100)}/{Convert.ToInt32(overlapsedIndex *100)}", e.EventExtremum.OpenTime,
+        Chart.DrawText($"T{id}",
+            $"{100 - Convert.ToInt32(smoothDegree * 100)}/{Convert.ToInt32(overlapsedIndex * 100)}/{Convert.ToInt32(overlapsedMaxLength * 100)}",
+            e.EventExtremum.OpenTime,
             e.EventExtremum.Value, color);
         m_CurrentExtremum = e.EventExtremum;
     }
