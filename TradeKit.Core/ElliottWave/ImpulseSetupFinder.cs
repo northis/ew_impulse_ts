@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.FSharp.Data.UnitSystems.SI.UnitNames;
+using System.Diagnostics;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -13,10 +14,11 @@ namespace TradeKit.Core.ElliottWave
     {
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
-        private readonly ElliottWavePatternFinder m_PatternFinder;
         private readonly int m_BarsCount;
         private readonly double m_ImpulseSizeCoefficient;
         private readonly double m_OverlapseCoefficient;
+        private readonly double m_ImpulseMaxHeterogeneityDegree;
+        private readonly double m_ImpulseMaxOverlapseLength;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.3;
         private const double TRIGGER_LEVEL_RATIO = 0.5;
@@ -63,9 +65,8 @@ namespace TradeKit.Core.ElliottWave
             m_BarsCount = impulseParams.BarsCount;
             m_ImpulseSizeCoefficient = impulseParams.MinSizePercent / 100;
             m_OverlapseCoefficient = impulseParams.MaxOverlapsePercent / 100;
-            m_PatternFinder = new ElliottWavePatternFinder(
-                BarsProvider.TimeFrame, barProvidersFactory, impulseParams.SmoothDegreePercent / 100,
-                impulseParams.MaxOverlapseLengthPercent / 100);
+            m_ImpulseMaxHeterogeneityDegree = impulseParams.HeterogeneityDegreePercent / 100;
+            m_ImpulseMaxOverlapseLength = impulseParams.MaxOverlapseLengthPercent / 100;
         }
 
         /// <summary>
@@ -128,6 +129,16 @@ namespace TradeKit.Core.ElliottWave
 
             return isInitialMove;
         }
+
+        private bool IsSmoothImpulse(ImpulseResult stats)
+        {
+            bool res = stats.HeterogeneityDegree <= m_ImpulseMaxHeterogeneityDegree &&
+                       stats.OverlapseDegree <= m_OverlapseCoefficient &&
+                       stats.OverlapseMaxDepth <= m_ImpulseMaxOverlapseLength &&
+                       stats.HeterogeneityDegree + stats.OverlapseDegree + stats.OverlapseMaxDepth <
+                       (m_ImpulseMaxHeterogeneityDegree + m_OverlapseCoefficient + m_ImpulseMaxOverlapseLength) / 2;
+            return res;
+        }
         
         /// <summary>
         /// Determines whether the data for specified index contains a trade setup.
@@ -160,25 +171,24 @@ namespace TradeKit.Core.ElliottWave
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
-                int barsCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
-                if (barsCount < m_BarsCount)
+                ImpulseResult stats = MovementStatistic.GetMovementStatistic(
+                    startItem.Value, endItem.Value, BarsProvider);
+                if (stats.CandlesCount < m_BarsCount)
+                    return;
+
+                if (stats.Size < m_ImpulseSizeCoefficient)
+                    return;
+
+                if (stats.OverlapseDegree > m_OverlapseCoefficient)
                     return;
 
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
                 bool isImpulseUp = endValue > startValue;
+
                 double max = isImpulseUp ? endValue : startValue;
                 double min = isImpulseUp ? startValue : endValue;
-
-                if (max <= 0 || (max - min) / max < m_ImpulseSizeCoefficient)
-                    return;
-
-                double overlapsedIndex = CandleTransformer.GetOverlapsedIndex(
-                    startItem.Value, endItem.Value, BarsProvider, isImpulseUp);
-                if (overlapsedIndex > m_OverlapseCoefficient)
-                    return;
-
                 for (int i = endItem.Value.BarIndex + 1; i < index; i++)
                 {
                     if (max <= BarsProvider.GetHighPrice(i) ||
@@ -229,12 +239,18 @@ namespace TradeKit.Core.ElliottWave
                 }
 
                 m_PreFinder = null;
-                if (!m_PatternFinder.IsImpulse(startItem.Value, endItem.Value, out ImpulseElliottModelResult outExtrema))
+                if (!IsSmoothImpulse(stats))
                 {
-                    // The move is not an impulse.
+                    // The move is not a smooth impulse.
                     // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
                     return;
                 }
+
+                var outExtrema = new ImpulseElliottModelResult
+                {
+                    Wave0 = startItem.Value, 
+                    Wave5 = endItem.Value
+                };
 
                 if (SetupStartIndex == startItem.Value.BarIndex ||
                     SetupEndIndex == endItem.Value.BarIndex)

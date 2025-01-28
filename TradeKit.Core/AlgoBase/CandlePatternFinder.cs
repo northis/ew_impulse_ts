@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 using TradeKit.Core.PriceAction;
 using static TradeKit.Core.PriceAction.CandlePatternType;
 using CPS = TradeKit.Core.PriceAction.CandlePatternSettings;

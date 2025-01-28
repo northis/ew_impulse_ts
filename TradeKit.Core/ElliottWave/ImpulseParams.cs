@@ -6,7 +6,7 @@
     public record ImpulseParams(
         int StartPeriod,
         int EndPeriod,
-        double SmoothDegreePercent,
+        double HeterogeneityDegreePercent,
         double MinSizePercent,
         double MaxOverlapsePercent,
         double MaxOverlapseLengthPercent,

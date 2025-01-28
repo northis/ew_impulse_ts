@@ -24,11 +24,11 @@ namespace TradeKit.Core.Common
         public const double MAX_SPREAD_RATIO = 0.1;
         public const int MIN_IMPULSE_PERIOD = 2;
         public const double MIN_SIZE_PERCENT = 0.1;
-        public const double MIN_OVERLAPSE_PERCENT = 15;
-        public const double MAX_OVERLAPSE_LENGTH_PERCENT = 15;
-        public const int MAX_IMPULSE_PERIOD = 4;
+        public const double MIN_OVERLAPSE_PERCENT = 25;
+        public const double MAX_OVERLAPSE_LENGTH_PERCENT = 25;
+        public const int MAX_IMPULSE_PERIOD = 20;
         public const int STEP_IMPULSE_PERIOD = 1;
-        public const double IMPULSE_MAX_SMOOTH_DEGREE_PERCENT = 15;
+        public const double IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT = 25;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;
@@ -212,6 +212,20 @@ namespace TradeKit.Core.Common
         public static string PriceFormat(double price, int digits)
         {
             return price.ToString($"F{digits}", CultureInfo.InvariantCulture);
+        }
+
+
+
+        public static IEnumerable<DateTime> GetKeysRange(
+            SortedDictionary<DateTime, double> inputKeys, DateTime dateStart, DateTime dateEnd)
+        {
+            foreach (DateTime dt in inputKeys.Keys)
+            {
+                if (dt < dateStart || dt > dateEnd || double.IsNaN(inputKeys[dt]))
+                    continue;
+
+                yield return dt;
+            }
         }
 
         /// <summary>

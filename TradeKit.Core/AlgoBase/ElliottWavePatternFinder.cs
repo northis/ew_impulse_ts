@@ -1,7 +1,5 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
-using static Plotly.NET.StyleParam.Range;
 
 namespace TradeKit.Core.AlgoBase
 {
@@ -10,8 +8,6 @@ namespace TradeKit.Core.AlgoBase
     /// </summary>
     public class ElliottWavePatternFinder
     {
-        private readonly double m_ImpulseMaxSmoothDegree;
-        private readonly double m_ImpulseMaxOverlapseLength;
         private readonly IBarsProvider m_BarsProviderMain;
         private readonly TimeFrameInfo m_MainFrameInfo;
         private readonly TimeSpan m_TimeSpanMinPeriod;
@@ -30,16 +26,10 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         /// <param name="mainTimeFrame">The main TF</param>
         /// <param name="barProvidersFactory">The bar provider factory (to get moe info).</param>
-        /// <param name="impulseMaxSmoothDegree">The smooth impulse maximum degree.</param>
-        /// <param name="impulseMaxOverlapseLength">The impulse maximum overlapse length.</param>
         public ElliottWavePatternFinder(
             ITimeFrame mainTimeFrame,
-            IBarProvidersFactory barProvidersFactory,
-            double impulseMaxSmoothDegree,
-            double impulseMaxOverlapseLength)
+            IBarProvidersFactory barProvidersFactory)
         {
-            m_ImpulseMaxSmoothDegree = impulseMaxSmoothDegree;
-            m_ImpulseMaxOverlapseLength = impulseMaxOverlapseLength;
             m_MainFrameInfo = TimeFrameHelper.TimeFrames[mainTimeFrame.Name];
             m_BarsProviderMain = barProvidersFactory.GetBarsProvider(mainTimeFrame);
             m_PivotPointsFinder = new PivotPointsFinder(
@@ -55,7 +45,7 @@ namespace TradeKit.Core.AlgoBase
             Func<DateTime, double, bool> isStopPrice)
         {
             var scores = new SortedDictionary<DateTime, (int, double)>();
-            foreach (DateTime dt in GetKeysRange(values, startDate, endDate))
+            foreach (DateTime dt in Helper.GetKeysRange(values, startDate, endDate))
             {
                 double currentPrice = values[dt];
                 int rewindScore = 0;
@@ -173,398 +163,6 @@ namespace TradeKit.Core.AlgoBase
             return result;
         }
 
-        public bool IsSmoothImpulse(BarPoint start, BarPoint end, out double smoothDegree)
-        {
-            double fullZigzagLength = Math.Abs(start.Value - end.Value);
-
-            bool isUp = end > start;
-            List<double> devs = new List<double>();
-
-            int indexDiff = end.BarIndex - start.BarIndex;
-            double dx = fullZigzagLength / (indexDiff > 0 ? indexDiff : 0.5);
-            for (int i = start.BarIndex; i <= end.BarIndex; i++)
-            {
-                int count = i - start.BarIndex;
-                Candle candle = Candle.FromIndex(m_BarsProviderMain, i);
-                double midPoint = candle.L + candle.Length / 2;
-
-                double currDx = count * dx;
-                var part = Math.Abs((isUp
-                    ? start.Value + currDx
-                    : start.Value - currDx) - midPoint) / fullZigzagLength;
-
-                devs.Add(part);
-            }
-
-            double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-            if (sqrtDev > m_ImpulseMaxSmoothDegree)
-            {
-                smoothDegree = 0;
-                return false;
-            }
-
-            smoothDegree = 1 - sqrtDev;
-            if (GetMaxOverlapseScore(start, end) > m_ImpulseMaxOverlapseLength)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private SortedDictionary<DateTime, double> GetPoints(
-            BarPoint start, BarPoint end, Func<int, double> valueByIndex)
-        {
-            var res = new SortedDictionary<DateTime, double>();
-            var startIndex = start.BarIndex;
-            var endIndex = end.BarIndex;
-
-            for (int i = startIndex; i <= endIndex; i++)
-            {
-                res.Add(m_BarsProviderMain.GetOpenTime(i), valueByIndex(i));
-            }
-
-            return res;
-        }
-
-        /// <summary>
-        /// Gets the maximum overlapse score.
-        /// </summary>
-        /// <param name="start">The start.</param>
-        /// <param name="end">The end.</param>
-        /// <returns></returns>
-        public double GetMaxOverlapseScore(BarPoint start, BarPoint end)
-        {
-            m_PivotPointsFinder.Reset();
-            m_PivotPointsFinder.Calculate(
-                start.OpenTime.Subtract(m_TimeSpanMinPeriod),
-                end.OpenTime.Add(m_TimeSpanMinPeriod));
-
-            bool isUp = end > start;
-            double length = Math.Abs(end - start);
-
-            int hValsCount = GetKeysRange(
-                    m_PivotPointsFinder.HighValues, start.OpenTime, end.OpenTime)
-                .Count();
-            int lValsCount = GetKeysRange(
-                    m_PivotPointsFinder.LowValues, start.OpenTime, end.OpenTime)
-                .Count();
-
-            SortedDictionary<DateTime, double> hVals = hValsCount > 0
-                ? m_PivotPointsFinder.HighValues
-                : GetPoints(start, end, a => m_BarsProviderMain.GetHighPrice(a));
-
-            SortedDictionary<DateTime, double> lVals = lValsCount > 0
-                ? m_PivotPointsFinder.LowValues 
-                : GetPoints(start, end, a => m_BarsProviderMain.GetLowPrice(a));
-
-            SortedDictionary<DateTime, double> inputKeys = isUp 
-                ? hVals
-                : lVals;
-
-            SortedDictionary<DateTime, double> inputCounterKeys = isUp
-                ? lVals
-                : hVals;
-
-            SortedDictionary<DateTime, (double, DateTime)> scores = 
-                new SortedDictionary<DateTime, (double, DateTime)>();
-            foreach (DateTime dt in GetKeysRange(inputKeys, start.OpenTime, end.OpenTime))
-            {
-                double currentPrice = inputKeys[dt];
-                foreach (DateTime inputCounterKey in GetKeysRange(inputCounterKeys, dt, end.OpenTime))
-                {
-                    if (inputCounterKey == dt)
-                        continue;
-
-                    double localLength = (isUp ? 1 : -1) *
-                                         (currentPrice - inputCounterKeys[inputCounterKey]);
-                    if (localLength < 0)
-                        break;
-
-                    if (!scores.ContainsKey(dt) || scores[dt].Item1 < localLength)
-                    {
-                        scores[dt] = new ValueTuple<double, DateTime>(localLength, inputCounterKey);
-                    }
-                }
-            }
-
-            if (scores.Count > 0)
-            {
-                // TODO use distance between peaks, not only the length
-                double result = scores.Values.Max(a => a.Item1) / length;
-                return result;
-            }
-
-            return 0;
-        }
-
-        private IEnumerable<DateTime> GetKeysRange(
-            SortedDictionary<DateTime, double> inputKeys, DateTime dateStart, DateTime dateEnd)
-        {
-            foreach (DateTime dt in inputKeys.Keys)
-            {
-                if (dt <= dateStart || dt >= dateEnd || double.IsNaN(inputKeys[dt]))
-                    continue;
-
-                yield return dt;
-            }
-        }
-
-        private bool IsImpulseByPivots(
-            BarPoint start, BarPoint end, out ImpulseElliottModelResult result)
-        {
-            var waveResults = new List<ImpulseElliottModelResult>();
-            result = new ImpulseElliottModelResult {Wave0 = start, Wave5 = end};
-
-            m_PivotPointsFinder.Reset();
-            m_PivotPointsFinder.Calculate(
-                start.OpenTime.Subtract(m_TimeSpanMinPeriod),
-                end.OpenTime.Add(m_TimeSpanMinPeriod));
-
-            SortedDictionary<DateTime, (int, double)> highs = GetExtremaScored(
-                m_PivotPointsFinder.HighValues, start.OpenTime,
-                end.OpenTime,
-                (d, p) => m_BarsProviderMain.GetHighPrice(d) >= p);
-            SortedDictionary<DateTime, (int, double)> lows = GetExtremaScored(
-                m_PivotPointsFinder.LowValues, start.OpenTime, end.OpenTime,
-                (d, p) => m_BarsProviderMain.GetLowPrice(d) <= p);
-            
-            if (highs.Count == 0 && lows.Count == 0)
-                return true;//really smooth movement
-
-            bool isUp = end > start;
-
-            TimeSpan halfLength = (end.OpenTime - start.OpenTime) / 2.5;
-            DateTime middleDate = end.OpenTime.Subtract(halfLength);
-
-            //Let's find the end of the 3rd wave in the second part of the movement
-            List<KeyValuePair<DateTime, (int, double)>> wave3And5 = (isUp ? highs : lows)
-                .OrderBy(a => a.Key)
-                .SkipWhile(a => a.Key < middleDate)
-                .ToList();
-
-            List<BarPoint> peaks3To4To5 = SelectPeaks(wave3And5, isUp);
-            if (peaks3To4To5.Count == 0)
-                return false;
-
-            var checkParams = new CheckParams(isUp, highs, lows, waveResults);
-            if (peaks3To4To5.Count > 1)
-            {
-                CheckWith3RdWave(checkParams,
-                    result with { Wave3 = peaks3To4To5[0] }, peaks3To4To5[1]);
-                CheckWith3RdWave(checkParams,
-                    result with { Wave3 = peaks3To4To5[1] }, peaks3To4To5[0]);
-            }
-
-            CheckWith3RdWave(checkParams, result with { Wave3 = peaks3To4To5[0] });
-
-            bool hasOptions = checkParams.WavesResults.Any();
-            if (hasOptions)
-            {
-                ImpulseElliottModelResult properImpulse = checkParams.WavesResults
-                    .FirstOrDefault(a =>
-                        ElliottWavePatternHelper.DeepCorrections.Contains(a.Wave2Type) &&
-                        ElliottWavePatternHelper.ShallowCorrections.Contains(a.Wave4Type) ||
-                        ElliottWavePatternHelper.DeepCorrections.Contains(a.Wave4Type) &&
-                        ElliottWavePatternHelper.ShallowCorrections.Contains(a.Wave2Type));
-                result = properImpulse ?? checkParams.WavesResults.First();
-            }
-
-            return hasOptions;
-        }
-
-        private void CheckWith1stWave(
-            CheckParams checkParams, ImpulseElliottModelResult result, BarPoint bOf2 = null)
-        {
-            if (result.Wave1 == null)
-                return;
-
-            List<KeyValuePair<DateTime, (int, double)>> wave2And3 = (checkParams.IsUp
-                    ? checkParams.Lows
-                    : checkParams.Highs)
-                .OrderBy(a => a.Key)
-                .SkipWhile(a => a.Key <= (bOf2?.OpenTime ?? result.Wave1.OpenTime))
-                .TakeWhile(a => a.Key < result.Wave3.OpenTime &&
-                                checkParams.IsUp
-                    ? a.Value.Item2 < result.Wave1.Value
-                    : a.Value.Item2 > result.Wave1.Value)
-                .ToList();
-
-            if (wave2And3.Count == 0)
-                return;
-
-            // This is the end of wave 2 (zz or dzz or fl)
-            KeyValuePair<DateTime, (int, double)> wave2End = checkParams.IsUp
-                ? wave2And3.MinBy(a => a.Value.Item2)
-                : wave2And3.MaxBy(a => a.Value.Item2);
-
-            result.Wave2 = new BarPoint(wave2End.Value.Item2, wave2End.Key, m_BarsProviderMain);
-            if (bOf2 == null)
-            {
-                result.ExtremaWave2 = new List<BarPoint> { result.Wave1, result.Wave2 };
-                result.Wave2Type = ElliottModelType.ZIGZAG;
-                // TODO detect dzz?
-            }
-            else
-            {
-                if (result.Wave1.OpenTime >= bOf2.OpenTime)
-                    return;// foolproof
-
-                if (checkParams.IsUp && bOf2 < result.Wave1 ||
-                    !checkParams.IsUp && bOf2 > result.Wave1 ||
-                    result.Wave1.OpenTime >= bOf2.OpenTime)
-                    return;// exclude a regular flat
-
-                BarPoint waveA = m_BarsProviderMain.GetExtremumBetween(result.Wave1.OpenTime, result.Wave2.OpenTime, !checkParams.IsUp);
-                if (waveA == null)
-                    return;
-
-                result.ExtremaWave2 = new List<BarPoint> {result.Wave1, waveA, bOf2, result.Wave2};
-
-                if (checkParams.IsUp && waveA < result.Wave2 ||
-                    !checkParams.IsUp && waveA > result.Wave2)
-                    result.Wave2Type = ElliottModelType.FLAT_RUNNING;
-                else
-                    result.Wave2Type = ElliottModelType.FLAT_EXTENDED;
-            }
-            
-            bool isValid = ValidateImpulse(
-                result.Wave0, result.Wave1,
-                result.Wave2, result.Wave3,
-                result.Wave4, result.Wave5);
-
-            if (!isValid)
-                return;
-
-            checkParams.WavesResults.Add(result);
-        }
-
-        private void CheckWith1st2ndWave(
-            CheckParams checkParams, ImpulseElliottModelResult result)
-        {
-            List<KeyValuePair<DateTime, (int, double)>> wave1And3 = (
-                    checkParams.IsUp ? checkParams.Highs : checkParams.Lows)
-                .Where(a => a.Key < result.Wave3.OpenTime)
-                .ToList();
-
-            List<BarPoint> peaks1To3 = SelectPeaks(wave1And3, checkParams.IsUp);
-            if (peaks1To3.Count == 0)
-                return;
-
-            BarPoint firstExtrema2Check = peaks1To3[0];
-            BarPoint pre1Extrema = m_BarsProviderMain.GetExtremumBetween(
-                result.Wave0.OpenTime, firstExtrema2Check.OpenTime, checkParams.IsUp);
-
-            BarPoint waveBof2 = null;
-            if (checkParams.IsUp && pre1Extrema >= firstExtrema2Check ||
-                !checkParams.IsUp && pre1Extrema <= firstExtrema2Check)
-            {
-                waveBof2 = firstExtrema2Check;
-                firstExtrema2Check = pre1Extrema;
-            }
-
-            if (waveBof2 == null && peaks1To3.Count > 1)
-            {
-                waveBof2 = peaks1To3[1];
-            }
-
-            if (waveBof2 != null)
-            {
-                CheckWith1stWave(checkParams, result with {Wave1 = firstExtrema2Check}, waveBof2);
-            }
-
-            CheckWith1stWave(checkParams, result with { Wave1 = firstExtrema2Check }, waveBof2);
-        }
-
-        private void CheckWith3RdWave(
-            CheckParams checkParams, ImpulseElliottModelResult result, BarPoint bOf4 = null)
-        {
-            bool useRunning4 = bOf4 != null;
-            if (useRunning4)
-            {
-                if (bOf4.OpenTime <= result.Wave3.OpenTime)
-                    return;
-
-                if (checkParams.IsUp && bOf4 < result.Wave3 ||//not-running peak?
-                    !checkParams.IsUp && bOf4 > result.Wave3)
-                    return;
-
-                BarPoint waveAof4 =
-                    m_BarsProviderMain.GetExtremumBetween(
-                        result.Wave3.OpenTime, bOf4.OpenTime, !checkParams.IsUp);
-                if (waveAof4 == null)
-                    return;
-                
-                BarPoint waveCof4 =
-                    m_BarsProviderMain.GetExtremumBetween(
-                        bOf4.OpenTime, result.Wave5.OpenTime, !checkParams.IsUp);
-
-                if (waveCof4 == null)
-                    return;
-
-                // Now we got a flat or a triangle, lets check it out
-                List<KeyValuePair<DateTime, (int, double)>> wave4DeAnd5 =
-                    (checkParams.IsUp ? checkParams.Lows : checkParams.Highs)
-                    .OrderBy(a => a.Key)
-                    .SkipWhile(a => a.Key <= waveCof4.OpenTime)
-                    .TakeWhile(a => checkParams.IsUp
-                        ? a.Value.Item2 > waveCof4 && a.Value.Item2 < bOf4.Value
-                        : a.Value.Item2 < waveCof4 && a.Value.Item2 > bOf4.Value)
-                    .ToList();
-
-                if (wave4DeAnd5.Any())
-                {
-                    KeyValuePair<DateTime, (int, double)> waveE = checkParams.IsUp
-                        ? wave4DeAnd5.MinBy(a => a.Value.Item2)
-                        : wave4DeAnd5.MaxBy(a => a.Value.Item2);
-
-                    BarPoint waveDof4 =
-                        m_BarsProviderMain.GetExtremumBetween(
-                            waveCof4.OpenTime, waveE.Key, checkParams.IsUp);
-                    if (waveDof4 == null)
-                        return;
-
-                    result.Wave4Type = ElliottModelType.TRIANGLE_CONTRACTING;
-                    result.Wave4 = new BarPoint(waveE.Value.Item2, waveE.Key, m_BarsProviderMain);
-                    result.ExtremaWave4 = new List<BarPoint>
-                    {
-                        result.Wave3, waveAof4, bOf4, waveCof4, waveDof4,result.Wave4
-                    };
-                }
-                else
-                {
-                    result.Wave4 = waveCof4;
-                    result.ExtremaWave4 = new List<BarPoint>
-                    {
-                        result.Wave3, waveAof4, bOf4, waveCof4
-                    };
-
-                    if (checkParams.IsUp && waveCof4 > waveAof4 ||
-                        !checkParams.IsUp && waveCof4 < waveAof4)
-                        result.Wave4Type = ElliottModelType.FLAT_RUNNING;
-                    else
-                        result.Wave4Type = ElliottModelType.FLAT_EXTENDED;
-                }
-            }
-            else
-            {
-                BarPoint waveCorYof4 =
-                    m_BarsProviderMain.GetExtremumBetween(
-                        result.Wave3.OpenTime, result.Wave5.OpenTime, !checkParams.IsUp);
-                if (waveCorYof4 == null)
-                    return;
-
-                result.Wave4Type = ElliottModelType.ZIGZAG;
-                result.Wave4 = waveCorYof4;
-                result.ExtremaWave4 = new List<BarPoint>
-                {
-                    result.Wave3, waveCorYof4
-                };
-            }
-
-            CheckWith1st2ndWave(checkParams, result);
-        }
-
         /// <summary>
         /// Determines whether the interval between the dates is an impulse.
         /// </summary>
@@ -576,9 +174,8 @@ namespace TradeKit.Core.AlgoBase
         /// </returns>
         public bool IsImpulse(BarPoint start, BarPoint end, out ImpulseElliottModelResult result)
         {
-            bool isImpulse = IsSmoothImpulse(start, end, out double _);//replace
             result = new ImpulseElliottModelResult { Wave0 = start, Wave5 = end };
-            return isImpulse;
+            return false;
         }
     }
 }
