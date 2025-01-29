@@ -7,5 +7,6 @@
         double OverlapseMaxDistance,
         double HeterogeneityDegree,
         int CandlesCount,
-        double Size);
+        double Size,
+        double SingleCandleDegree);
 }

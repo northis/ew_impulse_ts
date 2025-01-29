@@ -134,9 +134,7 @@ namespace TradeKit.Core.ElliottWave
         {
             bool res = stats.HeterogeneityDegree <= m_ImpulseMaxHeterogeneityDegree &&
                        stats.OverlapseDegree <= m_OverlapseCoefficient &&
-                       stats.OverlapseMaxDepth <= m_ImpulseMaxOverlapseLength &&
-                       stats.HeterogeneityDegree + stats.OverlapseDegree + stats.OverlapseMaxDepth <
-                       (m_ImpulseMaxHeterogeneityDegree + m_OverlapseCoefficient + m_ImpulseMaxOverlapseLength) / 2;
+                       stats.OverlapseMaxDepth <= m_ImpulseMaxOverlapseLength;
             return res;
         }
         
@@ -177,9 +175,6 @@ namespace TradeKit.Core.ElliottWave
                     return;
 
                 if (stats.Size < m_ImpulseSizeCoefficient)
-                    return;
-
-                if (stats.OverlapseDegree > m_OverlapseCoefficient)
                     return;
 
                 double startValue = startItem.Value.Value;

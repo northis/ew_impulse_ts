@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using static Microsoft.FSharp.Core.ByRefKinds;
 
@@ -20,12 +21,12 @@ namespace TradeKit.Core.AlgoBase
         {
             double heterogeneity = GetHeterogeneity(start, end, barsProvider);
             var (overlapseMaxDepth, overlapseMaxDistance) = GetMaxOverlapseScore(start, end, barsProvider);
-            var (profile, overlapseDegree) = GetOverlapseStatistic(start, end, barsProvider);
+            var (profile, overlapseDegree, singleCandle) = GetOverlapseStatistic(start, end, barsProvider);
 
             double den = start.Value > 0 ? start.Value : 1;
             double size = Math.Abs(start - end) / den;
 
-            return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity, end.BarIndex - start.BarIndex, size);
+            return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity, end.BarIndex - start.BarIndex, size, singleCandle);
         }
 
         /// <summary>
@@ -38,6 +39,8 @@ namespace TradeKit.Core.AlgoBase
             BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
             double fullLength = Math.Abs(start.Value - end.Value);
+            if (fullLength < double.Epsilon)
+                return 1;
 
             bool isUp = end > start;
             List<double> devs = new List<double>();
@@ -92,6 +95,9 @@ namespace TradeKit.Core.AlgoBase
         {
             bool isUp = end > start;
             double length = Math.Abs(end - start);
+            if (length < double.Epsilon)
+                return (1, 1);
+
             double duration = Math.Abs(end.BarIndex - start.BarIndex);
 
             SortedDictionary<DateTime, double> hVals = GetPoints(
@@ -154,7 +160,7 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        public static (SortedDictionary<double, int>, double) GetOverlapseStatistic(
+        public static (SortedDictionary<double, int>, double, double) GetOverlapseStatistic(
             BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
             bool isUp = end > start;
@@ -165,11 +171,12 @@ namespace TradeKit.Core.AlgoBase
                 candles.Add(cdl);
             }
 
-            SortedDictionary<double, int> profile = GetProfile(candles, isUp, out double overlapseIndex);
+            SortedDictionary<double, int> profile = GetProfile(
+                candles, isUp, out double overlapseIndex, out double singleCandle);
             if (overlapseIndex > 1)
                 overlapseIndex = 1;
 
-            return (profile, overlapseIndex);
+            return (profile, overlapseIndex, singleCandle);
         }
 
         /// <summary>
@@ -178,9 +185,10 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="candles">The candles.</param>
         /// <param name="isUp">True if we consider the set of candles as ascending movement, otherwise false.</param>
         /// <param name="overlapseIndex">The overlapse degree.</param>
+        /// <param name="singleCandle">The single candle degree.</param>
         /// <returns>price-candles count dict.</returns>
         public static SortedDictionary<double, int> GetProfile(
-            List<ICandle> candles, bool isUp, out double overlapseIndex)
+            List<ICandle> candles, bool isUp, out double overlapseIndex, out double singleCandle)
         {
             var points = new List<double>();
             double min = double.MaxValue;
@@ -198,27 +206,31 @@ namespace TradeKit.Core.AlgoBase
             int countToCompare = candles.Count - 1;//except the current candle
             double currentPoint = isUp ? min : max;
             double overlapsedIndexLocal = 0;
+            double singleCandleLocal = 0;
             overlapseIndex = overlapsedIndexLocal;
 
             var profileInner = new SortedDictionary<double, int>();
             void NextPoint(double nextPoint)
             {
+                double localMax = Math.Max(nextPoint, currentPoint);
+                double localMin = Math.Min(nextPoint, currentPoint);
+
                 int cdlCount = candles.Count(a => 
-                    a.L < currentPoint && a.H > currentPoint ||
-                    a.L >= currentPoint && a.H <= nextPoint ||
-                    a.L < nextPoint && a.H > nextPoint ||
-                    a.L <= currentPoint && a.H >= nextPoint);
+                    a.L <= localMin && a.H >= localMax);
 
                 cdlCount = cdlCount == 0 ? 1 : cdlCount;
                 double diff = (nextPoint - currentPoint) * (isUp ? 1 : -1);
                 profileInner.Add(nextPoint, cdlCount);
 
+                double diffLength = diff / length;
+
                 if (cdlCount == 1) // gap (<1) or single candle (=1)
                 {
+                    singleCandleLocal += diffLength;
                     return;
                 }
 
-                overlapsedIndexLocal += diff / length * cdlCount / countToCompare;
+                overlapsedIndexLocal += diffLength * cdlCount / countToCompare;
             }
 
             IOrderedEnumerable<double> orderedPoints = isUp 
@@ -234,7 +246,8 @@ namespace TradeKit.Core.AlgoBase
                 currentPoint = nextPoint;
             }
 
-            overlapseIndex = overlapsedIndexLocal;
+            overlapseIndex = candles.Count > 1 ? overlapsedIndexLocal : 1;
+            singleCandle = 1 - singleCandleLocal;
             return profileInner;
         }
     }
