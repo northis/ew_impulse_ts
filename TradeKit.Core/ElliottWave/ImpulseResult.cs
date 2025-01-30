@@ -6,6 +6,7 @@
         double OverlapseMaxDepth,
         double OverlapseMaxDistance,
         double HeterogeneityDegree,
+        double HeterogeneityMax,
         int CandlesCount,
         double Size,
         double SingleCandleDegree);

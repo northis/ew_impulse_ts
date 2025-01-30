@@ -20,8 +20,8 @@ namespace TradeKit.Core.ElliottWave
         private readonly double m_ImpulseMaxHeterogeneityDegree;
         private readonly double m_ImpulseMaxOverlapseLength;
 
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.3;
-        private const double TRIGGER_LEVEL_RATIO = 0.5;
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.4;
+        private const double TRIGGER_LEVEL_RATIO = 0.6;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -132,9 +132,9 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool res = stats.HeterogeneityDegree <= m_ImpulseMaxHeterogeneityDegree &&
+            bool res = stats.HeterogeneityDegree <= m_ImpulseMaxHeterogeneityDegree/* &&
                        stats.OverlapseDegree <= m_OverlapseCoefficient &&
-                       stats.OverlapseMaxDepth <= m_ImpulseMaxOverlapseLength;
+                       stats.OverlapseMaxDepth <= m_ImpulseMaxOverlapseLength*/;
             return res;
         }
         
@@ -200,6 +200,11 @@ namespace TradeKit.Core.ElliottWave
                 {
                     // The move (impulse candidate) is no longer initial.
                     return;
+                }
+
+                if (endItem.Key is { Day: 24, Month: 1, Year: 2025, Hour: 13, Minute: 10 })
+                {
+                    Debugger.Launch();
                 }
 
                 double triggerLevel;

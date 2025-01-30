@@ -56,9 +56,7 @@ public class ExactZigzagIndicator : Indicator
             color, 3);
 
         string report =
-            $"{Convert.ToInt32(movementStatistic.HeterogeneityDegree * 100)}/{Convert.ToInt32(movementStatistic.OverlapseDegree * 100)}/{Convert.ToInt32(movementStatistic.OverlapseMaxDepth * 100)}/{Convert.ToInt32(movementStatistic.OverlapseMaxDistance * 100)}";
-        //string report =
-        //    $"{Convert.ToInt32(movementStatistic.SingleCandleDegree * 100)}";
+            $"{Convert.ToInt32(movementStatistic.HeterogeneityDegree * 100)}/{Convert.ToInt32(movementStatistic.HeterogeneityMax * 100)}/{Convert.ToInt32(movementStatistic.OverlapseDegree * 100)}/{Convert.ToInt32(movementStatistic.OverlapseMaxDepth * 100)}/{Convert.ToInt32(movementStatistic.OverlapseMaxDistance * 100)}";
         Chart.DrawText($"T{id}", report,
             e.EventExtremum.OpenTime,
             e.EventExtremum.Value, color);

@@ -19,50 +19,53 @@ namespace TradeKit.Core.AlgoBase
         public static ImpulseResult GetMovementStatistic(
             BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
-            double heterogeneity = GetHeterogeneity(start, end, barsProvider);
+            var (heterogeneity, heterogeneityMax) = GetHeterogeneity(start, end, barsProvider);
             var (overlapseMaxDepth, overlapseMaxDistance) = GetMaxOverlapseScore(start, end, barsProvider);
             var (profile, overlapseDegree, singleCandle) = GetOverlapseStatistic(start, end, barsProvider);
 
             double den = start.Value > 0 ? start.Value : 1;
             double size = Math.Abs(start - end) / den;
 
-            return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity, end.BarIndex - start.BarIndex, size, singleCandle);
+            return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity, heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle);
         }
 
         /// <summary>
-        /// Gets the heterogeneity degree from 0 to 1.
+        /// Gets the heterogeneity degree from 0 to 1 (avg square root, max).
         /// </summary>
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        public static double GetHeterogeneity(
+        public static (double, double) GetHeterogeneity(
             BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
             double fullLength = Math.Abs(start.Value - end.Value);
             if (fullLength < double.Epsilon)
-                return 1;
+                return (1, 1);
 
             bool isUp = end > start;
             List<double> devs = new List<double>();
 
             int indexDiff = end.BarIndex - start.BarIndex;
+
             double dx = fullLength / (indexDiff > 0 ? indexDiff : 0.5);
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
             {
                 int count = i - start.BarIndex;
                 Candle candle = Candle.FromIndex(barsProvider, i);
-                double midPoint = candle.L + candle.Length / 2;
 
                 double currDx = count * dx;
-                double part = Math.Abs((isUp
+                double currAvg = isUp
                     ? start.Value + currDx
-                    : start.Value - currDx) - midPoint) / fullLength;
+                    : start.Value - currDx;
+                double midPoint = Math.Max(Math.Abs(candle.L - currAvg), Math.Abs(candle.H - currAvg));
+                double part = midPoint / fullLength;
 
                 devs.Add(part);
             }
 
             double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-            return sqrtDev;
+            double max = devs.Max();
+            return (sqrtDev, max);
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(

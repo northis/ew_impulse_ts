@@ -70,7 +70,11 @@ namespace TradeKit.Core.Indicators
         {
             m_ExtremumOpenDate = extremum.OpenTime;
             Extremum = extremum;
-            Result[extremum.OpenTime] = Extremum;
+
+            DateTime dt = Result.ContainsKey(extremum.OpenTime) 
+                ? extremum.OpenTime.AddSeconds(1) 
+                : extremum.OpenTime;
+            Result[dt] = Extremum;
         }
 
         /// <summary>
