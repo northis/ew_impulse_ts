@@ -7,6 +7,7 @@
         int StartPeriod,
         int EndPeriod,
         double HeterogeneityDegreePercent,
+        double HeterogeneityMax,
         double MinSizePercent,
         double MaxOverlapsePercent,
         double MaxOverlapseLengthPercent,

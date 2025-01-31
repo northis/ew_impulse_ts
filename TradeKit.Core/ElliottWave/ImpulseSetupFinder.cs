@@ -12,16 +12,12 @@ namespace TradeKit.Core.ElliottWave
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
+        private readonly ImpulseParams m_ImpulseParams;
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
-        private readonly int m_BarsCount;
-        private readonly double m_ImpulseSizeCoefficient;
-        private readonly double m_OverlapseCoefficient;
-        private readonly double m_ImpulseMaxHeterogeneityDegree;
-        private readonly double m_ImpulseMaxOverlapseLength;
 
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.4;
-        private const double TRIGGER_LEVEL_RATIO = 0.6;
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.3;
+        private const double TRIGGER_LEVEL_RATIO = 0.5;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -55,18 +51,13 @@ namespace TradeKit.Core.ElliottWave
             ImpulseParams impulseParams)
             : base(mainBarsProvider, mainBarsProvider.BarSymbol)
         {
+            m_ImpulseParams = impulseParams;
             for (int i = impulseParams.StartPeriod;
                  i <= impulseParams.EndPeriod;
                  i += Helper.STEP_IMPULSE_PERIOD)
             {
                 m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider, barProvidersFactory));
             }
-
-            m_BarsCount = impulseParams.BarsCount;
-            m_ImpulseSizeCoefficient = impulseParams.MinSizePercent / 100;
-            m_OverlapseCoefficient = impulseParams.MaxOverlapsePercent / 100;
-            m_ImpulseMaxHeterogeneityDegree = impulseParams.HeterogeneityDegreePercent / 100;
-            m_ImpulseMaxOverlapseLength = impulseParams.MaxOverlapseLengthPercent / 100;
         }
 
         /// <summary>
@@ -132,12 +123,13 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool res = stats.HeterogeneityDegree <= m_ImpulseMaxHeterogeneityDegree/* &&
-                       stats.OverlapseDegree <= m_OverlapseCoefficient &&
-                       stats.OverlapseMaxDepth <= m_ImpulseMaxOverlapseLength*/;
+            bool res = stats.HeterogeneityDegree <= m_ImpulseParams.HeterogeneityDegreePercent / 100 &&
+                       stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
+                       stats.OverlapseDegree <= m_ImpulseParams.MaxOverlapsePercent / 100 &&
+                       stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
             return res;
         }
-        
+
         /// <summary>
         /// Determines whether the data for specified index contains a trade setup.
         /// </summary>
@@ -171,10 +163,10 @@ namespace TradeKit.Core.ElliottWave
             {
                 ImpulseResult stats = MovementStatistic.GetMovementStatistic(
                     startItem.Value, endItem.Value, BarsProvider);
-                if (stats.CandlesCount < m_BarsCount)
+                if (stats.CandlesCount < m_ImpulseParams.BarsCount)
                     return;
 
-                if (stats.Size < m_ImpulseSizeCoefficient)
+                if (stats.Size < m_ImpulseParams.MinSizePercent / 100)
                     return;
 
                 double startValue = startItem.Value.Value;
@@ -200,11 +192,6 @@ namespace TradeKit.Core.ElliottWave
                 {
                     // The move (impulse candidate) is no longer initial.
                     return;
-                }
-
-                if (endItem.Key is { Day: 24, Month: 1, Year: 2025, Hour: 13, Minute: 10 })
-                {
-                    Debugger.Launch();
                 }
 
                 double triggerLevel;

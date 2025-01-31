@@ -16,7 +16,7 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                StartPeriod, EndPeriod, HeterogeneityPercent, MinSizePercent, MaxOverlapsePercent, MaxOverlapseLengthPercent, BarsCount);
+                StartPeriod, EndPeriod, HeterogeneityPercent, HeterogeneityMaxPercent, MinSizePercent, MaxOverlapsePercent, MaxOverlapseLengthPercent, BarsCount);
         }
 
         #region Input parameters
@@ -60,8 +60,14 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// Gets or sets the degree of not-smooth of the impulse.
         /// </summary>
-        [Parameter(nameof(HeterogeneityPercent), DefaultValue = Helper.IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT, MinValue = 0.5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.05)]
+        [Parameter(nameof(HeterogeneityPercent), DefaultValue = Helper.IMPULSE_HETEROGENEITY_DEGREE_PERCENT, MinValue = 0.5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.05)]
         public double HeterogeneityPercent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the max value of not-smooth of the impulse.
+        /// </summary>
+        [Parameter(nameof(HeterogeneityMaxPercent), DefaultValue = Helper.IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT, MinValue = 0.5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.05)]
+        public double HeterogeneityMaxPercent { get; set; }
         #endregion
     }
 }
