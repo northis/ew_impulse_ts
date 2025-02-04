@@ -46,6 +46,8 @@ namespace TradeKit.Core.AlgoBase
             List<double> devs = new List<double>();
 
             int indexDiff = end.BarIndex - start.BarIndex;
+            double min = Math.Min(start.Value, end.Value);
+            double max = Math.Max(start.Value, end.Value);
 
             double dx = fullLength / (indexDiff > 0 ? indexDiff : 0.5);
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
@@ -53,19 +55,25 @@ namespace TradeKit.Core.AlgoBase
                 int count = i - start.BarIndex;
                 Candle candle = Candle.FromIndex(barsProvider, i);
 
+                double localLow = Math.Max(candle.L, min);
+                double localHigh = Math.Min(candle.H, max);
+
                 double currDx = count * dx;
                 double currAvg = isUp
                     ? start.Value + currDx
                     : start.Value - currDx;
-                double midPoint = Math.Max(Math.Abs(candle.L - currAvg), Math.Abs(candle.H - currAvg));
-                double part = midPoint / fullLength;
+                double midPoint;
+                if (i == start.BarIndex || i == end.BarIndex)
+                    midPoint = 0;
+                else midPoint = Math.Max(Math.Abs(localLow - currAvg), Math.Abs(localHigh - currAvg));
 
+                double part = midPoint / fullLength;
                 devs.Add(part);
             }
 
             double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-            double max = devs.Max();
-            return (sqrtDev, max);
+            double maxRes = devs.Max();
+            return (sqrtDev, maxRes);
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
@@ -129,7 +137,7 @@ namespace TradeKit.Core.AlgoBase
                 double currentPrice = inputKeys[dt];
                 foreach (DateTime inputCounterKey in Helper.GetKeysRange(inputCounterKeys, dt, end.OpenTime))
                 {
-                    if (inputCounterKey == dt)
+                    if (inputCounterKey == dt || inputCounterKey == end.OpenTime)
                         continue;
 
                     double localLength = (isUp ? 1 : -1) *

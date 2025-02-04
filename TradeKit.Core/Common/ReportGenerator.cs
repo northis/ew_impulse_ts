@@ -1,15 +1,9 @@
 ﻿using System.Diagnostics;
-using System.Drawing;
 using System.Globalization;
-using System.IO;
 using System.Text;
-using ShimSkiaSharp;
 using SkiaSharp;
-using Svg;
 using Svg.Skia;
-using Svg.Skia.TypefaceProviders;
 using TradeKit.Core.Resources;
-using SKColorSpace = SkiaSharp.SKColorSpace;
 using SKPicture = SkiaSharp.SKPicture;
 
 namespace TradeKit.Core.Common

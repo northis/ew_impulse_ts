@@ -214,8 +214,7 @@ namespace TradeKit.Core.Common
         {
             return price.ToString($"F{digits}", CultureInfo.InvariantCulture);
         }
-
-
+        
 
         public static IEnumerable<DateTime> GetKeysRange(
             SortedDictionary<DateTime, double> inputKeys, DateTime dateStart, DateTime dateEnd)

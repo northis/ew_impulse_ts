@@ -1,5 +1,4 @@
-﻿using Microsoft.FSharp.Data.UnitSystems.SI.UnitNames;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -17,7 +16,7 @@ namespace TradeKit.Core.ElliottWave
         ExtremumFinder m_PreFinder;
 
         private const double TRIGGER_PRE_LEVEL_RATIO = 0.3;
-        private const double TRIGGER_LEVEL_RATIO = 0.5;
+        private const double TRIGGER_LEVEL_RATIO = 0.4;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -38,6 +37,7 @@ namespace TradeKit.Core.ElliottWave
         public double TriggerLevel { get; set; }
         
         public int TriggerBarIndex { get; set; }
+        internal string CurrentStatistic { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
@@ -158,9 +158,19 @@ namespace TradeKit.Core.ElliottWave
             KeyValuePair<DateTime, BarPoint> endItem = extrema
                 .ElementAt(endIndex);
 
+            if (endItem.Key is { Day: 31, Month: 1, Year: 2025 })
+            {
+                Debugger.Launch();
+            }
+
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
+                double startValue = startItem.Value.Value;
+                double endValue = endItem.Value.Value;
+
+                bool isImpulseUp = endValue > startValue;
+
                 ImpulseResult stats = MovementStatistic.GetMovementStatistic(
                     startItem.Value, endItem.Value, BarsProvider);
                 if (stats.CandlesCount < m_ImpulseParams.BarsCount)
@@ -168,11 +178,6 @@ namespace TradeKit.Core.ElliottWave
 
                 if (stats.Size < m_ImpulseParams.MinSizePercent / 100)
                     return;
-
-                double startValue = startItem.Value.Value;
-                double endValue = endItem.Value.Value;
-
-                bool isImpulseUp = endValue > startValue;
 
                 double max = isImpulseUp ? endValue : startValue;
                 double min = isImpulseUp ? startValue : endValue;
@@ -308,13 +313,14 @@ namespace TradeKit.Core.ElliottWave
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = edgeExtremum.OpenTime;
 
-               OnEnterInvoke(new ImpulseSignalEventArgs(
+                CurrentStatistic = stats.ToString();
+                OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
                     outExtrema,
                     viewDateTime,
-                    string.Empty));
+                    stats.ToString()));
                 // Here we should give a trade signal.
             }
 
@@ -373,7 +379,7 @@ namespace TradeKit.Core.ElliottWave
             {
                 IsInSetup = false;
                 OnTakeProfitInvoke(new LevelEventArgs(new BarPoint(SetupEndPrice, index, BarsProvider),
-                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider)));
+                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentStatistic));
             }
 
             bool isStopHit = isImpulseUp && low <= SetupStartPrice
@@ -382,7 +388,7 @@ namespace TradeKit.Core.ElliottWave
             {
                 IsInSetup = false;
                 OnStopLossInvoke(new LevelEventArgs(new BarPoint(SetupStartPrice, index, BarsProvider),
-                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider)));
+                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentStatistic));
             }
 
             return IsInSetup;

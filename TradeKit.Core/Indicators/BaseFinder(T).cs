@@ -29,7 +29,7 @@ namespace TradeKit.Core.Indicators
         protected BaseFinder(
             IBarsProvider barsProvider,
             bool useAutoCalculateEvent = true,
-            int defaultCleanBarsCount = 500)
+            int defaultCleanBarsCount = 50000)
         {
             UseAutoCalculateEvent = useAutoCalculateEvent;
             m_DefaultCleanBarsCount = defaultCleanBarsCount;
@@ -88,7 +88,9 @@ namespace TradeKit.Core.Indicators
             DateTime dt = BarsProvider.GetOpenTime(index);
 
             if (index % m_DefaultCleanBarsCount == 0)
+            {
                 Result.RemoveLeft(a => a < dt.Add(m_DefaultCleanDuration));
+            }
 
             OnCalculate(index, dt);
         }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -18,7 +19,7 @@ public class ExactZigzagIndicator : Indicator
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
         var factory = new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this));
-        m_ExtremumFinder = new ExtremumFinder(10, m_BarProvider, factory);
+        m_ExtremumFinder = new ExtremumFinder(20, m_BarProvider, factory);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
@@ -44,7 +45,6 @@ public class ExactZigzagIndicator : Indicator
         }
 
         const int colorRatioValue = 240;
-        //Debugger.Launch();
         ImpulseResult movementStatistic = MovementStatistic.GetMovementStatistic(
             m_CurrentExtremum, e.EventExtremum, m_BarProvider);
 

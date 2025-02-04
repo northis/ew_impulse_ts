@@ -1,4 +1,6 @@
-﻿namespace TradeKit.Core.ElliottWave
+﻿using TradeKit.Core.Common;
+
+namespace TradeKit.Core.ElliottWave
 {
     public record ImpulseResult(
         SortedDictionary<double, int> Profile,
@@ -9,5 +11,13 @@
         double HeterogeneityMax,
         int CandlesCount,
         double Size,
-        double SingleCandleDegree);
+        double SingleCandleDegree)
+    {
+        public override string ToString()
+        {
+            return
+                $"{HeterogeneityDegree.ToPercent()}/{HeterogeneityMax.ToPercent()}/{OverlapseDegree.ToPercent()}/{OverlapseMaxDepth.ToPercent()}/{CandlesCount}";
+        }
+    }
+
 }

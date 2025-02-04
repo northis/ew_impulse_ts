@@ -71,8 +71,9 @@ namespace TradeKit.Core.Indicators
             m_ExtremumOpenDate = extremum.OpenTime;
             Extremum = extremum;
 
-            DateTime dt = Result.ContainsKey(extremum.OpenTime) 
-                ? extremum.OpenTime.AddSeconds(1) 
+            DateTime dt = Result.ContainsKey(extremum.OpenTime) &&
+                          Math.Abs(extremum.Value - Result[extremum.OpenTime]) > double.Epsilon
+                ? extremum.OpenTime.AddSeconds(1)
                 : extremum.OpenTime;
             Result[dt] = Extremum;
         }

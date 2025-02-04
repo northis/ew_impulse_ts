@@ -286,11 +286,11 @@ namespace TradeKit.Core.Telegram
                 sb.AppendLine($"Spread = {Helper.PriceFormat(100 * spread / den, 2)}%");
             }
 
-            //string comment = signalArgs.SignalEventArgs.Comment;
-            //if (!string.IsNullOrEmpty(comment))
-            //{
-            //    sb.AppendLine(comment);
-            //}
+            string comment = signalArgs.SignalEventArgs.Comment;
+            if (!string.IsNullOrEmpty(comment))
+            {
+                sb.AppendLine(comment);
+            }
 
             TimeSpan tfTs = TimeFrameHelper.GetTimeFrameInfo(signalArgs.SignalEventArgs.Level.BarTimeFrame).TimeSpan;
             if (!m_ProviderMap.TryGetValue(signalArgs.SymbolName, out string provPart))

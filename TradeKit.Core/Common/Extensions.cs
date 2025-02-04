@@ -28,6 +28,14 @@ namespace TradeKit.Core.Common
             return (item - DateTime.UnixEpoch).TotalMilliseconds;
         }
 
+        /// <summary>
+        /// Gets percent view.
+        /// </summary>
+        public static int ToPercent(this double item)
+        {
+            return Convert.ToInt32(item * 100);
+        }
+
 #if !GARTLEY_PROD
         /// <summary>
         /// Converts to F# object.
