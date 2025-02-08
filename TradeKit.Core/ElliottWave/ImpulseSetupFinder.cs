@@ -15,8 +15,8 @@ namespace TradeKit.Core.ElliottWave
         private readonly List<ExtremumFinder> m_ExtremumFinders = new();
         ExtremumFinder m_PreFinder;
 
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.3;
-        private const double TRIGGER_LEVEL_RATIO = 0.4;
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.25;
+        private const double TRIGGER_LEVEL_RATIO = 0.38;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -158,11 +158,6 @@ namespace TradeKit.Core.ElliottWave
             KeyValuePair<DateTime, BarPoint> endItem = extrema
                 .ElementAt(endIndex);
 
-            if (endItem.Key is { Day: 31, Month: 1, Year: 2025 })
-            {
-                Debugger.Launch();
-            }
-
             bool isInSetupBefore = IsInSetup;
             void CheckImpulse()
             {
@@ -281,7 +276,8 @@ namespace TradeKit.Core.ElliottWave
                 SetupStartIndex = startItem.Value.BarIndex;
                 SetupEndIndex = endItem.Value.BarIndex;
 
-                double setupLength = Math.Abs(startValue - endValue);
+                double tpRatio = 2 - TRIGGER_LEVEL_RATIO;
+                double setupLength = Math.Abs(startValue - endValue) * tpRatio;
                 
                 if (isImpulseUp)
                 {
@@ -320,7 +316,7 @@ namespace TradeKit.Core.ElliottWave
                     slArg,
                     outExtrema,
                     viewDateTime,
-                    stats.ToString()));
+                    CurrentStatistic));
                 // Here we should give a trade signal.
             }
 

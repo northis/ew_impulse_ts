@@ -16,7 +16,7 @@ namespace TradeKit.Core.ElliottWave
         public override string ToString()
         {
             return
-                $"{HeterogeneityDegree.ToPercent()}/{HeterogeneityMax.ToPercent()}/{OverlapseDegree.ToPercent()}/{OverlapseMaxDepth.ToPercent()}/{CandlesCount}";
+                $"h{HeterogeneityDegree.ToPercent()}-{HeterogeneityMax.ToPercent()};o{OverlapseDegree.ToPercent()}-{OverlapseMaxDepth.ToPercent()};c{CandlesCount};s{Size:F4};sc{SingleCandleDegree.ToPercent()}";
         }
     }
 

@@ -258,7 +258,7 @@ namespace TradeKit.Core.AlgoBase
             }
 
             overlapseIndex = candles.Count > 1 ? overlapsedIndexLocal : 1;
-            singleCandle = 1 - singleCandleLocal;
+            singleCandle = singleCandleLocal;
             return profileInner;
         }
     }

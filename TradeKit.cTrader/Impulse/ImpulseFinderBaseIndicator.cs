@@ -133,7 +133,7 @@ namespace TradeKit.CTrader.Impulse
         {
             int levelIndex = e.Level.BarIndex;
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
-            //Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
+            Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
 
             BarPoint start = e.Model.Wave0;
             BarPoint currentBar = start;

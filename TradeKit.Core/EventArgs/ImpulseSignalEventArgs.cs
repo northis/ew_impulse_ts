@@ -11,7 +11,7 @@ namespace TradeKit.Core.EventArgs
 
         public ImpulseSignalEventArgs(
             BarPoint level, BarPoint takeProfit, BarPoint stopLoss, ImpulseElliottModelResult model,
-            DateTime startViewBarIndex, string comment)
+            DateTime startViewBarIndex, string comment, double? breakevenRatio = null)
             : base(level, takeProfit, stopLoss, false, startViewBarIndex, null, comment)
         {
             Model = model;
