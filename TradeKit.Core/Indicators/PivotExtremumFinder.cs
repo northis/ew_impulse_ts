@@ -1,13 +1,13 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.AlgoBase;
+﻿using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
     /// <summary>
-    /// Class allows to find all the extrema from the set of market candles
+    /// Class allows to find all the extrema from the set of market candles using pivot.
+    /// It counts lows first, so it isn't suitable for impulse finders
     /// </summary>
-    public class ExtremumFinder : ExtremumFinderBase
+    public class PivotExtremumFinder : ExtremumFinderBase
     {
         private readonly int m_Period;
         private double? m_CurrentHigh;
@@ -18,13 +18,13 @@ namespace TradeKit.Core.Indicators
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
+        /// Initializes a new instance of the <see cref="PivotExtremumFinder"/> class.
         /// </summary>
         /// <param name="period">The pivot period for extrema.</param>
         /// <param name="barsProvider">The source bars provider.</param>
         /// <param name="barProvidersFactory">Bar providers factory.</param>
         /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
-        public ExtremumFinder(
+        public PivotExtremumFinder(
             int period, 
             IBarsProvider barsProvider,
             IBarProvidersFactory barProvidersFactory, 
@@ -34,6 +34,9 @@ namespace TradeKit.Core.Indicators
             m_BarProvidersFactory = barProvidersFactory;
             m_PivotPointsFinder = new PivotPointsFinder(period, barsProvider, false);
         }
+
+        public static int Long;
+        public static int Short;
         
         /// <summary>
         /// Called inside the <see cref="BaseFinder{T}.Calculate(int)" /> method.
@@ -175,6 +178,11 @@ namespace TradeKit.Core.Indicators
             }
 
             SetExtremum(extremum);
+
+            if (isUp)
+                Long++;
+            else
+                Short++;
             IsUpDirection = isUp;
         }
     }

@@ -16,22 +16,22 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                StartPeriod, EndPeriod, HeterogeneityPercent, HeterogeneityMaxPercent, MinSizePercent, MaxOverlapsePercent, MaxOverlapseLengthPercent, BarsCount);
+                Period, MinChannelRatio, HeterogeneityPercent, HeterogeneityMaxPercent, MinSizePercent, MaxOverlapsePercent, MaxOverlapseLengthPercent, BarsCount);
         }
 
         #region Input parameters
 
         /// <summary>
-        /// Gets or sets the start period.
+        /// Gets or sets the zigzag period.
         /// </summary>
-        [Parameter(nameof(StartPeriod), DefaultValue = Helper.MIN_IMPULSE_PERIOD, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
-        public int StartPeriod { get; set; }
+        [Parameter(nameof(Period), DefaultValue = Helper.MIN_IMPULSE_PERIOD, MinValue = 1, MaxValue = 200, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int Period { get; set; }
 
         /// <summary>
-        /// Gets or sets the end period.
+        /// Gets or sets how far impulse went from the previous trend.
         /// </summary>
-        [Parameter(nameof(EndPeriod), DefaultValue = Helper.MAX_IMPULSE_PERIOD, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
-        public int EndPeriod { get; set; }
+        [Parameter(nameof(MinChannelRatio), DefaultValue = 2.0, MinValue = 0.1, MaxValue = 10.0, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MinChannelRatio { get; set; }
 
         /// <summary>
         /// Gets or sets the minimum size of the impulse in percent.

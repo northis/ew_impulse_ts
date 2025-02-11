@@ -4,8 +4,8 @@
     /// Basic impulse (smooth one) params
     /// </summary>
     public record ImpulseParams(
-        int StartPeriod,
-        int EndPeriod,
+        int Period,
+        double ChannelRatio,
         double HeterogeneityDegreePercent,
         double HeterogeneityMax,
         double MinSizePercent,

@@ -46,11 +46,7 @@ namespace TradeKit.CTrader.Impulse
             ITimeFrame timeFrame, ISymbol symbolEntity)
         {
             IBarsProvider barsProvider = CreateBarsProvider(timeFrame, symbolEntity);
-            var barProvidersFactory = new BarProvidersFactory(
-                m_TradeManager.GetCTraderSymbol(symbolEntity.Name), 
-                m_HostRobot.MarketData, 
-                m_TradeManager);
-            var sf = new ImpulseSetupFinder(barsProvider, barProvidersFactory, m_ImpulseParams);
+            var sf = new ImpulseSetupFinder(barsProvider, m_ImpulseParams);
             return sf;
         }
     }

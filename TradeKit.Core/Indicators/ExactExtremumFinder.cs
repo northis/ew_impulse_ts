@@ -10,7 +10,7 @@ namespace TradeKit.Core.Indicators
         private readonly IBarProvidersFactory m_BarsProviderFactory;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ExtremumFinder"/> class.
+        /// Initializes a new instance of the <see cref="PivotExtremumFinder"/> class.
         /// </summary>
         /// <param name="barsProvider">The source bars provider.</param>
         /// <param name="barsProviderFactory">The bars provider factory.</param>

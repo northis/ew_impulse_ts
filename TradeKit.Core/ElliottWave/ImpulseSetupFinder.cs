@@ -12,11 +12,11 @@ namespace TradeKit.Core.ElliottWave
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
         private readonly ImpulseParams m_ImpulseParams;
-        private readonly List<ExtremumFinder> m_ExtremumFinders = new();
-        ExtremumFinder m_PreFinder;
+        private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
+        DeviationExtremumFinder m_PreFinder;
 
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.25;
-        private const double TRIGGER_LEVEL_RATIO = 0.38;
+        private const double TRIGGER_PRE_LEVEL_RATIO = 0.2;
+        private const double TRIGGER_LEVEL_RATIO = 0.35;
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -43,21 +43,15 @@ namespace TradeKit.Core.ElliottWave
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bar provider.</param>
-        /// <param name="barProvidersFactory">The bar provider factory.</param>
         /// <param name="impulseParams">The impulse parameters.</param>
         public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider,
-            IBarProvidersFactory barProvidersFactory,
             ImpulseParams impulseParams)
             : base(mainBarsProvider, mainBarsProvider.BarSymbol)
         {
             m_ImpulseParams = impulseParams;
-            for (int i = impulseParams.StartPeriod;
-                 i <= impulseParams.EndPeriod;
-                 i += Helper.STEP_IMPULSE_PERIOD)
-            {
-                m_ExtremumFinders.Add(new ExtremumFinder(i, BarsProvider, barProvidersFactory));
-            }
+            var localFinder = new DeviationExtremumFinder(impulseParams.Period, BarsProvider);
+            m_ExtremumFinders.Add(localFinder);
         }
 
         /// <summary>
@@ -75,8 +69,8 @@ namespace TradeKit.Core.ElliottWave
             double startValue, 
             double endValue, 
             int startIndex, 
-            ExtremumFinder finder,
-            out BarPoint edgeExtremum)
+            DeviationExtremumFinder finder,
+            out Candle edgeExtremum)
         {
             // We want to rewind the bars to be sure this impulse candidate is really an initial one
             bool isInitialMove = false;
@@ -85,17 +79,16 @@ namespace TradeKit.Core.ElliottWave
 
             for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
             {
-                edgeExtremum = finder.Extrema.ElementAt(curIndex).Value;
-                double curValue = edgeExtremum.Value;
+                edgeExtremum = Candle.FromIndex(finder.BarsProvider, curIndex);
 
                 if (isImpulseUp)
                 {
-                    if (curValue <= startValue)
+                    if (edgeExtremum.L <= startValue)
                     {
                         break;
                     }
 
-                    if (curValue - endValue > 0)
+                    if (edgeExtremum.H - endValue > 0)
                     {
                         isInitialMove = true;
                         break;
@@ -104,12 +97,12 @@ namespace TradeKit.Core.ElliottWave
                     continue;
                 }
 
-                if (curValue >= startValue)
+                if (edgeExtremum.H >= startValue)
                 {
                     break;
                 }
 
-                if (!(curValue - endValue < 0))
+                if (!(edgeExtremum.L - endValue < 0))
                 {
                     continue;
                 }
@@ -129,7 +122,7 @@ namespace TradeKit.Core.ElliottWave
                        stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
             return res;
         }
-
+        
         /// <summary>
         /// Determines whether the data for specified index contains a trade setup.
         /// </summary>
@@ -139,7 +132,7 @@ namespace TradeKit.Core.ElliottWave
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSetup(int index, ExtremumFinder finder, double? currentPriceBid = null)
+        private bool IsSetup(int index, DeviationExtremumFinder finder, double? currentPriceBid = null)
         {
             SortedDictionary<DateTime, BarPoint> extrema = finder.Extrema;
             int count = extrema.Count;
@@ -187,10 +180,17 @@ namespace TradeKit.Core.ElliottWave
                 }
 
                 bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startIndex, finder, out BarPoint edgeExtremum);
+                    startValue, endValue, startItem.Value.BarIndex, finder, out Candle edgeExtremum);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
+                    return;
+                }
+
+                int edgeIndex = edgeExtremum.Index.GetValueOrDefault();
+                double channelRatio = (startItem.Value.BarIndex - edgeIndex) / (double)stats.CandlesCount;
+                if (channelRatio < m_ImpulseParams.ChannelRatio)
+                {
                     return;
                 }
 
@@ -276,7 +276,7 @@ namespace TradeKit.Core.ElliottWave
                 SetupStartIndex = startItem.Value.BarIndex;
                 SetupEndIndex = endItem.Value.BarIndex;
 
-                double tpRatio = 2 - TRIGGER_LEVEL_RATIO;
+                double tpRatio = 1.6;
                 double setupLength = Math.Abs(startValue - endValue) * tpRatio;
                 
                 if (isImpulseUp)
@@ -307,9 +307,9 @@ namespace TradeKit.Core.ElliottWave
 
                 var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
-                DateTime viewDateTime = edgeExtremum.OpenTime;
+                DateTime viewDateTime = BarsProvider.GetOpenTime(edgeIndex);
 
-                CurrentStatistic = stats.ToString();
+                CurrentStatistic = $"{stats};{channelRatio:F2}";
                 OnEnterInvoke(new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
@@ -396,7 +396,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="index">Index of the current candle.</param>
         protected override void CheckSetup(int index)
         {
-            foreach (ExtremumFinder finder in m_ExtremumFinders)
+            foreach (DeviationExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.OnCalculate(index, BarsProvider.GetOpenTime(index));
                 if (IsSetup(LastBar, finder))

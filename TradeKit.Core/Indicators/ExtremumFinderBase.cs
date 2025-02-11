@@ -84,7 +84,7 @@ namespace TradeKit.Core.Indicators
         /// <param name="barsProvider">The source bars provider.</param>
         /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
         protected ExtremumFinderBase(
-            IBarsProvider barsProvider, bool isUpDirection = false) : base(barsProvider)
+            IBarsProvider barsProvider, bool isUpDirection = false, bool useAutoCalculateEvent = true) : base(barsProvider, useAutoCalculateEvent)
         {
             IsUpDirection = isUpDirection;
         }

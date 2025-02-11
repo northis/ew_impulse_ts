@@ -19,7 +19,7 @@ public class ExactZigzagIndicator : Indicator
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
         var factory = new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this));
-        m_ExtremumFinder = new ExtremumFinder(20, m_BarProvider, factory);
+        m_ExtremumFinder = new PivotExtremumFinder(20, m_BarProvider, factory);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
@@ -66,7 +66,7 @@ public class ExactZigzagIndicator : Indicator
     //[Output("ExactZigzag", Color = Colors.LightGray, Thickness = 1, PlotType = PlotType.Line)]
     //public IndicatorDataSeries Value { get; set; }
 
-    private ExtremumFinder m_ExtremumFinder;
+    private PivotExtremumFinder m_ExtremumFinder;
 
     public override void Calculate(int index)
     {
