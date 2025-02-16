@@ -369,7 +369,9 @@ namespace TradeKit.Core.Common
             foreach (IPosition position in positionsToModify)
             {
                 if (breakEvenPrice.HasValue)
-                    TradeManager.SetStopLossPrice(position, breakEvenPrice.Value);
+                {
+                    TradeManager.SetBreakeven(position, breakEvenPrice.Value);
+                }
                 else
                 {
                     posIds.Remove(position.Id);

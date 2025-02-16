@@ -104,8 +104,7 @@ namespace TradeKit.Core.EventArgs
                 if (m_BreakevenRatio.HasValue && !m_BreakEvenPrice.HasValue)
                 {
                     bool isBool = TakeProfit > StopLoss;
-                    double tpLen = Math.Abs(Level.Value - TakeProfit.Value);
-                    m_BreakEvenPrice = Level.Value + tpLen * m_BreakevenRatio.Value * (isBool ? 1 : -1);
+                    m_BreakEvenPrice = StopLoss.Value + WholeRange * m_BreakevenRatio.Value * (isBool ? 1 : -1);
                 }
 
                 return m_BreakEvenPrice ?? 0;

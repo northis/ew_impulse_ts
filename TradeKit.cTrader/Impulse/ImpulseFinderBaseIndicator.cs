@@ -39,7 +39,7 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                Period, MinChannelRatio, HeterogeneityPercent, HeterogeneityMaxPercent,
+                Period, MinChannelRatio, EnterRatio, TakeRatio, 0, HeterogeneityPercent, HeterogeneityMaxPercent,
                 MinSizePercent, MaxOverlapsePercent, MaxOverlapseLengthPercent, BarsCount);
         }
 
@@ -56,6 +56,18 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         [Parameter(nameof(MinChannelRatio), DefaultValue = 2.0, MinValue = 0.1, MaxValue = 10.0, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinChannelRatio { get; set; }
+
+        /// <summary>
+        /// How deep we should go until enter.
+        /// </summary>
+        [Parameter(nameof(EnterRatio), DefaultValue = 0.35, MinValue = 0.1, MaxValue = 0.95, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double EnterRatio { get; set; }
+
+        /// <summary>
+        /// How far we should go until take profit.
+        /// </summary>
+        [Parameter(nameof(TakeRatio), DefaultValue = 1.6, MinValue = 1, MaxValue = 4.236, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double TakeRatio { get; set; }
 
         /// <summary>
         /// Gets or sets the bars count.

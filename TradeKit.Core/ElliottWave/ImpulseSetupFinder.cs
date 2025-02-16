@@ -12,12 +12,10 @@ namespace TradeKit.Core.ElliottWave
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
         private readonly ImpulseParams m_ImpulseParams;
+        private readonly double m_PrePatio;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         DeviationExtremumFinder m_PreFinder;
-
-        private const double TRIGGER_PRE_LEVEL_RATIO = 0.2;
-        private const double TRIGGER_LEVEL_RATIO = 0.35;
-
+        
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
         // We want to collect at lease this amount of extrema
@@ -38,6 +36,7 @@ namespace TradeKit.Core.ElliottWave
         
         public int TriggerBarIndex { get; set; }
         internal string CurrentStatistic { get; set; }
+        internal ImpulseSignalEventArgs CurrentSignalEventArgs { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
@@ -52,6 +51,7 @@ namespace TradeKit.Core.ElliottWave
             m_ImpulseParams = impulseParams;
             var localFinder = new DeviationExtremumFinder(impulseParams.Period, BarsProvider);
             m_ExtremumFinders.Add(localFinder);
+            m_PrePatio = m_ImpulseParams.EnterRatio * 0.5;
         }
 
         /// <summary>
@@ -216,9 +216,9 @@ namespace TradeKit.Core.ElliottWave
                     return gotSetup;
                 }
 
-                if (!GotSetup(TRIGGER_LEVEL_RATIO))
+                if (!GotSetup(m_ImpulseParams.EnterRatio))
                 {
-                    if (m_PreFinder == null && GotSetup(TRIGGER_PRE_LEVEL_RATIO))
+                    if (m_PreFinder == null && GotSetup(m_PrePatio))
                     {
                         m_PreFinder = finder;
                     }
@@ -276,7 +276,7 @@ namespace TradeKit.Core.ElliottWave
                 SetupStartIndex = startItem.Value.BarIndex;
                 SetupEndIndex = endItem.Value.BarIndex;
 
-                double tpRatio = 1.6;
+                double tpRatio = m_ImpulseParams.TakeRatio;
                 double setupLength = Math.Abs(startValue - endValue) * tpRatio;
                 
                 if (isImpulseUp)
@@ -310,13 +310,16 @@ namespace TradeKit.Core.ElliottWave
                 DateTime viewDateTime = BarsProvider.GetOpenTime(edgeIndex);
 
                 CurrentStatistic = $"{stats};{channelRatio:F2}";
-                OnEnterInvoke(new ImpulseSignalEventArgs(
+                CurrentSignalEventArgs = new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
                     slArg,
                     outExtrema,
                     viewDateTime,
-                    CurrentStatistic));
+                    CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1
+                        ? m_ImpulseParams.BreakEvenRatio 
+                        : null);
+                OnEnterInvoke(CurrentSignalEventArgs);
                 // Here we should give a trade signal.
             }
 
@@ -366,7 +369,6 @@ namespace TradeKit.Core.ElliottWave
             {
                 return false;
             }
-
             bool isImpulseUp = SetupEndPrice > SetupStartPrice;
             bool isProfitHit = isImpulseUp && high >= SetupEndPrice
                                || !isImpulseUp && low <= SetupEndPrice;
@@ -386,6 +388,21 @@ namespace TradeKit.Core.ElliottWave
                 OnStopLossInvoke(new LevelEventArgs(new BarPoint(SetupStartPrice, index, BarsProvider),
                     new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentStatistic));
             }
+
+            if (CurrentSignalEventArgs is not { CanUseBreakeven: true, HasBreakeven: false })
+                return IsInSetup;
+
+            if (!CurrentSignalEventArgs.CanUseBreakeven ||
+                ((!isImpulseUp || !(CurrentSignalEventArgs.BreakEvenPrice <= high)) &&
+                 (isImpulseUp || !(CurrentSignalEventArgs.BreakEvenPrice >= low)))) 
+                return IsInSetup;
+
+            DateTime currentDt = BarsProvider.GetOpenTime(index);
+            CurrentSignalEventArgs.HasBreakeven = true;
+            CurrentSignalEventArgs.StopLoss = new BarPoint(
+                CurrentSignalEventArgs.BreakEvenPrice, currentDt, CurrentSignalEventArgs.StopLoss.BarTimeFrame,
+                index);
+            OnBreakEvenInvoke(new LevelEventArgs(CurrentSignalEventArgs.StopLoss, CurrentSignalEventArgs.Level, true, CurrentSignalEventArgs.Comment));
 
             return IsInSetup;
         }
