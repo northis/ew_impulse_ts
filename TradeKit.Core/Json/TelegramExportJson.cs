@@ -11,6 +11,6 @@ namespace TradeKit.Core.Json
         /// Gets or sets the messages array.
         /// </summary>
         [JsonProperty("messages")]
-        public TelegramHistorySignal[] Messages { get; set; }
+        public TelegramHistoryMessage[] Messages { get; set; }
     }
 }

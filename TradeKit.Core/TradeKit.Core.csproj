@@ -19,6 +19,7 @@
     <PackageReference Include="Svg.Skia" Version="2.0.0.1" />
     <PackageReference Include="System.Text.Encodings.Web" Version="4.5.1" />
     <PackageReference Include="Telegram.Bot" Version="17.0.0" />
+    <PackageReference Include="WTelegramClient" Version="4.3.1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Globalization;
-using System.Text;
+﻿using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;

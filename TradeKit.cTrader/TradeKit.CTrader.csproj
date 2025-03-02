@@ -3,9 +3,9 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <EnableDefaultItems>False</EnableDefaultItems>
-	  <Version>1.0.1</Version>
+	  <Version>1.0.2</Version>
 	  <Authors>Mikhail Berdnikov</Authors>
-	  <Copyright>Mikhail Berdnikov (C) 2024</Copyright>
+	  <Copyright>Mikhail Berdnikov (C) 2025</Copyright>
 	  <RepositoryUrl>https://github.com/northis/ew_impulse_ts</RepositoryUrl>
 	  <Product>Elliott Wave Impulse Kit Library</Product>
 	  <Description>Elliott Wave Impulse Kit Library for cTrader</Description>

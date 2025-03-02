@@ -157,6 +157,10 @@ namespace TradeKit.Core.ElliottWave
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
+                int impulseBarCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
+                if (index < endItem.Value.BarIndex + impulseBarCount)
+                    return;
+
                 bool isImpulseUp = endValue > startValue;
 
                 ImpulseResult stats = MovementStatistic.GetMovementStatistic(

@@ -76,14 +76,15 @@ namespace TradeKit.CTrader.Signals
                 path = m_SignalsParams.SignalHistoryFilePath;
             }
 
+            var twm = new CTraderViewManager(m_HostRobot);
             if (!File.Exists(path))
             {
-                return new NullParseSetupFinder(barsProvider, symbolEntity);
+                return new NullParseSetupFinder(barsProvider, symbolEntity, twm);
             }
 
             Logger.Write($"Using path {path}");
 
-            var sf = new ParseSetupFinder(barsProvider, symbolEntity, path, m_SignalsParams.UseUtc, m_SignalsParams.UseOneTP);
+            var sf = new ParseSetupFinder(barsProvider, symbolEntity, twm, path, m_SignalsParams.UseUtc, m_SignalsParams.UseOneTP);
             return sf;
 
         }
