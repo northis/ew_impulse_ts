@@ -66,6 +66,11 @@ namespace TradeKit.Core.Common
         public event EventHandler<T> OnEnter;
 
         /// <summary>
+        /// Occurs when SL or TP is changed for an existing setup.
+        /// </summary>
+        public event EventHandler<T> OnEdit;
+
+        /// <summary>
         /// Occurs when a breakeven should be set for the setup.
         /// </summary>
         public event EventHandler<LevelEventArgs> OnBreakeven;
@@ -185,6 +190,15 @@ namespace TradeKit.Core.Common
         protected void OnEnterInvoke(T e)
         {
             OnEnter?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="E:OnEdit" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="T"/> instance containing the event data.</param>
+        protected void OnEditInvoke(T e)
+        {
+            OnEdit?.Invoke(this, e);
         }
 
         /// <summary>

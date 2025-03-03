@@ -11,6 +11,8 @@
         CLOSE = 16,
         SET_BREAKEVEN = 32,
         HIT_TP = 64,
-        HIT_SL = 128
+        HIT_SL = 128,
+        LIMIT = 256,
+        ACTIVATED = 512
     }
 }

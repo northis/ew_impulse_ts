@@ -56,9 +56,9 @@ namespace TradeKit.Core.EventArgs
         public bool IsActive { get; set; }
 
         /// <summary>
-        /// Gets the take profit level.
+        /// Gets or sets the take profit level.
         /// </summary>
-        public BarPoint TakeProfit { get; }
+        public BarPoint TakeProfit { get; set; }
 
         /// <summary>
         /// Gets or sets the stop loss level.
