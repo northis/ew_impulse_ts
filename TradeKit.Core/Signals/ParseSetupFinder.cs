@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
-using TL;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Json;
@@ -17,15 +15,15 @@ namespace TradeKit.Core.Signals
         private readonly string m_SignalHistoryFilePath;
         private readonly bool m_UseUtc;
         private readonly bool m_UseOneTp;
-        private const string SIGNAL_REGEX = @"(b[a|u]y|sel[l]?)[\D]*([0-9.,]{1,10})";
+        private const string SIGNAL_REGEX = @"(buy|sell)(.*)\s(\d+(?:[.,]\d{0,5})?)";
         private const string BREAKEVEN_REGEX = @"(book|entry point|breakeven|BE|to the entry)";
         private const string TP_HIT_REGEX = @"(TP hit|🎯)";
         private const string SL_HIT_REGEX = @"(SL hit)";
         private const string ACTIVATED_REGEX = @"(activated)";
         private const string LIMIT_REGEX = @"(limit)";
         private const string CLOSE_REGEX = @"(\sclose\s)";
-        private const string TP_REGEX = @"t(ake\s)?p(rofit)?\d?[\D]*([0-9.,]{1,10})";
-        private const string SL_REGEX = @"s(top\s)?[l|t](oss)?[\D]*([0-9.,]{1,10})";
+        private const string TP_REGEX = @"(tp|take profit)(.*)\s(\d+(?:[.,]\d{0,5})?)";
+        private const string SL_REGEX = @"(?:SL|stop\s?loss)\b[\s\-–—]*(\d+(?:[.,]\d{0,5})?)";
 
         private static readonly NumberStyles NUMBER_STYLES = NumberStyles.AllowCurrencySymbol
                                                              | NumberStyles.AllowDecimalPoint
@@ -99,6 +97,81 @@ namespace TradeKit.Core.Signals
             ProcessSetup();
         }
 
+        private void HandleSignalAction(
+            KeyValuePair<DateTime, TelegramHistoryMessage> matchedSignal, string symbolRegex)
+        {
+            SignalAction res = ProcessMessage(matchedSignal.Value, symbolRegex, out ParsedSignal signal);
+
+            bool hasTp = signal.TakeProfits != null && signal.TakeProfits.Any();
+            if (((res & SignalAction.ENTER_BUY) == SignalAction.ENTER_BUY ||
+                 (res & SignalAction.ENTER_SELL) == SignalAction.ENTER_SELL) && hasTp)
+            {
+                bool isLimit = (res & SignalAction.LIMIT) == SignalAction.LIMIT;
+                var args = new SignalEventArgs(
+                    new BarPoint(signal.Price.GetValueOrDefault(), signal.DateTime, BarsProvider),
+                    new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider),
+                    new BarPoint(signal.StopLoss, LastBar, BarsProvider), isLimit);
+                m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
+                OnEnterInvoke(args);
+                return;
+            }
+            
+            long? replyId = matchedSignal.Value.ReplyId ?? m_MessageSignalArgsMap.LastOrDefault().Key;
+            if (replyId is null or <= 0)
+            {
+                return;
+            }
+
+            Debugger.Launch();
+            SignalEventArgs refSignal = m_MessageSignalArgsMap[replyId.Value];
+            if ((res & SignalAction.SET_SL) == SignalAction.SET_SL)
+            {
+                if (signal.Price.HasValue)
+                {
+                    refSignal.StopLoss =
+                        new BarPoint(signal.Price.Value, LastBar, BarsProvider);
+                    OnEditInvoke(refSignal);
+                }
+            }
+            else if ((res & SignalAction.SET_TP) == SignalAction.SET_TP && hasTp)
+            {
+                refSignal.TakeProfit =
+                    new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider);
+                OnEditInvoke(refSignal);
+            }
+            else if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN)
+            {
+                var newSl = new BarPoint(refSignal.Level.Value, LastBar, BarsProvider);
+                OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.StopLoss, true));
+                refSignal.StopLoss = newSl;
+            }
+            else if ((res & SignalAction.CLOSE) == SignalAction.CLOSE)
+            {
+                OnManualCloseInvoke(new LevelEventArgs(refSignal.Level, refSignal.Level, true));
+                m_MessageSignalArgsMap.Remove(replyId.Value);
+            }
+            else if ((res & SignalAction.ACTIVATED) == SignalAction.ACTIVATED && refSignal.IsLimit && !refSignal.IsActive)
+            {
+                refSignal.IsActive = true;
+                OnActivatedInvoke(new LevelEventArgs(refSignal.Level, refSignal.Level, true));
+            }
+            else if ((res & SignalAction.HIT_TP) == SignalAction.HIT_TP)
+            {
+                OnTakeProfitInvoke(new LevelEventArgs(refSignal.TakeProfit, refSignal.Level, true));
+                m_MessageSignalArgsMap.Remove(replyId.Value);
+            }
+            else if ((res & SignalAction.HIT_SL) == SignalAction.HIT_SL)
+            {
+                OnStopLossInvoke(new LevelEventArgs(refSignal.StopLoss, refSignal.Level, true));
+                m_MessageSignalArgsMap.Remove(replyId.Value);
+            }
+            else if ((res & SignalAction.CANCELLED) == SignalAction.CANCELLED && refSignal.IsLimit && !refSignal.IsActive)
+            {
+                OnCanceledInvoke(new LevelEventArgs(refSignal.Level, refSignal.Level, true));
+                m_MessageSignalArgsMap.Remove(replyId.Value);
+            }
+        }
+
         /// <summary>
         /// Finds or closes the trade setup.
         /// </summary>
@@ -107,9 +180,39 @@ namespace TradeKit.Core.Signals
             DateTime prevBarDateTime = BarsProvider.GetOpenTime(LastBar - 1);
             DateTime barDateTime = BarsProvider.GetOpenTime(LastBar);
 
+            double low = BarsProvider.GetLowPrice(barDateTime);
+            double high = BarsProvider.GetHighPrice(barDateTime);
+
             if (!SYMBOL_REGEX_MAP.TryGetValue(Symbol.Name, out string symbolRegex))
             {
                 return;
+            }
+            
+            var idsToRemove = new List<long>();
+            foreach (long messageId in m_MessageSignalArgsMap.Keys)
+            {
+                SignalEventArgs value = m_MessageSignalArgsMap[messageId];
+                bool isUp = value.StopLoss < value.TakeProfit;
+
+                if (value.TakeProfit.Value < high && isUp ||
+                    value.TakeProfit.Value > low && !isUp)
+                {
+                    OnTakeProfitInvoke(new LevelEventArgs(value.TakeProfit, value.Level, true));
+                    idsToRemove.Add(messageId);
+                    continue;
+                }
+
+                if (value.StopLoss.Value > low && isUp ||
+                    value.StopLoss.Value < high && !isUp)
+                {
+                    OnStopLossInvoke(new LevelEventArgs(value.TakeProfit, value.Level, true));
+                    idsToRemove.Add(messageId);
+                }
+            }
+
+            foreach (long idToRemove in idsToRemove)
+            {
+                m_MessageSignalArgsMap.Remove(idToRemove);
             }
 
             List<KeyValuePair<DateTime, TelegramHistoryMessage>> matchedSignals = m_MessagesDate
@@ -119,103 +222,8 @@ namespace TradeKit.Core.Signals
 
             foreach (KeyValuePair<DateTime, TelegramHistoryMessage> matchedSignal in matchedSignals)
             {
-                SignalAction res = ProcessMessage(matchedSignal.Value, symbolRegex, out ParsedSignal signal);
-                if ((res & SignalAction.ENTER_BUY) == 0 ||
-                    (res & SignalAction.ENTER_SELL) == 0)
-                {
-                    bool isLimit = (res & SignalAction.LIMIT) == 0;
-                    var args = new SignalEventArgs(
-                        new BarPoint(signal.Price.GetValueOrDefault(), signal.DateTime, BarsProvider),
-                        new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider),
-                        new BarPoint(signal.StopLoss, LastBar, BarsProvider), isLimit);
-                    m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
-                    OnEnterInvoke(args);
-                    continue;
-                }
-
-                long? replyId = matchedSignal.Value.ReplyId ?? m_MessageSignalArgsMap.LastOrDefault().Key;
-                if (replyId is null or <= 0)
-                {
-                    continue;
-                }
-
-                SignalEventArgs refSignal = m_MessageSignalArgsMap[replyId.Value];
-                if ((res & SignalAction.SET_SL) == 0)
-                {
-                    if (signal.Price.HasValue)
-                    {
-                        refSignal.StopLoss =
-                            new BarPoint(signal.Price.Value, LastBar, BarsProvider);
-                        OnEditInvoke(refSignal);
-                    }
-                }
-                else if ((res & SignalAction.SET_TP) == 0)
-                {
-                    refSignal.TakeProfit =
-                        new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider);
-                    OnEditInvoke(refSignal);
-                }
-                else if ((res & SignalAction.SET_BREAKEVEN) == 0)
-                {
-                    if (signal.Price.HasValue)
-                    {
-                        var newSl = new BarPoint(signal.Price.Value, LastBar, BarsProvider);
-                        OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.StopLoss, true));
-                        refSignal.StopLoss = newSl;
-                    }
-                }
-                else if ((res & SignalAction.CLOSE) == 0)
-                {
-                    OnManualCloseInvoke(new LevelEventArgs(refSignal.Level, refSignal.Level, true));
-                    m_MessageSignalArgsMap.Remove(replyId.Value);
-                }
-                else if ((res & SignalAction.ACTIVATED) == 0 && refSignal.IsLimit && !refSignal.IsActive)
-                {
-                    refSignal.IsActive = true;
-                    OnActivatedInvoke(new LevelEventArgs(refSignal.Level, refSignal.Level, true));
-                }
-                else if ((res & SignalAction.HIT_TP) == 0)
-                {
-                    OnTakeProfitInvoke(new LevelEventArgs(refSignal.TakeProfit, refSignal.Level, true));
-                    m_MessageSignalArgsMap.Remove(replyId.Value);
-                }
-                else if ((res & SignalAction.HIT_SL) == 0)
-                {
-                    OnStopLossInvoke(new LevelEventArgs(refSignal.StopLoss, refSignal.Level, true));
-                    m_MessageSignalArgsMap.Remove(replyId.Value);
-                }
+                HandleSignalAction(matchedSignal, symbolRegex);
             }
-
-            //foreach (KeyValuePair<DateTime, ParsedSignal> matchedSignal in matchedSignals)
-            //{
-            //    ParsedSignal signal = matchedSignal.Value;
-
-            //    LastEntry = new BarPoint(m_LastPrice, LastBar, BarsProvider);
-
-            //    for (int i = 0; i < signal.TakeProfits.Length; i++)
-            //    {
-            //        if (m_UseOneTp && i > 0)
-            //        {
-            //            break;
-            //        }
-
-            //        double tp = signal.TakeProfits[i];
-
-            //        //if (signal.IsLong)
-            //        //    tp -= 5;
-            //        //else
-            //        //    tp += 5;
-
-            //        IsInSetup = true;
-            //        OnEnterInvoke(new SignalEventArgs(
-            //            new BarPoint(signal.Price ?? m_LastPrice, BarsProvider.GetIndexByTime(signal.DateTime),
-            //                BarsProvider),
-            //            new BarPoint(tp, LastBar, BarsProvider),
-            //            new BarPoint(signal.StopLoss, LastBar, BarsProvider)));
-            //    }
-
-            //    m_Signals.Remove(matchedSignal.Key);
-            //}
         }
 
         private SignalAction ProcessMessage(
@@ -237,7 +245,7 @@ namespace TradeKit.Core.Signals
             if (signal.Success && Regex.IsMatch(textAll, symbolRegex))
             {
                 signalOut.IsLong = signal.Groups[1].Value.ToLowerInvariant() == "buy";
-                if (double.TryParse(signal.Groups[2].Value,
+                if (double.TryParse(signal.Groups[3].Value,
                         NUMBER_STYLES, CultureInfo.InvariantCulture, out double enterPrice))
                 {
                     signalOut.Price = enterPrice;
@@ -256,7 +264,7 @@ namespace TradeKit.Core.Signals
                 resultAction |= SignalAction.ACTIVATED;
 
             Match sl = Regex.Match(textAll, SL_REGEX, RegexOptions.IgnoreCase);
-            if (sl.Success && double.TryParse(sl.Groups[3].Value,
+            if (sl.Success && double.TryParse(sl.Groups[1].Value,
                     NUMBER_STYLES, CultureInfo.InvariantCulture, out double slPrice))
             {
                 signalOut.StopLoss = slPrice;

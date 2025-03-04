@@ -13,6 +13,7 @@
         HIT_TP = 64,
         HIT_SL = 128,
         LIMIT = 256,
-        ACTIVATED = 512
+        ACTIVATED = 512,
+        CANCELLED = 1024
     }
 }

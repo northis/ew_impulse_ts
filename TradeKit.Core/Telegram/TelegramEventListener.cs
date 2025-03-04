@@ -18,7 +18,7 @@ namespace TradeKit.Core.Telegram
 
         public async Task Init()
         {
-            await using var client = new Client();
+            await using var client = new Client(Config);
             User myself = await client.LoginUserIfNeeded();
         }
 
