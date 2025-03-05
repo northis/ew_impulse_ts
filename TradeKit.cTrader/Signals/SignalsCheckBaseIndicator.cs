@@ -22,15 +22,6 @@ namespace TradeKit.CTrader.Signals
         [Parameter("Signal history file path", DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
 
-        /// <summary>
-        /// Gets or sets a value indicating whether the date in the file is in UTC.
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if the date in the file is in UTC; otherwise, <c>false</c> and local time will be used.
-        /// </value>
-        [Parameter("Use UTC", DefaultValue = true)]
-        public bool UseUtc { get; set; }
-
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
 
@@ -45,7 +36,7 @@ namespace TradeKit.CTrader.Signals
             m_TpColor = Color.FromHex("#5000F000");
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             var twm = new CTraderViewManager(this);
-            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol.ToISymbol(), twm, SignalHistoryFilePath, UseUtc, false);
+            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol.ToISymbol(), twm, SignalHistoryFilePath);
             Subscribe(m_ParseSetupFinder);
         }
 

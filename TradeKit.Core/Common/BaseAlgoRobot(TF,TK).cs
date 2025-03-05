@@ -329,6 +329,7 @@ namespace TradeKit.Core.Common
                 sf.OnCanceled += OnCanceled;
                 sf.OnBreakeven += OnBreakeven;
                 sf.OnManualClose += OnManualClose;
+                sf.OnEdit += OnEdit;
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[sf.Id] = true;
                 Logger.Write($"{nameof(BarOpened)}: Bars initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
@@ -336,6 +337,25 @@ namespace TradeKit.Core.Common
             catch (Exception ex)
             {
                 Logger.Write($"{nameof(BarOpened)}: {ex.Message}");
+            }
+        }
+
+        private void OnEdit(object sender, TK e)
+        {
+            TF sf = (TF)sender;
+            var setupId = sf.Id;
+            if (!m_FinderPositionMap.TryGetValue(setupId, out List<int> posIds)
+                || posIds == null || posIds.Count == 0)
+                return;
+
+            IPosition[] positionsToModify = TradeManager.GetPositions()
+                .Where(a => posIds.Contains(a.Id))
+                .ToArray();
+
+            foreach (IPosition position in positionsToModify)
+            {
+                TradeManager.SetStopLossPrice(position, e.StopLoss.Value);
+                TradeManager.SetTakeProfitPrice(position, e.TakeProfit.Value);
             }
         }
 
@@ -370,7 +390,7 @@ namespace TradeKit.Core.Common
             {
                 if (breakEvenPrice.HasValue)
                 {
-                    TradeManager.SetBreakeven(position, breakEvenPrice.Value);
+                    TradeManager.SetBreakeven(position);
                 }
                 else
                 {

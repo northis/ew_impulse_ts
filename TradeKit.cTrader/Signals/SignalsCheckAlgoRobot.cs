@@ -45,7 +45,7 @@ namespace TradeKit.CTrader.Signals
             foreach (IPosition position in 
                      TradeManager.GetPositions().Where(a => a.Label == GetBotName()))
             {
-                TradeManager.SetBreakeven(position, null);
+                TradeManager.SetBreakeven(position);
             }
         }
 
@@ -84,7 +84,7 @@ namespace TradeKit.CTrader.Signals
 
             Logger.Write($"Using path {path}");
 
-            var sf = new ParseSetupFinder(barsProvider, symbolEntity, twm, path, m_SignalsParams.UseUtc, m_SignalsParams.UseOneTP);
+            var sf = new ParseSetupFinder(barsProvider, symbolEntity, twm, path);
             return sf;
 
         }

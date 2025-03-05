@@ -14,6 +14,7 @@
         HIT_SL = 128,
         LIMIT = 256,
         ACTIVATED = 512,
-        CANCELLED = 1024
+        CANCELLED = 1024,
+        EXTRA = 2048
     }
 }

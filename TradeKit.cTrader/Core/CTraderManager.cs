@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.Common;
@@ -229,10 +230,18 @@ namespace TradeKit.CTrader.Core
             cTraderPosition.ModifyStopLossPrice(price);
         }
 
-        public void SetBreakeven(IPosition position, double? price)
+        public void SetBreakeven(IPosition position)
         {
             Position cTraderPosition = ToPosition(position);
-            cTraderPosition.ModifyStopLossPrice(cTraderPosition.EntryPrice);
+            Debugger.Launch();
+
+            double newPrice = cTraderPosition.StopLoss.HasValue
+                ? cTraderPosition.EntryPrice > cTraderPosition.StopLoss
+                    ? cTraderPosition.EntryPrice + cTraderPosition.Symbol.Spread
+                    : cTraderPosition.EntryPrice - cTraderPosition.Symbol.Spread
+                : cTraderPosition.EntryPrice;
+
+            cTraderPosition.ModifyStopLossPrice(newPrice);
             cTraderPosition.ModifyVolume(cTraderPosition.VolumeInUnits / 2);
         }
 
