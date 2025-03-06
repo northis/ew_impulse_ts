@@ -12,14 +12,15 @@ namespace TradeKit.Core.Signals
     {
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly string m_SignalHistoryFilePath;
+        private readonly double m_MaxStopRatio = 0.05;
         private const string SIGNAL_REGEX = @"(buy|sell)(.*)\s(\d+(?:[.,]\d{0,5})?)";
-        private const string BREAKEVEN_REGEX = @"(book|entry point|breakeven|to the entry)";
+        private const string BREAKEVEN_REGEX = @"(running in profit|entry point|breakeven|to the entry)";
         private const string EXTRA_REGEX = @"(extra)";
         private const string TP_HIT_REGEX = @"(TP hit|🎯)";
         private const string SL_HIT_REGEX = @"(SL hit)";
         private const string ACTIVATED_REGEX = @"(activated)";
         private const string LIMIT_REGEX = @"(limit)";
-        private const string CLOSE_REGEX = @"(close\s)";
+        private const string CLOSE_REGEX = @"(close\s|closed\s)";
         private const string TP_REGEX = @"(tp|take profit)(.*)\s(\d+(?:[.,]\d{0,5})?)";
         private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{0,9}[.,]\d{0,5})";
 
@@ -53,12 +54,12 @@ namespace TradeKit.Core.Signals
 
         private static readonly Dictionary<string, double> DEFAULT_TP_PIPS = new()
         {
-            {"XAUUSD", 100}
+            {"XAUUSD", 1000}
         };
 
         private static readonly Dictionary<string, double> DEFAULT_SL_PIPS = new()
         {
-            {"XAUUSD", 100}
+            {"XAUUSD", 1000}
         };
 
         private readonly Dictionary<long, TelegramHistoryMessage> m_Messages;
@@ -110,7 +111,7 @@ namespace TradeKit.Core.Signals
                 OnEnterInvoke(args);
                 return;
             }
-            
+
             long? replyId = matchedSignal.Value.ReplyId ?? m_MessageSignalArgsMap.LastOrDefault().Key;
             if (replyId is null or <= 0)
             {
@@ -132,9 +133,13 @@ namespace TradeKit.Core.Signals
             if ((res & SignalAction.SET_SL) == SignalAction.SET_SL)
             {
                 double? price = signal.Price ?? signal.StopLoss;
+
                 foreach (SignalEventArgs refSignalToChange in
                          m_MessageSignalArgsMap.Values.Where(a => a.Comment == refSignal.Comment))
                 {
+                    if (refSignalToChange.HasBreakeven)
+                        continue;
+
                     refSignalToChange.StopLoss =
                         new BarPoint(price.Value, LastBar, BarsProvider);
                 }
@@ -148,7 +153,6 @@ namespace TradeKit.Core.Signals
             }
             else if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN && !refSignal.HasBreakeven)
             {
-                Debugger.Launch();
                 var newSl = new BarPoint(refSignal.Level.Value, LastBar, BarsProvider);
                 refSignal.HasBreakeven = true;
                 OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, true));
@@ -187,8 +191,13 @@ namespace TradeKit.Core.Signals
         /// </summary>
         private void ProcessSetup()
         {
-            DateTime prevBarDateTime = BarsProvider.GetOpenTime(LastBar - 1).ToUniversalTime();
-            DateTime barDateTime = BarsProvider.GetOpenTime(LastBar).ToUniversalTime();
+            DateTime prevBarDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 2).ToUniversalTime();
+            DateTime barDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 1).ToUniversalTime();
+
+            if (prevBarDateTime == DateTime.MinValue || barDateTime == DateTime.MinValue)
+            {
+                return;
+            }
 
             double low = BarsProvider.GetLowPrice(barDateTime);
             double high = BarsProvider.GetHighPrice(barDateTime);
@@ -226,7 +235,7 @@ namespace TradeKit.Core.Signals
             }
 
             List<KeyValuePair<DateTime, TelegramHistoryMessage>> matchedSignals = m_MessagesDate
-                .SkipWhile(a => a.Key < prevBarDateTime)
+                .SkipWhile(a => a.Key <= prevBarDateTime)
                 .TakeWhile(a => a.Key <= barDateTime)
                 .ToList();
             
@@ -273,21 +282,37 @@ namespace TradeKit.Core.Signals
             if (isActivated)
                 resultAction |= SignalAction.ACTIVATED;
 
+            double? GetDefaultStopLoss(ParsedSignal signalOut)
+            {
+                if (DEFAULT_SL_PIPS.TryGetValue(Symbol.Name, out double defaultStopPips))
+                {
+                    signalOut.StopLoss = signalOut.Price.GetValueOrDefault() +
+                                         Symbol.PipSize * defaultStopPips * (signalOut.IsLong ? -1 : 1);
+                    return signalOut.StopLoss;
+                }
+
+                return null;
+            }
+
             Match sl = Regex.Match(textAll, SL_REGEX, RegexOptions.IgnoreCase);
             if (sl.Success && double.TryParse(sl.Groups[2].Value,
                     NUMBER_STYLES, CultureInfo.InvariantCulture, out double slPrice))
             {
-                signalOut.StopLoss = slPrice;
+                double? defSl = GetDefaultStopLoss(signalOut);
+                if (defSl is > 0 && Math.Abs(slPrice - defSl.Value) / defSl < m_MaxStopRatio)
+                {
+                    signalOut.StopLoss = slPrice;
+                }
+
                 resultAction |= SignalAction.SET_SL;
             }
             else
             {
                 if (signal.Success)
                 {
-                    if (DEFAULT_SL_PIPS.TryGetValue(Symbol.Name, out double defaultStopPips))
+                    double? newSl = GetDefaultStopLoss(signalOut);
+                    if (newSl.HasValue && Math.Abs(bid - newSl.Value) / bid < m_MaxStopRatio)
                     {
-                        signalOut.StopLoss = signalOut.Price.GetValueOrDefault() +
-                                             Symbol.PipSize * defaultStopPips * (signalOut.IsLong ? -1 : 1);
                         resultAction |= SignalAction.SET_SL;
                     }
                 }

@@ -233,7 +233,6 @@ namespace TradeKit.CTrader.Core
         public void SetBreakeven(IPosition position)
         {
             Position cTraderPosition = ToPosition(position);
-            Debugger.Launch();
 
             double newPrice = cTraderPosition.StopLoss.HasValue
                 ? cTraderPosition.EntryPrice > cTraderPosition.StopLoss
@@ -242,7 +241,7 @@ namespace TradeKit.CTrader.Core
                 : cTraderPosition.EntryPrice;
 
             cTraderPosition.ModifyStopLossPrice(newPrice);
-            cTraderPosition.ModifyVolume(cTraderPosition.VolumeInUnits / 2);
+            cTraderPosition.ModifyVolume(Convert.ToInt32(cTraderPosition.VolumeInUnits / 2));
         }
 
         public void SetTakeProfitPrice(IPosition position, double? price)

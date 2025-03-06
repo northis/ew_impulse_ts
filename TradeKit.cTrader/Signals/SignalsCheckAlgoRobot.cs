@@ -37,11 +37,6 @@ namespace TradeKit.CTrader.Signals
 
         private void TradeManagerOnPositionClosed(object sender, TradeKit.Core.EventArgs.ClosedPositionEventArgs e)
         {
-            if (!m_SignalsParams.UseBreakeven)
-            {
-                return;
-            }
-
             foreach (IPosition position in 
                      TradeManager.GetPositions().Where(a => a.Label == GetBotName()))
             {
@@ -52,38 +47,19 @@ namespace TradeKit.CTrader.Signals
         protected override ParseSetupFinder CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity)
         {
             IBarsProvider barsProvider = CreateBarsProvider(timeFrame, symbolEntity);
-            string path;
-            if (string.IsNullOrEmpty(m_SignalsParams.SignalHistoryFilePath))
-            {
-                if (!Directory.Exists(m_SignalsParams.BulkHistoryFolderPath))
-                {
-                    throw new InvalidOperationException(
-                        $"No folder {m_SignalsParams.SignalHistoryFilePath} found!");
-                }
-
-                string[] files = Directory.GetFiles(m_SignalsParams.BulkHistoryFolderPath)
-                    .OrderBy(a => a)
-                    .ToArray();
-                if (m_SignalsParams.ZeroBasedFileIndexAsc < 0 || m_SignalsParams.ZeroBasedFileIndexAsc >= files.Length)
-                {
-                    throw new InvalidOperationException("Bad file index!");
-                }
-
-                path = Path.Combine(m_SignalsParams.BulkHistoryFolderPath, files[m_SignalsParams.ZeroBasedFileIndexAsc]);
-            }
-            else
+            string path = null;
+            if (!string.IsNullOrEmpty(m_SignalsParams.SignalHistoryFilePath))
             {
                 path = m_SignalsParams.SignalHistoryFilePath;
             }
 
             var twm = new CTraderViewManager(m_HostRobot);
-            if (!File.Exists(path))
+            if (path == null || !File.Exists(path))
             {
                 return new NullParseSetupFinder(barsProvider, symbolEntity, twm);
             }
 
             Logger.Write($"Using path {path}");
-
             var sf = new ParseSetupFinder(barsProvider, symbolEntity, twm, path);
             return sf;
 
