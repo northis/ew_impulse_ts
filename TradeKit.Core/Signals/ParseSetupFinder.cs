@@ -19,10 +19,11 @@ namespace TradeKit.Core.Signals
         private const string TP_HIT_REGEX = @"(TP hit|🎯)";
         private const string SL_HIT_REGEX = @"(SL hit)";
         private const string ACTIVATED_REGEX = @"(activated)";
+        private const string CANCELED_REGEX = @"(delete|cancel|remove)";
         private const string LIMIT_REGEX = @"(limit)";
         private const string CLOSE_REGEX = @"(close\s|closed\s)";
         private const string TP_REGEX = @"(tp|take profit)(.*)\s(\d+(?:[.,]\d{0,5})?)";
-        private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{0,9}[.,]\d{0,5})";
+        private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{0,9}[.,]\d{0,5})";//strikethrough TODO
 
         private static readonly NumberStyles NUMBER_STYLES = NumberStyles.AllowCurrencySymbol
                                                              | NumberStyles.AllowDecimalPoint
@@ -32,24 +33,7 @@ namespace TradeKit.Core.Signals
 
         private static readonly Dictionary<string, string> SYMBOL_REGEX_MAP = new()
         {
-            {"XAUUSD", @"(gold)|(xau[\s\\\/-]*usd)|(one\smore)"},
-            {"XAUEUR", @"(xau[\s\\\/-]*eur)"},
-            {"XAGUSD", @"(silver)|(xag[\s\\\/-]*usd)"},
-            {"XAGEUR", @"(xag[\s\\\/-]*eur)"},
-            {"EURUSD", @"(eur[\s\\\/-]*usd)"},
-            {"GBPUSD", @"(gbp[\s\\\/-]*usd)"},
-            {"USDJPY", @"(usd[\s\\\/-]*jpy)"},
-            {"USDCAD", @"(usd[\s\\\/-]*cad)"},
-            {"AUDUSD", @"(aud[\s\\\/-]*usd)"},
-            {"NZDUSD", @"(nzd[\s\\\/-]*usd)"},
-            {"USDCHF", @"(usd[\s\\\/-]*chf)"},
-            {"GBPAUD", @"(gbp[\s\\\/-]*aud)"},
-            {"EURAUD", @"(eur[\s\\\/-]*aud)"},
-            {"GBPJPY", @"(gbp[\s\\\/-]*jpy)"},
-            {"EURJPY", @"(eur[\s\\\/-]*jpy)"},
-            {"CHFJPY", @"(chf[\s\\\/-]*jpy)"},
-            {"AUDCHF", @"(aud[\s\\\/-]*chf)"},
-            {"NZDCHF", @"(nzd[\s\\\/-]*chf)"},
+            {"XAUUSD", @"(gold|xauusd|one\smore)\s*(\d+(?:[.,]\d{0,5})?)"}
         };
 
         private static readonly Dictionary<string, double> DEFAULT_TP_PIPS = new()
@@ -103,10 +87,16 @@ namespace TradeKit.Core.Signals
                  (res & SignalAction.ENTER_SELL) == SignalAction.ENTER_SELL) && hasTp)
             {
                 bool isLimit = (res & SignalAction.LIMIT) == SignalAction.LIMIT;
+                if (isLimit)
+                {
+                    return;// We skip limit orders.
+                }
+
                 var args = new SignalEventArgs(
                     new BarPoint(signal.Price.GetValueOrDefault(), signal.DateTime, BarsProvider),
                     new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider),
-                    new BarPoint(signal.StopLoss, LastBar, BarsProvider), isLimit);
+                    new BarPoint(signal.StopLoss, LastBar, BarsProvider));
+                Debugger.Launch();
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
                 OnEnterInvoke(args);
                 return;
@@ -260,22 +250,29 @@ namespace TradeKit.Core.Signals
             };
             double ask = m_TradeViewManager.GetAsk(Symbol);
             double bid = m_TradeViewManager.GetBid(Symbol);
-
-            if (signal.Success && Regex.IsMatch(textAll, symbolRegex))
+            
+            if (signal.Success)
             {
-                signalOut.IsLong = signal.Groups[1].Value.ToLowerInvariant() == "buy";
-                if (double.TryParse(signal.Groups[3].Value,
-                        NUMBER_STYLES, CultureInfo.InvariantCulture, out double enterPrice))
+                if (Regex.IsMatch(textAll, symbolRegex))
                 {
-                    signalOut.Price = enterPrice;
-                    bool isLimit = Regex.IsMatch(textAll, LIMIT_REGEX);
-                    if (isLimit)
-                        resultAction |= SignalAction.LIMIT;
+                    signalOut.IsLong = signal.Groups[1].Value.ToLowerInvariant() == "buy";
+                    if (double.TryParse(signal.Groups[3].Value,
+                            NUMBER_STYLES, CultureInfo.InvariantCulture, out double enterPrice))
+                    {
+                        signalOut.Price = enterPrice;
+                        bool isLimit = Regex.IsMatch(textAll, LIMIT_REGEX);
+                        if (isLimit)
+                            resultAction |= SignalAction.LIMIT;
+                    }
+                    else
+                        signalOut.Price = signalOut.IsLong ? ask : bid;
+
+                    resultAction |= signalOut.IsLong ? SignalAction.ENTER_BUY : SignalAction.ENTER_SELL;
                 }
                 else
-                    signalOut.Price = signalOut.IsLong ? ask : bid;
-
-                resultAction |= signalOut.IsLong ? SignalAction.ENTER_BUY : SignalAction.ENTER_SELL;
+                {
+                    return resultAction;
+                }
             }
 
             bool isActivated = Regex.IsMatch(textAll, ACTIVATED_REGEX);
@@ -286,7 +283,8 @@ namespace TradeKit.Core.Signals
             {
                 if (DEFAULT_SL_PIPS.TryGetValue(Symbol.Name, out double defaultStopPips))
                 {
-                    signalOut.StopLoss = signalOut.Price.GetValueOrDefault() +
+                    double priceNow = signalOut.Price ?? (signalOut.IsLong ? ask: bid );
+                    signalOut.StopLoss = priceNow +
                                          Symbol.PipSize * defaultStopPips * (signalOut.IsLong ? -1 : 1);
                     return signalOut.StopLoss;
                 }
@@ -386,6 +384,12 @@ namespace TradeKit.Core.Signals
             if (slHit.Success)
             {
                 resultAction |= SignalAction.HIT_SL;
+            }
+
+            Match cancelled = Regex.Match(textAll, CANCELED_REGEX, RegexOptions.IgnoreCase);
+            if (cancelled.Success)
+            {
+                resultAction |= SignalAction.CANCELLED;
             }
 
             return resultAction;

@@ -33,6 +33,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TradeKit.Core", "TradeKit.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TradeKit.Binance", "TradeKit.Binance\TradeKit.Binance.csproj", "{51441592-FD6E-467A-A6F9-EA2BFD21FFE0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeKit.SampleApp", "TradeKit.SampleApp\TradeKit.SampleApp.csproj", "{42F69B9E-2239-4B23-B2A2-CBD7161450CD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,6 +101,10 @@ Global
 		{51441592-FD6E-467A-A6F9-EA2BFD21FFE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{51441592-FD6E-467A-A6F9-EA2BFD21FFE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{51441592-FD6E-467A-A6F9-EA2BFD21FFE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42F69B9E-2239-4B23-B2A2-CBD7161450CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42F69B9E-2239-4B23-B2A2-CBD7161450CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42F69B9E-2239-4B23-B2A2-CBD7161450CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42F69B9E-2239-4B23-B2A2-CBD7161450CD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
