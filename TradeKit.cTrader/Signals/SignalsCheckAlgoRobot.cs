@@ -37,11 +37,11 @@ namespace TradeKit.CTrader.Signals
 
         private void TradeManagerOnPositionClosed(object sender, TradeKit.Core.EventArgs.ClosedPositionEventArgs e)
         {
-            foreach (IPosition position in 
-                     TradeManager.GetPositions().Where(a => a.Label == GetBotName()))
-            {
-                TradeManager.SetBreakeven(position);
-            }
+            //foreach (IPosition position in 
+            //         TradeManager.GetPositions().Where(a => a.Label == GetBotName()))
+            //{
+            //    TradeManager.SetBreakeven(position);
+            //}
         }
 
         protected override ParseSetupFinder CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity)

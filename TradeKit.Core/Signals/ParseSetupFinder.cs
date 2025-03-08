@@ -21,9 +21,10 @@ namespace TradeKit.Core.Signals
         private const string ACTIVATED_REGEX = @"(activated)";
         private const string CANCELED_REGEX = @"(delete|cancel|remove)";
         private const string LIMIT_REGEX = @"(limit)";
+        private const string STRIKETHROUGH_REGEX = @"{(\n|\s)*""type"":(\n|\s)*""strikethrough"",(\n|\s)*""text"":(\n|\s)*""(.)*""(\n|\s)*},";
         private const string CLOSE_REGEX = @"(close\s|closed\s)";
         private const string TP_REGEX = @"(tp|take profit)(.*)\s(\d+(?:[.,]\d{0,5})?)";
-        private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{0,9}[.,]\d{0,5})";//strikethrough TODO
+        private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{0,9}[.,]\d{0,5})";
 
         private static readonly NumberStyles NUMBER_STYLES = NumberStyles.AllowCurrencySymbol
                                                              | NumberStyles.AllowDecimalPoint
@@ -96,7 +97,6 @@ namespace TradeKit.Core.Signals
                     new BarPoint(signal.Price.GetValueOrDefault(), signal.DateTime, BarsProvider),
                     new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider),
                     new BarPoint(signal.StopLoss, LastBar, BarsProvider));
-                Debugger.Launch();
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
                 OnEnterInvoke(args);
                 return;
@@ -120,7 +120,8 @@ namespace TradeKit.Core.Signals
                 return;
             }
 
-            if ((res & SignalAction.SET_SL) == SignalAction.SET_SL)
+            if ((res & SignalAction.SET_SL) == SignalAction.SET_SL ||
+                (res & SignalAction.SET_TP) == SignalAction.SET_TP)
             {
                 double? price = signal.Price ?? signal.StopLoss;
 
@@ -133,12 +134,13 @@ namespace TradeKit.Core.Signals
                     refSignalToChange.StopLoss =
                         new BarPoint(price.Value, LastBar, BarsProvider);
                 }
-                OnEditInvoke(refSignal);
-            }
-            else if ((res & SignalAction.SET_TP) == SignalAction.SET_TP && hasTp)
-            {
-                refSignal.TakeProfit =
-                    new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider);
+
+                if (hasTp)
+                {
+                    refSignal.TakeProfit =
+                        new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider);
+                }
+
                 OnEditInvoke(refSignal);
             }
             else if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN && !refSignal.HasBreakeven)
@@ -147,6 +149,7 @@ namespace TradeKit.Core.Signals
                 refSignal.HasBreakeven = true;
                 OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, true));
                 refSignal.StopLoss = newSl;
+                m_MessageSignalArgsMap.Remove(replyId.Value);
             }
             else if ((res & SignalAction.CLOSE) == SignalAction.CLOSE)
             {
@@ -214,7 +217,7 @@ namespace TradeKit.Core.Signals
                 if (value.StopLoss.Value > low && isUp ||
                     value.StopLoss.Value < high && !isUp)
                 {
-                    OnStopLossInvoke(new LevelEventArgs(value.TakeProfit, value.Level, true));
+                    OnStopLossInvoke(new LevelEventArgs(value.StopLoss, value.Level, true));
                     idsToRemove.Add(messageId);
                 }
             }
@@ -239,6 +242,7 @@ namespace TradeKit.Core.Signals
             TelegramHistoryMessage historyItem, string symbolRegex, out ParsedSignal signalOut)
         {
             string textAll = string.Concat(historyItem.Text).ToLowerInvariant();
+            textAll = Regex.Replace(textAll, STRIKETHROUGH_REGEX, "");
             SignalAction resultAction = SignalAction.DEFAULT;
 
             Match signal = Regex.Match(textAll, SIGNAL_REGEX, RegexOptions.IgnoreCase);

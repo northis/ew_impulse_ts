@@ -233,6 +233,11 @@ namespace TradeKit.CTrader.Core
         public void SetBreakeven(IPosition position)
         {
             Position cTraderPosition = ToPosition(position);
+            if (cTraderPosition.GrossProfit < 0)
+            {
+                cTraderPosition.Close();
+                return;
+            }
 
             double newPrice = cTraderPosition.StopLoss.HasValue
                 ? cTraderPosition.EntryPrice > cTraderPosition.StopLoss

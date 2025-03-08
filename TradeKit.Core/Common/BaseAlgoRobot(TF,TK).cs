@@ -355,7 +355,9 @@ namespace TradeKit.Core.Common
             foreach (IPosition position in positionsToModify)
             {
                 TradeManager.SetStopLossPrice(position, e.StopLoss.Value);
-                TradeManager.SetTakeProfitPrice(position, e.TakeProfit.Value);
+
+                if (e.TakeProfit != null)
+                    TradeManager.SetTakeProfitPrice(position, e.TakeProfit.Value);
             }
         }
 

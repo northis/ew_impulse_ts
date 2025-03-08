@@ -246,10 +246,6 @@ namespace TradeKit.Core.AlgoBase
             {
                 foreach (GartleyProjection activeProjection in activeProjections)
                 {
-                    if (activeProjection.ItemC is { OpenTime: { Day: 6, Month: 8, Hour: 20 } })
-                    {
-                        Debugger.Launch();
-                    }
                     ProjectionState updateResult = activeProjection.Update(index);
                     if (updateResult is ProjectionState.PROJECTION_FORMED)
                     {
@@ -351,7 +347,6 @@ namespace TradeKit.Core.AlgoBase
                 projection.BtoD = projectionLevel.Bd.Ratio;
                 projection.ItemD = projection.ItemC.WithPrice(dItem);
 
-                //Debugger.Launch();
                 GartleyItem res = CreatePattern(projection);
                 if (res == null)
                     continue;
