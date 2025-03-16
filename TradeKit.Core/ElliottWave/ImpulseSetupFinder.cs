@@ -179,7 +179,7 @@ namespace TradeKit.Core.ElliottWave
                         min >= BarsProvider.GetLowPrice(i))
                     {
                         return;
-                        // The setup is no longer valid, TP or SL is already hit.
+                        // The setup is no longer valid, TP or SL is already hit.  
                     }
                 }
 

@@ -8,7 +8,9 @@ namespace TradeKit.Core.Common
     public static class TimeFrameHelper
     {
         public static ITimeFrame Minute1 = new TimeFrameBase("Minute", "m1");
+        public static ITimeFrame Minute3 = new TimeFrameBase("Minute3", "m3");
         public static ITimeFrame Minute5 = new TimeFrameBase("Minute5", "m5");
+        public static ITimeFrame Minute7 = new TimeFrameBase("Minute7", "m7");
         public static ITimeFrame Minute10 = new TimeFrameBase("Minute10", "m10");
         public static ITimeFrame Minute15 = new TimeFrameBase("Minute15", "m15");
         public static ITimeFrame Minute20 = new TimeFrameBase("Minute20", "m20");
@@ -26,8 +28,10 @@ namespace TradeKit.Core.Common
         {
             var timeFramesList = new List<TimeFrameInfo>
             {
-                new(Minute1, TimeSpan.FromMinutes(1), Minute1, Minute5),
-                new(Minute5, TimeSpan.FromMinutes(5), Minute1, Minute10),
+                new(Minute1, TimeSpan.FromMinutes(1), Minute1, Minute3),
+                new(Minute3, TimeSpan.FromMinutes(3), Minute1, Minute5),
+                new(Minute5, TimeSpan.FromMinutes(5), Minute1, Minute7),
+                new(Minute7, TimeSpan.FromMinutes(7), Minute1, Minute10),
                 new(Minute10, TimeSpan.FromMinutes(10), Minute5, Minute15),
                 new(Minute15, TimeSpan.FromMinutes(15), Minute5, Minute30),
                 new(Minute20, TimeSpan.FromMinutes(20), Minute10, Minute30),

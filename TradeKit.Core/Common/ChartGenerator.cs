@@ -1,8 +1,9 @@
-﻿using Microsoft.FSharp.Core;
+using Microsoft.FSharp.Core;
 using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Json;
 using TradeKit.Core.PatternGeneration;
 using static Plotly.NET.StyleParam;
@@ -17,6 +18,9 @@ namespace TradeKit.Core.Common
         public static readonly Color WHITE_COLOR = Color.fromARGB(240, 209, 212, 220);
         public static readonly Color SEMI_WHITE_COLOR = Color.fromARGB(80, 209, 212, 220);
         public const double CHART_FONT_MAIN = 24;
+        public const int CHART_WIDTH = 1000;
+        public const int CHART_HEIGHT = 1000;
+        public const int CHART_BARS_MARGIN_COUNT = 5;
 
         public static GenericChart.GenericChart GetCandlestickChart(
             List<JsonCandleExport> candles,
@@ -234,6 +238,135 @@ namespace TradeKit.Core.Common
             string fileName = GetChartFileName(model);
             string pngPath = Path.Combine(folderToSave, fileName);
             chart.SavePNG(pngPath, null, 5000, 1000);
+        }
+
+        /// <summary>
+        /// Generates a candlestick chart image for the candles between start and end points.
+        /// </summary>
+        /// <param name="start">The start point.</param>
+        /// <param name="end">The end point.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="outputPath">Optional path to save the chart image. If null, a temporary file will be created.</param>
+        /// <returns>The path to the saved chart image.</returns>
+        public static string GenerateCandlestickChart(
+            BarPoint start, 
+            BarPoint end, 
+            IBarsProvider barsProvider,
+            string outputPath = null)
+        {
+            // Calculate the range of bars to display
+            int firstIndex = Math.Min(start.BarIndex, end.BarIndex);
+            int lastIndex = Math.Max(start.BarIndex, end.BarIndex);
+            
+            // Add margin bars before and after the sequence
+            int earlyBar = Math.Max(0, firstIndex - CHART_BARS_MARGIN_COUNT);
+            int laterBar = Math.Min(barsProvider.Count - 1, lastIndex + CHART_BARS_MARGIN_COUNT);
+            
+            int barsCount = laterBar - earlyBar + 1;
+            if (barsCount <= 0)
+            {
+                return null;
+            }
+            
+            // Prepare data arrays for the chart
+            double[] o = new double[barsCount];
+            double[] h = new double[barsCount];
+            double[] l = new double[barsCount];
+            double[] c = new double[barsCount];
+            DateTime[] d = new DateTime[barsCount];
+            var rangeBreaks = new List<DateTime>();
+            var validDateTimes = new List<DateTime>();
+            
+            // Get time frame info for range breaks
+            bool useCommonTimeFrame = TimeFrameHelper.TimeFrames
+                .TryGetValue(barsProvider.TimeFrame.Name, out TimeFrameInfo timeFrameInfo);
+            
+            if (!useCommonTimeFrame)
+                throw new NotSupportedException($"Time frame {barsProvider.TimeFrame.Name} is not supported");
+            
+            // Fill data arrays
+            for (int i = earlyBar; i <= laterBar; i++)
+            {
+                int barIndex = i - earlyBar;
+                DateTime currentDateTime = barsProvider.GetOpenTime(i);
+                o[barIndex] = barsProvider.GetOpenPrice(i);
+                h[barIndex] = barsProvider.GetHighPrice(i);
+                l[barIndex] = barsProvider.GetLowPrice(i);
+                c[barIndex] = barsProvider.GetClosePrice(i);
+                d[barIndex] = currentDateTime;
+                
+                if (i == earlyBar)
+                {
+                    continue;
+                }
+                
+                // Calculate range breaks for non-continuous time series
+                DateTime prevDateTime = barsProvider.GetOpenTime(i - 1);
+                TimeSpan diffToPrevious = currentDateTime - prevDateTime;
+                if (diffToPrevious > timeFrameInfo.TimeSpan)
+                {
+                    while (currentDateTime >= prevDateTime)
+                    {
+                        prevDateTime = prevDateTime.Add(timeFrameInfo.TimeSpan);
+                        rangeBreaks.Add(prevDateTime);
+                    }
+                }
+                else
+                {
+                    validDateTimes.Add(currentDateTime);
+                }
+            }
+            
+            // Generate the candlestick chart
+            GenericChart.GenericChart candlestickChart = GetCandlestickChart(
+                o, h, l, c, d, barsProvider.BarSymbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
+                out Rangebreak[] rbs);
+            
+            // Add markers for start and end points
+            var annotations = new List<Annotation>
+            {
+                GetAnnotation(
+                    d[start.BarIndex - earlyBar], 
+                    start.Value, 
+                    WHITE_COLOR, 
+                    CHART_FONT_MAIN, 
+                    BLACK_COLOR, 
+                    "Start",
+                    YAnchorPosition.Bottom),
+                GetAnnotation(
+                    d[end.BarIndex - earlyBar], 
+                    end.Value, 
+                    WHITE_COLOR, 
+                    CHART_FONT_MAIN, 
+                    BLACK_COLOR, 
+                    "End",
+                    YAnchorPosition.Top)
+            };
+            
+            // Create the final chart
+            GenericChart.GenericChart resultChart = candlestickChart
+                .WithAnnotations(annotations)
+                .WithTitle(
+                    $"{barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName} {DateTime.Now:R}",
+                    Font.init(Size: CHART_FONT_MAIN));
+            
+            // Determine output path
+            string filePath;
+            if (string.IsNullOrEmpty(outputPath))
+            {
+                string tempDir = Path.Combine(Path.GetTempPath(), "TradeKit", "Charts");
+                Directory.CreateDirectory(tempDir);
+                filePath = Path.Combine(tempDir, $"chart_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            }
+            else
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+                filePath = outputPath;
+            }
+            
+            // Save the chart
+            resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
+            return filePath;
         }
     }
 }
