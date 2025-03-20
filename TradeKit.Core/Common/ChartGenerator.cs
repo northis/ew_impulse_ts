@@ -356,7 +356,7 @@ namespace TradeKit.Core.Common
             {
                 string tempDir = Path.Combine(Path.GetTempPath(), "TradeKit", "Charts");
                 Directory.CreateDirectory(tempDir);
-                filePath = Path.Combine(tempDir, $"chart_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+                filePath = Path.Combine(tempDir, $"chart_{DateTime.Now:yyyyMMdd_HHmmss}");
             }
             else
             {
@@ -366,7 +366,7 @@ namespace TradeKit.Core.Common
             
             // Save the chart
             resultChart.SavePNG(filePath, null, CHART_WIDTH, CHART_HEIGHT);
-            return filePath;
+            return filePath + ".png";
         }
     }
 }

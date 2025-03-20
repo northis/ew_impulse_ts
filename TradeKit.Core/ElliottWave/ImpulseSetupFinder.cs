@@ -120,6 +120,7 @@ namespace TradeKit.Core.ElliottWave
                        stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
                        stats.OverlapseDegree <= m_ImpulseParams.MaxOverlapsePercent / 100 &&
                        stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
+                       //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
             return res;
         }
         
@@ -157,9 +158,9 @@ namespace TradeKit.Core.ElliottWave
                 double startValue = startItem.Value.Value;
                 double endValue = endItem.Value.Value;
 
-                int impulseBarCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
-                if (index < endItem.Value.BarIndex + impulseBarCount)
-                    return;
+                //int impulseBarCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
+                //if (index < endItem.Value.BarIndex + impulseBarCount)
+                //    return;
 
                 bool isImpulseUp = endValue > startValue;
 
@@ -193,10 +194,10 @@ namespace TradeKit.Core.ElliottWave
 
                 int edgeIndex = edgeExtremum.Index.GetValueOrDefault();
                 double channelRatio = (startItem.Value.BarIndex - edgeIndex) / (double)stats.CandlesCount;
-                if (channelRatio < m_ImpulseParams.ChannelRatio)
-                {
-                    return;
-                }
+                //if (channelRatio < m_ImpulseParams.ChannelRatio)
+                //{
+                //    return;
+                //}
 
                 double triggerLevel;
                 bool GotSetup(double levelRatio)

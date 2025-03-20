@@ -63,36 +63,6 @@ namespace TradeKit.Core.Resources {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] classification_lbfgs_ent {
-            get {
-                object obj = ResourceManager.GetObject("classification_lbfgs_ent", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
-        internal static byte[] classification_sdca {
-            get {
-                object obj = ResourceManager.GetObject("classification_sdca", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
-        internal static byte[] classification_sdca_ent {
-            get {
-                object obj = ResourceManager.GetObject("classification_sdca_ent", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
         internal static byte[] tradeResultTemplate {
             get {
                 object obj = ResourceManager.GetObject("tradeResultTemplate", resourceCulture);

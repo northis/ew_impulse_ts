@@ -118,15 +118,6 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="classification_lbfgs_ent" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>classification_lbfgs_ent.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="classification_sdca" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>classification_sdca.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="classification_sdca_ent" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>classification_sdca_ent.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
   <data name="tradeResultTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>tradeResultTemplate.svg;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>

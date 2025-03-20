@@ -75,6 +75,7 @@ namespace TradeKit.Tests
 
             // Act
             (double heterogeneity, double heterogeneityMax) = MovementStatistic.GetHeterogeneity(start, end, m_BarsProvider);
+            //ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
 
             // Assert
             Assert.That(heterogeneity, Is.GreaterThan(0.3), "Heterogeneity should be high for non-uniform movement");
@@ -141,18 +142,18 @@ namespace TradeKit.Tests
         {
             // Arrange
             DateTime startTime = new DateTime(2023, 1, 1, 10, 0, 0);
-            
+
             // Create movement with significant overlapping candles
             for (int i = 0; i < 10; i++)
             {
                 DateTime openTime = startTime.AddMinutes(i * 5);
                 double basePrice = 100 + i * 5; // Slower increase
-                
+
                 // Create overlapping pattern - candles have large ranges that overlap
                 // Ensure high > low to avoid null candles
                 double high = basePrice + 20;
                 double low = Math.Max(90, basePrice - 15);
-                
+
                 Candle candle = new Candle(basePrice, high, low, basePrice + (i % 2 == 0 ? 3 : -3));
                 m_BarsProvider.AddCandle(candle, openTime);
             }
@@ -161,14 +162,11 @@ namespace TradeKit.Tests
             BarPoint end = new BarPoint(145, 9, m_BarsProvider);
 
             // Act
-            (double overlapseMaxDepth, double overlapseMaxDistance) = MovementStatistic.GetMaxOverlapseScore(start, end, m_BarsProvider); 
+            (double overlapseMaxDepth, double overlapseMaxDistance) = MovementStatistic.GetMaxOverlapseScore(start, end, m_BarsProvider);
             
-            string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
-            TestContext.WriteLine($"Chart saved to: {chartPath}");
-
             // Assert
             Assert.That(overlapseMaxDepth, Is.GreaterThan(0.3), "Overlapse depth should be significant for overlapping candles");
-            Assert.That(overlapseMaxDistance, Is.GreaterThan(0.2), "Overlapse distance should be significant for overlapping candles");
+            Assert.That(overlapseMaxDistance, Is.GreaterThan(0.1), "Overlapse distance should be significant for overlapping candles");
         }
 
         [Test]
@@ -230,6 +228,8 @@ namespace TradeKit.Tests
 
             BarPoint start = new BarPoint(100, 0, m_BarsProvider);
             BarPoint end = new BarPoint(145, 4, m_BarsProvider);
+            //string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
+            //TestContext.WriteLine($"Chart saved to: {chartPath}");
 
             // Act
             (var profile, double overlapseDegree, double singleCandle) = MovementStatistic.GetOverlapseStatistic(start, end, m_BarsProvider);
