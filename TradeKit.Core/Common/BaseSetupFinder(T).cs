@@ -1,4 +1,5 @@
-﻿using Plotly.NET;
+﻿using System.Reflection;
+using Plotly.NET;
 using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core.Common
@@ -57,7 +58,7 @@ namespace TradeKit.Core.Common
             Symbol = symbol;
             BarsProvider = mainBarsProvider;
             TimeFrame = mainBarsProvider.TimeFrame;
-            Logger.Write($"Trade Kit version {Helper.VERSION}");
+            Logger.Write($"Trade Kit version {Assembly.GetExecutingAssembly().GetName().Version}");
         }
 
         /// <summary>

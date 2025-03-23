@@ -72,7 +72,7 @@ namespace TradeKit.Core.Telegram
 
             m_TelegramBotClient = new TelegramBotClient(botToken)
             {
-                Timeout = TimeSpan.FromSeconds(10)
+                Timeout = TimeSpan.FromSeconds(60)
             };
             
             m_TelegramChatId = new ChatId(chatId);
@@ -281,8 +281,9 @@ namespace TradeKit.Core.Telegram
 
                 sb.AppendLine(
                     $"Profit = {Helper.PriceFormat(profit, 2)}; {Helper.PriceFormat(nom / signalArgs.PipSize, 0)} pips; Δ={Helper.PriceFormat(100 * nom / price, 2)}%");
-                sb.AppendLine($"Spread = {Helper.PriceFormat(100 * spread / den, 2)}%");
             }
+
+            sb.AppendLine($"Spread = {Helper.PriceFormat(spread * Math.Pow(10, signalArgs.Digits), 0)}");
 
             string comment = signalArgs.SignalEventArgs.Comment;
             if (!string.IsNullOrEmpty(comment))

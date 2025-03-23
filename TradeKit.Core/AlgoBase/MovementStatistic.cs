@@ -19,14 +19,16 @@ namespace TradeKit.Core.AlgoBase
         public static ImpulseResult GetMovementStatistic(
             BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
-            var (heterogeneity, heterogeneityMax) = GetHeterogeneity(start, end, barsProvider);
-            var (overlapseMaxDepth, overlapseMaxDistance) = GetMaxOverlapseScore(start, end, barsProvider);
-            var (profile, overlapseDegree, singleCandle) = GetOverlapseStatistic(start, end, barsProvider);
+            //var (heterogeneity, heterogeneityMax) = GetHeterogeneity(start, end, barsProvider);
+            var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag) = GetMaxOverlapseScore(start, end, barsProvider);
+            //var (profile, overlapseDegree, singleCandle) = GetOverlapseStatistic(start, end, barsProvider);
 
             double den = start.Value > 0 ? start.Value : 1;
             double size = Math.Abs(start - end) / den;
+            //return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity,
+            //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
-            return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity, heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle);
+            return new ImpulseResult(overlapseMaxDepth, end.BarIndex - start.BarIndex, size, rateZigzag);
         }
 
         /// <summary>
@@ -96,20 +98,20 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Gets the maximum overlapse depth & distance (from 0 to 1)
+        /// Gets the maximum overlapse depth & distance & ratio ZigZag (from 0 to 1)
         /// </summary>
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        public static (double, double) GetMaxOverlapseScore(
+        public static (double, double, double) GetMaxOverlapseScore(
             BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
             bool isUp = end > start;
             double length = Math.Abs(end - start);
             if (length < double.Epsilon)
-                return (1, 1);
+                return (1, 1, 1);
 
-            double duration = Math.Abs(end.BarIndex - start.BarIndex);
+            int duration = Math.Abs(end.BarIndex - start.BarIndex);
 
             SortedDictionary<DateTime, double> hVals = GetPoints(
                 start, end, barsProvider.GetHighPrice, barsProvider);
@@ -127,6 +129,7 @@ namespace TradeKit.Core.AlgoBase
 
             SortedDictionary<DateTime, (double, DateTime)> scores =
                 new SortedDictionary<DateTime, (double, DateTime)>();
+            Dictionary<DateTime, int> extremaBarCounters = new Dictionary<DateTime, int>();
             foreach (DateTime dt in Helper.GetKeysRange(inputKeys, start.OpenTime, end.OpenTime))
             {
                 if ((dt == start.OpenTime || dt == end.OpenTime) && IsUpCandle(dt, barsProvider) != isUp)
@@ -150,19 +153,34 @@ namespace TradeKit.Core.AlgoBase
                         scores[dt] = new ValueTuple<double, DateTime>(localLength, inputCounterKey);
                     }
                 }
+
+                if (!scores.TryGetValue(dt, out (double, DateTime) score))
+                    continue;
+
+                double localExtremum = inputCounterKeys[score.Item2];
+                int extremaBarCount = 0;
+                for (int i = barsProvider.GetIndexByTime(dt); i >= start.BarIndex; i--)
+                {
+                    if (isUp && barsProvider.GetLowPrice(i) <= localExtremum ||
+                        !isUp && barsProvider.GetHighPrice(i) >= localExtremum)
+                        break;
+                    extremaBarCount++;
+                }
+
+                extremaBarCounters[dt] = extremaBarCount;
             }
 
-            if (scores.Count > 0)
-            {
-                KeyValuePair<DateTime, (double, DateTime)> maxBy = scores.MaxBy(a => a.Value.Item1);
-                double depth = maxBy.Value.Item1 / length;
+            if (scores.Count <= 0) return (0, 0, 0);
 
-                int startIndex = barsProvider.GetIndexByTime(maxBy.Key);
-                int endIndex = barsProvider.GetIndexByTime(maxBy.Value.Item2);
-                return (depth, duration > 0 ? (endIndex - startIndex) / duration : 0);
-            }
+            KeyValuePair<DateTime, (double, DateTime)> maxBy = scores.MaxBy(a => a.Value.Item1);
+            double depth = maxBy.Value.Item1 / length;
 
-            return (0, 0);
+            int startIndex = barsProvider.GetIndexByTime(maxBy.Key);
+            int endIndex = barsProvider.GetIndexByTime(maxBy.Value.Item2);
+            double distance = duration > 0 ? (endIndex - startIndex) / (double)duration : 0;
+            int max = extremaBarCounters.Max(a => a.Value);
+            double ratioZigZag = duration > 0 ? max / (double)duration : 0;
+            return (depth, distance, ratioZigZag);
         }
 
         /// <summary>

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using TradeKit.Core.Json;
 
 namespace TradeKit.Core.Common
@@ -12,7 +11,6 @@ namespace TradeKit.Core.Common
                 Path.Combine(Environment.CurrentDirectory, "TradeKitTelegramSend");
         }
 
-        internal const string VERSION = "1.0.2";
         
         public const string ENV_PRIVATE_URL_KEY = "TRADE_KIT_TW_URL";
         public static string PrivateChartUrl = Environment.GetEnvironmentVariable(ENV_PRIVATE_URL_KEY) ?? "https://www.tradingview.com/chart/";
@@ -23,13 +21,8 @@ namespace TradeKit.Core.Common
         public const double PERCENT_ALLOWANCE_TP = 0;
         public const double MAX_SPREAD_RATIO = 0.1;
         public const int MIN_IMPULSE_PERIOD = 5;
-        public const double MIN_SIZE_PERCENT = 0.02;
-        public const double MIN_OVERLAPSE_PERCENT = 30;
-        public const double MAX_OVERLAPSE_LENGTH_PERCENT = 30;
-        public const int MAX_IMPULSE_PERIOD = 15;
-        public const int STEP_IMPULSE_PERIOD = 20;
-        public const double IMPULSE_HETEROGENEITY_DEGREE_PERCENT = 30;
-        public const double IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT = 30;
+        public const double MAX_OVERLAPSE_LENGTH_PERCENT = 20;
+        public const double MAX_ZIGZAG_DEGREE_PERCENT = 20;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;

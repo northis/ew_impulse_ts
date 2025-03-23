@@ -336,7 +336,7 @@ namespace TradeKit.Core.Common
             }
             catch (Exception ex)
             {
-                Logger.Write($"{nameof(BarOpened)}: {ex.Message}");
+                Logger.Write($"{nameof(BarOpened)}: {ex}");
             }
         }
 

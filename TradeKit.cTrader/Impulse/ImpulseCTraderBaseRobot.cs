@@ -16,7 +16,7 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                Period, MinChannelRatio, EnterRatio, TakeRatio, BreakEvenRatio, HeterogeneityPercent, HeterogeneityMaxPercent, MinSizePercent, MaxOverlapsePercent, MaxOverlapseLengthPercent, BarsCount);
+                Period, EnterRatio, TakeRatio, BreakEvenRatio, MaxZigzagPercent, MaxOverlapseLengthPercent, BarsCount);
         }
 
         #region Input parameters
@@ -46,22 +46,10 @@ namespace TradeKit.CTrader.Impulse
         public double BreakEvenRatio { get; set; }
 
         /// <summary>
-        /// Gets or sets how far impulse went from the previous trend.
+        /// Gets or sets the maximum percent of the zigzag degree (how far the pullbacks can go from the main movement, in percents of the total bars).
         /// </summary>
-        [Parameter(nameof(MinChannelRatio), DefaultValue = 2.0, MinValue = 0.1, MaxValue = 10.0, Group = Helper.TRADE_SETTINGS_NAME)]
-        public double MinChannelRatio { get; set; }
-
-        /// <summary>
-        /// Gets or sets the minimum size of the impulse in percent.
-        /// </summary>
-        [Parameter(nameof(MinSizePercent), DefaultValue = Helper.MIN_SIZE_PERCENT, MinValue = 0.01, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
-        public double MinSizePercent { get; set; }
-
-        /// <summary>
-        /// Gets or sets the minimum size of the impulse in percent.
-        /// </summary>
-        [Parameter(nameof(MaxOverlapsePercent), DefaultValue = Helper.MIN_OVERLAPSE_PERCENT, MinValue = 0.01, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
-        public double MaxOverlapsePercent { get; set; }
+        [Parameter(nameof(MaxZigzagPercent), DefaultValue = Helper.MAX_ZIGZAG_DEGREE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxZigzagPercent { get; set; }
 
         /// <summary>
         /// Gets or sets the maximum length of the impulse in percent of the entire impulse.
@@ -74,18 +62,6 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         [Parameter(nameof(BarsCount), DefaultValue = Helper.MINIMUM_BARS_IN_IMPULSE, MinValue = 3, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarsCount { get; set; }
-
-        /// <summary>
-        /// Gets or sets the degree of not-smooth of the impulse.
-        /// </summary>
-        [Parameter(nameof(HeterogeneityPercent), DefaultValue = Helper.IMPULSE_HETEROGENEITY_DEGREE_PERCENT, MinValue = 0.5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.05)]
-        public double HeterogeneityPercent { get; set; }
-
-        /// <summary>
-        /// Gets or sets the max value of not-smooth of the impulse.
-        /// </summary>
-        [Parameter(nameof(HeterogeneityMaxPercent), DefaultValue = Helper.IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT, MinValue = 0.5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.05)]
-        public double HeterogeneityMaxPercent { get; set; }
         #endregion
     }
 }

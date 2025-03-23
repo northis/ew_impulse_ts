@@ -116,10 +116,8 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool res = stats.HeterogeneityDegree <= m_ImpulseParams.HeterogeneityDegreePercent / 100 &&
-                       stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
-                       stats.OverlapseDegree <= m_ImpulseParams.MaxOverlapsePercent / 100 &&
-                       stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
+            bool res = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
+                       stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100;
                        //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
             return res;
         }
@@ -169,9 +167,6 @@ namespace TradeKit.Core.ElliottWave
                 if (stats.CandlesCount < m_ImpulseParams.BarsCount)
                     return;
 
-                if (stats.Size < m_ImpulseParams.MinSizePercent / 100)
-                    return;
-
                 double max = isImpulseUp ? endValue : startValue;
                 double min = isImpulseUp ? startValue : endValue;
                 for (int i = endItem.Value.BarIndex + 1; i < index; i++)
@@ -193,7 +188,7 @@ namespace TradeKit.Core.ElliottWave
                 }
 
                 int edgeIndex = edgeExtremum.Index.GetValueOrDefault();
-                double channelRatio = (startItem.Value.BarIndex - edgeIndex) / (double)stats.CandlesCount;
+                //double channelRatio = (startItem.Value.BarIndex - edgeIndex) / (double)stats.CandlesCount;
                 //if (channelRatio < m_ImpulseParams.ChannelRatio)
                 //{
                 //    return;
@@ -314,7 +309,7 @@ namespace TradeKit.Core.ElliottWave
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = BarsProvider.GetOpenTime(edgeIndex);
 
-                CurrentStatistic = $"{stats};{channelRatio:F2}";
+                CurrentStatistic = stats.ToString();//$"{stats};{channelRatio:F2}";
                 CurrentSignalEventArgs = new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
