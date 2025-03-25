@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.AlgoBase;
+﻿using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -15,7 +14,9 @@ namespace TradeKit.Core.ElliottWave
         private readonly double m_PrePatio;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         DeviationExtremumFinder m_PreFinder;
-        
+        public double m_MaxZigzagRatio;
+        public double m_MaxOverlapseLengthRatio;
+
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
         // We want to collect at lease this amount of extrema
@@ -27,13 +28,9 @@ namespace TradeKit.Core.ElliottWave
 
         public int SetupStartIndex { get; set; }
         public int SetupEndIndex { get; set; }
-        
         public double SetupStartPrice { get; set; }
-        
         public double SetupEndPrice { get; set; }
-        
         public double TriggerLevel { get; set; }
-        
         public int TriggerBarIndex { get; set; }
         internal string CurrentStatistic { get; set; }
         internal ImpulseSignalEventArgs CurrentSignalEventArgs { get; set; }
@@ -52,6 +49,8 @@ namespace TradeKit.Core.ElliottWave
             var localFinder = new DeviationExtremumFinder(impulseParams.Period, BarsProvider);
             m_ExtremumFinders.Add(localFinder);
             m_PrePatio = m_ImpulseParams.EnterRatio * 0.5;
+            m_MaxZigzagRatio = impulseParams.MaxZigzagPercent / 100;
+            m_MaxOverlapseLengthRatio = impulseParams.MaxOverlapseLengthPercent / 100;
         }
 
         /// <summary>
@@ -117,7 +116,8 @@ namespace TradeKit.Core.ElliottWave
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
             bool res = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
-                       stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100;
+                       stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 &&
+                       stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100;
                        //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
             return res;
         }
@@ -161,10 +161,18 @@ namespace TradeKit.Core.ElliottWave
                 //    return;
 
                 bool isImpulseUp = endValue > startValue;
+                bool isInitialMove = IsInitialMovement(
+                    startValue, endValue, startItem.Value.BarIndex, finder, out Candle edgeExtremum);
+                if (!isInitialMove)
+                {
+                    // The move (impulse candidate) is no longer initial.
+                    return;
+                }
 
                 ImpulseResult stats = MovementStatistic.GetMovementStatistic(
-                    startItem.Value, endItem.Value, BarsProvider);
-                if (stats.CandlesCount < m_ImpulseParams.BarsCount)
+                    startItem.Value, endItem.Value, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
+                if (stats.CandlesCount < m_ImpulseParams.BarsCount ||
+                    !IsSmoothImpulse(stats))
                     return;
 
                 double max = isImpulseUp ? endValue : startValue;
@@ -177,14 +185,6 @@ namespace TradeKit.Core.ElliottWave
                         return;
                         // The setup is no longer valid, TP or SL is already hit.  
                     }
-                }
-
-                bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startItem.Value.BarIndex, finder, out Candle edgeExtremum);
-                if (!isInitialMove)
-                {
-                    // The move (impulse candidate) is no longer initial.
-                    return;
                 }
 
                 int edgeIndex = edgeExtremum.Index.GetValueOrDefault();
@@ -226,12 +226,6 @@ namespace TradeKit.Core.ElliottWave
                 }
 
                 m_PreFinder = null;
-                if (!IsSmoothImpulse(stats))
-                {
-                    // The move is not a smooth impulse.
-                    // Logger.Write($"{m_Symbol}, {State.TimeFrame}: setup is not an impulse");
-                    return;
-                }
 
                 var outExtrema = new ImpulseElliottModelResult
                 {

@@ -23,6 +23,7 @@ namespace TradeKit.Core.Common
         public const int MIN_IMPULSE_PERIOD = 5;
         public const double MAX_OVERLAPSE_LENGTH_PERCENT = 20;
         public const double MAX_ZIGZAG_DEGREE_PERCENT = 20;
+        public const double IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT = 20;
 
         public const int MAX_BAR_SPEED_DEFAULT = 14;
         public const int MIN_BAR_SPEED_DEFAULT = 4;

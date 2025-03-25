@@ -10,6 +10,7 @@
         double BreakEvenRatio,
         double MaxZigzagPercent,
         double MaxOverlapseLengthPercent,
+        double HeterogeneityMax,
         int BarsCount)
     {
     }

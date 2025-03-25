@@ -6,14 +6,15 @@ namespace TradeKit.Core.ElliottWave
         double OverlapseMaxDepth,
         int CandlesCount,
         double Size,
-        double RatioZigzag)
+        double RatioZigzag,
+        double HeterogeneityMax)
     {
         public override string ToString()
         {
             //return
             //    $"h{HeterogeneityDegree.ToPercent()}-{HeterogeneityMax.ToPercent()};o{OverlapseDegree.ToPercent()}-{OverlapseMaxDepth.ToPercent()};c{CandlesCount};s{Size:F4};rz{RatioZigzag.ToPercent()}";
             return
-                $"o{OverlapseMaxDepth.ToPercent()}%;c{CandlesCount};s{Size.ToPercent():F2}%;rz{RatioZigzag}%";
+                $"h{HeterogeneityMax.ToPercent()}%;o{OverlapseMaxDepth.ToPercent()}%;c{CandlesCount};s{Math.Round(Size * 100, 2):F2}%;rz{Math.Round(RatioZigzag, 4).ToPercent()}%";
         }
     }
 

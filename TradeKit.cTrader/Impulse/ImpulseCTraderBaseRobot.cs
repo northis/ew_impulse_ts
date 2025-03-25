@@ -16,7 +16,8 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                Period, EnterRatio, TakeRatio, BreakEvenRatio, MaxZigzagPercent, MaxOverlapseLengthPercent, BarsCount);
+                Period, EnterRatio, TakeRatio, BreakEvenRatio, MaxZigzagPercent, MaxOverlapseLengthPercent,
+                HeterogeneityMaxPercent, BarsCount);
         }
 
         #region Input parameters
@@ -56,6 +57,12 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         [Parameter(nameof(MaxOverlapseLengthPercent), DefaultValue = Helper.MAX_OVERLAPSE_LENGTH_PERCENT, MinValue = 0.01, MaxValue = 90, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxOverlapseLengthPercent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the max value of not-smooth of the impulse.
+        /// </summary>
+        [Parameter(nameof(HeterogeneityMaxPercent), DefaultValue = Helper.IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT, MinValue = 1, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
+        public double HeterogeneityMaxPercent { get; set; }
 
         /// <summary>
         /// Gets or sets the bars count.

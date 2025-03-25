@@ -16,19 +16,31 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="overlapseMaxDepthMaxLimit">Optional max value of overlapse to reduce calculations</param>
+        /// <param name="rateZigzagMaxLimit">Optional max value of rate zigzag to reduce calculations</param>
+        /// <param name="rateHeterogeneityMaxLimit">Optional max value of heterogeneity to reduce calculations</param>
         public static ImpulseResult GetMovementStatistic(
-            BarPoint start, BarPoint end, IBarsProvider barsProvider)
+            BarPoint start, BarPoint end, IBarsProvider barsProvider,
+            double? overlapseMaxDepthMaxLimit = null, 
+            double? rateZigzagMaxLimit = null, 
+            double? rateHeterogeneityMaxLimit = null)
         {
-            //var (heterogeneity, heterogeneityMax) = GetHeterogeneity(start, end, barsProvider);
-            var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag) = GetMaxOverlapseScore(start, end, barsProvider);
+            var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag) = GetMaxOverlapseScore(start, end, barsProvider,
+                overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
+            double heterogeneityMax = 1;
+            if (rateZigzag < 1)
+            {
+                var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
+                heterogeneityMax = heterogeneityMaxLoc;
+            }
+
             //var (profile, overlapseDegree, singleCandle) = GetOverlapseStatistic(start, end, barsProvider);
 
-            double den = start.Value > 0 ? start.Value : 1;
-            double size = Math.Abs(start - end) / den;
+            double size = Math.Abs(start - end) / Math.Abs(Math.Min(start.Value, end.Value));
             //return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity,
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
-            return new ImpulseResult(overlapseMaxDepth, end.BarIndex - start.BarIndex, size, rateZigzag);
+            return new ImpulseResult(overlapseMaxDepth, end.BarIndex - start.BarIndex, size, rateZigzag, heterogeneityMax);
         }
 
         /// <summary>
@@ -37,12 +49,17 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="rateHeterogeneityMaxLimit">Optional max value of heterogeneity to reduce calculations</param>
         public static (double, double) GetHeterogeneity(
-            BarPoint start, BarPoint end, IBarsProvider barsProvider)
+            BarPoint start, BarPoint end, IBarsProvider barsProvider,
+            double? rateHeterogeneityMaxLimit = null)
         {
             double fullLength = Math.Abs(start.Value - end.Value);
             if (fullLength < double.Epsilon)
                 return (1, 1);
+
+            if (rateHeterogeneityMaxLimit.HasValue)
+                rateHeterogeneityMaxLimit *= fullLength;
 
             bool isUp = end > start;
             List<double> devs = new List<double>();
@@ -68,6 +85,9 @@ namespace TradeKit.Core.AlgoBase
                 if (i == start.BarIndex || i == end.BarIndex)
                     midPoint = 0;
                 else midPoint = Math.Max(Math.Abs(localLow - currAvg), Math.Abs(localHigh - currAvg));
+
+                if (rateHeterogeneityMaxLimit < midPoint)
+                    return (1, 1);
 
                 double part = midPoint / fullLength;
                 devs.Add(part);
@@ -103,15 +123,22 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="overlapseMaxDepthMaxLimit">Optional max value of overlapse to reduce calculations</param>
+        /// <param name="rateZigzagMaxLimit">Optional max value of rate zigzag to reduce calculations</param>
         public static (double, double, double) GetMaxOverlapseScore(
-            BarPoint start, BarPoint end, IBarsProvider barsProvider)
+            BarPoint start, BarPoint end, IBarsProvider barsProvider,
+            double? overlapseMaxDepthMaxLimit = null, double? rateZigzagMaxLimit = null)
         {
             bool isUp = end > start;
             double length = Math.Abs(end - start);
             if (length < double.Epsilon)
                 return (1, 1, 1);
-
             int duration = Math.Abs(end.BarIndex - start.BarIndex);
+
+            if (overlapseMaxDepthMaxLimit.HasValue)
+                overlapseMaxDepthMaxLimit *= length;
+            if (rateZigzagMaxLimit.HasValue)
+                rateZigzagMaxLimit *= duration;
 
             SortedDictionary<DateTime, double> hVals = GetPoints(
                 start, end, barsProvider.GetHighPrice, barsProvider);
@@ -148,6 +175,10 @@ namespace TradeKit.Core.AlgoBase
                     if (localLength < 0)
                         break;
 
+                    if (overlapseMaxDepthMaxLimit < localLength)
+                        return (1, 1, 1);
+
+
                     if (!scores.ContainsKey(dt) || scores[dt].Item1 < localLength)
                     {
                         scores[dt] = new ValueTuple<double, DateTime>(localLength, inputCounterKey);
@@ -165,6 +196,10 @@ namespace TradeKit.Core.AlgoBase
                         !isUp && barsProvider.GetHighPrice(i) >= localExtremum)
                         break;
                     extremaBarCount++;
+
+                    if (rateZigzagMaxLimit < extremaBarCount)
+                        return (1, 1, 1);
+
                 }
 
                 extremaBarCounters[dt] = extremaBarCount;
