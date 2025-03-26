@@ -130,7 +130,7 @@ namespace TradeKit.Tests
             BarPoint end = new BarPoint(190, 9, m_BarsProvider);
 
             // Act
-            (double overlapseMaxDepth, double overlapseMaxDistance) = MovementStatistic.GetMaxOverlapseScore(start, end, m_BarsProvider);
+            (double overlapseMaxDepth, double overlapseMaxDistance, double _) = MovementStatistic.GetMaxOverlapseScore(start, end, m_BarsProvider);
 
             // Assert
             Assert.That(overlapseMaxDepth, Is.EqualTo(0).Within(0.01), "Overlapse depth should be 0 for non-overlapping candles");
@@ -162,7 +162,7 @@ namespace TradeKit.Tests
             BarPoint end = new BarPoint(145, 9, m_BarsProvider);
 
             // Act
-            (double overlapseMaxDepth, double overlapseMaxDistance) = MovementStatistic.GetMaxOverlapseScore(start, end, m_BarsProvider);
+            (double overlapseMaxDepth, double overlapseMaxDistance, double _) = MovementStatistic.GetMaxOverlapseScore(start, end, m_BarsProvider);
             
             // Assert
             Assert.That(overlapseMaxDepth, Is.GreaterThan(0.3), "Overlapse depth should be significant for overlapping candles");

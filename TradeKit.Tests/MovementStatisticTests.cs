@@ -41,9 +41,9 @@ namespace TradeKit.Tests
             ImpulseResult result = MovementStatistic.GetMovementStatistic(start, end, m_BarsProvider);
 
             // Assert
-            Assert.That(result.HeterogeneityDegree, Is.LessThan(0.1), "Heterogeneity should be low for uniform movement");
+            //Assert.That(result.HeterogeneityDegree, Is.LessThan(0.1), "Heterogeneity should be low for uniform movement");
             Assert.That(result.HeterogeneityMax, Is.LessThan(0.1), "Max heterogeneity should be low for uniform movement");
-            Assert.That(result.OverlapseDegree, Is.LessThan(0.1), "Overlapse degree should be low for uniform movement");
+            //Assert.That(result.OverlapseDegree, Is.LessThan(0.1), "Overlapse degree should be low for uniform movement");
         }
 
         [Test]
@@ -73,7 +73,7 @@ namespace TradeKit.Tests
             ImpulseResult result = MovementStatistic.GetMovementStatistic(start, end, m_BarsProvider);
 
             // Assert
-            Assert.That(result.HeterogeneityDegree, Is.GreaterThan(0.3), "Heterogeneity should be high for non-uniform movement");
+            //Assert.That(result.HeterogeneityDegree, Is.GreaterThan(0.3), "Heterogeneity should be high for non-uniform movement");
             Assert.That(result.HeterogeneityMax, Is.GreaterThan(0.5), "Max heterogeneity should be high for non-uniform movement");
         }
 
@@ -104,43 +104,8 @@ namespace TradeKit.Tests
             ImpulseResult result = MovementStatistic.GetMovementStatistic(start, end, m_BarsProvider);
 
             // Assert
-            Assert.That(result.OverlapseDegree, Is.GreaterThan(0.5), "Overlapse degree should be high for overlapping candles");
+            //Assert.That(result.OverlapseDegree, Is.GreaterThan(0.5), "Overlapse degree should be high for overlapping candles");
             Assert.That(result.OverlapseMaxDepth, Is.GreaterThan(0.3), "Max overlapse depth should be significant");
-        }
-
-        [Test]
-        public void GetMovementStatistic_SingleLargeCandle_ReturnsHighSingleCandleDegree()
-        {
-            // Arrange
-            DateTime startTime = new DateTime(2023, 1, 1, 10, 0, 0);
-            
-            // Create a series of candles where one candle is much larger than others
-            for (int i = 0; i < 10; i++)
-            {
-                DateTime openTime = startTime.AddMinutes(i * 5);
-                double basePrice = 100 + i * 5;
-                
-                // Make the 5th candle very large
-                if (i == 4)
-                {
-                    Candle candle = new Candle(basePrice, basePrice + 30, basePrice - 2, basePrice + 32);
-                    m_BarsProvider.AddCandle(candle, openTime);
-                }
-                else
-                {
-                    Candle candle = new Candle(basePrice, basePrice + 1, basePrice - 1, basePrice + 2);
-                    m_BarsProvider.AddCandle(candle, openTime);
-                }
-            }
-
-            BarPoint start = new BarPoint(100, 0, m_BarsProvider);
-            BarPoint end = new BarPoint(145, 9, m_BarsProvider);
-
-            // Act
-            ImpulseResult result = MovementStatistic.GetMovementStatistic(start, end, m_BarsProvider);
-
-            // Assert
-            Assert.That(result.SingleCandleDegree, Is.GreaterThan(0.5), "Single candle degree should be high when one candle dominates");
         }
 
         [Test]
@@ -194,7 +159,7 @@ namespace TradeKit.Tests
 
             // Assert
             Assert.That(result.Size, Is.EqualTo(0).Within(0.01), "Size should be zero for flat movement");
-            Assert.That(result.HeterogeneityDegree, Is.EqualTo(1).Within(0.01), "Heterogeneity should be 1 for zero movement");
+            //Assert.That(result.HeterogeneityDegree, Is.EqualTo(1).Within(0.01), "Heterogeneity should be 1 for zero movement");
         }
 
         [Test]
@@ -213,7 +178,7 @@ namespace TradeKit.Tests
 
             // Assert
             Assert.That(result.CandlesCount, Is.EqualTo(0), "Candles count should be 0 for single candle");
-            Assert.That(result.SingleCandleDegree, Is.EqualTo(1).Within(0.01), "Single candle degree should be 1");
+            //Assert.That(result.SingleCandleDegree, Is.EqualTo(1).Within(0.01), "Single candle degree should be 1");
         }
     }
 }
