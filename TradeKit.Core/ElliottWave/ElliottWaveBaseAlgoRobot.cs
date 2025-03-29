@@ -124,8 +124,8 @@ namespace TradeKit.Core.ElliottWave
         protected override bool HasSameSetupActive(
             ImpulseSetupFinder finder, EventArgs.ImpulseSignalEventArgs signal)
         {
-            if (Math.Abs(finder.SetupStartPrice - signal.StopLoss.Value) < double.Epsilon &&
-                Math.Abs(finder.SetupEndPrice - signal.TakeProfit.Value) < double.Epsilon)
+            if (Math.Abs(finder.CurrentSetupItem.SetupStartPrice - signal.StopLoss.Value) < double.Epsilon &&
+                Math.Abs(finder.CurrentSetupItem.SetupEndPrice - signal.TakeProfit.Value) < double.Epsilon)
             {
                 return true;
             }

@@ -1,4 +1,6 @@
 using NUnit.Framework;
+using System;
+using System.Collections.Generic;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
@@ -20,21 +22,20 @@ namespace TradeKit.Tests
         private List<LevelEventArgs> m_StopLossEvents;
         private List<LevelEventArgs> m_BreakEvenEvents;
 
-        [SetUp]
-        public void Setup()
+        private void SetupInner(double breakeven)
         {
             m_BarsProvider = new TestBarsProvider(m_TimeFrame, m_Symbol);
-            
+
             // Create default impulse parameters
             ImpulseParams impulseParams = new ImpulseParams(Period: 10,
                 BarsCount: 3,
                 EnterRatio: 0.4,
                 TakeRatio: 1.0,
-                MaxZigzagPercent:20,
+                MaxZigzagPercent: 20,
                 MaxOverlapseLengthPercent: 30,
                 HeterogeneityMax: 50,
-                BreakEvenRatio: 0.5);
-            
+                BreakEvenRatio: breakeven);
+
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, impulseParams);
 
             // Set up event handlers
@@ -42,7 +43,7 @@ namespace TradeKit.Tests
             m_TakeProfitEvents = new List<LevelEventArgs>();
             m_StopLossEvents = new List<LevelEventArgs>();
             m_BreakEvenEvents = new List<LevelEventArgs>();
-            
+
             m_SetupFinder.OnEnter += (_, args) => m_ReceivedSignals.Add(args);
             m_SetupFinder.OnTakeProfit += (_, args) => m_TakeProfitEvents.Add(args);
             m_SetupFinder.OnStopLoss += (_, args) => m_StopLossEvents.Add(args);
@@ -51,6 +52,12 @@ namespace TradeKit.Tests
             {
                 m_SetupFinder.CheckBar(m_BarsProvider.Count - 1);
             };
+        }
+
+        [SetUp]
+        public void Setup()
+        {
+            SetupInner(0.5);
         }
 
         /// <summary>
@@ -78,12 +85,12 @@ namespace TradeKit.Tests
                 startTime = startTime.AddMinutes(5);
             }
             
-            // Create impulse (strong upward movement) - 70 bars
-            for (int i = 0; i < 70; i++)
+            // Create impulse (strong upward movement) - 40 bars
+            for (int i = 0; i < 40; i++)
             {
                 // Ensure smooth transition between candles
                 double open = currentPrice;
-                double close = open + 0.4 + (i % 4) * 0.2; // Strong upward bias
+                double close = open + 0.2 + (i % 4) * 0.1; // Strong upward bias
                 double high = Math.Max(open, close) + 0.5;
                 double low = Math.Min(open, close) - 0.1;
                 
@@ -95,12 +102,12 @@ namespace TradeKit.Tests
                 startTime = startTime.AddMinutes(5);
             }
             
-            // Create correction (partial retracement) - 80 bars
-            for (int i = 0; i < 80; i++)
+            // Create correction (partial retracement) - 25 bars
+            for (int i = 0; i < 25; i++)
             {
                 // Ensure smooth transition between candles
                 double open = currentPrice;
-                double close = open - 0.3 - (i % 3) * 0.1; // Downward correction
+                double close = open - 0.2 - (i % 3) * 0.1; // Downward correction
                 double high = Math.Max(open, close) + 0.2;
                 double low = Math.Min(open, close) - 0.4;
                 
@@ -204,6 +211,127 @@ namespace TradeKit.Tests
             }
         }
 
+        /// <summary>
+        /// Adds bars that move toward the take profit level
+        /// </summary>
+        /// <param name="signal">The signal containing the take profit level</param>
+        private void AddBarsTowardTakeProfit(ImpulseSignalEventArgs signal)
+        {
+            // Get the current price and the take profit level
+            DateTime lastTime = m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1);
+            double currentPrice = m_BarsProvider.GetClosePrice(m_BarsProvider.Count - 1);
+            double tpLevel = signal.TakeProfit.Value;
+            
+            // Add several candles that move toward the take profit level
+            double priceStep = (tpLevel - currentPrice) / 5; // Divide the distance into 5 steps
+            
+            for (int i = 0; i < 4; i++) // Add 4 candles moving toward TP
+            {
+                DateTime newTime = lastTime.AddMinutes(5);
+                double open = currentPrice;
+                double close = open + priceStep;
+                double high = Math.Max(open, close) + 0.2;
+                double low = Math.Min(open, close) - 0.1;
+                
+                Candle candle = new Candle(open, high, low, close);
+                m_BarsProvider.AddCandle(candle, newTime);
+                
+                currentPrice = close;
+                lastTime = newTime;
+            }
+            
+            // Add the final candle that hits the take profit level
+            DateTime tpTime = lastTime.AddMinutes(5);
+            double tpOpen = currentPrice;
+            double tpClose = tpLevel;
+            double tpHigh = tpLevel + 0.5; // Make sure it exceeds the TP level
+            double tpLow = tpOpen - 0.2;
+            
+            Candle tpCandle = new Candle(tpOpen, tpHigh, tpLow, tpClose);
+            m_BarsProvider.AddCandle(tpCandle, tpTime);
+        }
+
+        /// <summary>
+        /// Adds bars that move toward the stop loss level
+        /// </summary>
+        /// <param name="signal">The signal containing the stop loss level</param>
+        private void AddBarsTowardStopLoss(ImpulseSignalEventArgs signal)
+        {
+            // Get the current price and the stop loss level
+            DateTime lastTime = m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1);
+            double currentPrice = m_BarsProvider.GetClosePrice(m_BarsProvider.Count - 1);
+            double slLevel = signal.StopLoss.Value;
+            
+            // For upward impulse, stop loss is below the current price
+            // Add several candles that move toward the stop loss level
+            double priceStep = (slLevel - currentPrice) / 5; // Divide the distance into 5 steps
+            
+            for (int i = 0; i < 4; i++) // Add 4 candles moving toward SL
+            {
+                DateTime newTime = lastTime.AddMinutes(5);
+                double open = currentPrice;
+                double close = open + priceStep; // Moving down toward SL (for upward impulse)
+                double high = Math.Max(open, close) + 0.2;
+                double low = Math.Min(open, close) - 0.1;
+                
+                Candle candle = new Candle(open, high, low, close);
+                m_BarsProvider.AddCandle(candle, newTime);
+                
+                currentPrice = close;
+                lastTime = newTime;
+            }
+            
+            // Add the final candle that hits the stop loss level
+            DateTime slTime = lastTime.AddMinutes(5);
+            double slOpen = currentPrice;
+            double slClose = slLevel;
+            double slHigh = Math.Max(slOpen, slClose) + 0.2;
+            double slLow = Math.Min(slOpen, slClose) - 0.5; // Make sure it goes below the SL level
+            
+            Candle slCandle = new Candle(slOpen, slHigh, slLow, slClose);
+            m_BarsProvider.AddCandle(slCandle, slTime);
+        }
+
+        /// <summary>
+        /// Adds bars that move toward the breakeven level
+        /// </summary>
+        /// <param name="signal">The signal containing the breakeven level</param>
+        private void AddBarsTowardBreakeven(ImpulseSignalEventArgs signal)
+        {
+            // Get the current price and the breakeven level
+            DateTime lastTime = m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1);
+            double currentPrice = m_BarsProvider.GetClosePrice(m_BarsProvider.Count - 1);
+            double beLevel = signal.BreakEvenPrice;
+            
+            // Add several candles that move toward the breakeven level
+            double priceStep = (beLevel - currentPrice) / 5; // Divide the distance into 5 steps
+            
+            for (int i = 0; i < 4; i++) // Add 4 candles moving toward breakeven
+            {
+                DateTime newTime = lastTime.AddMinutes(5);
+                double open = currentPrice;
+                double close = open + priceStep;
+                double high = Math.Max(open, close) + 0.2;
+                double low = Math.Min(open, close) - 0.1;
+                
+                Candle candle = new Candle(open, high, low, close);
+                m_BarsProvider.AddCandle(candle, newTime);
+                
+                currentPrice = close;
+                lastTime = newTime;
+            }
+            
+            // Add the final candle that hits the breakeven level
+            DateTime beTime = lastTime.AddMinutes(5);
+            double beOpen = currentPrice;
+            double beClose = beLevel;
+            double beHigh = beLevel + 0.5; // Make sure it exceeds the BE level
+            double beLow = beOpen - 0.2;
+            
+            Candle beCandle = new Candle(beOpen, beHigh, beLow, beClose);
+            m_BarsProvider.AddCandle(beCandle, beTime);
+        }
+
         [Test]
         public void ImpulseSetupFinder_UpwardImpulse_GeneratesSignal()
         {
@@ -211,11 +339,11 @@ namespace TradeKit.Tests
             CreateUpwardImpulseWithCorrection();
             
             // Act - generate a chart to visualize the pattern
-            int lastIndex = m_BarsProvider.Count - 1;
-            BarPoint start = new BarPoint(90, 5, m_BarsProvider);
-            BarPoint end = new BarPoint(110, 9, m_BarsProvider);
-            string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
-            TestContext.WriteLine($"Upward impulse chart saved to: {chartPath}");
+            //int lastIndex = m_BarsProvider.Count - 1;
+            //BarPoint start = new BarPoint(90, 5, m_BarsProvider);
+            //BarPoint end = new BarPoint(110, 9, m_BarsProvider);
+            //string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
+            //TestContext.WriteLine($"Upward impulse chart saved to: {chartPath}");
             
             // Assert
             Assert.That(m_ReceivedSignals.Count, Is.GreaterThan(0), "Should generate at least one signal");
@@ -236,12 +364,6 @@ namespace TradeKit.Tests
             CreateDownwardImpulseWithCorrection();
 
             // Act - generate a chart to visualize the pattern
-            //int lastIndex = m_BarsProvider.Count - 1;
-            //BarPoint start = new BarPoint(m_BarsProvider.GetOpenPrice(0), 0, m_BarsProvider);
-            //BarPoint end = new BarPoint(m_BarsProvider.GetClosePrice(m_BarsProvider.Count - 1), m_BarsProvider.Count - 1,
-            //    m_BarsProvider);
-            //string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
-            //TestContext.WriteLine($"Downward impulse chart saved to: {chartPath}");
 
             // Assert
             Assert.That(m_ReceivedSignals.Count, Is.GreaterThan(0), "Should generate at least one signal");
@@ -251,6 +373,16 @@ namespace TradeKit.Tests
             Assert.That(signal.StopLoss.Value, Is.GreaterThan(signal.Level.Value), "Stop loss should be above entry for downward impulse");
         }
 
+        private string GetBarProviderChart()
+        {
+            BarPoint start = new BarPoint(m_BarsProvider.GetOpenPrice(0), 0, m_BarsProvider);
+            BarPoint end = new BarPoint(m_BarsProvider.GetClosePrice(m_BarsProvider.Count - 1), m_BarsProvider.Count - 1,
+                m_BarsProvider);
+            string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
+            TestContext.WriteLine($"Downward impulse chart saved to: {chartPath}");
+            return chartPath;
+        }
+
         [Test]
         public void ImpulseSetupFinder_ChoppyMarket_NoSignals()
         {
@@ -258,11 +390,11 @@ namespace TradeKit.Tests
             CreateChoppyMarket();
             
             // Act - generate a chart to visualize the pattern
-            int lastIndex = m_BarsProvider.Count - 1;
-            BarPoint start = new BarPoint(100, 0, m_BarsProvider);
-            BarPoint end = new BarPoint(100, lastIndex, m_BarsProvider);
-            string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
-            TestContext.WriteLine($"Choppy market chart saved to: {chartPath}");
+            //int lastIndex = m_BarsProvider.Count - 1;
+            //BarPoint start = new BarPoint(100, 0, m_BarsProvider);
+            //BarPoint end = new BarPoint(100, lastIndex, m_BarsProvider);
+            //string chartPath = ChartGenerator.GenerateCandlestickChart(start, end, m_BarsProvider);
+            //TestContext.WriteLine($"Choppy market chart saved to: {chartPath}");
             
             // Assert
             Assert.That(m_ReceivedSignals.Count, Is.EqualTo(0), "Should not generate signals in choppy market");
@@ -282,14 +414,7 @@ namespace TradeKit.Tests
                 
             ImpulseSignalEventArgs signal = m_ReceivedSignals[0];
             
-            // Act - add a candle that hits the take profit level
-            DateTime lastTime = m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1);
-            DateTime newTime = lastTime.AddMinutes(5);
-            double tpLevel = signal.TakeProfit.Value;
-            
-            // Create a candle that reaches the take profit level
-            Candle tpCandle = new Candle(tpLevel - 1, tpLevel + 0.5, tpLevel - 1.5, tpLevel);
-            m_BarsProvider.AddCandle(tpCandle, newTime);
+            AddBarsTowardTakeProfit(signal);
             
             // Assert
             Assert.That(m_TakeProfitEvents.Count, Is.EqualTo(1), "Should trigger take profit event");
@@ -299,6 +424,7 @@ namespace TradeKit.Tests
         [Test]
         public void ImpulseSetupFinder_StopLoss_TriggersEvent()
         {
+            SetupInner(0);
             // Arrange
             CreateUpwardImpulseWithCorrection();
             
@@ -310,15 +436,9 @@ namespace TradeKit.Tests
                 
             ImpulseSignalEventArgs signal = m_ReceivedSignals[0];
             
-            // Act - add a candle that hits the stop loss level
-            DateTime lastTime = m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1);
-            DateTime newTime = lastTime.AddMinutes(5);
-            double slLevel = signal.StopLoss.Value;
-            
-            // Create a candle that reaches the stop loss level
-            Candle slCandle = new Candle(slLevel + 1, slLevel + 1.5, slLevel - 0.5, slLevel);
-            m_BarsProvider.AddCandle(slCandle, newTime);
-            
+            AddBarsTowardStopLoss(signal);
+            GetBarProviderChart();
+
             // Assert
             Assert.That(m_StopLossEvents.Count, Is.EqualTo(1), "Should trigger stop loss event");
             Assert.That(m_SetupFinder.IsInSetup, Is.False, "Should exit setup after stop loss");
@@ -338,16 +458,7 @@ namespace TradeKit.Tests
                 
             ImpulseSignalEventArgs signal = m_ReceivedSignals[0];
             
-            // Calculate breakeven level (should be halfway between entry and TP)
-            double beLevel = signal.BreakEvenPrice;
-            
-            // Act - add a candle that reaches the breakeven level
-            DateTime lastTime = m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1);
-            DateTime newTime = lastTime.AddMinutes(5);
-            
-            // Create a candle that reaches the breakeven level
-            Candle beCandle = new Candle(beLevel - 1, beLevel + 0.5, beLevel - 1.5, beLevel);
-            m_BarsProvider.AddCandle(beCandle, newTime);
+            AddBarsTowardBreakeven(signal);
             
             // Assert
             Assert.That(m_BreakEvenEvents.Count, Is.EqualTo(1), "Should trigger breakeven event");
@@ -355,7 +466,7 @@ namespace TradeKit.Tests
             
             // Verify the stop loss was moved to breakeven
             Assert.That(signal.HasBreakeven, Is.True, "Signal should have breakeven flag set");
-            Assert.That(signal.StopLoss.Value, Is.EqualTo(beLevel).Within(0.001), "Stop loss should be moved to breakeven level");
+            Assert.That(signal.StopLoss.Value, Is.EqualTo(signal.BreakEvenPrice).Within(0.001), "Stop loss should be moved to breakeven level");
         }
     }
 }
