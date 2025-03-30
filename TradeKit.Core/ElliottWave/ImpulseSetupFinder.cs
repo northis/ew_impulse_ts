@@ -1,7 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using TL;
-using TradeKit.Core.AlgoBase;
+﻿using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -119,17 +116,7 @@ namespace TradeKit.Core.ElliottWave
 
         public override void CheckTick(SymbolTickEventArgs tick)
         {
-            if (!CurrentSetupItem.IsSmoothImpulse || CurrentSetupItem.PreFinder == null)
-            {
-                return;
-            }
-
-            if (GotSetup(m_ImpulseParams.EnterRatio,
-                    CurrentSetupItem.EndItem.Value.Value, CurrentSetupItem.StartItem.Value.Value, out double triggerLevel, tick.Ask, tick.Bid))
-            {
-
-                GenerateSignal(CurrentSetupItem.StartItem, CurrentSetupItem.EndItem, CurrentSetupItem.CurrentIndex, tick.Ask, tick.Bid, null, triggerLevel, CurrentSetupItem.EdgeIndex, CurrentSetupItem.ImpulseResult);
-            }
+            base.CheckTick(tick);
         }
 
         /// <summary>
@@ -274,7 +261,6 @@ namespace TradeKit.Core.ElliottWave
                     !IsSmoothImpulse(stats))
                     return;
                 CurrentSetupItem.IsSmoothImpulse = true;
-                CurrentSetupItem.ImpulseResult = stats;
             }
 
             double max = isImpulseUp ? endValue : startValue;
@@ -301,19 +287,25 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
-            if (!GotSetup(m_ImpulseParams.EnterRatio, endValue, startValue, out double triggerLevel, low, high))
+            if (!GotSetup(m_ImpulseParams.EnterRatio,
+                    endValue, startValue, isImpulseUp, out double triggerLevel, low,
+                    high))
             {
-                if (!hasPreFinder && GotSetup(m_PrePatio, endValue, startValue, out triggerLevel, low, high))
+                if (!hasPreFinder && GotSetup(m_PrePatio,
+                        endValue, startValue, isImpulseUp, out triggerLevel,
+                        low, high))
                 {
                     CurrentSetupItem.PreFinder = finder;
-                    CurrentSetupItem.StartItem = startItem;
-                    CurrentSetupItem.EndItem = endItem;
-                    CurrentSetupItem.CurrentIndex = index;
-                    CurrentSetupItem.EdgeIndex = edgeIndex;
                 }
 
                 return;
             }
+
+            var outExtrema = new ImpulseElliottModelResult
+            {
+                Wave0 = startItem.Value, 
+                Wave5 = endItem.Value
+            };
 
             if (CurrentSetupItem.SetupStartIndex == startItem.Value.BarIndex ||
                 CurrentSetupItem.SetupEndIndex == endItem.Value.BarIndex)
@@ -322,32 +314,11 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
-            GenerateSignal(startItem, endItem, index, low, high, currentPriceBid, triggerLevel, edgeIndex, stats);
-        }
-
-        private void GenerateSignal(KeyValuePair<DateTime, BarPoint> startItem, 
-            KeyValuePair<DateTime, BarPoint> endItem, 
-            int index, double low, double high,
-            double? currentPriceBid, 
-            double triggerLevel, 
-            int edgeIndex,
-            ImpulseResult stats)
-        {
             if (endItem.Value.BarIndex == index)
             {
                 // Wait for the next bar
                 return;
             }
-
-            double startValue = startItem.Value.Value;
-            double endValue = endItem.Value.Value;
-            bool isImpulseUp = endValue > startValue;
-
-            var outExtrema = new ImpulseElliottModelResult
-            {
-                Wave0 = startItem.Value, 
-                Wave5 = endItem.Value
-            };
 
             double realPrice;
             if (triggerLevel >= low && triggerLevel <= high)
@@ -427,10 +398,9 @@ namespace TradeKit.Core.ElliottWave
             // Here we should give a trade signal.
         }
 
-        private bool GotSetup(double levelRatio, double endValue, double startValue, out double triggerLevel, double low, double high)
+        private bool GotSetup(double levelRatio, double endValue, double startValue, bool isImpulseUp, out double triggerLevel, double low, double high)
         {
             double triggerSize = Math.Abs(endValue - startValue) * levelRatio;
-            bool isImpulseUp = endValue > startValue;
 
             bool gotSetup;
             if (isImpulseUp)
@@ -474,13 +444,8 @@ namespace TradeKit.Core.ElliottWave
             public double TriggerLevel { get; set; }
             public int TriggerBarIndex { get; set; }
             internal string CurrentStatistic { get; set; }
-            internal ImpulseResult ImpulseResult { get; set; }
             internal ImpulseSignalEventArgs CurrentSignalEventArgs { get; set; }
             public DeviationExtremumFinder PreFinder { get; set; }
-            public KeyValuePair<DateTime, BarPoint> StartItem { get; set; }
-            public KeyValuePair<DateTime, BarPoint> EndItem { get; set; }
-            public int CurrentIndex { get; set; }
-            public int EdgeIndex { get; set; }
 
             public bool IsSmoothImpulse { get; set; }
         }
