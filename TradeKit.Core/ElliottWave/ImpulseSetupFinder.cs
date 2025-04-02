@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.AlgoBase;
+﻿using System.Diagnostics;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
@@ -16,6 +17,8 @@ namespace TradeKit.Core.ElliottWave
         DeviationExtremumFinder m_PreFinder;
         public double m_MaxZigzagRatio;
         public double m_MaxOverlapseLengthRatio;
+
+        private Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -47,6 +50,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_ImpulseParams = impulseParams;
             var localFinder = new DeviationExtremumFinder(impulseParams.Period, BarsProvider);
+            m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
             m_ExtremumFinders.Add(localFinder);
             m_PrePatio = m_ImpulseParams.EnterRatio * 0.5;
             m_MaxZigzagRatio = impulseParams.MaxZigzagPercent / 100;
@@ -151,41 +155,65 @@ namespace TradeKit.Core.ElliottWave
                 .ElementAt(endIndex);
 
             bool isInSetupBefore = IsInSetup;
-            void CheckImpulse()
+            double startValue = startItem.Value.Value;
+            double endValue = endItem.Value.Value;
+            bool isImpulseUp = endValue > startValue;
+            bool hasInCache = m_ImpulseCache[finder].ContainsKey(endItem.Key);
+
+            if (!IsInSetup)
             {
-                double startValue = startItem.Value.Value;
-                double endValue = endItem.Value.Value;
+                if (hasInCache && m_ImpulseCache[finder][endItem.Key] == null)
+                {
+                    return false;
+                }
 
                 //int impulseBarCount = endItem.Value.BarIndex - startItem.Value.BarIndex;
                 //if (index < endItem.Value.BarIndex + impulseBarCount)
                 //    return;
-
-                bool isImpulseUp = endValue > startValue;
-                bool isInitialMove = IsInitialMovement(
-                    startValue, endValue, startItem.Value.BarIndex, finder, out Candle edgeExtremum);
+                Candle edgeExtremum = null;
+                bool isInitialMove = hasInCache || IsInitialMovement(
+                    startValue, endValue, startItem.Value.BarIndex, finder, out edgeExtremum);
                 if (!isInitialMove)
                 {
                     // The move (impulse candidate) is no longer initial.
-                    return;
+                    m_ImpulseCache[finder][endItem.Key] = null;
+                    return false;
                 }
 
-                ImpulseResult stats = MovementStatistic.GetMovementStatistic(
-                    startItem.Value, endItem.Value, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
-                if (stats.CandlesCount < m_ImpulseParams.BarsCount ||
-                    !IsSmoothImpulse(stats))
-                    return;
-
-                double max = isImpulseUp ? endValue : startValue;
-                double min = isImpulseUp ? startValue : endValue;
-                for (int i = endItem.Value.BarIndex + 1; i < index; i++)
+                ImpulseResult stats = hasInCache && m_ImpulseCache[finder][endItem.Key] != null
+                    ? m_ImpulseCache[finder][endItem.Key]
+                    : MovementStatistic.GetMovementStatistic(
+                        startItem.Value, endItem.Value, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
+                if (!hasInCache && (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
                 {
-                    if (max <= BarsProvider.GetHighPrice(i) ||
-                        min >= BarsProvider.GetLowPrice(i))
+                    m_ImpulseCache[finder][endItem.Key] = null;
+                    return false;
+                }
+                
+                if (!hasInCache)
+                {
+                    double max = isImpulseUp ? endValue : startValue;
+                    double min = isImpulseUp ? startValue : endValue;
+                    for (int i = endItem.Value.BarIndex + 1; i < index; i++)
                     {
-                        return;
-                        // The setup is no longer valid, TP or SL is already hit.  
+                        if (max <= BarsProvider.GetHighPrice(i) ||
+                            min >= BarsProvider.GetLowPrice(i))
+                        {
+                            m_ImpulseCache[finder][endItem.Key] = null;
+                            return false;
+                            // The setup is no longer valid, TP or SL is already hit.  
+                        }
                     }
                 }
+
+                if (!hasInCache)
+                {
+                    stats.EdgeExtremum = edgeExtremum;
+                    m_ImpulseCache[finder][endItem.Key] = stats;
+                }
+
+
+                edgeExtremum ??= m_ImpulseCache[finder][endItem.Key].EdgeExtremum;
 
                 int edgeIndex = edgeExtremum.Index.GetValueOrDefault();
                 //double channelRatio = (startItem.Value.BarIndex - edgeIndex) / (double)stats.CandlesCount;
@@ -194,42 +222,20 @@ namespace TradeKit.Core.ElliottWave
                 //    return;
                 //}
 
-                double triggerLevel;
-                bool GotSetup(double levelRatio)
+                if (!GotSetup(m_ImpulseParams.EnterRatio, endValue, startValue, isImpulseUp, out double triggerLevel, low, high))
                 {
-                    double triggerSize = Math.Abs(endValue - startValue) * levelRatio;
-
-                    bool gotSetup;
-                    if (isImpulseUp)
-                    {
-                        triggerLevel = Math.Round(
-                            endValue - triggerSize, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
-                        gotSetup = low <= triggerLevel && low > startValue;
-                    }
-                    else
-                    {
-                        triggerLevel = Math.Round(
-                            endValue + triggerSize, Symbol.Digits, MidpointRounding.ToZero);
-                        gotSetup = high >= triggerLevel && high < startValue;
-                    }
-
-                    return gotSetup;
-                }
-
-                if (!GotSetup(m_ImpulseParams.EnterRatio))
-                {
-                    if (m_PreFinder == null && GotSetup(m_PrePatio))
+                    if (m_PreFinder == null && GotSetup(m_PrePatio, endValue, startValue, isImpulseUp, out triggerLevel, low, high))
                     {
                         m_PreFinder = finder;
                     }
-                    return;
+                    return false;
                 }
 
                 m_PreFinder = null;
 
                 var outExtrema = new ImpulseElliottModelResult
                 {
-                    Wave0 = startItem.Value, 
+                    Wave0 = startItem.Value,
                     Wave5 = endItem.Value
                 };
 
@@ -237,13 +243,13 @@ namespace TradeKit.Core.ElliottWave
                     SetupEndIndex == endItem.Value.BarIndex)
                 {
                     // Cannot use the same impulse twice.
-                    return;
+                    return false;
                 }
 
                 if (endItem.Value.BarIndex == index)
                 {
                     // Wait for the next bar
-                    return;
+                    return false;
                 }
 
                 double realPrice;
@@ -263,7 +269,7 @@ namespace TradeKit.Core.ElliottWave
                 TriggerLevel = realPrice;
                 TriggerBarIndex = index;
                 IsInSetup = true;
-                
+
                 double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
                 double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
@@ -272,7 +278,7 @@ namespace TradeKit.Core.ElliottWave
 
                 double tpRatio = m_ImpulseParams.TakeRatio;
                 double setupLength = Math.Abs(startValue - endValue) * tpRatio;
-                
+
                 if (isImpulseUp)
                 {
                     endValue = startValue + setupLength;
@@ -288,15 +294,15 @@ namespace TradeKit.Core.ElliottWave
                         endValue + endAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                 }
 
-                if (isImpulseUp && 
-                    (realPrice>= SetupEndPrice || realPrice <= SetupStartPrice) ||
+                if (isImpulseUp &&
+                    (realPrice >= SetupEndPrice || realPrice <= SetupStartPrice) ||
                     !isImpulseUp &&
                     (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice))
                 {
                     // TP or SL is already hit, cannot use this signal
                     Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
                     IsInSetup = false;
-                    return;
+                    return false;
                 }
 
                 var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
@@ -311,47 +317,10 @@ namespace TradeKit.Core.ElliottWave
                     outExtrema,
                     viewDateTime,
                     CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1
-                        ? m_ImpulseParams.BreakEvenRatio 
+                        ? m_ImpulseParams.BreakEvenRatio
                         : null);
                 OnEnterInvoke(CurrentSignalEventArgs);
                 // Here we should give a trade signal.
-            }
-
-            if (!IsInSetup)
-            {
-                for (;;)
-                {
-                    CheckImpulse();
-                    if (IsInSetup)
-                    {
-                        break;
-                    }
-                    // We don't know how far we are from the nearest initial impulse
-                    // so we go deep and check
-
-                    if (index - startItem.Value.BarIndex > Helper.BARS_DEPTH)
-                    {
-                        //Logger.Write($"{m_Symbol}, {State.TimeFrame}: maximum bar depth is exceeded");
-                        break;
-                    }
-
-                    startIndex -= 1;
-                    endIndex -= 1;
-                    if (startIndex < 0 || endIndex < 0)
-                    {
-                        break;
-                    }
-
-                    startItem = extrema.ElementAt(startIndex);
-                    endItem = extrema.ElementAt(endIndex);
-
-                    // If we are no longer between start and end of the impulse
-                    if (startItem.Value.Value >= low && endItem.Value.Value >= low ||
-                        startItem.Value.Value <= high && endItem.Value.Value <= high)
-                    {
-                        break;
-                    }
-                }
             }
 
             if (!IsInSetup)
@@ -363,7 +332,8 @@ namespace TradeKit.Core.ElliottWave
             {
                 return false;
             }
-            bool isImpulseUp = SetupEndPrice > SetupStartPrice;
+
+            isImpulseUp = SetupEndPrice > SetupStartPrice;
             bool isProfitHit = isImpulseUp && high >= SetupEndPrice
                                || !isImpulseUp && low <= SetupEndPrice;
 
@@ -399,6 +369,27 @@ namespace TradeKit.Core.ElliottWave
             OnBreakEvenInvoke(new LevelEventArgs(CurrentSignalEventArgs.StopLoss, CurrentSignalEventArgs.Level, true, CurrentSignalEventArgs.Comment));
 
             return IsInSetup;
+        }
+
+        private bool GotSetup(double levelRatio, double endValue, double startValue, bool isImpulseUp, out double triggerLevel, double low, double high)
+        {
+            double triggerSize = Math.Abs(endValue - startValue) * levelRatio;
+
+            bool gotSetup;
+            if (isImpulseUp)
+            {
+                triggerLevel = Math.Round(
+                    endValue - triggerSize, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                gotSetup = low <= triggerLevel && low > startValue;
+            }
+            else
+            {
+                triggerLevel = Math.Round(
+                    endValue + triggerSize, Symbol.Digits, MidpointRounding.ToZero);
+                gotSetup = high >= triggerLevel && high < startValue;
+            }
+
+            return gotSetup;
         }
 
         /// <summary>

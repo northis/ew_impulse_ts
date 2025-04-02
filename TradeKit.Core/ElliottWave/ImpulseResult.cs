@@ -9,6 +9,10 @@ namespace TradeKit.Core.ElliottWave
         double RatioZigzag,
         double HeterogeneityMax)
     {
+        /// <summary>
+        /// Gets or sets the Start candle we want to see this impulse.
+        /// </summary>
+        public Candle EdgeExtremum { get; set; }
         public override string ToString()
         {
             //return
