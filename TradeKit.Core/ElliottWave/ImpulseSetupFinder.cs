@@ -18,7 +18,7 @@ namespace TradeKit.Core.ElliottWave
         public double m_MaxZigzagRatio;
         public double m_MaxOverlapseLengthRatio;
 
-        private Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
+        private readonly Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
@@ -49,9 +49,14 @@ namespace TradeKit.Core.ElliottWave
             : base(mainBarsProvider, mainBarsProvider.BarSymbol)
         {
             m_ImpulseParams = impulseParams;
-            var localFinder = new DeviationExtremumFinder(impulseParams.Period, BarsProvider);
-            m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
-            m_ExtremumFinders.Add(localFinder);
+
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 3; i += 20)
+            {
+                var localFinder = new DeviationExtremumFinder(i, BarsProvider);
+                m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
+                m_ExtremumFinders.Add(localFinder);
+            }
+
             m_PrePatio = m_ImpulseParams.EnterRatio * 0.5;
             m_MaxZigzagRatio = impulseParams.MaxZigzagPercent / 100;
             m_MaxOverlapseLengthRatio = impulseParams.MaxOverlapseLengthPercent / 100;
@@ -120,10 +125,49 @@ namespace TradeKit.Core.ElliottWave
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
             bool res = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
-                       stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 &&
-                       stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100;
-                       //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
+                       stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 && stats.RatioZigzag > 0.005 &&
+                       stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
+                       stats.Size >= m_ImpulseParams.MinSizePercent / 100;// &&
+                       //stats.CandlesCount < 90 &&
+                       //stats.Area <= 0.1;
+
+            //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
             return res;
+        }
+
+        private bool GotFlat(BarPoint startC, BarPoint endC)
+        {
+            bool isImpulseUp = endC > startC;
+            double waveCLength = Math.Abs(startC - endC);
+
+            foreach (DeviationExtremumFinder extremumFinder in m_ExtremumFinders)
+            {
+                BarPoint[] testExtrema = extremumFinder.Extrema
+                    .TakeWhile(a => a.Key <= startC.OpenTime)
+                    .TakeLast(3)
+                    .Select(a => a.Value)
+                    .ToArray();
+
+                if (testExtrema.Length != 3 || testExtrema[2].OpenTime != startC.OpenTime)
+                    continue;
+
+                BarPoint startB = testExtrema[1];
+                BarPoint startA = testExtrema[0];
+
+                if (isImpulseUp != startA < startB ||
+                    isImpulseUp != startA > startC)
+                    continue;
+
+                double waveALength = Math.Abs(startB - startA);
+                if (waveALength < double.Epsilon)
+                    continue;
+
+                double ratio = waveCLength / waveALength;
+                if (ratio is > 0.618 and < 0.7 or > 1 and < 1.1 or > 1.618 and < 1.7)
+                    return true;
+            }
+
+            return false;
         }
         
         /// <summary>
@@ -184,12 +228,13 @@ namespace TradeKit.Core.ElliottWave
                     ? m_ImpulseCache[finder][endItem.Key]
                     : MovementStatistic.GetMovementStatistic(
                         startItem.Value, endItem.Value, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
-                if (!hasInCache && (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
+                if (!hasInCache &&
+                    (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
                 {
                     m_ImpulseCache[finder][endItem.Key] = null;
                     return false;
                 }
-                
+
                 if (!hasInCache)
                 {
                     double max = isImpulseUp ? endValue : startValue;
@@ -211,7 +256,6 @@ namespace TradeKit.Core.ElliottWave
                     stats.EdgeExtremum = edgeExtremum;
                     m_ImpulseCache[finder][endItem.Key] = stats;
                 }
-
 
                 edgeExtremum ??= m_ImpulseCache[finder][endItem.Key].EdgeExtremum;
 
@@ -309,7 +353,8 @@ namespace TradeKit.Core.ElliottWave
                 var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
                 DateTime viewDateTime = BarsProvider.GetOpenTime(edgeIndex);
 
-                CurrentStatistic = stats.ToString();//$"{stats};{channelRatio:F2}";
+                bool hasFlat = GotFlat(startItem.Value, endItem.Value);
+                CurrentStatistic = $"{stats};{hasFlat:F2}";
                 CurrentSignalEventArgs = new ImpulseSignalEventArgs(
                     new BarPoint(realPrice, index, BarsProvider),
                     tpArg,
@@ -342,6 +387,7 @@ namespace TradeKit.Core.ElliottWave
                 IsInSetup = false;
                 OnTakeProfitInvoke(new LevelEventArgs(new BarPoint(SetupEndPrice, index, BarsProvider),
                     new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentStatistic));
+                m_ImpulseCache[finder].Clear();
             }
 
             bool isStopHit = isImpulseUp && low <= SetupStartPrice
@@ -351,6 +397,7 @@ namespace TradeKit.Core.ElliottWave
                 IsInSetup = false;
                 OnStopLossInvoke(new LevelEventArgs(new BarPoint(SetupStartPrice, index, BarsProvider),
                     new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentStatistic));
+                m_ImpulseCache[finder].Clear();
             }
 
             if (CurrentSignalEventArgs is not { CanUseBreakeven: true, HasBreakeven: false })

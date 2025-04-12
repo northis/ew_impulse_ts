@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Net;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using static Microsoft.FSharp.Core.ByRefKinds;
@@ -25,14 +26,16 @@ namespace TradeKit.Core.AlgoBase
             double? rateZigzagMaxLimit = null, 
             double? rateHeterogeneityMaxLimit = null)
         {
-            var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag) = GetMaxOverlapseScore(start, end, barsProvider,
+            var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag, areaRelative) = GetMaxOverlapseScore(start, end, barsProvider,
                 overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
             double heterogeneityMax = 1;
-            if (rateZigzag < 1)
-            {
-                var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
-                heterogeneityMax = heterogeneityMaxLoc;
-            }
+            //if (rateZigzag < 1)
+            //{
+            //    var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
+            //    heterogeneityMax = heterogeneityMaxLoc;
+            //}
+
+            var (heterogeneity, _) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
 
             //var (profile, overlapseDegree, singleCandle) = GetOverlapseStatistic(start, end, barsProvider);
 
@@ -40,7 +43,7 @@ namespace TradeKit.Core.AlgoBase
             //return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity,
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
-            return new ImpulseResult(overlapseMaxDepth, end.BarIndex - start.BarIndex, size, rateZigzag, heterogeneityMax);
+            return new ImpulseResult(overlapseMaxDepth, end.BarIndex - start.BarIndex, size, rateZigzag, heterogeneity, areaRelative);
         }
 
         /// <summary>
@@ -58,8 +61,8 @@ namespace TradeKit.Core.AlgoBase
             if (fullLength < double.Epsilon)
                 return (1, 1);
 
-            if (rateHeterogeneityMaxLimit.HasValue)
-                rateHeterogeneityMaxLimit *= fullLength;
+            //if (rateHeterogeneityMaxLimit.HasValue)
+            //    rateHeterogeneityMaxLimit *= fullLength;
 
             bool isUp = end > start;
             List<double> devs = new List<double>();
@@ -69,33 +72,43 @@ namespace TradeKit.Core.AlgoBase
             double max = Math.Max(start.Value, end.Value);
 
             double dx = fullLength / (indexDiff > 0 ? indexDiff : 0.5);
+            //double currentValue = start.Value;
+            double maxSum = fullLength * indexDiff * 0.75;
+
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
             {
-                int count = i - start.BarIndex;
-                Candle candle = Candle.FromIndex(barsProvider, i);
+                if(i == start.BarIndex)
+                    continue;
 
-                double localLow = Math.Max(candle.L, min);
-                double localHigh = Math.Min(candle.H, max);
+                //double open = barsProvider.GetOpenPrice(i);
+
+                int count = i - start.BarIndex;
+                double localLow = Math.Max(barsProvider.GetLowPrice(i), min);
+                double localHigh = Math.Min(barsProvider.GetHighPrice(i), max);
 
                 double currDx = count * dx;
                 double currAvg = isUp
                     ? start.Value + currDx
                     : start.Value - currDx;
-                double midPoint;
-                if (i == start.BarIndex || i == end.BarIndex)
-                    midPoint = 0;
-                else midPoint = Math.Max(Math.Abs(localLow - currAvg), Math.Abs(localHigh - currAvg));
+                //double midPoint;
+                //if (i == start.BarIndex || i == end.BarIndex)
+                //    midPoint = 0;
+                //else midPoint = Math.Max(Math.Abs(localLow - currAvg), Math.Abs(localHigh - currAvg));
 
-                if (rateHeterogeneityMaxLimit < midPoint)
-                    return (1, 1);
+                //if (rateHeterogeneityMaxLimit < midPoint)
+                //    return (1, 1);
 
-                double part = midPoint / fullLength;
+                //double part = midPoint / fullLength;
+                //devs.Add(part);
+
+                double part = Math.Max(Math.Abs(localLow - currAvg), Math.Abs(localHigh - currAvg));
                 devs.Add(part);
             }
 
-            double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-            double maxRes = devs.Max();
-            return (sqrtDev, maxRes);
+            //double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
+            double sumRelative = devs.Count > 0 ? devs.Sum() / maxSum : 0;
+            double maxRelative = devs.Count > 0 ? devs.Max() / fullLength : 0;
+            return (sumRelative, maxRelative);
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
@@ -118,21 +131,21 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Gets the maximum overlapse depth & distance & ratio ZigZag (from 0 to 1)
+        /// Gets the maximum overlapse depth & distance & ratio ZigZag (from 0 to 1) & extrema polygon area/length (from 0 to 1) 
         /// </summary>
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <param name="barsProvider">The bars provider.</param>
         /// <param name="overlapseMaxDepthMaxLimit">Optional max value of overlapse to reduce calculations</param>
         /// <param name="rateZigzagMaxLimit">Optional max value of rate zigzag to reduce calculations</param>
-        public static (double, double, double) GetMaxOverlapseScore(
+        public static (double, double, double, double) GetMaxOverlapseScore(
             BarPoint start, BarPoint end, IBarsProvider barsProvider,
             double? overlapseMaxDepthMaxLimit = null, double? rateZigzagMaxLimit = null)
         {
             bool isUp = end > start;
             double length = Math.Abs(end - start);
             if (length < double.Epsilon)
-                return (1, 1, 1);
+                return (1, 1, 1, 1);
             int duration = Math.Abs(end.BarIndex - start.BarIndex);
 
             if (overlapseMaxDepthMaxLimit.HasValue)
@@ -157,6 +170,9 @@ namespace TradeKit.Core.AlgoBase
             SortedDictionary<DateTime, (double, DateTime)> scores =
                 new SortedDictionary<DateTime, (double, DateTime)>();
             Dictionary<DateTime, int> extremaBarCounters = new Dictionary<DateTime, int>();
+
+            Point current = new(start.BarIndex, start.Value);
+            var points = new List<Point> { current };
             foreach (DateTime dt in Helper.GetKeysRange(inputKeys, start.OpenTime, end.OpenTime))
             {
                 if ((dt == start.OpenTime || dt == end.OpenTime) && IsUpCandle(dt, barsProvider) != isUp)
@@ -176,7 +192,7 @@ namespace TradeKit.Core.AlgoBase
                         break;
 
                     if (overlapseMaxDepthMaxLimit < localLength)
-                        return (1, 1, 1);
+                        return (1, 1, 1, 1);
 
 
                     if (!scores.ContainsKey(dt) || scores[dt].Item1 < localLength)
@@ -187,6 +203,12 @@ namespace TradeKit.Core.AlgoBase
 
                 if (!scores.TryGetValue(dt, out (double, DateTime) score))
                     continue;
+                
+                if (isUp && current.Value < currentPrice || !isUp && current.Value > currentPrice)
+                {
+                    current = new(barsProvider.GetIndexByTime(dt), currentPrice);
+                    points.Add(current);
+                }
 
                 double localExtremum = inputCounterKeys[score.Item2];
                 int extremaBarCount = 0;
@@ -198,14 +220,31 @@ namespace TradeKit.Core.AlgoBase
                     extremaBarCount++;
 
                     if (rateZigzagMaxLimit < extremaBarCount)
-                        return (1, 1, 1);
+                        return (1, 1, 1, 1);
 
                 }
 
                 extremaBarCounters[dt] = extremaBarCount;
             }
 
-            if (scores.Count <= 0) return (0, 0, 0);
+            if (scores.Count <= 0) return (0, 0, 0, 0);
+
+            current = new(end.BarIndex, end.Value);
+            points.Add(current);
+            foreach (KeyValuePair<DateTime, (double, DateTime)> score in scores.Reverse())
+            {
+                double localValue = inputCounterKeys[score.Value.Item2];
+                if (isUp && localValue > current.Value || !isUp && localValue < current.Value)
+                {
+                    continue;
+                }
+
+                Point localCurrent = new(barsProvider.GetIndexByTime(score.Value.Item2), localValue);
+                current = localCurrent;
+                points.Add(localCurrent);
+            }
+
+            double area = ComputeArea(points);
 
             KeyValuePair<DateTime, (double, DateTime)> maxBy = scores.MaxBy(a => a.Value.Item1);
             double depth = maxBy.Value.Item1 / length;
@@ -215,8 +254,26 @@ namespace TradeKit.Core.AlgoBase
             double distance = duration > 0 ? (endIndex - startIndex) / (double)duration : 0;
             int max = extremaBarCounters.Max(a => a.Value);
             double ratioZigZag = duration > 0 ? max / (double)duration : 0;
-            return (depth, distance, ratioZigZag);
+
+            double areaRelative = area / (duration * length);
+            return (depth, distance, ratioZigZag, areaRelative);
         }
+
+        public static double ComputeArea(List<Point> polygon)
+        {
+            if (polygon == null || polygon.Count < 3)
+                return 0;
+
+            double area = 0;
+            for (int i = 0; i < polygon.Count; i++)
+            {
+                int j = (i + 1) % polygon.Count;
+                area += polygon[i].Index * polygon[j].Value - polygon[j].Index * polygon[i].Value;
+            }
+
+            return Math.Abs(area) / 2.0;
+        }
+
 
         /// <summary>
         /// Gets the index of the overlapse.
@@ -269,9 +326,9 @@ namespace TradeKit.Core.AlgoBase
             double length = max - min;
             int countToCompare = candles.Count - 1;//except the current candle
             double currentPoint = isUp ? min : max;
-            double overlapsedIndexLocal = 0;
+            double overlappedIndexLocal = 0;
             double singleCandleLocal = 0;
-            overlapseIndex = overlapsedIndexLocal;
+            overlapseIndex = overlappedIndexLocal;
 
             var profileInner = new SortedDictionary<double, int>();
             void NextPoint(double nextPoint)
@@ -294,7 +351,7 @@ namespace TradeKit.Core.AlgoBase
                     return;
                 }
 
-                overlapsedIndexLocal += diffLength * cdlCount / countToCompare;
+                overlappedIndexLocal += diffLength * cdlCount / countToCompare;
             }
 
             IOrderedEnumerable<double> orderedPoints = isUp 
@@ -310,7 +367,7 @@ namespace TradeKit.Core.AlgoBase
                 currentPoint = nextPoint;
             }
 
-            overlapseIndex = candles.Count > 1 ? overlapsedIndexLocal : 1;
+            overlapseIndex = candles.Count > 1 ? overlappedIndexLocal : 1;
             singleCandle = singleCandleLocal;
             return profileInner;
         }

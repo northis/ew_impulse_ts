@@ -11,6 +11,7 @@
         double MaxZigzagPercent,
         double MaxOverlapseLengthPercent,
         double HeterogeneityMax,
+        double MinSizePercent,
         int BarsCount)
     {
     }

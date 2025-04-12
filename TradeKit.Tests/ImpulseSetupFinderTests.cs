@@ -34,7 +34,8 @@ namespace TradeKit.Tests
                 MaxZigzagPercent: 20,
                 MaxOverlapseLengthPercent: 30,
                 HeterogeneityMax: 50,
-                BreakEvenRatio: breakeven);
+                BreakEvenRatio: breakeven, 
+                MinSizePercent: 0.1);
 
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, impulseParams);
 

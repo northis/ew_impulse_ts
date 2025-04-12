@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -19,7 +20,7 @@ public class ExactZigzagIndicator : Indicator
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
         var factory = new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this));
-        m_ExtremumFinder = new PivotExtremumFinder(20, m_BarProvider, factory);
+        m_ExtremumFinder = new PivotExtremumFinder(Period, m_BarProvider, factory);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
@@ -28,6 +29,12 @@ public class ExactZigzagIndicator : Indicator
         m_ExtremumFinder.OnSetExtremum -= OnSetExtremum;
         base.OnDestroy();
     }
+
+    /// <summary>
+    /// Gets or sets the zigzag period.
+    /// </summary>
+    [Parameter(nameof(Period), DefaultValue = Helper.MIN_IMPULSE_PERIOD, MinValue = 1, MaxValue = 200, Group = Helper.TRADE_SETTINGS_NAME)]
+    public int Period { get; set; }
 
     private BarPoint m_CurrentExtremum;
     private IBarsProvider m_BarProvider;
@@ -55,10 +62,18 @@ public class ExactZigzagIndicator : Indicator
             m_CurrentExtremum.BarIndex, m_CurrentExtremum.Value, e.EventExtremum.BarIndex, e.EventExtremum.Value,
             color, 3);
 
-        string report = movementStatistic.ToString();
-        Chart.DrawText($"T{id}", report,
+        string[] statItems = movementStatistic.ToString()
+            .Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+        
+        string report = string.Join(Environment.NewLine, statItems);
+        var text = Chart.DrawText($"T{id}", report,
             e.EventExtremum.OpenTime,
             e.EventExtremum.Value, color);
+        if (e.EventExtremum > m_CurrentExtremum)
+        {
+            text.VerticalAlignment = VerticalAlignment.Top;
+        }
+
         m_CurrentExtremum = e.EventExtremum;
     }
 

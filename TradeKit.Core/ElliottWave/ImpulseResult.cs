@@ -7,7 +7,8 @@ namespace TradeKit.Core.ElliottWave
         int CandlesCount,
         double Size,
         double RatioZigzag,
-        double HeterogeneityMax)
+        double HeterogeneityMax,
+        double Area)
     {
         /// <summary>
         /// Gets or sets the Start candle we want to see this impulse.
