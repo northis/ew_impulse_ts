@@ -50,7 +50,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_ImpulseParams = impulseParams;
 
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 3; i += 20)
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 10; i += 10)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -204,6 +204,33 @@ namespace TradeKit.Core.ElliottWave
             bool isImpulseUp = endValue > startValue;
             bool hasInCache = m_ImpulseCache[finder].ContainsKey(endItem.Key);
 
+            double GetRealPrice(double triggerLevel)
+            {
+                double realPrice1;
+                if (triggerLevel >= low && triggerLevel <= high)
+                {
+                    realPrice1 = currentPriceBid ?? triggerLevel;
+                }
+                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
+                {
+                    realPrice1 = currentPriceBid ?? low;
+                }
+                else
+                {
+                    realPrice1 = currentPriceBid ?? high;
+                }
+
+                return realPrice1;
+            }
+
+            bool IsExpired(double realPrice)
+            {
+                return isImpulseUp &&
+                       (realPrice >= SetupEndPrice || realPrice <= SetupStartPrice) ||
+                       !isImpulseUp &&
+                       (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice);
+            }
+
             if (!IsInSetup)
             {
                 if (hasInCache && m_ImpulseCache[finder][endItem.Key] == null)
@@ -266,14 +293,17 @@ namespace TradeKit.Core.ElliottWave
                 //    return;
                 //}
 
-                if (!GotSetup(m_ImpulseParams.EnterRatio, endValue, startValue, isImpulseUp, out double triggerLevel, low, high))
-                {
-                    if (m_PreFinder == null && GotSetup(m_PrePatio, endValue, startValue, isImpulseUp, out triggerLevel, low, high))
-                    {
-                        m_PreFinder = finder;
-                    }
-                    return false;
-                }
+                bool gotSetup = GotSetup(m_ImpulseParams.EnterRatio, endValue, startValue, isImpulseUp,
+                    out double triggerLevel, low, high);
+
+                //if (!GotSetup(m_ImpulseParams.EnterRatio, endValue, startValue, isImpulseUp, out double triggerLevel, low, high))
+                //{
+                //    if (m_PreFinder == null && GotSetup(m_PrePatio, endValue, startValue, isImpulseUp, out triggerLevel, low, high))
+                //    {
+                //        m_PreFinder = finder;
+                //    }
+                //    return false;
+                //}
 
                 m_PreFinder = null;
 
@@ -296,26 +326,14 @@ namespace TradeKit.Core.ElliottWave
                     return false;
                 }
 
-                double realPrice;
-                if (triggerLevel >= low && triggerLevel <= high)
-                {
-                    realPrice = currentPriceBid ?? triggerLevel;
-                }
-                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
-                {
-                    realPrice = currentPriceBid ?? low;
-                }
-                else
-                {
-                    realPrice = currentPriceBid ?? high;
-                }
+                var realPrice = GetRealPrice(triggerLevel);
 
-                TriggerLevel = realPrice;
+                TriggerLevel = triggerLevel;
                 TriggerBarIndex = index;
                 IsInSetup = true;
 
-                double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
-                double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
+                double endAllowance = Math.Abs(triggerLevel - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
+                double startAllowance = Math.Abs(triggerLevel - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
                 SetupStartIndex = startItem.Value.BarIndex;
                 SetupEndIndex = endItem.Value.BarIndex;
@@ -338,10 +356,7 @@ namespace TradeKit.Core.ElliottWave
                         endValue + endAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
                 }
 
-                if (isImpulseUp &&
-                    (realPrice >= SetupEndPrice || realPrice <= SetupStartPrice) ||
-                    !isImpulseUp &&
-                    (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice))
+                if (IsExpired(realPrice))
                 {
                     // TP or SL is already hit, cannot use this signal
                     Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
@@ -356,14 +371,15 @@ namespace TradeKit.Core.ElliottWave
                 bool hasFlat = GotFlat(startItem.Value, endItem.Value);
                 CurrentStatistic = $"{stats};{hasFlat:F2}";
                 CurrentSignalEventArgs = new ImpulseSignalEventArgs(
-                    new BarPoint(realPrice, index, BarsProvider),
+                    new BarPoint(gotSetup ? realPrice : triggerLevel, index, BarsProvider),
                     tpArg,
                     slArg,
                     outExtrema,
                     viewDateTime,
                     CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1
                         ? m_ImpulseParams.BreakEvenRatio
-                        : null);
+                        : null,
+                    !gotSetup);
                 OnEnterInvoke(CurrentSignalEventArgs);
                 // Here we should give a trade signal.
             }
@@ -375,6 +391,13 @@ namespace TradeKit.Core.ElliottWave
 
             if (!isInSetupBefore)
             {
+                return false;
+            }
+
+            if (CurrentSignalEventArgs.IsLimit && !CurrentSignalEventArgs.IsActive &&//handle active TODO
+                IsExpired(GetRealPrice(TriggerLevel)))
+            {
+                IsInSetup = false;
                 return false;
             }
 
