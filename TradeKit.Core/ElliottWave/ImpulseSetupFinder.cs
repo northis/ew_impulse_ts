@@ -50,7 +50,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_ImpulseParams = impulseParams;
 
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 2; i += 10)
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 10; i += 10)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -394,28 +394,14 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
-            isImpulseUp = SetupEndPrice > SetupStartPrice;
-
-            if (CurrentSignalEventArgs.IsLimit)
+            if (CurrentSignalEventArgs.IsLimit && !CurrentSignalEventArgs.IsActive &&//handle active TODO
+                IsExpired(GetRealPrice(TriggerLevel)))
             {
-                Debugger.Launch();
-                double price = GetRealPrice(TriggerLevel);
-                if (IsExpired(price))
-                {
-                    OnCanceledInvokeInner();
-                    IsInSetup = false;
-                    return false;
-                }
-
-                if (!CurrentSignalEventArgs.IsActive &&
-                         GotSetup(m_ImpulseParams.EnterRatio, endValue, 
-                             startValue, isImpulseUp, out double _, low, high))
-                {
-                    CurrentSignalEventArgs.IsActive = true;
-                    OnActivatedInvokeInner();
-                }
+                IsInSetup = false;
+                return false;
             }
 
+            isImpulseUp = SetupEndPrice > SetupStartPrice;
             bool isProfitHit = isImpulseUp && high >= SetupEndPrice
                                || !isImpulseUp && low <= SetupEndPrice;
 
@@ -450,24 +436,9 @@ namespace TradeKit.Core.ElliottWave
             CurrentSignalEventArgs.StopLoss = new BarPoint(
                 CurrentSignalEventArgs.BreakEvenPrice, currentDt, CurrentSignalEventArgs.StopLoss.BarTimeFrame,
                 index);
-            OnBreakEvenInvokeInner();
+            OnBreakEvenInvoke(new LevelEventArgs(CurrentSignalEventArgs.StopLoss, CurrentSignalEventArgs.Level, true, CurrentSignalEventArgs.Comment));
 
             return IsInSetup;
-        }
-
-        private void OnCanceledInvokeInner()
-        {
-            OnCanceledInvoke(new LevelEventArgs(CurrentSignalEventArgs.Level, new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentSignalEventArgs.Comment));
-        }
-
-        private void OnActivatedInvokeInner()
-        {
-            OnActivatedInvoke(new LevelEventArgs(CurrentSignalEventArgs.Level, new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentSignalEventArgs.Comment));
-        }
-
-        private void OnBreakEvenInvokeInner()
-        {
-            OnBreakEvenInvoke(new LevelEventArgs(CurrentSignalEventArgs.StopLoss, CurrentSignalEventArgs.Level, true, CurrentSignalEventArgs.Comment));
         }
 
         private bool GotSetup(double levelRatio, double endValue, double startValue, bool isImpulseUp, out double triggerLevel, double low, double high)
