@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -268,104 +268,16 @@ namespace TradeKit.Core.ElliottWave
 
                 if (!GotSetup(m_ImpulseParams.EnterRatio, endValue, startValue, isImpulseUp, out double triggerLevel, low, high))
                 {
-                    if (m_PreFinder == null && GotSetup(m_PrePatio, endValue, startValue, isImpulseUp, out triggerLevel, low, high))
+                    if (m_PreFinder == null && 
+                        GotSetup(m_PrePatio, endValue, startValue, isImpulseUp, out triggerLevel, low, high))
                     {
                         m_PreFinder = finder;
                     }
+
                     return false;
                 }
 
-                m_PreFinder = null;
-
-                var outExtrema = new ImpulseElliottModelResult
-                {
-                    Wave0 = startItem.Value,
-                    Wave5 = endItem.Value
-                };
-
-                if (SetupStartIndex == startItem.Value.BarIndex ||
-                    SetupEndIndex == endItem.Value.BarIndex)
-                {
-                    // Cannot use the same impulse twice.
-                    return false;
-                }
-
-                if (endItem.Value.BarIndex == index)
-                {
-                    // Wait for the next bar
-                    return false;
-                }
-
-                double realPrice;
-                if (triggerLevel >= low && triggerLevel <= high)
-                {
-                    realPrice = currentPriceBid ?? triggerLevel;
-                }
-                else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
-                {
-                    realPrice = currentPriceBid ?? low;
-                }
-                else
-                {
-                    realPrice = currentPriceBid ?? high;
-                }
-
-                TriggerLevel = realPrice;
-                TriggerBarIndex = index;
-                IsInSetup = true;
-
-                double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
-                double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
-
-                SetupStartIndex = startItem.Value.BarIndex;
-                SetupEndIndex = endItem.Value.BarIndex;
-
-                double tpRatio = m_ImpulseParams.TakeRatio;
-                double setupLength = Math.Abs(startValue - endValue) * tpRatio;
-
-                if (isImpulseUp)
-                {
-                    endValue = startValue + setupLength;
-                    SetupStartPrice = Math.Round(startValue - startAllowance, Symbol.Digits, MidpointRounding.ToZero);
-                    SetupEndPrice = Math.Round(endValue - endAllowance, Symbol.Digits, MidpointRounding.ToZero);
-                }
-                else
-                {
-                    endValue = startValue - setupLength;
-                    SetupStartPrice = Math.Round(
-                        startValue + startAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
-                    SetupEndPrice = Math.Round(
-                        endValue + endAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
-                }
-
-                if (isImpulseUp &&
-                    (realPrice >= SetupEndPrice || realPrice <= SetupStartPrice) ||
-                    !isImpulseUp &&
-                    (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice))
-                {
-                    // TP or SL is already hit, cannot use this signal
-                    Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
-                    IsInSetup = false;
-                    return false;
-                }
-
-                var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
-                var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
-                DateTime viewDateTime = BarsProvider.GetOpenTime(edgeIndex);
-
-                bool hasFlat = GotFlat(startItem.Value, endItem.Value);
-                CurrentStatistic = $"{stats};{hasFlat:F2}";
-                CurrentSignalEventArgs = new ImpulseSignalEventArgs(
-                    new BarPoint(realPrice, index, BarsProvider),
-                    tpArg,
-                    slArg,
-                    outExtrema,
-                    viewDateTime,
-                    CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1
-                        ? m_ImpulseParams.BreakEvenRatio
-                        : null);
-                OnEnterInvoke(CurrentSignalEventArgs);
-                // Here we should give a trade signal.
+                if (!IssueSignal(index, currentPriceBid, startItem, endItem, triggerLevel, low, high, endValue, startValue, isImpulseUp, edgeIndex, stats)) return false;
             }
 
             if (!IsInSetup)
@@ -416,6 +328,104 @@ namespace TradeKit.Core.ElliottWave
             OnBreakEvenInvoke(new LevelEventArgs(CurrentSignalEventArgs.StopLoss, CurrentSignalEventArgs.Level, true, CurrentSignalEventArgs.Comment));
 
             return IsInSetup;
+        }
+
+        private bool IssueSignal(int index, double? currentPriceBid, KeyValuePair<DateTime, BarPoint> startItem, KeyValuePair<DateTime, BarPoint> endItem,
+            double triggerLevel, double low, double high, double endValue, double startValue, bool isImpulseUp, int edgeIndex,
+            ImpulseResult stats)
+        {
+            m_PreFinder = null;
+
+            var outExtrema = new ImpulseElliottModelResult
+            {
+                Wave0 = startItem.Value,
+                Wave5 = endItem.Value
+            };
+
+            if (SetupStartIndex == startItem.Value.BarIndex ||
+                SetupEndIndex == endItem.Value.BarIndex)
+            {
+                // Cannot use the same impulse twice.
+                return false;
+            }
+
+            if (endItem.Value.BarIndex == index)
+            {
+                // Wait for the next bar
+                return false;
+            }
+
+            double realPrice;
+            if (triggerLevel >= low && triggerLevel <= high)
+            {
+                realPrice = currentPriceBid ?? triggerLevel;
+            }
+            else if (Math.Abs(triggerLevel - low) < Math.Abs(triggerLevel - high))
+            {
+                realPrice = currentPriceBid ?? low;
+            }
+            else
+            {
+                realPrice = currentPriceBid ?? high;
+            }
+
+            TriggerLevel = realPrice;
+            TriggerBarIndex = index;
+            IsInSetup = true;
+
+            double endAllowance = Math.Abs(realPrice - endValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
+            double startAllowance = Math.Abs(realPrice - startValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
+
+            SetupStartIndex = startItem.Value.BarIndex;
+            SetupEndIndex = endItem.Value.BarIndex;
+
+            double tpRatio = m_ImpulseParams.TakeRatio;
+            double setupLength = Math.Abs(startValue - endValue) * tpRatio;
+
+            if (isImpulseUp)
+            {
+                endValue = startValue + setupLength;
+                SetupStartPrice = Math.Round(startValue - startAllowance, Symbol.Digits, MidpointRounding.ToZero);
+                SetupEndPrice = Math.Round(endValue - endAllowance, Symbol.Digits, MidpointRounding.ToZero);
+            }
+            else
+            {
+                endValue = startValue - setupLength;
+                SetupStartPrice = Math.Round(
+                    startValue + startAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                SetupEndPrice = Math.Round(
+                    endValue + endAllowance, Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+            }
+
+            if (isImpulseUp &&
+                (realPrice >= SetupEndPrice || realPrice <= SetupStartPrice) ||
+                !isImpulseUp &&
+                (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice))
+            {
+                // TP or SL is already hit, cannot use this signal
+                Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
+                IsInSetup = false;
+                return false;
+            }
+
+            var tpArg = new BarPoint(SetupEndPrice, SetupEndIndex, BarsProvider);
+            var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
+            DateTime viewDateTime = BarsProvider.GetOpenTime(edgeIndex);
+
+            bool hasFlat = GotFlat(startItem.Value, endItem.Value);
+            CurrentStatistic = $"{stats};{hasFlat:F2}";
+            CurrentSignalEventArgs = new ImpulseSignalEventArgs(
+                new BarPoint(realPrice, index, BarsProvider),
+                tpArg,
+                slArg,
+                outExtrema,
+                viewDateTime,
+                CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1
+                    ? m_ImpulseParams.BreakEvenRatio
+                    : null);
+            OnEnterInvoke(CurrentSignalEventArgs);
+            // Here we should give a trade signal.
+            return true;
         }
 
         private bool GotSetup(double levelRatio, double endValue, double startValue, bool isImpulseUp, out double triggerLevel, double low, double high)
