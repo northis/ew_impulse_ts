@@ -509,7 +509,7 @@ namespace TradeKit.Core.Common
         protected void OnCanceled(object sender, LevelEventArgs e)
         {
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
-            TradeManager.CancelOrder(positionId);
+            TradeManager.ConvertToMarketOrder(positionId);
             Logger.Write($"Order is canceled! ({positionId})");
 
             if (!TelegramReporter.IsReady)
@@ -519,13 +519,14 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Called when the order is cancelled.
+        /// Called when the order is canceled.
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected void OnActivated(object sender, LevelEventArgs e)
         {
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
+            TradeManager.ConvertToMarketOrder(positionId);
             Logger.Write($"Order is activated! ({positionId})");
 
             if (!TelegramReporter.IsReady)

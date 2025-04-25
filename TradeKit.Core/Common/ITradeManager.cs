@@ -63,6 +63,12 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="positionId">The position identifier.</param>
         OrderResult CancelOrder(string positionId);
+        
+        /// <summary>
+        /// Converts pending order to market order if it is still not opened.
+        /// </summary>
+        /// <param name="positionId">The position identifier.</param>
+        OrderResult ConvertToMarketOrder(string positionId);
 
         /// <summary>
         /// Sets the stop loss price.

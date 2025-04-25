@@ -183,6 +183,30 @@ namespace TradeKit.CTrader.Core
         }
 
         /// <summary>
+        /// Converts a pending order to a market order.
+        /// </summary>
+        /// <param name="positionId">The identifier of the position to be converted.</param>
+        /// <returns>An <see cref="OrderResult"/> indicating the result of the conversion, including success status and the related position.</returns>
+        public OrderResult ConvertToMarketOrder(string positionId)
+        {
+            PendingOrder pendingOrder = m_Robot.PendingOrders
+                .FirstOrDefault(a => a.Label == m_BotName && a.Comment == positionId);
+            if (pendingOrder == null)
+                return null;
+            
+            pendingOrder.Cancel();
+            TradeResult orderResult = m_Robot.ExecuteMarketOrder(
+                pendingOrder.TradeType, pendingOrder.SymbolName,
+                pendingOrder.VolumeInUnits, m_BotName,
+                pendingOrder.StopLossPips, pendingOrder.TakeProfitPips,
+                positionId);
+            
+            orderResult.Position.ModifyStopLossPrice(pendingOrder.StopLoss);
+            orderResult.Position.ModifyTakeProfitPrice(pendingOrder.TakeProfit);
+            return new OrderResult(orderResult.IsSuccessful, ToIPosition(orderResult.Position));
+        }
+
+        /// <summary>
         /// Opens the trade order.
         /// </summary>
         /// <param name="isLong">if set to <c>true</c> when it is buy trade; false for sell.</param>
