@@ -15,7 +15,7 @@ namespace TradeKit.Core.ElliottWave
             High = high;
         }
 
-        public double LevelRatio { get; private set; }
+        public double LevelRatio { get; set; }
         public double EndValue { get; private set; }
         public double StartValue { get; private set; }
         public bool IsImpulseUp { get; private set; }
@@ -52,6 +52,8 @@ namespace TradeKit.Core.ElliottWave
         public double StartValue { get; }
         public bool IsImpulseUp { get; }
         public int EdgeIndex { get; }
+        
+        public bool UseLimit { get; set; }
         public ImpulseResult Stats { get; }
     }
 

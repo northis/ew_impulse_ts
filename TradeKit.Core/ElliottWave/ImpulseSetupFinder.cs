@@ -14,8 +14,8 @@ namespace TradeKit.Core.ElliottWave
     {
         private readonly ImpulseParams m_ImpulseParams;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
-        public double m_MaxZigzagRatio;
-        public double m_MaxOverlapseLengthRatio;
+        private readonly double m_MaxZigzagRatio;
+        private readonly double m_MaxOverlapseLengthRatio;
 
         private readonly Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
 
@@ -169,7 +169,7 @@ namespace TradeKit.Core.ElliottWave
         }
         
         /// <summary>
-        /// Determines whether the data for specified index contains a trade setup.
+        /// Determines whether the data for a specified index contains a trade setup.
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         /// <param name="finder">The extreme finder instance.</param>
@@ -221,11 +221,19 @@ namespace TradeKit.Core.ElliottWave
             bool isProfitHit = isImpulseUp && high >= SetupEndPrice
                                || !isImpulseUp && low <= SetupEndPrice;
 
+            bool needToCheckLimit = CurrentSignalEventArgs.IsLimit &&
+                                    !CurrentSignalEventArgs.IsActive;
             if (isProfitHit)
             {
                 IsInSetup = false;
-                OnTakeProfitInvoke(new LevelEventArgs(new BarPoint(SetupEndPrice, index, BarsProvider),
-                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentStatistic));
+
+                var levelArgs = new LevelEventArgs(
+                    new BarPoint(SetupEndPrice, index, BarsProvider),
+                    CurrentSignalEventArgs.Level, false, CurrentStatistic);
+                if (needToCheckLimit)
+                    OnCanceledInvoke(levelArgs);
+                else
+                    OnTakeProfitInvoke(levelArgs);
                 m_ImpulseCache[finder].Clear();
             }
 
@@ -234,9 +242,23 @@ namespace TradeKit.Core.ElliottWave
             if (isStopHit)
             {
                 IsInSetup = false;
-                OnStopLossInvoke(new LevelEventArgs(new BarPoint(SetupStartPrice, index, BarsProvider),
-                    new BarPoint(TriggerLevel, TriggerBarIndex, BarsProvider), false, CurrentStatistic));
+
+                var levelArgs = new LevelEventArgs(
+                    new BarPoint(SetupStartPrice, index, BarsProvider),
+                    CurrentSignalEventArgs.Level, false, CurrentStatistic);
+                if (needToCheckLimit)
+                    OnCanceledInvoke(levelArgs);
+                else
+                    OnStopLossInvoke(levelArgs);
                 m_ImpulseCache[finder].Clear();
+            }
+
+            if (IsInSetup && needToCheckLimit && 
+                (isImpulseUp && low <= CurrentSignalEventArgs.Level.Value || !isImpulseUp && high >= CurrentSignalEventArgs.Level.Value))
+            {
+                CurrentSignalEventArgs.IsActive = true;
+                var levelArgs = new LevelEventArgs(CurrentSignalEventArgs.Level, CurrentSignalEventArgs.Level, false, CurrentStatistic);
+                OnActivatedInvoke(levelArgs);
             }
 
             if (CurrentSignalEventArgs is not { CanUseBreakeven: true, HasBreakeven: false })
@@ -328,26 +350,35 @@ namespace TradeKit.Core.ElliottWave
                 checkSignalArgs.Low,
                 checkSignalArgs.High);
 
-            bool gotSetup = GotSetup(gotSetupArgs, out double triggerLevel);
-            if (!gotSetup)
+            bool gotSetupMain = GotSetup(gotSetupArgs, out double triggerLevel);
+            bool useLimit = false;
+            if (!gotSetupMain)
             {
-                return false;
+                gotSetupArgs.LevelRatio *= 0.5;
+                if (GotSetup(gotSetupArgs, out _))
+                    useLimit = true;
+                else
+                    return false;
             }
 
-            if (!IssueSignal(new SignalArgs(
-                    checkSignalArgs.Index, 
-                    checkSignalArgs.CurrentPriceBid, 
-                    checkSignalArgs.StartItem, 
-                    checkSignalArgs.EndItem, 
-                    triggerLevel, 
-                    checkSignalArgs.Low, 
-                    checkSignalArgs.High, 
-                    checkSignalArgs.EndValue, 
-                    checkSignalArgs.StartValue, 
-                    checkSignalArgs.IsImpulseUp, 
-                    edgeIndex, 
-                    stats))) return false;
-            return true;
+            var signalArgs = new SignalArgs(
+                checkSignalArgs.Index,
+                checkSignalArgs.CurrentPriceBid,
+                checkSignalArgs.StartItem,
+                checkSignalArgs.EndItem,
+                triggerLevel,
+                checkSignalArgs.Low,
+                checkSignalArgs.High,
+                checkSignalArgs.EndValue,
+                checkSignalArgs.StartValue,
+                checkSignalArgs.IsImpulseUp,
+                edgeIndex,
+                stats)
+            {
+                UseLimit = useLimit
+            };
+
+            return IssueSignal(signalArgs);
         }
 
         private bool IssueSignal(SignalArgs signalArgs)
@@ -431,14 +462,17 @@ namespace TradeKit.Core.ElliottWave
             bool hasFlat = GotFlat(signalArgs.StartItem.Value, signalArgs.EndItem.Value);
             CurrentStatistic = $"{signalArgs.Stats};{hasFlat:F2}";
             CurrentSignalEventArgs = new ImpulseSignalEventArgs(
-                new BarPoint(realPrice, signalArgs.Index, BarsProvider),
+                new BarPoint(
+                    signalArgs.UseLimit ? signalArgs.TriggerLevel : realPrice,
+                    signalArgs.Index, BarsProvider),
                 tpArg,
                 slArg,
                 outExtrema,
                 viewDateTime,
                 CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1
                     ? m_ImpulseParams.BreakEvenRatio
-                    : null);
+                    : null,
+                signalArgs.UseLimit);
             OnEnterInvoke(CurrentSignalEventArgs);
             // Here we should give a trade signal.
             return true;
