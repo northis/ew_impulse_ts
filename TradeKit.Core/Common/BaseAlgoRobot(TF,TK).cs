@@ -439,9 +439,9 @@ namespace TradeKit.Core.Common
 
             if (sender is not TF sf ||
                 !m_ChartFileFinderMap.TryGetValue(sf.Id, out TK signalEventArgs))
-            {
                 return null;
-            }
+
+            if (closedArgs == null) TradeManager.CancelOrder(positionId);
 
             string resultChartPath = m_GenerateReport && closedArgs != null
                 ? GenerateReportFile(closedArgs, sf.TimeFrame.ShortName)
@@ -502,7 +502,7 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Called when the order is cancelled.
+        /// Called when the order is canceled.
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
@@ -526,7 +526,7 @@ namespace TradeKit.Core.Common
         protected void OnActivated(object sender, LevelEventArgs e)
         {
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
-            TradeManager.ConvertToMarketOrder(positionId);
+            //TradeManager.ConvertToMarketOrder(positionId); // If we want to open market order now if it is still pending
             Logger.Write($"Order is activated! ({positionId})");
 
             if (!TelegramReporter.IsReady)
