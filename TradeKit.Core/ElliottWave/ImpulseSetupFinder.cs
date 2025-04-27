@@ -25,7 +25,7 @@ namespace TradeKit.Core.ElliottWave
         // 1. Extremum of a correction.
         // 2. End of the impulse
         // 3. Start of the impulse
-        // 4. The previous extremum (to find out, weather this impulse is an initial one or not).
+        // 4. The previous extremum (to find out, weather this impulse is initial or not).
         private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 2;
 
         public int SetupStartIndex { get; set; }
@@ -49,7 +49,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_ImpulseParams = impulseParams;
 
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 3; i += 20)
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 1; i += 20)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -167,6 +167,14 @@ namespace TradeKit.Core.ElliottWave
 
             return false;
         }
+
+        LevelEventArgs GetCurrentLevelArgs(int index)
+        {
+            var levelArgs = new LevelEventArgs(
+                new BarPoint(SetupStartPrice, index, BarsProvider),
+                CurrentSignalEventArgs.Level, false, CurrentStatistic);
+            return levelArgs;
+        }
         
         /// <summary>
         /// Determines whether the data for a specified index contains a trade setup.
@@ -227,9 +235,7 @@ namespace TradeKit.Core.ElliottWave
             {
                 IsInSetup = false;
 
-                var levelArgs = new LevelEventArgs(
-                    new BarPoint(SetupEndPrice, index, BarsProvider),
-                    CurrentSignalEventArgs.Level, false, CurrentStatistic);
+                LevelEventArgs levelArgs = GetCurrentLevelArgs(index);
                 if (needToCheckLimit)
                     OnCanceledInvoke(levelArgs);
                 else
@@ -242,10 +248,7 @@ namespace TradeKit.Core.ElliottWave
             if (isStopHit)
             {
                 IsInSetup = false;
-
-                var levelArgs = new LevelEventArgs(
-                    new BarPoint(SetupStartPrice, index, BarsProvider),
-                    CurrentSignalEventArgs.Level, false, CurrentStatistic);
+                LevelEventArgs levelArgs = GetCurrentLevelArgs(index);
                 if (needToCheckLimit)
                     OnCanceledInvoke(levelArgs);
                 else
@@ -254,7 +257,8 @@ namespace TradeKit.Core.ElliottWave
             }
 
             if (IsInSetup && needToCheckLimit && 
-                (isImpulseUp && low <= CurrentSignalEventArgs.Level.Value || !isImpulseUp && high >= CurrentSignalEventArgs.Level.Value))
+                (isImpulseUp && low <= CurrentSignalEventArgs.Level.Value || 
+                 !isImpulseUp && high >= CurrentSignalEventArgs.Level.Value))
             {
                 CurrentSignalEventArgs.IsActive = true;
                 var levelArgs = new LevelEventArgs(CurrentSignalEventArgs.Level, CurrentSignalEventArgs.Level, false, CurrentStatistic);
@@ -354,7 +358,7 @@ namespace TradeKit.Core.ElliottWave
             bool useLimit = false;
             if (!gotSetupMain)
             {
-                gotSetupArgs.LevelRatio *= 0.5;
+                gotSetupArgs.LevelRatio *= 0.8;
                 if (GotSetup(gotSetupArgs, out _))
                     useLimit = true;
                 else
@@ -452,6 +456,13 @@ namespace TradeKit.Core.ElliottWave
                 // TP or SL is already hit, cannot use this signal
                 Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
                 IsInSetup = false;
+
+                if (CurrentSignalEventArgs.IsLimit)
+                {
+                    LevelEventArgs levelArgs = GetCurrentLevelArgs(signalArgs.Index);
+                    OnCanceledInvoke(levelArgs);
+                }
+                
                 return false;
             }
 

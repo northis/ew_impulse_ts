@@ -509,7 +509,7 @@ namespace TradeKit.Core.Common
         protected void OnCanceled(object sender, LevelEventArgs e)
         {
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
-            TradeManager.ConvertToMarketOrder(positionId);
+            TradeManager.CancelOrder(positionId);
             Logger.Write($"Order is canceled! ({positionId})");
 
             if (!TelegramReporter.IsReady)
