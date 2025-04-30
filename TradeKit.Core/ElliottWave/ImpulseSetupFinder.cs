@@ -49,7 +49,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_ImpulseParams = impulseParams;
 
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 1; i += 20)
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 3; i += 20)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());

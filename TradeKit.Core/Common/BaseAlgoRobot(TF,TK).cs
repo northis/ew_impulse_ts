@@ -1,12 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Telegram;
-using static Plotly.NET.StyleParam.ColorComponentBound;
 using Color = Plotly.NET.Color;
 using Line = Plotly.NET.Line;
 using Shape = Plotly.NET.LayoutObjects.Shape;
@@ -27,7 +24,7 @@ namespace TradeKit.Core.Common
         private readonly bool m_IsBackTesting;
         private readonly bool m_GenerateChart;
         private readonly bool m_GenerateReport;
-        protected const double SPREAD_MARGIN_RATIO = 1.1;
+        protected const double SPREAD_MARGIN_RATIO = 1;
         protected const int CHART_BARS_MARGIN_COUNT = 5;
         protected const double CHART_FONT_HEADER = 36;
         protected const int CHART_HEIGHT = 1000;
