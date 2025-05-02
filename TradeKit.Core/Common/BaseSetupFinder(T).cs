@@ -174,7 +174,7 @@ namespace TradeKit.Core.Common
         /// <summary>
         /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
         /// </summary>
-        /// <param name="index">The index of bar to calculate.</param>
+        /// <param name="index">The index of the bar to calculate.</param>
         public virtual void CheckBar(int index)
         {
             if (m_LastBarIndex != index)

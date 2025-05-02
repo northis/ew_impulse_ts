@@ -24,8 +24,7 @@ namespace TradeKit.Core.Gartley
         double BtoDActual,
         double BtoD,
         double XtoBActual,
-        double XtoB = 0,
-        bool IsFromProjection = false)
+        double XtoB = 0)
     {
         /// <summary>
         /// Gets true if this item equals to the passed one.

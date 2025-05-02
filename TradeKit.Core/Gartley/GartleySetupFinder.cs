@@ -92,8 +92,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_FilterByDivergence = filterByDivergence;
         m_MaxPatternSizeBars = maxPatternSizeBars;
 
-        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth, GartleySearchMode.BOTH);//TODO git it to the settings
-
+        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth);
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
     }
@@ -102,8 +101,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         GartleyItem localPattern, double close, int index, List<CandlesResult> candlePatterns = null)
     {
         bool isLimit = !IsPatternProfitableNow(localPattern, close) &&
-                       (m_CandlePatternFilter == null || m_CandlePatternFilter != null && candlePatterns == null) ||
-                       localPattern.IsFromProjection;
+                       (m_CandlePatternFilter == null || m_CandlePatternFilter != null && candlePatterns == null);
 
         if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
@@ -146,7 +144,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         DateTime startView = m_MainBarsProvider.GetOpenTime(localPattern.ItemX.BarIndex);
-        var args = new GartleySignalEventArgs(isLimit ? localPattern.ItemD : new BarPoint(close, index, m_MainBarsProvider),
+        var args = new GartleySignalEventArgs(new BarPoint(close, index, m_MainBarsProvider),
             localPattern, startView, isLimit, divItem, m_BreakevenRatio, candlePatterns);
 
         OnEnterInvoke(args);
@@ -161,7 +159,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     }
 
     /// <summary>
-    /// Checks whether the data for specified index contains a trade setup.
+    /// Checks whether the data for a specified index contains a trade setup.
     /// </summary>
     /// <param name="index">Index of the current candle.</param>
     protected override void CheckSetup(int index)

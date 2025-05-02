@@ -302,14 +302,14 @@ namespace TradeKit.Core.Common
                 }
 
                 TF sf = GetSetupFinder(barsProvider.BarSymbol, barsProvider.TimeFrame);
-                if (sf ==null)
+                if (sf == null)
                 {
                     return;
                 }
 
                 if (m_BarsInitMap[sf.Id])
                 {
-                    //Logger.Write($"{nameof(BarOpened)}: {obj.Bars.SymbolName} {obj.Bars.TimeFrame.ShortName}");
+                    //Logger.Write($"{nameof(BarOpened)}: {barsProvider.BarSymbol} {barsProvider.TimeFrame}");
                     sf.CheckBar(index);
                     return;
                 }

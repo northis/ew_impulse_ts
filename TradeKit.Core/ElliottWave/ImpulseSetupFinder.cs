@@ -21,11 +21,11 @@ namespace TradeKit.Core.ElliottWave
 
         private const int IMPULSE_END_NUMBER = 1;
         private const int IMPULSE_START_NUMBER = 2;
-        // We want to collect at lease this amount of extrema
+        // We want to collect at least this number of extrema
         // 1. Extremum of a correction.
         // 2. End of the impulse
         // 3. Start of the impulse
-        // 4. The previous extremum (to find out, weather this impulse is initial or not).
+        // 4. The previous extremum (to find out whether this impulse is initial or not).
         private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 2;
 
         public int SetupStartIndex { get; set; }
@@ -511,7 +511,7 @@ namespace TradeKit.Core.ElliottWave
         }
 
         /// <summary>
-        /// Checks whether the data for specified index contains a trade setup.
+        /// Checks whether the data for a specified index contains a trade setup.
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         protected override void CheckSetup(int index)

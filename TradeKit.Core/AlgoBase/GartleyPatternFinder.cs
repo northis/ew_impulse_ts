@@ -11,8 +11,6 @@ namespace TradeKit.Core.AlgoBase
 
         private readonly int m_BarsDepth;
 
-        private readonly GartleySearchMode m_Mode;
-
         //#if GARTLEY_PROD
         private const double SL_RATIO = 0.272;
         private const double TP1_RATIO = 0.382;
@@ -37,7 +35,7 @@ namespace TradeKit.Core.AlgoBase
 
         private const int MIN_PERIOD = 1;
         private DateTime? m_BorderDateTime;
-        private readonly double[] m_Allowances = {0.1};
+        private readonly double[] m_Allowances;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GartleyPatternFinder"/> class.
@@ -45,20 +43,17 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="accuracy">The accuracy filter - from 0 to 1.</param>
         /// <param name="barsProvider">The bar provider.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
-        /// <param name="mode">Search mode for patterns.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             IBarsProvider barsProvider, 
             double accuracy,
             int barsDepth,
-            GartleySearchMode mode,
             HashSet<GartleyPatternType> patterns = null)
         {
             m_PivotPointsFinder = new PivotPointsFinder(MIN_PERIOD, barsProvider, false);
             m_BarsProvider = barsProvider;
             m_Accuracy = accuracy;
             m_BarsDepth = barsDepth;
-            m_Mode = mode;
             m_RealPatterns = patterns == null
                 ? GartleyProjection.PATTERNS
                 : GartleyProjection.PATTERNS.Where(a => patterns.Contains(a.PatternType))
@@ -70,6 +65,7 @@ namespace TradeKit.Core.AlgoBase
             m_BullWastedX = new HashSet<DateTime>();
             m_BearWastedX = new HashSet<DateTime>();
             m_BullAMax = new SortedDictionary<DateTime, double>();
+            m_Allowances = new[] { 0.05, 0.1, 0.15, 0.2, 0.25 };
             m_BearAMin = new SortedDictionary<DateTime, double>();
         }
 
@@ -226,6 +222,7 @@ namespace TradeKit.Core.AlgoBase
             foreach (DateTime pointDateTimeX in
                      m_PivotPointsFinder.LowExtrema.SkipWhile(a => a < m_BorderDateTime))
             {
+                
                 ProcessProjections(pointDateTimeX,
                     values: m_PivotPointsFinder.LowValues,
                     counterValues: m_PivotPointsFinder.HighValues,
@@ -247,26 +244,12 @@ namespace TradeKit.Core.AlgoBase
                 foreach (GartleyProjection activeProjection in activeProjections)
                 {
                     ProjectionState updateResult = activeProjection.Update(index);
-                    if (updateResult is ProjectionState.PROJECTION_FORMED)
+                    if (updateResult == ProjectionState.PROJECTION_FORMED)
                     {
-                        activeProjection.AcceptFlag = false;
+                        // Here we can fire a projection event
                     }
 
-                    if (updateResult is ProjectionState.PROJECTION_SAME or ProjectionState.PROJECTION_FORMED && 
-                        m_Mode != GartleySearchMode.PATTERNS && 
-                        !activeProjection.AcceptFlag)
-                    {
-
-                        List<GartleyItem> patternsFromProjections = CreateProjectionPatterns(activeProjection);
-                        if (patternsFromProjections is { Count: > 0 })
-                        {
-                            patterns ??= new HashSet<GartleyItem>(new GartleyItemComparer());
-                            patternsFromProjections.ForEach(a => patterns.Add(a));
-                            activeProjection.AcceptFlag = true;
-                        }
-                    }
-
-                    if (updateResult != ProjectionState.PATTERN_FORMED || m_Mode == GartleySearchMode.PROJECTIONS)
+                    if (updateResult != ProjectionState.PATTERN_FORMED)
                         continue;// Got only new patterns (not projections)
 
                     GartleyItem pattern = CreatePattern(activeProjection);
@@ -327,46 +310,14 @@ namespace TradeKit.Core.AlgoBase
 
             return result;
         }
-        
-        /// <summary>
-        /// Creates the patterns from projection if it is possible
-        /// </summary>
-        /// <param name="projection">The Gartley projection with ready pattern state</param>
-        /// <returns><see cref="GartleyItem"/> if it is valid or null if it doesn't</returns>
-        private List<GartleyItem> CreateProjectionPatterns(GartleyProjection projection)
-        {
-            List<RealLevelCombo> projectionsReady = projection.GetProjectionDPoint();
-            if (projectionsReady == null)
-                return null;
-
-            List<GartleyItem> result = null;
-            foreach (RealLevelCombo projectionLevel in projectionsReady)
-            {
-                double dItem = projection.IsBull ? projectionLevel.Max : projectionLevel.Min;
-                projection.XtoD = projectionLevel.Xd.Ratio;
-                projection.BtoD = projectionLevel.Bd.Ratio;
-                projection.ItemD = projection.ItemC.WithPrice(dItem);
-
-                GartleyItem res = CreatePattern(projection);
-                if (res == null)
-                    continue;
-
-                result ??= new List<GartleyItem>();
-                result.Add(res);
-            }
-
-            return result;
-        }
 
         /// <summary>
         /// Creates the pattern if it is possible
         /// </summary>
-        /// <param name="projection">The Gartley projection with ready pattern state</param>
-        /// <param name="isFromProjection"><c>True</c> if this pattern isn't finished so we should use limit order.</param>
+        /// <param name="projection">The Gartley projection with a ready pattern state</param>
         /// <returns><see cref="GartleyItem"/> if it is valid or null if it doesn't</returns>
-        private GartleyItem CreatePattern(GartleyProjection projection, bool isFromProjection = false)
+        private GartleyItem CreatePattern(GartleyProjection projection)
         {
-            
             if (projection.ItemX == null ||
                 projection.ItemA == null ||
                 projection.ItemB == null ||
@@ -380,6 +331,14 @@ namespace TradeKit.Core.AlgoBase
                 0d == projection.ItemC.Value || 
                 0d == projection.ItemD.Value)
                 return null;
+            
+            if (projection.ItemX.OpenTime is
+                    { Day: 28, Month: 4, Year: 2025, Hour: 16, Minute: 30 } &&
+                projection.ItemA.OpenTime is
+                    { Day: 29, Month: 4, Year: 2025, Hour: 9, Minute: 30 })
+            {
+                Debugger.Launch();
+            }
 
             double xA = Math.Abs(projection.ItemA - projection.ItemX);
             double aB = Math.Abs(projection.ItemB - projection.ItemA);
@@ -424,7 +383,7 @@ namespace TradeKit.Core.AlgoBase
 
             bool isBull = projection.IsBull;
             double closeD = m_BarsProvider.GetClosePrice(projection.ItemD.BarIndex);
-
+ 
             double actualSize = projection.PatternType.SetupType == GartleySetupType.AD ? aD : cD;
 
             double slLen = actualSize * SL_RATIO;
@@ -433,7 +392,7 @@ namespace TradeKit.Core.AlgoBase
             //double tp1Len = Math.Abs(sl - closeD);
 
             double tp1 = isBull ? tp1Len + projection.ItemD : -tp1Len + projection.ItemD;
-            if (!isFromProjection && (!isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0))
+            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
             {
                 //Logger.Write("TP is already hit.");
                 return null;
@@ -443,10 +402,10 @@ namespace TradeKit.Core.AlgoBase
             double tp2 = isBull ? tp2Len + projection.ItemD : -tp2Len + projection.ItemD;
 
             double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
-            if (!isFromProjection && def > MAX_SL_TP_RATIO_ALLOWED)
+            if (def > MAX_SL_TP_RATIO_ALLOWED)
             {
                 //Logger.Write("SL/TP is too big.");
-                //return null;
+                return null;
             }
             
             var item = new GartleyItem(Convert.ToInt32(accuracy * 100),
@@ -460,8 +419,7 @@ namespace TradeKit.Core.AlgoBase
                 xD, projection.XtoD,
                 aC, projection.AtoC,
                 bD, projection.BtoD,
-                xB, projection.XtoB, 
-                isFromProjection);
+                xB, projection.XtoB);
             return item;
         }
 
