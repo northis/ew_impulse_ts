@@ -1,4 +1,4 @@
-﻿using Microsoft.FSharp.Core;
+using Microsoft.FSharp.Core;
 using PuppeteerSharp.Input;
 using System.Globalization;
 using TradeKit.Core.Gartley;
@@ -448,6 +448,93 @@ namespace TradeKit.Core.Common
         public static double GetVolume(this ISymbol symbol, double riskPercentage, double accountBalance, double rangeInPips)
         {
             return riskPercentage / (Math.Abs(rangeInPips) * symbol.PipValue / accountBalance * 100);
+        }
+
+        /// <summary>
+        /// Saves OHLC candles to a .csv file.
+        /// </summary>
+        /// <param name="provider">The provider.</param>
+        /// <param name="start">The start.</param>
+        /// <param name="end">The end.</param>
+        /// <param name="pathToSave">The path to save.</param>
+        public static void SaveCandles(this IBarsProvider provider, DateTime start, DateTime end, string pathToSave)
+        {
+            // Ensure the directory exists
+            string directory = Path.GetDirectoryName(pathToSave);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            using var writer = new StreamWriter(pathToSave);
+            writer.WriteLine($"Time{Helper.CSV_SEPARATOR}Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close");
+        
+            int startIndex = provider.GetIndexByTime(start);
+            int endIndex = provider.GetIndexByTime(end);
+                
+            // Get the number of decimal places from the symbol
+            int digits = provider.BarSymbol.Digits;
+            string formatSpecifier = $"F{digits}";
+        
+            for (int i = startIndex; i <= endIndex; i++)
+            {
+                DateTime openTime = provider.GetOpenTime(i);
+                double open = provider.GetOpenPrice(i);
+                double high = provider.GetHighPrice(i);
+                double low = provider.GetLowPrice(i);
+                double close = provider.GetClosePrice(i);
+                    
+                string formattedLine = string.Format(CultureInfo.InvariantCulture,
+                    "{0}{5}{1:" + formatSpecifier + "}{5}{2:" + formatSpecifier + "}{5}{3:" + formatSpecifier + "}{5}{4:" + formatSpecifier + "}",
+                    openTime, open, high, low, close, Helper.CSV_SEPARATOR);
+
+                writer.WriteLine(formattedLine);
+            }
+        }
+        
+        /// <summary>
+        /// Saves OHLC candles to a .csv file based on a date range string in the format "start->end".
+        /// </summary>
+        /// <param name="provider">The provider.</param>
+        /// <param name="dateRangeString">The date range string in the format "yyyy-MM-ddTHH:mm:ss->yyyy-MM-ddTHH:mm:ss".</param>
+        /// <param name="saveCandles">Whether to save candles.</param>
+        /// <returns>Path to the saved file or null if not saved.</returns>
+        public static string SaveCandlesForDateRange(
+            this IBarsProvider provider, string dateRangeString, bool saveCandles)
+        {
+            if (!saveCandles || string.IsNullOrEmpty(dateRangeString))
+                return null;
+                
+            // Parse the date range
+            string[] dateParts = dateRangeString.Split(new[] { Helper.GARTLEY_DATE_COLLECTION_FORMAT }, StringSplitOptions.None);
+            if (dateParts.Length != 2)
+                return null;
+                
+            if (!DateTime.TryParseExact(dateParts[0], Helper.GARTLEY_DATE_COLLECTION_FORMAT, 
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime startDate))
+                return null;
+                
+            if (!DateTime.TryParseExact(dateParts[1], Helper.GARTLEY_DATE_COLLECTION_FORMAT, 
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime endDate))
+                return null;
+                
+            // Ensure the directory exists
+            if (!Directory.Exists(Helper.DirectoryToSaveResults))
+                Directory.CreateDirectory(Helper.DirectoryToSaveResults);
+                
+            string fileName = string.Format(
+                Helper.CANDLE_FILE_NAME_FORMAT,
+                provider.BarSymbol.Name,
+                provider.TimeFrame.ShortName,
+                startDate.ToString("O").Replace(":","-"),
+                endDate.ToString("O").Replace(":","-"));
+                
+            string filePath = Path.Combine(Helper.DirectoryToSaveResults, fileName);
+            
+            // Save the candles
+            provider.SaveCandles(startDate, endDate, filePath);
+            
+            return filePath;
         }
     }
 }

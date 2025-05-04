@@ -222,7 +222,6 @@ namespace TradeKit.Core.AlgoBase
             foreach (DateTime pointDateTimeX in
                      m_PivotPointsFinder.LowExtrema.SkipWhile(a => a < m_BorderDateTime))
             {
-                
                 ProcessProjections(pointDateTimeX,
                     values: m_PivotPointsFinder.LowValues,
                     counterValues: m_PivotPointsFinder.HighValues,

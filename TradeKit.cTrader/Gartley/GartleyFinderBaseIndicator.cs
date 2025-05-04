@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -24,6 +25,7 @@ namespace TradeKit.CTrader.Gartley
         private Color m_BullColorFill;
         private Color m_BearColorBorder;
         private Color m_BullColorBorder;
+        private bool m_CandlesSaved;
         private const int SETUP_WIDTH = 3;
         private const int LINE_WIDTH = 1;
         private const int DIV_LINE_WIDTH = 3;
@@ -77,6 +79,18 @@ namespace TradeKit.CTrader.Gartley
         public int MaxPatternSizeBars { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether candle information should be saved to file.
+        /// </summary>
+        [Parameter("Save candles", DefaultValue = false, Group = Helper.DEV_SETTINGS_NAME)]
+        public bool SaveCandles { get; set; }
+
+        /// <summary>
+        /// Gets or sets the date range for saving candles to a .csv file.
+        /// </summary>
+        [Parameter("Dates to save", DefaultValue = Helper.GARTLEY_DATE_COLLECTION_PATTERN, Group = Helper.DEV_SETTINGS_NAME)]
+        public string DateRangeToCollect { get; set; }
+
+        /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
         /// </summary>
         protected override void Initialize()
@@ -99,6 +113,17 @@ namespace TradeKit.CTrader.Gartley
         public override void Calculate(int index)
         {
             m_SupertrendFinder?.OnCalculate(index, m_BarsProvider.GetOpenTime(index));
+            if (SaveCandles && !m_CandlesSaved)
+            {
+                Debugger.Launch();
+                string savedFilePath = m_BarsProvider.SaveCandlesForDateRange(DateRangeToCollect, SaveCandles);
+                if (!string.IsNullOrEmpty(savedFilePath))
+                {
+                    m_CandlesSaved = true;
+                    Logger.Write($"Candles saved to: {savedFilePath}");
+                }
+            }
+            
             base.Calculate(index);
         }
 

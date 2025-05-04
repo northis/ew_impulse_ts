@@ -1,3 +1,4 @@
+using System.Globalization;
 using TradeKit.Core.Common;
 
 namespace TradeKit.Tests.Mocks
@@ -26,10 +27,65 @@ namespace TradeKit.Tests.Mocks
         /// </summary>
         /// <param name="timeFrame">The time frame.</param>
         /// <param name="barSymbol">The bar symbol.</param>
-        public TestBarsProvider(ITimeFrame timeFrame, ISymbol? barSymbol = default)
+        public TestBarsProvider(ITimeFrame timeFrame, ISymbol? barSymbol = null)
         {
             TimeFrame = timeFrame;
             BarSymbol = barSymbol ?? new SymbolBase("TEST", "Test Symbol", 1, 5, 0.00001, 0.01, 100000);
+        }
+
+        /// <summary>
+        /// Loads and processes OHLC candles from the specified .csv file.
+        /// </summary>
+        /// <param name="pathToFile">The path to the file containing the data to load.</param>
+        public void LoadCandles(string pathToFile)
+        {
+            if (string.IsNullOrEmpty(pathToFile))
+                throw new ArgumentNullException(nameof(pathToFile));
+        
+            if (!File.Exists(pathToFile))
+                throw new FileNotFoundException("Candle data file not found", pathToFile);
+        
+            using var reader = new StreamReader(pathToFile);
+            string? line = reader.ReadLine(); // Skip header
+            
+            if (line == null)
+                return;
+                
+            // Check if the first line is a header
+            bool hasHeader = line.StartsWith("Time") || line.Contains($"Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close");
+            
+            if (!hasHeader)
+                ProcessCandleLine(line); // Process the first line if it's not a header
+        
+            while ((line = reader.ReadLine()) != null)
+            {
+                ProcessCandleLine(line);
+            }
+        }
+        
+        private void ProcessCandleLine(string line)
+        {
+            string[] parts = line.Split(Helper.CSV_SEPARATOR);
+            if (parts.Length < 5)
+                return;
+        
+            if (!DateTime.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime openTime))
+                return;
+                
+            if (!double.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double open))
+                return;
+                
+            if (!double.TryParse(parts[2], NumberStyles.Any, CultureInfo.InvariantCulture, out double high))
+                return;
+                
+            if (!double.TryParse(parts[3], NumberStyles.Any, CultureInfo.InvariantCulture, out double low))
+                return;
+                
+            if (!double.TryParse(parts[4], NumberStyles.Any, CultureInfo.InvariantCulture, out double close))
+                return;
+                
+            Candle candle = new Candle(open, high, low, close);
+            AddCandle(candle, openTime);
         }
 
         /// <summary>

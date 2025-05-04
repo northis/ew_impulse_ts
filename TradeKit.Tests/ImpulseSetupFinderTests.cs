@@ -1,6 +1,4 @@
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;

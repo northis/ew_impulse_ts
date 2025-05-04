@@ -35,8 +35,17 @@ namespace TradeKit.Core.Common
         public const string TELEGRAM_SETTINGS_NAME = "➤ Telegram Settings";
         public const string TRADE_SETTINGS_NAME = "⚖ Trade Settings (manual)";
         public const string SYMBOL_SETTINGS_NAME = "€ Symbol Settings";
+        public const string DEV_SETTINGS_NAME = "& Dev settings";
         public const int GARTLEY_BARS_COUNT = 300;
         public const double GARTLEY_ACCURACY = 0.75;
+        public const string GARTLEY_DATE_COLLECTION_SEPARATOR = "->";
+        public const string GARTLEY_DATE_COLLECTION_FORMAT = "O";
+
+        public const string GARTLEY_DATE_COLLECTION_PATTERN =
+            "2025-01-31T23:30:00" + GARTLEY_DATE_COLLECTION_SEPARATOR +
+            "2025-01-31T23:55:00";
+
+        public const string CANDLE_FILE_NAME_FORMAT = "{0}_{1}_{2}_{3}.csv";
 
         public const int MACD_LONG_CYCLE = 26;
         public const int MACD_SHORT_CYCLE = 12;
@@ -222,6 +231,11 @@ namespace TradeKit.Core.Common
             }
         }
 
+        /// <summary>
+        /// CSV file separator character.
+        /// </summary>
+        public const char CSV_SEPARATOR = ';';
+        
         /// <summary>
         /// Determines whether this candle is a strength bar.
         /// </summary>

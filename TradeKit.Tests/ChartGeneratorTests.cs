@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Tests.Mocks;
 

@@ -462,6 +462,17 @@ namespace TradeKit.Core.Gartley
         /// <returns>Result of the Update process</returns>
         public ProjectionState Update(int index)
         {
+            //var isCheck = false;
+            //if (IsBull && ItemX.OpenTime is
+            //        { Day: 7, Month: 3, Year: 2025, Hour: 14 } &&
+            //    ItemA.OpenTime is { Day: 7, Month: 3, Year: 2025, Hour: 19 }/* &&
+            //    m_BarsProvider.GetOpenTime(index) is { Day: 10, Month: 3, Year: 2025, Hour: 15 } or
+            //        { Day: 10, Month: 3, Year: 2025, Hour: 5 }*/)
+            //{
+            //    isCheck = true;
+            //    //Debugger.Launch();
+            //}
+
             if (m_PatternIsReady)
                 return ProjectionState.PATTERN_SAME;
 
@@ -497,7 +508,7 @@ namespace TradeKit.Core.Gartley
                 return ProjectionState.NO_PROJECTION;
             }
 
-            // if the price squeezes through all the levels without a pattern
+            //if the price squeezes through all the levels without a pattern
             if (!double.IsNaN(m_ItemDCancelPrice) && !m_PatternIsReady)
             {
                 if (IsBull && low < m_ItemDCancelPrice ||
