@@ -87,7 +87,7 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets the date range for saving candles to a .csv file.
         /// </summary>
-        [Parameter("Dates to save", DefaultValue = Helper.GARTLEY_DATE_COLLECTION_PATTERN, Group = Helper.DEV_SETTINGS_NAME)]
+        [Parameter("Dates to save", DefaultValue = Helper.DATE_COLLECTION_PATTERN, Group = Helper.DEV_SETTINGS_NAME)]
         public string DateRangeToCollect { get; set; }
 
         /// <summary>
@@ -115,8 +115,7 @@ namespace TradeKit.CTrader.Gartley
             m_SupertrendFinder?.OnCalculate(index, m_BarsProvider.GetOpenTime(index));
             if (SaveCandles && !m_CandlesSaved)
             {
-                Debugger.Launch();
-                string savedFilePath = m_BarsProvider.SaveCandlesForDateRange(DateRangeToCollect, SaveCandles);
+                string savedFilePath = m_BarsProvider.SaveCandlesForDateRange(DateRangeToCollect);
                 if (!string.IsNullOrEmpty(savedFilePath))
                 {
                     m_CandlesSaved = true;

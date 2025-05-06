@@ -614,9 +614,11 @@ namespace TradeKit.Core.Common
 
         private void OnEnter(object sender, TK e)
         {
+            Logger.Write($"{e.Comment}: On after Enter");
             var sf = (TF)sender;
             if (!m_SymbolFindersMap.TryGetValue(sf.Symbol.Name, out TF[] finders))
             {
+                Logger.Write($"{e.Comment}: No SF found");
                 return;
             }
             
@@ -639,6 +641,7 @@ namespace TradeKit.Core.Common
 
             if (!m_RobotParams.AllowOvernightTrade && IsOvernightTrade(e, sf))
             {
+                Logger.Write($"{e.Comment}: overnight skip");
                 return;
             }
 

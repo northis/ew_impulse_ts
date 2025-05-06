@@ -485,7 +485,7 @@ namespace TradeKit.Core.Common
                 double close = provider.GetClosePrice(i);
                     
                 string formattedLine = string.Format(CultureInfo.InvariantCulture,
-                    "{0}{5}{1:" + formatSpecifier + "}{5}{2:" + formatSpecifier + "}{5}{3:" + formatSpecifier + "}{5}{4:" + formatSpecifier + "}",
+                    "{0:"+Helper.DATE_COLLECTION_FORMAT+"}{5}{1:" + formatSpecifier + "}{5}{2:" + formatSpecifier + "}{5}{3:" + formatSpecifier + "}{5}{4:" + formatSpecifier + "}",
                     openTime, open, high, low, close, Helper.CSV_SEPARATOR);
 
                 writer.WriteLine(formattedLine);
@@ -497,25 +497,21 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="provider">The provider.</param>
         /// <param name="dateRangeString">The date range string in the format "yyyy-MM-ddTHH:mm:ss->yyyy-MM-ddTHH:mm:ss".</param>
-        /// <param name="saveCandles">Whether to save candles.</param>
         /// <returns>Path to the saved file or null if not saved.</returns>
-        public static string SaveCandlesForDateRange(
-            this IBarsProvider provider, string dateRangeString, bool saveCandles)
+        public static string SaveCandlesForDateRange(this IBarsProvider provider, string dateRangeString)
         {
-            if (!saveCandles || string.IsNullOrEmpty(dateRangeString))
+            if (string.IsNullOrEmpty(dateRangeString))
                 return null;
                 
             // Parse the date range
-            string[] dateParts = dateRangeString.Split(new[] { Helper.GARTLEY_DATE_COLLECTION_FORMAT }, StringSplitOptions.None);
+            string[] dateParts = dateRangeString.Split(new[] { Helper.DATE_COLLECTION_SEPARATOR }, StringSplitOptions.None);
             if (dateParts.Length != 2)
                 return null;
                 
-            if (!DateTime.TryParseExact(dateParts[0], Helper.GARTLEY_DATE_COLLECTION_FORMAT, 
-                    CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime startDate))
+            if (!DateTime.TryParse(dateParts[0], out DateTime startDate))
                 return null;
                 
-            if (!DateTime.TryParseExact(dateParts[1], Helper.GARTLEY_DATE_COLLECTION_FORMAT, 
-                    CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime endDate))
+            if (!DateTime.TryParse(dateParts[1], out DateTime endDate))
                 return null;
                 
             // Ensure the directory exists
@@ -526,8 +522,8 @@ namespace TradeKit.Core.Common
                 Helper.CANDLE_FILE_NAME_FORMAT,
                 provider.BarSymbol.Name,
                 provider.TimeFrame.ShortName,
-                startDate.ToString("O").Replace(":","-"),
-                endDate.ToString("O").Replace(":","-"));
+                startDate.ToString(Helper.DATE_COLLECTION_FORMAT).Replace(":","-"),
+                endDate.ToString(Helper.DATE_COLLECTION_FORMAT).Replace(":","-"));
                 
             string filePath = Path.Combine(Helper.DirectoryToSaveResults, fileName);
             

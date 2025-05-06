@@ -1,4 +1,5 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <EnableDefaultItems>False</EnableDefaultItems>
@@ -17,12 +18,10 @@
   <ItemGroup>
     <Compile Include="ImpulseSignalerBot.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="cTrader.Automate" Version="1.*" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\TradeKit.cTrader\TradeKit.CTrader.csproj" />
   </ItemGroup>

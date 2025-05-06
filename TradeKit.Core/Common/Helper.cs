@@ -38,11 +38,11 @@ namespace TradeKit.Core.Common
         public const string DEV_SETTINGS_NAME = "& Dev settings";
         public const int GARTLEY_BARS_COUNT = 300;
         public const double GARTLEY_ACCURACY = 0.75;
-        public const string GARTLEY_DATE_COLLECTION_SEPARATOR = "->";
-        public const string GARTLEY_DATE_COLLECTION_FORMAT = "O";
+        public const string DATE_COLLECTION_SEPARATOR = "->";
+        public const string DATE_COLLECTION_FORMAT = "yyyy-MM-ddTHH:mm:ss";
 
-        public const string GARTLEY_DATE_COLLECTION_PATTERN =
-            "2025-01-31T23:30:00" + GARTLEY_DATE_COLLECTION_SEPARATOR +
+        public const string DATE_COLLECTION_PATTERN =
+            "2025-01-31T23:30:00" + DATE_COLLECTION_SEPARATOR +
             "2025-01-31T23:55:00";
 
         public const string CANDLE_FILE_NAME_FORMAT = "{0}_{1}_{2}_{3}.csv";

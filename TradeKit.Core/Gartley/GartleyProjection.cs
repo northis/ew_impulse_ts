@@ -428,7 +428,7 @@ namespace TradeKit.Core.Gartley
         /// <param name="dt">The current dt.</param>
         /// <param name="value">The current value.</param>
         /// <param name="isHigh">if set to <c>true</c> if the value is a high extremum.</param>
-        /// <returns>True if we can continue the calculation, false if the projection should be cancelled.</returns>
+        /// <returns>True if we can continue the calculation, false if the projection should be canceled.</returns>
         private bool CheckPoint(DateTime dt, double value, bool isHigh)
         {
             bool isStraightExtrema = IsBull == isHigh;
@@ -438,13 +438,13 @@ namespace TradeKit.Core.Gartley
                     return false;
             }
 
-            if (!isStraightExtrema) 
+            //if (!isStraightExtrema) 
                 UpdateB(dt, value);
 
-            if (isStraightExtrema)
+            //if (isStraightExtrema)
                 UpdateC(dt, value);
 
-            if (!isStraightExtrema)
+            //if (!isStraightExtrema)
                 UpdateD(dt, value);
 
             return true;
@@ -501,12 +501,12 @@ namespace TradeKit.Core.Gartley
                 m_MaxDate = currentDt;
             }
 
-            if (IsBull && high > m_ItemACancelPrice ||
-                !IsBull && low < m_ItemACancelPrice)
-            {
-                m_IsInvalid = true;
-                return ProjectionState.NO_PROJECTION;
-            }
+            // if (IsBull && high > m_ItemACancelPrice ||
+            //     !IsBull && low < m_ItemACancelPrice)
+            // {
+            //     m_IsInvalid = true;
+            //     return ProjectionState.NO_PROJECTION;
+            // }
 
             //if the price squeezes through all the levels without a pattern
             if (!double.IsNaN(m_ItemDCancelPrice) && !m_PatternIsReady)
@@ -609,7 +609,7 @@ namespace TradeKit.Core.Gartley
                 else
                 {
                     m_RatioToBdLevelsMap = InitPriceRanges(
-                        PatternType.BDValues, true, Math.Abs(ItemA - ItemB), m_ItemC.Value);
+                        PatternType.BDValues, true, Math.Abs(ItemB - ItemC), m_ItemC.Value);
 
                     UpdateXdToDbMaps();
                     m_ProjectionIsReady = true;

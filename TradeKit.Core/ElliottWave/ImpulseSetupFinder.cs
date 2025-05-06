@@ -387,6 +387,7 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IssueSignal(SignalArgs signalArgs)
         {
+            Logger.Write($"{Symbol}, {TimeFrame}: On IssueSignal");
             var outExtrema = new ImpulseElliottModelResult
             {
                 Wave0 = signalArgs.StartItem.Value,
@@ -397,12 +398,14 @@ namespace TradeKit.Core.ElliottWave
                 SetupEndIndex == signalArgs.EndItem.Value.BarIndex)
             {
                 // Cannot use the same impulse twice.
+                Logger.Write($"{Symbol}, {TimeFrame}: Cannot use the same impulse twice");
                 return false;
             }
 
             if (signalArgs.EndItem.Value.BarIndex == signalArgs.Index)
             {
                 // Wait for the next bar
+                Logger.Write($"{Symbol}, {TimeFrame}: Wait for the next bar");
                 return false;
             }
 
@@ -484,6 +487,7 @@ namespace TradeKit.Core.ElliottWave
                     ? m_ImpulseParams.BreakEvenRatio
                     : null,
                 signalArgs.UseLimit);
+            Logger.Write($"{Symbol}, {TimeFrame}: On before Enter");
             OnEnterInvoke(CurrentSignalEventArgs);
             // Here we should give a trade signal.
             return true;

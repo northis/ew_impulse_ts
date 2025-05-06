@@ -28,6 +28,9 @@
     <None Update="GartleySignalerRobotReport2.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\USDJPY_h1_2025-03-07T10-00-00_2025-03-10T14-00-00.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

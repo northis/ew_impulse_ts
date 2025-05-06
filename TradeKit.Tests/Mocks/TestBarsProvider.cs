@@ -54,16 +54,21 @@ namespace TradeKit.Tests.Mocks
             // Check if the first line is a header
             bool hasHeader = line.StartsWith("Time") || line.Contains($"Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close");
             
+            int index = 0;
             if (!hasHeader)
-                ProcessCandleLine(line); // Process the first line if it's not a header
-        
+            {
+                ProcessCandleLine(line, index); // Process the first line if it's not a header
+                index++;
+            }
+
             while ((line = reader.ReadLine()) != null)
             {
-                ProcessCandleLine(line);
+                ProcessCandleLine(line,index);
+                index++;
             }
         }
         
-        private void ProcessCandleLine(string line)
+        private void ProcessCandleLine(string line, int index)
         {
             string[] parts = line.Split(Helper.CSV_SEPARATOR);
             if (parts.Length < 5)
@@ -83,8 +88,8 @@ namespace TradeKit.Tests.Mocks
                 
             if (!double.TryParse(parts[4], NumberStyles.Any, CultureInfo.InvariantCulture, out double close))
                 return;
-                
-            Candle candle = new Candle(open, high, low, close);
+
+            Candle candle = new Candle(open, high, low, close, null, index);
             AddCandle(candle, openTime);
         }
 

@@ -30,8 +30,8 @@ namespace TradeKit.Core.AlgoBase
         private readonly HashSet<DateTime> m_BearWastedX;
         private readonly SortedDictionary<DateTime, double> m_BullAMax;
         private readonly SortedDictionary<DateTime, double> m_BearAMin;
-
-        private readonly PivotPointsFinder m_PivotPointsFinder;
+        private readonly SortedDictionary<DateTime, double> m_HighValues;
+        private readonly SortedDictionary<DateTime, double> m_LowValues;
 
         private const int MIN_PERIOD = 1;
         private DateTime? m_BorderDateTime;
@@ -50,7 +50,6 @@ namespace TradeKit.Core.AlgoBase
             int barsDepth,
             HashSet<GartleyPatternType> patterns = null)
         {
-            m_PivotPointsFinder = new PivotPointsFinder(MIN_PERIOD, barsProvider, false);
             m_BarsProvider = barsProvider;
             m_Accuracy = accuracy;
             m_BarsDepth = barsDepth;
@@ -65,8 +64,10 @@ namespace TradeKit.Core.AlgoBase
             m_BullWastedX = new HashSet<DateTime>();
             m_BearWastedX = new HashSet<DateTime>();
             m_BullAMax = new SortedDictionary<DateTime, double>();
-            m_Allowances = new[] { 0.05, 0.1, 0.15, 0.2, 0.25 };
+            m_Allowances = new[] { 0.1 };
             m_BearAMin = new SortedDictionary<DateTime, double>();
+            m_HighValues = new SortedDictionary<DateTime, double>();
+            m_LowValues = new SortedDictionary<DateTime, double>();
         }
 
         private void InitDatesIfNeeded(int index)
@@ -75,6 +76,10 @@ namespace TradeKit.Core.AlgoBase
             m_BorderDateTime = prevIndex < 0
                 ? m_BarsProvider.GetOpenTime(0)
                 : m_BarsProvider.GetOpenTime(prevIndex);
+            
+            DateTime dt = m_BarsProvider.GetOpenTime(index);
+            m_HighValues.Add(dt, m_BarsProvider.GetHighPrice(index));
+            m_LowValues.Add(dt, m_BarsProvider.GetLowPrice(index));
         }
 
         private void UpdateProjectionsCache()
@@ -83,6 +88,8 @@ namespace TradeKit.Core.AlgoBase
                 return;
 
             m_ActiveProjections.RemoveLeft(a => a < m_BorderDateTime);
+            m_HighValues.RemoveLeft(a => a < m_BorderDateTime);
+            m_LowValues.RemoveLeft(a => a < m_BorderDateTime);
             m_BullXtoA.RemoveLeft(a => a < m_BorderDateTime);
             m_BearXtoA.RemoveLeft(a => a < m_BorderDateTime);
             m_BullWastedX.RemoveWhere(a => a < m_BorderDateTime);
@@ -101,9 +108,7 @@ namespace TradeKit.Core.AlgoBase
                 if (m_BullWastedX.Contains(bullXtoADate))
                     continue;
 
-                if (!m_PivotPointsFinder.LowValues.TryGetValue(bullXtoADate, out double value) ||
-                    double.IsNaN(value))
-                    continue;
+                double value = m_BarsProvider.GetLowPrice(m_BarsProvider.GetIndexByTime(bullXtoADate));
 
                 if (value > min)
                     m_BullWastedX.Add(bullXtoADate);
@@ -114,9 +119,7 @@ namespace TradeKit.Core.AlgoBase
                 if (m_BearWastedX.Contains(bearXtoADate))
                     continue;
 
-                if (!m_PivotPointsFinder.HighValues.TryGetValue(bearXtoADate, out double value) ||
-                    double.IsNaN(value))
-                    continue;
+                double value = m_BarsProvider.GetHighPrice(m_BarsProvider.GetIndexByTime(bearXtoADate));
 
                 if (value < max)
                     m_BearWastedX.Add(bearXtoADate);
@@ -192,6 +195,12 @@ namespace TradeKit.Core.AlgoBase
                 
                 foreach (GartleyPattern realPattern in m_RealPatterns)
                 {
+                    if (xBarPoint.OpenTime is {Year:2025, Month:3, Day:7, Hour:14} &&
+                        aBarPoint.OpenTime is {Year:2025, Month:3, Day:7, Hour:19})
+                    {
+                    
+                    }
+                    
                     foreach (double allowances in m_Allowances)
                     {
                         var projection = new GartleyProjection(
@@ -214,26 +223,23 @@ namespace TradeKit.Core.AlgoBase
         /// <returns>Gartley pattern or null</returns>
         public HashSet<GartleyItem> FindGartleyPatterns(int index)
         {
-            m_PivotPointsFinder.Calculate(index);
             InitDatesIfNeeded(index);
             UpdateProjectionsCache();
             UpdateWasted(index);
-
-            foreach (DateTime pointDateTimeX in
-                     m_PivotPointsFinder.LowExtrema.SkipWhile(a => a < m_BorderDateTime))
+           
+            foreach (DateTime pointDateTimeX in m_LowValues.Keys)
             {
                 ProcessProjections(pointDateTimeX,
-                    values: m_PivotPointsFinder.LowValues,
-                    counterValues: m_PivotPointsFinder.HighValues,
+                    values: m_LowValues,
+                    counterValues: m_HighValues,
                     true);
             }
 
-            foreach (DateTime pointDateTimeX in
-                     m_PivotPointsFinder.HighExtrema.SkipWhile(a => a < m_BorderDateTime))
+            foreach (DateTime pointDateTimeX in m_HighValues.Keys)
             {
                 ProcessProjections(pointDateTimeX,
-                    values: m_PivotPointsFinder.HighValues,
-                    counterValues: m_PivotPointsFinder.LowValues,
+                    values: m_HighValues,
+                    counterValues: m_LowValues,
                     false);
             }
 
@@ -242,6 +248,12 @@ namespace TradeKit.Core.AlgoBase
             {
                 foreach (GartleyProjection activeProjection in activeProjections)
                 {
+                    if (activeProjection.ItemX is { OpenTime: {Year:2025, Month:3, Day:7, Hour:14} } &&
+                        activeProjection.ItemA is { OpenTime: {Year:2025, Month:3, Day:7, Hour:19} })
+                    {
+                        
+                    }
+                    
                     ProjectionState updateResult = activeProjection.Update(index);
                     if (updateResult == ProjectionState.PROJECTION_FORMED)
                     {
@@ -284,15 +296,15 @@ namespace TradeKit.Core.AlgoBase
         private bool IsInnerPointsPivot(GartleyProjection projection)
         {
             bool isBinPivot = projection.IsBull
-                ? m_PivotPointsFinder.LowExtrema.Contains(projection.ItemB.OpenTime)
-                : m_PivotPointsFinder.HighExtrema.Contains(projection.ItemB.OpenTime);
+                ? m_LowValues.ContainsKey(projection.ItemB.OpenTime)
+                : m_HighValues.ContainsKey(projection.ItemB.OpenTime);
 
             if (!isBinPivot)
                 return false;
             
             bool isCinPivot = projection.IsBull
-                ? m_PivotPointsFinder.HighExtrema.Contains(projection.ItemC.OpenTime)
-                : m_PivotPointsFinder.LowExtrema.Contains(projection.ItemC.OpenTime);
+                ? m_HighValues.ContainsKey(projection.ItemC.OpenTime)
+                : m_LowValues.ContainsKey(projection.ItemC.OpenTime);
 
             if (!isCinPivot)
                 return false;
