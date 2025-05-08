@@ -43,7 +43,7 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// How far we should go until take profit.
         /// </summary>
-        [Parameter(nameof(TakeRatio), DefaultValue = 1.6, MinValue = 1, MaxValue = 4.236, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(TakeRatio), DefaultValue = 1.6, MinValue = 0.8, MaxValue = 4.236, Group = Helper.TRADE_SETTINGS_NAME)]
         public double TakeRatio { get; set; }
 
         /// <summary>

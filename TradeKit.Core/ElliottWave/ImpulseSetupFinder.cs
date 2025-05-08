@@ -49,7 +49,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_ImpulseParams = impulseParams;
 
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 3; i += 20)
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 4; i += 10)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -187,6 +187,11 @@ namespace TradeKit.Core.ElliottWave
         /// </returns>
         private bool IsSetup(int index, DeviationExtremumFinder finder, double? currentPriceBid = null)
         {
+            if (index % 10 == 0)
+            {
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: IsSetup {index}");
+            }
+            
             SortedDictionary<DateTime, BarPoint> extrema = finder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
@@ -288,6 +293,7 @@ namespace TradeKit.Core.ElliottWave
             if (checkSignalArgs.HasInCache && 
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] == null)
             {
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: {checkSignalArgs.EndItem.Key} is null");
                 return false;
             }
 
@@ -301,6 +307,7 @@ namespace TradeKit.Core.ElliottWave
             {
                 // The move (impulse candidate) is no longer initial.
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: {checkSignalArgs.EndItem.Key} is no longer initial");
                 return false;
             }
 
@@ -312,6 +319,7 @@ namespace TradeKit.Core.ElliottWave
                 (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats})");
                 return false;
             }
 
@@ -325,6 +333,7 @@ namespace TradeKit.Core.ElliottWave
                         min >= BarsProvider.GetLowPrice(i))
                     {
                         m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
+                        Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: The setup is no longer valid, TP or SL is already hit");
                         return false;
                         // The setup is no longer valid, TP or SL is already hit.  
                     }
@@ -362,7 +371,11 @@ namespace TradeKit.Core.ElliottWave
                 if (GotSetup(gotSetupArgs, out _))
                     useLimit = true;
                 else
+                {
+                    
+                    Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not at the level yet");
                     return false;
+                }
             }
 
             var signalArgs = new SignalArgs(
@@ -387,7 +400,7 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IssueSignal(SignalArgs signalArgs)
         {
-            Logger.Write($"{Symbol}, {TimeFrame}: On IssueSignal");
+            Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: On IssueSignal");
             var outExtrema = new ImpulseElliottModelResult
             {
                 Wave0 = signalArgs.StartItem.Value,
@@ -398,14 +411,14 @@ namespace TradeKit.Core.ElliottWave
                 SetupEndIndex == signalArgs.EndItem.Value.BarIndex)
             {
                 // Cannot use the same impulse twice.
-                Logger.Write($"{Symbol}, {TimeFrame}: Cannot use the same impulse twice");
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: Cannot use the same impulse twice");
                 return false;
             }
 
             if (signalArgs.EndItem.Value.BarIndex == signalArgs.Index)
             {
                 // Wait for the next bar
-                Logger.Write($"{Symbol}, {TimeFrame}: Wait for the next bar");
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: Wait for the next bar");
                 return false;
             }
 
@@ -457,7 +470,7 @@ namespace TradeKit.Core.ElliottWave
                 (realPrice <= SetupEndPrice || realPrice >= SetupStartPrice))
             {
                 // TP or SL is already hit, cannot use this signal
-                Logger.Write($"{Symbol}, {TimeFrame}: TP or SL is already hit, cannot use this signal");
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: TP or SL is already hit, cannot use this signal");
                 IsInSetup = false;
 
                 if (CurrentSignalEventArgs.IsLimit)
@@ -487,7 +500,7 @@ namespace TradeKit.Core.ElliottWave
                     ? m_ImpulseParams.BreakEvenRatio
                     : null,
                 signalArgs.UseLimit);
-            Logger.Write($"{Symbol}, {TimeFrame}: On before Enter");
+            Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: On before Enter");
             OnEnterInvoke(CurrentSignalEventArgs);
             // Here we should give a trade signal.
             return true;
@@ -523,6 +536,9 @@ namespace TradeKit.Core.ElliottWave
             foreach (DeviationExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.OnCalculate(index, BarsProvider.GetOpenTime(index));
+                if (!IsInitialized)
+                    continue;
+                
                 if (IsSetup(LastBar, finder))
                 {
                     break;

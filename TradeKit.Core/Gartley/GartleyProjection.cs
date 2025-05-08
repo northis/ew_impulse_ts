@@ -353,43 +353,17 @@ namespace TradeKit.Core.Gartley
             }
         }
 
-        private void UpdateB(DateTime dt, double value)
+        private void UpdateB(DateTime dt)
         {
             //if (m_IsBItemLocked)
             //    return;
 
-            if (ItemC != null && ItemB != null && ItemC.OpenTime <= dt)
+            if (ItemC != null && ItemB != null && ItemC.OpenTime <= dt ||
+                ItemBSecond == null)
                 return;
 
-            bool isNoXb = !PatternType.XBValues.Any();
-
-            bool useSecondItemB = false;
-            if (ItemC == null)
-            {
-                if (isNoXb && (ItemB == null || IsBOutRange(value)))
-                {
-                    ItemB = new BarPoint(value, dt, m_BarsProvider);
-                    return;
-                }
-            }
-            else
-            {
-                if (ItemB == null)
-                {
-                    // TODO, do we heed this? Find an extremum between A and C.
-                }
-
-                if (IsBull && ItemC < ItemA || !IsBull && ItemC > ItemA)
-                {
-                    if (isNoXb && IsBOutRange(value))
-                    {
-                        ItemB = new BarPoint(value, dt, m_BarsProvider);
-                        return;
-                    }
-
-                    useSecondItemB = true;
-                }
-            }
+            double value = ItemBSecond.Value;
+            dt = ItemBSecond.OpenTime;
             
             foreach (RealLevel levelRange in m_RatioToXbLevelsMap)
             {
@@ -403,17 +377,9 @@ namespace TradeKit.Core.Gartley
                     if (value < levelRange.StartValue || value > levelRange.EndValue) continue;
                     if (ItemB != null && ItemB.Value > value) continue;
                 }
-
-                if (useSecondItemB)
-                {
-                    ItemBSecond = new BarPoint(value, dt, m_BarsProvider);
-                    XtoBSecond = levelRange.Ratio;
-                }
-                else
-                {
-                    ItemB = new BarPoint(value, dt, m_BarsProvider);
-                    XtoB = levelRange.Ratio;
-                }
+                
+                ItemB = new BarPoint(value, dt, m_BarsProvider);
+                XtoB = levelRange.Ratio;
 
                 break;
             }
@@ -438,13 +404,22 @@ namespace TradeKit.Core.Gartley
                     return false;
             }
 
-            //if (!isStraightExtrema) 
-                UpdateB(dt, value);
+            if (!isStraightExtrema)
+            {
+                if (ItemBSecond == null ||
+                    IsBull && ItemBSecond.Value > value ||
+                    !IsBull && ItemBSecond.Value < value)
+                {
+                    ItemBSecond = new BarPoint(value, dt, m_BarsProvider);
+                }
 
-            //if (isStraightExtrema)
+                UpdateB(dt);
+            }
+
+            if (isStraightExtrema)
                 UpdateC(dt, value);
 
-            //if (!isStraightExtrema)
+            if (!isStraightExtrema)
                 UpdateD(dt, value);
 
             return true;

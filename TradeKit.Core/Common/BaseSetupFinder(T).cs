@@ -10,11 +10,17 @@ namespace TradeKit.Core.Common
     public abstract class BaseSetupFinder<T> where T : SignalEventArgs
     {
         private int m_LastBarIndex;
+        private bool m_IsInitialized;
 
         /// <summary>
         /// Gets the last bar index.
         /// </summary>
         protected int LastBar => m_LastBarIndex;
+
+        /// <summary>
+        /// An initialization flag.
+        /// </summary>
+        protected bool IsInitialized => m_IsInitialized;
 
         /// <summary>
         /// Gets the symbol.
@@ -59,6 +65,14 @@ namespace TradeKit.Core.Common
             BarsProvider = mainBarsProvider;
             TimeFrame = mainBarsProvider.TimeFrame;
             Logger.Write($"Trade Kit version {Assembly.GetExecutingAssembly().GetName().Version}");
+        }
+
+        /// <summary>
+        /// Marks the setup finder as initialized, indicating that the necessary initialization steps have been completed.
+        /// </summary>
+        public void MarkAsInitialized()
+        {
+            m_IsInitialized = true;
         }
 
         /// <summary>
@@ -147,7 +161,7 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Checks whether the data for specified index contains a trade setup.
+        /// Checks whether the data for a specified index contains a trade setup.
         /// </summary>
         /// <param name="index">Index of the current candle.</param>
         protected abstract void CheckSetup(int index);

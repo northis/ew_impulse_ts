@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
@@ -129,6 +130,11 @@ namespace TradeKit.Core.Common
 
                     TF sf = CreateSetupFinder(timeFrame, symbolEntity);
                     string key = sf.Id;
+
+                    if (!m_IsBackTesting)
+                    {
+                        sf.BarsProvider.LoadBars(DateTime.Now.AddDays(-2));
+                    }
 
                     sf.BarsProvider.BarOpened += BarOpened;
                     m_SymbolsMap[key] = symbolEntity;
@@ -329,6 +335,7 @@ namespace TradeKit.Core.Common
                 sf.OnEdit += OnEdit;
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[sf.Id] = true;
+                sf.MarkAsInitialized();
                 Logger.Write($"{nameof(BarOpened)}: Bars initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
             }
             catch (Exception ex)
@@ -831,7 +838,9 @@ namespace TradeKit.Core.Common
 
         private string GenerateReportFile(ClosedPositionEventArgs closedArgs, string tfName)
         {
-            IPosition position = TradeManager.GetClosedPosition(closedArgs.Position.Comment, closedArgs.Position.TakeProfit,
+            IPosition position = TradeManager.GetClosedPosition(
+                closedArgs.Position.Comment, 
+                closedArgs.Position.TakeProfit,
                 closedArgs.Position.StopLoss);
             string folder = GetDirectoryToSave(tfName, position.Symbol.Name, "report", "0");
             string path = ReportGenerator.GetPngReport(position, closedArgs.State, folder);

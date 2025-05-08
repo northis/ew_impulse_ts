@@ -216,7 +216,10 @@ namespace TradeKit.Core.Common
             using var svg = new SKSvg();
             SKPicture ss = svg.FromSvg(svgBody);
             if (ss == null)
+            {
+                Logger.Write($"{nameof(GetPngReport)}: no file generated");
                 return null;
+            }
 
             svg.Save(pngPath, SKColors.Empty);
             return pngPath;
