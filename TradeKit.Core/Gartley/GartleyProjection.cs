@@ -213,7 +213,7 @@ namespace TradeKit.Core.Gartley
                 ? m_XdToDbMapSortedItems.MinBy(a => a.Min)
                 : m_XdToDbMapSortedItems.MaxBy(a => a.Max);
 
-            m_XdToDbMapSortedItems.RemoveAll(a => a != lastLevel);
+            //m_XdToDbMapSortedItems.RemoveAll(a => a != lastLevel);
             m_ItemDCancelPrice = IsBull 
                 ? lastLevel.Min 
                 : lastLevel.Max;
@@ -231,7 +231,7 @@ namespace TradeKit.Core.Gartley
                 ItemC = null;
             }
 
-            foreach (RealLevel levelRange in m_RatioToAcLevelsMap.OrderByDescending(a => a.Ratio))
+            foreach (RealLevel levelRange in m_RatioToAcLevelsMap.OrderBy(a => a.Ratio))
             {
                 if (IsBull)
                 {
@@ -254,13 +254,14 @@ namespace TradeKit.Core.Gartley
                     break;
                 }
 
-                if (ItemBSecond != null)
+                /*if (ItemBSecond != null)
                 {
                     ItemB = ItemBSecond;
                     XtoB = XtoBSecond;
                     ItemBSecond = null;
                     XtoBSecond = 0;
-                }
+                
+                }*/
 
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
                 AtoC = levelRange.Ratio;
@@ -398,11 +399,11 @@ namespace TradeKit.Core.Gartley
         private bool CheckPoint(DateTime dt, double value, bool isHigh)
         {
             bool isStraightExtrema = IsBull == isHigh;
-            if (m_ItemBRange.Min > value || m_ItemBRange.Max < value)
-            {
-                if (ItemB == null || ItemC == null)
-                    return false;
-            }
+            // if (m_ItemBRange.Min > value || m_ItemBRange.Max < value)
+            // {
+            //     if (ItemB == null || ItemC == null)
+            //         return false;
+            // }
 
             if (!isStraightExtrema)
             {
@@ -413,7 +414,8 @@ namespace TradeKit.Core.Gartley
                     ItemBSecond = new BarPoint(value, dt, m_BarsProvider);
                 }
 
-                UpdateB(dt);
+                if (ItemC == null)
+                    UpdateB(dt);
             }
 
             if (isStraightExtrema)

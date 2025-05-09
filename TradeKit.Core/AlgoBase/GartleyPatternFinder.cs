@@ -64,7 +64,7 @@ namespace TradeKit.Core.AlgoBase
             m_BullWastedX = new HashSet<DateTime>();
             m_BearWastedX = new HashSet<DateTime>();
             m_BullAMax = new SortedDictionary<DateTime, double>();
-            m_Allowances = new[] { 0.1 };
+            m_Allowances = new[] { 0.15 };
             m_BearAMin = new SortedDictionary<DateTime, double>();
             m_HighValues = new SortedDictionary<DateTime, double>();
             m_LowValues = new SortedDictionary<DateTime, double>();
@@ -342,14 +342,6 @@ namespace TradeKit.Core.AlgoBase
                 0d == projection.ItemC.Value || 
                 0d == projection.ItemD.Value)
                 return null;
-            
-            if (projection.ItemX.OpenTime is
-                    { Day: 28, Month: 4, Year: 2025, Hour: 16, Minute: 30 } &&
-                projection.ItemA.OpenTime is
-                    { Day: 29, Month: 4, Year: 2025, Hour: 9, Minute: 30 })
-            {
-                Debugger.Launch();
-            }
 
             double xA = Math.Abs(projection.ItemA - projection.ItemX);
             double aB = Math.Abs(projection.ItemB - projection.ItemA);
