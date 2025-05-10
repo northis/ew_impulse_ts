@@ -75,7 +75,7 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.
         /// </summary>
-        [Parameter(nameof(MaxPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(MaxPatternSizeBars), DefaultValue = 50, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int MaxPatternSizeBars { get; set; }
 
         /// <summary>
@@ -240,9 +240,9 @@ namespace TradeKit.CTrader.Gartley
                 Chart.DrawRectangle($"TP1{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
                         e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
                     .SetFilled();
-                //Chart.DrawRectangle($"TP2{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
-                //        e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
-                //    .SetFilled();
+                Chart.DrawRectangle($"TP2{name}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
+                        e.GartleyItem.TakeProfit2, m_TpColor, LINE_WIDTH)
+                    .SetFilled();
             }
 
             BarPoint div = e.DivergenceStart;

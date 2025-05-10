@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
 
 namespace TradeKit.Core.AlgoBase
@@ -7,20 +6,15 @@ namespace TradeKit.Core.AlgoBase
     public class GartleyPatternFinder
     {
         private readonly IBarsProvider m_BarsProvider;
-        private readonly double m_Accuracy;
 
         private readonly int m_BarsDepth;
 
         //#if GARTLEY_PROD
-        private const double SL_RATIO = 0.272;
-        private const double TP1_RATIO = 0.382;
 
 //#else
         //private const double SL_RATIO = 0.35;
         //private const double TP1_RATIO = 0.45;
-//#endif 
-        private const double TP2_RATIO = 0.618;
-        private const double MAX_SL_TP_RATIO_ALLOWED = 2;
+//#endif
 
         private readonly GartleyPattern[] m_RealPatterns;
         private readonly SortedDictionary<DateTime, List<GartleyProjection>> m_ActiveProjections;
@@ -51,7 +45,6 @@ namespace TradeKit.Core.AlgoBase
             HashSet<GartleyPatternType> patterns = null)
         {
             m_BarsProvider = barsProvider;
-            m_Accuracy = accuracy;
             m_BarsDepth = barsDepth;
             m_RealPatterns = patterns == null
                 ? GartleyProjection.PATTERNS
@@ -64,7 +57,7 @@ namespace TradeKit.Core.AlgoBase
             m_BullWastedX = new HashSet<DateTime>();
             m_BearWastedX = new HashSet<DateTime>();
             m_BullAMax = new SortedDictionary<DateTime, double>();
-            m_Allowances = new[] { 0.15 };
+            m_Allowances = new[] { 1 - accuracy };
             m_BearAMin = new SortedDictionary<DateTime, double>();
             m_HighValues = new SortedDictionary<DateTime, double>();
             m_LowValues = new SortedDictionary<DateTime, double>();
@@ -78,8 +71,10 @@ namespace TradeKit.Core.AlgoBase
                 : m_BarsProvider.GetOpenTime(prevIndex);
             
             DateTime dt = m_BarsProvider.GetOpenTime(index);
-            m_HighValues.Add(dt, m_BarsProvider.GetHighPrice(index));
-            m_LowValues.Add(dt, m_BarsProvider.GetLowPrice(index));
+            if (!m_HighValues.ContainsKey(dt))
+                m_HighValues.Add(dt, m_BarsProvider.GetHighPrice(index));
+            if (!m_LowValues.ContainsKey(dt))
+                m_LowValues.Add(dt, m_BarsProvider.GetLowPrice(index));
         }
 
         private void UpdateProjectionsCache()
@@ -248,12 +243,6 @@ namespace TradeKit.Core.AlgoBase
             {
                 foreach (GartleyProjection activeProjection in activeProjections)
                 {
-                    if (activeProjection.ItemX is { OpenTime: {Year:2025, Month:3, Day:7, Hour:14} } &&
-                        activeProjection.ItemA is { OpenTime: {Year:2025, Month:3, Day:7, Hour:19} })
-                    {
-                        
-                    }
-                    
                     ProjectionState updateResult = activeProjection.Update(index);
                     if (updateResult == ProjectionState.PROJECTION_FORMED)
                     {
@@ -321,7 +310,7 @@ namespace TradeKit.Core.AlgoBase
 
             return result;
         }
-
+        
         /// <summary>
         /// Creates the pattern if it is possible
         /// </summary>
@@ -381,35 +370,8 @@ namespace TradeKit.Core.AlgoBase
                 accuracyList.Add(GetRatio(projection.XtoB, xB));
 
             double accuracy = accuracyList.Average();
-            if (accuracy > 0 && accuracy < m_Accuracy)
+            if (!projection.IsPatternFitForTrade(out double sl, out double tp1, out double tp2))
                 return null;
-
-            bool isBull = projection.IsBull;
-            double closeD = m_BarsProvider.GetClosePrice(projection.ItemD.BarIndex);
- 
-            double actualSize = projection.PatternType.SetupType == GartleySetupType.AD ? aD : cD;
-
-            double slLen = actualSize * SL_RATIO;
-            double tp1Len = actualSize * TP1_RATIO;
-            double sl = isBull ? -slLen + projection.ItemD : slLen + projection.ItemD;
-            //double tp1Len = Math.Abs(sl - closeD);
-
-            double tp1 = isBull ? tp1Len + projection.ItemD : -tp1Len + projection.ItemD;
-            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
-            {
-                //Logger.Write("TP is already hit.");
-                return null;
-            }
-
-            double tp2Len = actualSize * TP2_RATIO;
-            double tp2 = isBull ? tp2Len + projection.ItemD : -tp2Len + projection.ItemD;
-
-            double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
-            if (def > MAX_SL_TP_RATIO_ALLOWED)
-            {
-                //Logger.Write("SL/TP is too big.");
-                return null;
-            }
             
             var item = new GartleyItem(Convert.ToInt32(accuracy * 100),
                 projection.PatternType.PatternType,

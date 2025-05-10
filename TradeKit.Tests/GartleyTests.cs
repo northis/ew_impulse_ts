@@ -34,7 +34,7 @@ namespace TradeKit.Tests
             m_SourceProvider.LoadCandles(m_TestDataPath);
             
             // Set up GartleySetupFinder with specified parameters
-            double accuracy = 0.1;
+            double accuracy = 0.8;
             int barsDepth = 100;
             m_GartleyPatternFinder = new GartleyPatternFinder(
                 m_SourceProvider,
@@ -47,10 +47,6 @@ namespace TradeKit.Tests
             HashSet<GartleyItem>? pattern = null;
             for (int i = 0; i < m_SourceProvider.Count; i++)
             {
-                if (m_SourceProvider.GetOpenTime(i) is {Year:2025, Month:3, Day:10, Hour:12})
-                {
-                    
-                }
                 pattern = m_GartleyPatternFinder.FindGartleyPatterns(i);
                 
                 // if (pattern != null)

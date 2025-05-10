@@ -1,4 +1,5 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Gartley
 {
@@ -29,6 +30,11 @@ namespace TradeKit.Core.Gartley
         private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
         private BarPoint m_ItemC;
         private BarPoint m_ItemB;
+        
+        private const double SL_RATIO = 0.272;
+        private const double TP1_RATIO = 0.382;
+        private const double TP2_RATIO = 0.618;
+        private const double MAX_SL_TP_RATIO_ALLOWED = 2;
 
         internal static readonly double[] LEVELS =
         {
@@ -219,6 +225,42 @@ namespace TradeKit.Core.Gartley
                 : lastLevel.Max;
         }
 
+        public bool IsPatternFitForTrade(out double sl, out double tp1, out double tp2)
+        {
+            double cD = Math.Abs(ItemC - ItemD);
+            double aD = Math.Abs(ItemA - ItemD);
+            bool isBull = IsBull;
+            double closeD = m_BarsProvider.GetClosePrice(ItemD.BarIndex);
+ 
+            double actualSize = PatternType.SetupType == GartleySetupType.AD ? aD : cD;
+
+            double slLen = actualSize * SL_RATIO;
+            double tp1Len = actualSize * TP1_RATIO;
+            sl = isBull ? -slLen + ItemD : slLen + ItemD;
+            //double tp1Len = Math.Abs(sl - closeD);
+
+            tp1 = isBull ? tp1Len + ItemD : -tp1Len + ItemD;
+            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
+            {
+                //Logger.Write("TP is already hit.");
+                tp2 = double.NaN;
+                return false;
+            }
+
+            double tp2Len = actualSize * TP2_RATIO;
+            tp2 = isBull ? tp2Len + ItemD : -tp2Len + ItemD;
+
+            double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
+            if (def > MAX_SL_TP_RATIO_ALLOWED)
+            {
+                //Logger.Write("SL/TP is too big.");
+                return false;
+            }
+
+            return true;
+        }
+
+
         private void UpdateC(DateTime dt, double value)
         {
             if (ItemB == null)
@@ -254,15 +296,6 @@ namespace TradeKit.Core.Gartley
                     break;
                 }
 
-                /*if (ItemBSecond != null)
-                {
-                    ItemB = ItemBSecond;
-                    XtoB = XtoBSecond;
-                    ItemBSecond = null;
-                    XtoBSecond = 0;
-                
-                }*/
-
                 ItemC = new BarPoint(value, dt, m_BarsProvider);
                 AtoC = levelRange.Ratio;
                 break;
@@ -284,7 +317,6 @@ namespace TradeKit.Core.Gartley
         private void UpdateD(DateTime dt, double value)
         {
             List<RealLevel> levelsToDelete = null;
-
             void Remove(RealLevel levelRange)
             {
                 levelsToDelete ??= new List<RealLevel>();
@@ -328,22 +360,28 @@ namespace TradeKit.Core.Gartley
                 Remove(levelRangeCombo.Xd);
 
                 //We won't update the same ratio range
-                if (Math.Abs(XtoD - levelRangeCombo.Xd.Ratio) < double.Epsilon) continue;
+                //if (Math.Abs(XtoD - levelRangeCombo.Xd.Ratio) < double.Epsilon) continue;
 
                 if (ItemD != null && (IsBull && ItemD.Value < value ||
                                       !IsBull && ItemD.Value > value))
                     continue;
 
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
+                if (!IsPatternFitForTrade(out _, out _, out _))
+                {
+                    //ItemD = null;
+                    continue;
+                }
+                
                 XtoD = levelRangeCombo.Xd.Ratio;
                 BtoD = levelRangeCombo.Bd.Ratio;
 
                 m_PatternIsReady = true;
-                m_ProjectionIsReady = false;// Stop use the projection when we got the whole pattern
+                m_ProjectionIsReady = false;// Stop using the projection when we got the whole pattern
                 break;
             }
 
-            if (levelsToDelete == null)
+            if (levelsToDelete == null || !m_PatternIsReady)
                 return;
 
             foreach (RealLevel levelToDelete in levelsToDelete)
@@ -386,9 +424,6 @@ namespace TradeKit.Core.Gartley
             }
         }
 
-        private bool IsBOutRange(double value) => 
-            IsBull && value < ItemB || !IsBull && value > ItemB;
-
         /// <summary>
         /// Checks the point.
         /// </summary>
@@ -407,9 +442,10 @@ namespace TradeKit.Core.Gartley
 
             if (!isStraightExtrema)
             {
-                if (ItemBSecond == null ||
+                if ((ItemBSecond == null ||
                     IsBull && ItemBSecond.Value > value ||
-                    !IsBull && ItemBSecond.Value < value)
+                    !IsBull && ItemBSecond.Value < value) &&
+                    ItemA.OpenTime != dt)
                 {
                     ItemBSecond = new BarPoint(value, dt, m_BarsProvider);
                 }
@@ -428,28 +464,12 @@ namespace TradeKit.Core.Gartley
         }
 
         /// <summary>
-        /// Gets or sets a value indicating if this projection is accepted by outer criteria.
-        /// </summary>
-        public bool AcceptFlag { get; set; }
-
-        /// <summary>
-        /// Updates the projections based on new extrema.
+        /// Updates the projections based on new extreme.
         /// </summary>
         /// <param name="index">The point we want to calculate against.</param>
         /// <returns>Result of the Update process</returns>
         public ProjectionState Update(int index)
         {
-            //var isCheck = false;
-            //if (IsBull && ItemX.OpenTime is
-            //        { Day: 7, Month: 3, Year: 2025, Hour: 14 } &&
-            //    ItemA.OpenTime is { Day: 7, Month: 3, Year: 2025, Hour: 19 }/* &&
-            //    m_BarsProvider.GetOpenTime(index) is { Day: 10, Month: 3, Year: 2025, Hour: 15 } or
-            //        { Day: 10, Month: 3, Year: 2025, Hour: 5 }*/)
-            //{
-            //    isCheck = true;
-            //    //Debugger.Launch();
-            //}
-
             if (m_PatternIsReady)
                 return ProjectionState.PATTERN_SAME;
 
