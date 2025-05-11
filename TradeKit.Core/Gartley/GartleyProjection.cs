@@ -36,7 +36,7 @@ namespace TradeKit.Core.Gartley
         private const double TP2_RATIO = 0.618;
         private const double MAX_SL_TP_RATIO_ALLOWED = 2;
 
-        internal static readonly double[] LEVELS =
+        private static readonly double[] LEVELS =
         {
             0.236,
             0.382,
@@ -59,7 +59,7 @@ namespace TradeKit.Core.Gartley
         
         static GartleyProjection()
         {
-            PATTERNS = new GartleyPattern[]
+            Patterns = new GartleyPattern[]
             {
                 new(GartleyPatternType.GARTLEY,
                     XBValues: new[] {0.618},
@@ -104,11 +104,11 @@ namespace TradeKit.Core.Gartley
                     SetupType: GartleySetupType.CD)
             };
 
-            PATTERNS_MAP = PATTERNS.ToDictionary(a => a.PatternType, a => a);
+            PATTERNS_MAP = Patterns.ToDictionary(a => a.PatternType, a => a);
         }
 
-        internal static readonly GartleyPattern[] PATTERNS;
-        internal static readonly Dictionary<GartleyPatternType, GartleyPattern> PATTERNS_MAP;
+        internal static readonly GartleyPattern[] Patterns;
+        private static readonly Dictionary<GartleyPatternType, GartleyPattern> PATTERNS_MAP;
 
         public GartleyProjection(
             IBarsProvider barsProvider,
