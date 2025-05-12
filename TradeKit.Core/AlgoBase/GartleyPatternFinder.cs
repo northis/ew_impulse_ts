@@ -19,7 +19,6 @@ namespace TradeKit.Core.AlgoBase
         private readonly SortedDictionary<DateTime, double> m_BullAMax;
         private readonly SortedDictionary<DateTime, double> m_BearAMin;
 
-        private const int MIN_PERIOD = 3;
         private DateTime? m_BorderDateTime;
         private readonly double[] m_Allowances;
 
@@ -29,14 +28,16 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="accuracy">The accuracy filter - from 0 to 1.</param>
         /// <param name="barsProvider">The bar provider.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
+        /// <param name="period">The pivot period for find Gartley patterns dots.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             IBarsProvider barsProvider, 
             double accuracy,
             int barsDepth,
+            int period = Helper.GARTLEY_MIN_PERIOD,
             HashSet<GartleyPatternType> patterns = null)
         {
-            m_PivotPointsFinder = new PivotPointsFinder(MIN_PERIOD, barsProvider, false);
+            m_PivotPointsFinder = new PivotPointsFinder(period, barsProvider, false);
             m_BarsProvider = barsProvider;
             m_BarsDepth = barsDepth;
             m_RealPatterns = patterns == null

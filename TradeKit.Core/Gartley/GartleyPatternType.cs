@@ -9,6 +9,7 @@
         BAT,
         ALT_BAT,
         CYPHER,
-        DEEP_CRAB
+        DEEP_CRAB,
+        FIVE_ZERO
     }
 }

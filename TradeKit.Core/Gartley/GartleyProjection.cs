@@ -11,7 +11,6 @@ namespace TradeKit.Core.Gartley
     {
         private readonly IBarsProvider m_BarsProvider;
         private readonly double m_WickAllowanceZeroToOne;
-        private double m_ItemACancelPrice;
         private double m_Min;
         private DateTime m_MinDate;
         private double m_Max;
@@ -25,8 +24,7 @@ namespace TradeKit.Core.Gartley
         private readonly RealLevel[] m_RatioToXbLevelsMap;
         private readonly RealLevel[] m_RatioToXdLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
-        private readonly RealLevelBase m_ItemBRange;
-        private readonly bool m_IsCypher;
+        private readonly bool m_IsCd;
 
         private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
         private BarPoint m_ItemC;
@@ -102,7 +100,14 @@ namespace TradeKit.Core.Gartley
                     XDValues: new[] {0.786},
                     BDValues: LEVELS.RangeVal(1.272, 2),
                     ACValues: LEVELS.RangeVal(1.13, 1.41),
-                    SetupType: GartleySetupType.CD)
+                    SetupType: GartleySetupType.CD),
+               // new(GartleyPatternType.FIVE_ZERO,
+               //     XBValues: Array.Empty<double>(),
+               //     XDValues: Array.Empty<double>(),
+               //     BDValues: LEVELS.RangeVal(1.618, 2.24),
+               //     ACValues: LEVELS.RangeVal(1.13, 1.618),
+               //     CEValues: new[] {0.5},
+               //     SetupType: GartleySetupType.CD)
             };
 
             PATTERNS_MAP = Patterns.ToDictionary(a => a.PatternType, a => a);
@@ -113,7 +118,7 @@ namespace TradeKit.Core.Gartley
 
         private void UpdateAtoC()
         {
-            if (m_IsCypher)
+            if (m_IsCd)
             {
                 m_RatioToAcLevelsMap = InitPriceRanges(
                     PatternType.ACValues, false, LengthAtoX, ItemX.Value);
@@ -127,11 +132,6 @@ namespace TradeKit.Core.Gartley
                 m_RatioToAcLevelsMap = InitPriceRanges(
                     PatternType.ACValues, false, lengthAtoB, ItemB.Value);
             }
-
-            m_ItemACancelPrice =
-                IsBull
-                    ? m_RatioToAcLevelsMap.MaxBy(a => a.Max).Max
-                    : m_RatioToAcLevelsMap.MinBy(a => a.Min).Min;
         }
         
         public GartleyProjection(
@@ -148,7 +148,7 @@ namespace TradeKit.Core.Gartley
             ItemA = itemA;
             IsBull = itemX < itemA;
             LengthAtoX = Math.Abs(ItemA - ItemX);
-            m_IsCypher = patternType == GartleyPatternType.CYPHER;
+            m_IsCd = PatternType.SetupType == GartleySetupType.CD;
 
             m_Min = double.PositiveInfinity;
             m_Max = double.NegativeInfinity;
@@ -158,35 +158,13 @@ namespace TradeKit.Core.Gartley
             m_IsUpK = IsBull ? 1 : -1;
             UpdateAtoC();
 
-            /*if ((ItemX.OpenTime is
-                     { Day: 13, Month: 3, Year: 2025, Hour: 15 } ||
-                 ItemX.OpenTime is
-                     { Day: 13, Month: 3, Year: 2025, Hour: 14 }) &&
-                (ItemA.OpenTime is
-                     { Day: 13, Month: 3, Year: 2025, Hour: 17 } ||
-                 ItemA.OpenTime is
-                     { Day: 13, Month: 3, Year: 2025, Hour: 16 }) && !IsBull &&
-                PatternType.PatternType == GartleyPatternType.BUTTERFLY)
-            {
-                Debugger.Launch();
-            }*/
-
-            m_RatioToXbLevelsMap = InitPriceRanges(
-                PatternType.XBValues, true, LengthAtoX, ItemA.Value);
+            m_RatioToXbLevelsMap = PatternType.XBValues.Any()
+                ? InitPriceRanges(
+                    PatternType.XBValues, true, LengthAtoX, ItemA.Value)
+                : new[] { new RealLevel(0, itemA.Value, itemX.Value) };
 
             m_RatioToXdLevelsMap = InitPriceRanges(
                 PatternType.XDValues, true, LengthAtoX, ItemA.Value);
-
-            if (PatternType.XBValues.Any())
-            {
-                IEnumerable<double> bEnd = m_RatioToXbLevelsMap
-                    .Select(a => IsBull ? a.Min : a.Max);
-                m_ItemBRange = new RealLevelBase(itemA.Value, IsBull ? bEnd.Min() : bEnd.Max());
-            }
-            else// 4 shark
-            {
-                m_ItemBRange = new RealLevelBase(itemA.Value, itemX.Value);
-            }
 
             //We cannot initialize BD/XD ranges until points B/C is calculated.
             m_XdToDbMapSortedItems = new List<RealLevelCombo>();
@@ -613,7 +591,7 @@ namespace TradeKit.Core.Gartley
                     ItemC = null;
                     ItemD = null;
                 }
-                else if (!m_IsCypher)
+                else if (!m_IsCd)
                 {
                     UpdateAtoC();
                 }

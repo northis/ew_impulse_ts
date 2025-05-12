@@ -109,7 +109,8 @@ namespace TradeKit.Core.Common
             {GartleyPatternType.CYPHER, "Cypher"},
             {GartleyPatternType.DEEP_CRAB, "Deep Crab"},
             {GartleyPatternType.GARTLEY, "Gartley"},
-            {GartleyPatternType.SHARK, "Shark"}
+            {GartleyPatternType.SHARK, "Shark"},
+            {GartleyPatternType.FIVE_ZERO, "5-0"}
         };
 
         /// <summary>
@@ -121,6 +122,23 @@ namespace TradeKit.Core.Common
             if (GARTLEY_PATTERN_NAME_MAP.TryGetValue(type, out string val))
                 return val;
             return type.ToString();
+        }
+
+        /// <summary>
+        /// Formats the <see cref="GartleyPatternType"/> enum.
+        /// </summary>
+        /// <param name="type">The Gartley pattern type.</param>
+        public static string[] GetPointNames(this GartleyPatternType type)
+        {
+            return type switch
+            {
+                GartleyPatternType.SHARK => new[] { "0", "X", "A", "B", "C" },
+                GartleyPatternType.FIVE_ZERO => new[]
+                {
+                    "0", "X", "A", "B", "C", "D"
+                },
+                _ => new[] { "X", "A", "B", "C", "D" }
+            };
         }
 
         /// <summary>

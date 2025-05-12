@@ -52,10 +52,11 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="barsDepth">How many bars we should analyze backwards.</param>
     /// <param name="findDivergence">If true - we will find divergences with the patterns.</param>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
-    /// <param name="filterByTrend">If true - use only the patterns the same direction as the trend.</param>
+    /// <param name="filterByTrend">If true - use only the patterns in the same direction as the trend.</param>
     /// <param name="filterByPriceAction">If true - use only the patterns with Price Action candle patterns.</param>
     /// <param name="maxPatternSizeBars">The minimum pattern size (duration) in bars</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null if you don't want to use the breakeven.</param>
+    /// <param name="period">The pivot period for find Gartley patterns dots.</param>
     public GartleySetupFinder(
         IBarsProvider mainBarsProvider,
         ISymbol symbol,
@@ -66,7 +67,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool filterByTrend,
         bool filterByPriceAction,
         int maxPatternSizeBars,
-        double? breakevenRatio = null) : base(mainBarsProvider, symbol)
+        double? breakevenRatio = null,
+        int period = Helper.GARTLEY_MIN_PERIOD) : base(mainBarsProvider, symbol)
     {
         AwesomeOscillatorFinder ao = filterByDivergence || findDivergence
             ? new AwesomeOscillatorFinder(mainBarsProvider)
@@ -91,7 +93,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_FilterByDivergence = filterByDivergence;
         m_MaxPatternSizeBars = maxPatternSizeBars;
 
-        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth);
+        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth,period);
         var comparer = new GartleyItemComparer();
         m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
     }

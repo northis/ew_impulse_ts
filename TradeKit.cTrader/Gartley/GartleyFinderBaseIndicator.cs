@@ -43,7 +43,7 @@ namespace TradeKit.CTrader.Gartley
         public bool ShowDivergences { get; set; }
 
         /// <summary>
-        /// Gets or sets the value how deep should we analyze the candles.
+        /// Gets or sets the value how deep we should analyze the candles.
         /// </summary>
         [Parameter("Bar depth count", DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarDepthCount { get; set; }
@@ -53,6 +53,12 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter("Accuracy", DefaultValue = Helper.GARTLEY_ACCURACY, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
         public double Accuracy { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the pivot (zigzag) period.
+        /// </summary>
+        [Parameter("Pivot period", DefaultValue = Helper.GARTLEY_MIN_PERIOD, MinValue = 1, MaxValue = 230, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
+        public int Period { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
@@ -106,7 +112,7 @@ namespace TradeKit.CTrader.Gartley
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), Accuracy,
-                BarDepthCount, ShowDivergences, UseDivergences, UseTrendOnly, UseCandlePatterns, MaxPatternSizeBars);
+                BarDepthCount, ShowDivergences, UseDivergences, UseTrendOnly, UseCandlePatterns, MaxPatternSizeBars,null,Period);
             Subscribe(m_SetupFinder);
         }
 
@@ -198,16 +204,23 @@ namespace TradeKit.CTrader.Gartley
 
             if (ShowRatio)
             {
-                Chart.DrawText($"XText{name}", "X", indexX, valueX, colorBorder)
+                string[] pNames = e.GartleyItem.PatternType.GetPointNames();
+                Chart.DrawText($"XText{name}", pNames[0], indexX, valueX, colorBorder)
                     .ChartTextAlign(!isBull);
-                Chart.DrawText($"AText{name}", "A", indexA, valueA, colorBorder)
+                Chart.DrawText($"AText{name}", pNames[1], indexA, valueA, colorBorder)
                     .ChartTextAlign(isBull);
-                Chart.DrawText($"BText{name}", "B", indexB, valueB, colorBorder)
+                Chart.DrawText($"BText{name}", pNames[2], indexB, valueB, colorBorder)
                     .ChartTextAlign(!isBull);
-                Chart.DrawText($"CText{name}", "C", indexC, valueC, colorBorder)
+                Chart.DrawText($"CText{name}", pNames[3], indexC, valueC, colorBorder)
                     .ChartTextAlign(isBull);
-                Chart.DrawText($"DText{name}", "D", indexD, valueD, colorBorder)
+                Chart.DrawText($"DText{name}", pNames[4], indexD, valueD, colorBorder)
                     .ChartTextAlign(!isBull);
+
+                /*
+                if (pNames.Length > 5)
+                    Chart.DrawText($"EText{name}", pNames[5], indexE, valueE, colorBorder)                        
+                        .ChartTextAlign(isBull);
+                */
 
                 ChartTrendLine xbLine =
                     Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH);
