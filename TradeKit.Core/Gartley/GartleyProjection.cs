@@ -11,7 +11,7 @@ namespace TradeKit.Core.Gartley
     {
         private readonly IBarsProvider m_BarsProvider;
         private readonly double m_WickAllowanceZeroToOne;
-        private readonly double m_ItemACancelPrice;
+        private double m_ItemACancelPrice;
         private double m_Min;
         private DateTime m_MinDate;
         private double m_Max;
@@ -21,7 +21,7 @@ namespace TradeKit.Core.Gartley
         private bool m_PatternIsReady;
         private bool m_ProjectionIsReady;
         private bool m_IsInvalid;
-        private readonly RealLevel[] m_RatioToAcLevelsMap;
+        private RealLevel[] m_RatioToAcLevelsMap;
         private readonly RealLevel[] m_RatioToXbLevelsMap;
         private readonly RealLevel[] m_RatioToXdLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
@@ -110,6 +110,18 @@ namespace TradeKit.Core.Gartley
         internal static readonly GartleyPattern[] Patterns;
         private static readonly Dictionary<GartleyPatternType, GartleyPattern> PATTERNS_MAP;
 
+        private void UpdateAtoC()
+        {
+            double lengthAtoB = Math.Abs(ItemA - ItemB);
+            m_RatioToAcLevelsMap = InitPriceRanges(
+                PatternType.ACValues, false, lengthAtoB, ItemB.Value);
+
+            m_ItemACancelPrice =
+                IsBull
+                    ? m_RatioToAcLevelsMap.MaxBy(a => a.Max).Max
+                    : m_RatioToAcLevelsMap.MinBy(a => a.Min).Min;
+        }
+        
         public GartleyProjection(
             IBarsProvider barsProvider,
             GartleyPatternType patternType, 
@@ -132,13 +144,18 @@ namespace TradeKit.Core.Gartley
 
             m_IsUpK = IsBull ? 1 : -1;
 
-            m_RatioToAcLevelsMap = InitPriceRanges(
-                PatternType.ACValues, false, LengthAtoX, ItemX.Value);
-
-            m_ItemACancelPrice =
-                IsBull
-                    ? m_RatioToAcLevelsMap.MaxBy(a => a.Max).Max
-                    : m_RatioToAcLevelsMap.MinBy(a => a.Min).Min;
+            /*if ((ItemX.OpenTime is
+                     { Day: 13, Month: 3, Year: 2025, Hour: 15 } ||
+                 ItemX.OpenTime is
+                     { Day: 13, Month: 3, Year: 2025, Hour: 14 }) &&
+                (ItemA.OpenTime is
+                     { Day: 13, Month: 3, Year: 2025, Hour: 17 } ||
+                 ItemA.OpenTime is
+                     { Day: 13, Month: 3, Year: 2025, Hour: 16 }) && !IsBull &&
+                PatternType.PatternType == GartleyPatternType.BUTTERFLY)
+            {
+                Debugger.Launch();
+            }*/
 
             m_RatioToXbLevelsMap = InitPriceRanges(
                 PatternType.XBValues, true, LengthAtoX, ItemA.Value);
@@ -571,7 +588,6 @@ namespace TradeKit.Core.Gartley
         internal BarPoint ItemA { get; }
 
         internal BarPoint ItemB
-
         {
             get => m_ItemB;
             set
@@ -582,6 +598,10 @@ namespace TradeKit.Core.Gartley
                 {
                     ItemC = null;
                     ItemD = null;
+                }
+                else
+                {
+                    UpdateAtoC();
                 }
             }
         }

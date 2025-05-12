@@ -320,7 +320,7 @@ namespace TradeKit.Core.AlgoBase
             double aB = Math.Abs(projection.ItemB - projection.ItemA);
             double cB = Math.Abs(projection.ItemC - projection.ItemB);
             double cD = Math.Abs(projection.ItemC - projection.ItemD);
-            double xC = Math.Abs(projection.ItemC - projection.ItemX);
+            //double xC = Math.Abs(projection.ItemC - projection.ItemX);
             double aD = Math.Abs(projection.ItemA - projection.ItemD);
 
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
@@ -339,7 +339,7 @@ namespace TradeKit.Core.AlgoBase
             }
 
             double xB = aB / xA;
-            double xD = cD / xA;
+            double xD = aD / xA;
             double bD = cD / cB;
             double aC = cB / aB;
 
