@@ -501,8 +501,8 @@ namespace TradeKit.Core.ElliottWave
                     : null,
                 signalArgs.UseLimit);
             Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: On before Enter");
+            CurrentSignalEventArgs.IsActive = true;
             OnEnterInvoke(CurrentSignalEventArgs);
-            // Here we should give a trade signal.
             return true;
         }
 

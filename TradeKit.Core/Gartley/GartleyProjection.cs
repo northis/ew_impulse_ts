@@ -26,6 +26,7 @@ namespace TradeKit.Core.Gartley
         private readonly RealLevel[] m_RatioToXdLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
         private readonly RealLevelBase m_ItemBRange;
+        private readonly bool m_IsCypher;
 
         private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
         private BarPoint m_ItemC;
@@ -112,9 +113,20 @@ namespace TradeKit.Core.Gartley
 
         private void UpdateAtoC()
         {
-            double lengthAtoB = Math.Abs(ItemA - ItemB);
-            m_RatioToAcLevelsMap = InitPriceRanges(
-                PatternType.ACValues, false, lengthAtoB, ItemB.Value);
+            if (m_IsCypher)
+            {
+                m_RatioToAcLevelsMap = InitPriceRanges(
+                    PatternType.ACValues, false, LengthAtoX, ItemX.Value);
+            }
+            else
+            {
+                if (ItemB == null)
+                    return;
+                
+                double lengthAtoB = Math.Abs(ItemA - ItemB);
+                m_RatioToAcLevelsMap = InitPriceRanges(
+                    PatternType.ACValues, false, lengthAtoB, ItemB.Value);
+            }
 
             m_ItemACancelPrice =
                 IsBull
@@ -136,6 +148,7 @@ namespace TradeKit.Core.Gartley
             ItemA = itemA;
             IsBull = itemX < itemA;
             LengthAtoX = Math.Abs(ItemA - ItemX);
+            m_IsCypher = patternType == GartleyPatternType.CYPHER;
 
             m_Min = double.PositiveInfinity;
             m_Max = double.NegativeInfinity;
@@ -143,6 +156,7 @@ namespace TradeKit.Core.Gartley
             m_MaxDate = itemA.OpenTime;
 
             m_IsUpK = IsBull ? 1 : -1;
+            UpdateAtoC();
 
             /*if ((ItemX.OpenTime is
                      { Day: 13, Month: 3, Year: 2025, Hour: 15 } ||
@@ -599,7 +613,7 @@ namespace TradeKit.Core.Gartley
                     ItemC = null;
                     ItemD = null;
                 }
-                else
+                else if (!m_IsCypher)
                 {
                     UpdateAtoC();
                 }

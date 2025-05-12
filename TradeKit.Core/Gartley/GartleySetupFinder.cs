@@ -42,7 +42,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         CandlePatternType.DARK_CLOUD,
         CandlePatternType.PIECING_LINE,
     };
-    private const double PATTERN_PROFIT_RANGE = 0.6;//[0->1]
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GartleySetupFinder"/> class.
@@ -100,9 +99,6 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private void AddSetup(
         GartleyItem localPattern, double close, int index, List<CandlesResult> candlePatterns = null)
     {
-        bool isLimit = !IsPatternProfitableNow(localPattern, close) &&
-                       (m_CandlePatternFilter == null || m_CandlePatternFilter != null && candlePatterns == null);
-
         if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
             TrendType trendAlligator = SignalFilters.GetTrend(
@@ -145,17 +141,11 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         DateTime startView = m_MainBarsProvider.GetOpenTime(localPattern.ItemX.BarIndex);
         var args = new GartleySignalEventArgs(new BarPoint(close, index, m_MainBarsProvider),
-            localPattern, startView, isLimit, divItem, m_BreakevenRatio, candlePatterns);
+            localPattern, startView, false, divItem, m_BreakevenRatio, candlePatterns);
 
         OnEnterInvoke(args);
         m_PatternsEntryMap[localPattern] = args;
         Logger.Write($"Added {localPattern.PatternType}");
-    }
-
-    bool IsPatternProfitableNow(GartleyItem pendingPattern, double nowPrice)
-    {
-        double patternProfitable = pendingPattern.GetProfitRatio(nowPrice);
-        return patternProfitable >= PATTERN_PROFIT_RANGE;
     }
 
     /// <summary>
