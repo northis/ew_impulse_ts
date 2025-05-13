@@ -11,9 +11,5 @@ namespace TradeKit.Core.Signals
             mainBarsProvider, symbol, tvm, string.Empty)
         {
         }
-
-        public override void CheckBar(int index)
-        {
-        }
     }
 }

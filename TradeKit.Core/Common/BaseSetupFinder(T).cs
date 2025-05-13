@@ -9,13 +9,13 @@ namespace TradeKit.Core.Common
     /// </summary>
     public abstract class BaseSetupFinder<T> where T : SignalEventArgs
     {
-        private int m_LastBarIndex;
+        private DateTime m_LastBarOpenDateTime;
         private bool m_IsInitialized;
 
         /// <summary>
-        /// Gets the last bar index.
+        /// Gets the last open time of the bar.
         /// </summary>
-        protected int LastBar => m_LastBarIndex;
+        protected DateTime LastBarOpenDateTime => m_LastBarOpenDateTime;
 
         /// <summary>
         /// An initialization flag.
@@ -161,10 +161,10 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Checks whether the data for a specified index contains a trade setup.
+        /// Checks whether the data for a specified open DT candle bar contains a trade setup.
         /// </summary>
-        /// <param name="index">Index of the current candle.</param>
-        protected abstract void CheckSetup(int index);
+        /// <param name="openDateTime">The open DateTime of the candle bar to check for a trade setup.</param>
+        protected abstract void CheckSetup(DateTime openDateTime);
 
         /// <summary>
         /// Checks the tick. Used for quick update the state of the setup finder. Optional.
@@ -186,16 +186,14 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Checks the conditions of possible setup for a bar of <see cref="index"/>.
+        /// Checks the bar for specific conditions based on its opening date and time.
         /// </summary>
-        /// <param name="index">The index of the bar to calculate.</param>
-        public virtual void CheckBar(int index)
+        /// <param name="openDateTime">The open datetime of the bar to be checked.</param>
+        public virtual void CheckBar(DateTime openDateTime)
         {
-            if (m_LastBarIndex != index)
-            {
-                m_LastBarIndex = index;
-                CheckSetup(m_LastBarIndex);
-            }
+            if (LastBarOpenDateTime > openDateTime) return;
+            m_LastBarOpenDateTime = openDateTime;
+            CheckSetup(openDateTime);
         }
 
         /// <summary>

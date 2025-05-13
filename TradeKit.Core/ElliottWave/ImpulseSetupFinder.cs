@@ -179,19 +179,15 @@ namespace TradeKit.Core.ElliottWave
         /// <summary>
         /// Determines whether the data for a specified index contains a trade setup.
         /// </summary>
-        /// <param name="index">Index of the current candle.</param>
+        /// <param name="openDateTime">Open datetime of the current candle.</param>
         /// <param name="finder">The extreme finder instance.</param>
         /// <param name="currentPriceBid">The current price (Bid).</param>
         /// <returns>
         ///   <c>true</c> if the data for specified index contains setup; otherwise, <c>false</c>.
         /// </returns>
-        private bool IsSetup(int index, DeviationExtremumFinder finder, double? currentPriceBid = null)
+        private bool IsSetup(DateTime openDateTime, DeviationExtremumFinder finder, double? currentPriceBid = null)
         {
-            if (index % 10 == 0)
-            {
-                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: IsSetup {index}");
-            }
-            
+            int index = BarsProvider.GetIndexByTime(openDateTime);
             SortedDictionary<DateTime, BarPoint> extrema = finder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
@@ -528,18 +524,18 @@ namespace TradeKit.Core.ElliottWave
         }
 
         /// <summary>
-        /// Checks whether the data for a specified index contains a trade setup.
+        /// Checks whether a setup condition is satisfied at the specified open date and time.
         /// </summary>
-        /// <param name="index">Index of the current candle.</param>
-        protected override void CheckSetup(int index)
+        /// <param name="openDateTime">The open date and time to check the setup against.</param>
+        protected override void CheckSetup(DateTime openDateTime)
         {
             foreach (DeviationExtremumFinder finder in m_ExtremumFinders)
             {
-                finder.OnCalculate(index, BarsProvider.GetOpenTime(index));
+                finder.OnCalculate(BarsProvider.GetIndexByTime(openDateTime), openDateTime);
                 if (!IsInitialized)
                     continue;
                 
-                if (IsSetup(LastBar, finder))
+                if (IsSetup(openDateTime, finder))
                 {
                     break;
                 }

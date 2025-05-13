@@ -48,12 +48,9 @@ namespace TradeKit.Core.PriceAction
             m_PendingPatterns = new HashSet<CandlesResult>(comparer);
         }
         
-        /// <summary>
-        /// Checks whether the data for specified index contains a trade setup.
-        /// </summary>
-        /// <param name="index">Index of the current candle.</param>
-        protected override void CheckSetup(int index)
+        protected override void CheckSetup(DateTime openDateTime)
         {
+            int index = m_MainBarsProvider.GetIndexByTime(openDateTime);
             int startIndex = Math.Max(m_MainBarsProvider.StartIndexLimit, index - DEPTH_SHOW);
             bool noOpenedPatterns = m_CandlePatternsEntryMap.Count == 0 && m_PendingPatterns.Count == 0;
 

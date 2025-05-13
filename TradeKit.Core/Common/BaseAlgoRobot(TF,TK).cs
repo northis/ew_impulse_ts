@@ -316,13 +316,13 @@ namespace TradeKit.Core.Common
                 if (m_BarsInitMap[sf.Id])
                 {
                     //Logger.Write($"{nameof(BarOpened)}: {barsProvider.BarSymbol} {barsProvider.TimeFrame}");
-                    sf.CheckBar(index);
+                    sf.CheckBar(barsProvider.GetOpenTime(index));
                     return;
                 }
 
                 for (int i = 0; i < prevCount; i++)
                 {
-                    sf.CheckBar(i);
+                    sf.CheckBar(barsProvider.GetOpenTime(i));
                 }
 
                 sf.OnEnter += OnEnter;

@@ -104,16 +104,15 @@ namespace TradeKit.CTrader.Core
         }
 
         /// <summary>
-        /// Calculate the value(s) of indicator for the given index.
+        /// Calculate the value(s) of the indicator for the given index.
         /// </summary>
         /// <param name="index">The index of calculated value.</param>
         public override void Calculate(int index)
         {
             if (m_SetupFinder == null)
                 return;
-            //throw new InvalidOperationException("Please, call Subscribe() first");
 
-            m_SetupFinder.CheckBar(m_IsInitialized ? index - 1 : index);
+            m_SetupFinder.CheckBar(Bars.OpenTimes[m_IsInitialized ? index - 1 : index]);
             if (IsLastBar && !m_IsInitialized)
             {
                 m_IsInitialized = true;

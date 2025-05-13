@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using TradeKit.Core.Common;
@@ -73,7 +72,7 @@ namespace TradeKit.Core.Signals
         /// </summary>
         public BarPoint LastEntry { get; private set; }
 
-        protected override void CheckSetup(int index)
+        protected override void CheckSetup(DateTime openDateTime)
         {
             ProcessSetup();
         }
@@ -95,8 +94,8 @@ namespace TradeKit.Core.Signals
 
                 var args = new SignalEventArgs(
                     new BarPoint(signal.Price.GetValueOrDefault(), signal.DateTime, BarsProvider),
-                    new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider),
-                    new BarPoint(signal.StopLoss, LastBar, BarsProvider));
+                    new BarPoint(signal.TakeProfits[0], LastBarOpenDateTime, BarsProvider),
+                    new BarPoint(signal.StopLoss, LastBarOpenDateTime, BarsProvider));
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
                 OnEnterInvoke(args);
                 return;
@@ -132,20 +131,20 @@ namespace TradeKit.Core.Signals
                         continue;
 
                     refSignalToChange.StopLoss =
-                        new BarPoint(price.Value, LastBar, BarsProvider);
+                        new BarPoint(price.Value, LastBarOpenDateTime, BarsProvider);
                 }
 
                 if (hasTp)
                 {
                     refSignal.TakeProfit =
-                        new BarPoint(signal.TakeProfits[0], LastBar, BarsProvider);
+                        new BarPoint(signal.TakeProfits[0], LastBarOpenDateTime, BarsProvider);
                 }
 
                 OnEditInvoke(refSignal);
             }
             else if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN && !refSignal.HasBreakeven)
             {
-                var newSl = new BarPoint(refSignal.Level.Value, LastBar, BarsProvider);
+                var newSl = new BarPoint(refSignal.Level.Value, LastBarOpenDateTime, BarsProvider);
                 refSignal.HasBreakeven = true;
                 OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, true));
                 refSignal.StopLoss = newSl;

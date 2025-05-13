@@ -151,14 +151,14 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     }
 
     /// <summary>
-    /// Checks whether the data for a specified index contains a trade setup.
+    /// Checks the bar for specific conditions based on its opening date and time.
     /// </summary>
-    /// <param name="index">Index of the current candle.</param>
-    protected override void CheckSetup(int index)
+    /// <param name="openDateTime">The open datetime of the bar to be checked.</param>
+    protected override void CheckSetup(DateTime openDateTime)
     {
-        DateTime currentDt = BarsProvider.GetOpenTime(index);
-        m_Supertrend?.OnCalculate(index, currentDt);
-        m_ZoneAlligatorFinder?.OnCalculate(index, currentDt);
+        int index = m_MainBarsProvider.GetIndexByTime(openDateTime);
+        m_Supertrend?.OnCalculate(index, openDateTime);
+        m_ZoneAlligatorFinder?.OnCalculate(index, openDateTime);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
         var localPatterns = m_PatternFinder.FindGartleyPatterns(index);
@@ -196,7 +196,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 continue;
 
             GartleySignalEventArgs args = m_PatternsEntryMap[pattern];
-            bool isClosed = CheckArgLevel(args, low, high, index, currentDt);
+            bool isClosed = CheckArgLevel(args, low, high, index, openDateTime);
 
             if (!isClosed)
                 continue;

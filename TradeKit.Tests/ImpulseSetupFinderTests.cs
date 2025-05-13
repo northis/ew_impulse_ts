@@ -49,7 +49,7 @@ namespace TradeKit.Tests
             m_SetupFinder.OnBreakeven += (_, args) => m_BreakEvenEvents.Add(args);
             m_BarsProvider.BarOpened += (bp, args) =>
             {
-                m_SetupFinder.CheckBar(m_BarsProvider.Count - 1);
+                m_SetupFinder.CheckBar(m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1));
             };
         }
 

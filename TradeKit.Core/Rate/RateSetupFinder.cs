@@ -50,8 +50,9 @@ namespace TradeKit.Core.Rate
         /// </summary>
         public BarPoint LastEntry { get; private set; }
 
-        protected override void CheckSetup(int index)
+        protected override void CheckSetup(DateTime openDateTime)
         {
+            var index = m_MainBarsProvider.GetIndexByTime(openDateTime);
             m_LastPrice = m_MainBarsProvider.GetClosePrice(index);
             m_PriceSpeedCheckerMajor.Calculate(index);
             m_PriceSpeedCheckerMinor.Calculate(index);
@@ -78,12 +79,12 @@ namespace TradeKit.Core.Rate
                         OnTakeProfitInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
+                                new BarPoint(m_LastPrice, LastBarOpenDateTime, m_MainBarsProvider)));
                     else
                         OnStopLossInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
+                                new BarPoint(m_LastPrice, LastBarOpenDateTime, m_MainBarsProvider)));
                 }
                 else if(!m_IsUp && m_PriceSpeedCheckerMinor.Speed >= 0)
                 {
@@ -92,12 +93,12 @@ namespace TradeKit.Core.Rate
                         OnStopLossInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
+                                new BarPoint(m_LastPrice, LastBarOpenDateTime, m_MainBarsProvider)));
                     else
                         OnTakeProfitInvoke(
                             new LevelEventArgs(
                                 LastEntry,
-                                new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider)));
+                                new BarPoint(m_LastPrice, LastBarOpenDateTime, m_MainBarsProvider)));
                 }
 
                 return;
@@ -134,11 +135,11 @@ namespace TradeKit.Core.Rate
                 m_LastSignalBar = slBar.Key;
                 m_IsUp = isUp;
                 
-                LastEntry = new BarPoint(m_LastPrice, LastBar, m_MainBarsProvider);
+                LastEntry = new BarPoint(m_LastPrice, LastBarOpenDateTime, m_MainBarsProvider);
                 IsInSetup = true;
                 OnEnterInvoke(new SignalEventArgs(
                     LastEntry,
-                    new BarPoint(tp, LastBar, m_MainBarsProvider),
+                    new BarPoint(tp, LastBarOpenDateTime, m_MainBarsProvider),
                     new BarPoint(slValue, slBar.Key, m_MainBarsProvider)));
             }
         }
