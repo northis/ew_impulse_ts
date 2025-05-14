@@ -872,7 +872,7 @@ namespace TradeKit.Core.Common
         /// <param name="signalEventArgs">Signal info args</param>
         /// <param name="showTradeResult">True if we want to see the result of the first trade.</param>
         /// <param name="successTrade">Null - no result yet, true - TP hit, false - SL hit.</param>
-        /// <returns>Path to image file</returns>
+        /// <returns>Path to an image file</returns>
         protected string GeneratePlotImageFile(
             IBarsProvider barProvider, 
             TK signalEventArgs, 

@@ -43,7 +43,8 @@ namespace TradeKit.Core.AlgoBase
             //return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity,
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
-            return new ImpulseResult(overlapseMaxDepth, end.BarIndex - start.BarIndex, size, rateZigzag, heterogeneity, areaRelative);
+            int count = end.BarIndex - start.BarIndex;
+            return new ImpulseResult(overlapseMaxDepth, count, size, rateZigzag, heterogeneity, areaRelative);
         }
 
         /// <summary>

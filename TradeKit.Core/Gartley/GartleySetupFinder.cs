@@ -182,6 +182,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                     .Where(a => a.IsBull == localPattern.IsBull &&
                                 m_InstantPatterns.Contains(a.Type))
                     .ToList();
+                if (m_CandlePatternFilter != null && (instantCandles == null ||
+                        instantCandles.Count == 0))
+                {
+                    continue;
+                }
+
                 AddSetup(localPattern, close, index, instantCandles?.Count == 0 ? null : instantCandles);
             }
         }

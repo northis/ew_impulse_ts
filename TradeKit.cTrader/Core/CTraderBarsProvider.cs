@@ -12,6 +12,7 @@ namespace TradeKit.CTrader.Core
     internal class CTraderBarsProvider : IBarsProvider
     {
         private readonly Bars m_Bars;
+        private int m_TotalBarsCount = 0;
         private const int MAX_LOAD_ATTEMPTS = 5;
 
         /// <summary>
@@ -31,9 +32,21 @@ namespace TradeKit.CTrader.Core
         public CTraderBarsProvider(Bars bars, ISymbol symbolEntity)
         {
             m_Bars = bars;
+            m_TotalBarsCount = m_Bars.Count;
             bars.BarOpened += OnBarOpened;
             BarSymbol = symbolEntity;
             TimeFrame = new CTraderTimeFrame(bars.TimeFrame);
+        }
+
+        private int GetActualIndex(int index)
+        {
+            int dCount = m_TotalBarsCount - m_Bars.Count;
+            if (dCount > 0)
+            {
+                return index - dCount;
+            }
+
+            return index;
         }
 
         /// <summary>
@@ -53,6 +66,18 @@ namespace TradeKit.CTrader.Core
 
         private void OnBarOpened(BarOpenedEventArgs obj)
         {
+            if (m_TotalBarsCount < m_Bars.Count)
+            {
+                m_TotalBarsCount = m_Bars.Count;
+            }
+            else
+            {
+                unchecked
+                {
+                    m_TotalBarsCount++;
+                }
+            }
+
             BarOpened?.Invoke(this, EventArgs.Empty);
         }
 
@@ -62,6 +87,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetLowPrice(int index)
         {
+            index = GetActualIndex(index);
             return m_Bars.LowPrices[index];
         }
 
@@ -71,6 +97,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetHighPrice(int index)
         {
+            index = GetActualIndex(index);
             return m_Bars.HighPrices[index];
         }
 
@@ -80,6 +107,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public double GetMedianPrice(int index)
         {
+            index = GetActualIndex(index);
             return (GetHighPrice(index) + GetLowPrice(index)) / 2;
         }
 
@@ -89,6 +117,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetOpenPrice(int index)
         {
+            index = GetActualIndex(index);
             return m_Bars.OpenPrices[index];
         }
 
@@ -98,6 +127,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetClosePrice(int index)
         {
+            index = GetActualIndex(index);
             return m_Bars.ClosePrices[index];
         }
 
@@ -107,13 +137,14 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public DateTime GetOpenTime(int index)
         {
+            index = GetActualIndex(index);
             return m_Bars.OpenTimes[index];
         }
 
         /// <summary>
         /// Gets the total count of bars collected.
         /// </summary>
-        public int Count => m_Bars.Count;
+        public int Count => m_TotalBarsCount;
 
         /// <summary>
         /// Loads the bars until <see cref="date"/> is reached.
@@ -170,6 +201,7 @@ namespace TradeKit.CTrader.Core
 
             } while (attempts < MAX_LOAD_ATTEMPTS);
 
+            index = GetActualIndex(index);
             return index;
         }
 
