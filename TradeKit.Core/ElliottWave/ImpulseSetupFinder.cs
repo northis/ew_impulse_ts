@@ -289,7 +289,6 @@ namespace TradeKit.Core.ElliottWave
             if (checkSignalArgs.HasInCache && 
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] == null)
             {
-                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: {checkSignalArgs.EndItem.Key} is null");
                 return false;
             }
 
@@ -303,7 +302,7 @@ namespace TradeKit.Core.ElliottWave
             {
                 // The move (impulse candidate) is no longer initial.
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
-                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: {checkSignalArgs.EndItem.Key} is no longer initial");
+                //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: {checkSignalArgs.EndItem.Key} is no longer initial");
                 return false;
             }
 
@@ -315,7 +314,7 @@ namespace TradeKit.Core.ElliottWave
                 (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
-                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats})");
+                //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats})");
                 return false;
             }
 
@@ -329,7 +328,7 @@ namespace TradeKit.Core.ElliottWave
                         min >= BarsProvider.GetLowPrice(i))
                     {
                         m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
-                        Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: The setup is no longer valid, TP or SL is already hit");
+                        //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: The setup is no longer valid, TP or SL is already hit");
                         return false;
                         // The setup is no longer valid, TP or SL is already hit.  
                     }
@@ -369,7 +368,7 @@ namespace TradeKit.Core.ElliottWave
                 else
                 {
                     
-                    Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not at the level yet");
+                    //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not at the level yet");
                     return false;
                 }
             }

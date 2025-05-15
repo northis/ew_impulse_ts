@@ -36,7 +36,7 @@ namespace TradeKit.Core.Indicators
             BarsProvider = barsProvider;
 
             if (UseAutoCalculateEvent)
-                BarsProvider.BarOpened += OnBarClosed;
+                BarsProvider.BarClosed += OnBarClosed;
 
             m_DefaultCleanDuration = TimeFrameHelper.TimeFrames[BarsProvider.TimeFrame.Name].TimeSpan;
             Result = new SortedDictionary<DateTime, T>();

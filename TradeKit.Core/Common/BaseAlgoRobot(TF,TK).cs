@@ -136,7 +136,7 @@ namespace TradeKit.Core.Common
                         sf.BarsProvider.LoadBars(DateTime.Now.AddDays(-2));
                     }
 
-                    sf.BarsProvider.BarOpened += BarOpened;
+                    sf.BarsProvider.BarClosed += BarClosed;
                     m_SymbolsMap[key] = symbolEntity;
                     m_SetupFindersMap[key] = sf;
                     m_BarsInitMap[key] = false;
@@ -293,15 +293,14 @@ namespace TradeKit.Core.Common
             return m_SetupFindersMap.GetValueOrDefault(finderId);
         }
 
-        private void BarOpened(object obj, System.EventArgs args)
+        private void BarClosed(object obj, System.EventArgs args)
         {
             if (!(obj is IBarsProvider barsProvider))
                 return;
 
             try
             {
-                int prevCount = barsProvider.Count - 1;
-                int index = prevCount - 1;
+                int index = barsProvider.Count - 1;
                 if (index < 0)
                 {
                     return;
@@ -320,7 +319,7 @@ namespace TradeKit.Core.Common
                     return;
                 }
 
-                for (int i = 0; i < prevCount; i++)
+                for (int i = 0; i < barsProvider.Count; i++)
                 {
                     sf.CheckBar(barsProvider.GetOpenTime(i));
                 }
@@ -336,11 +335,11 @@ namespace TradeKit.Core.Common
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[sf.Id] = true;
                 sf.MarkAsInitialized();
-                Logger.Write($"{nameof(BarOpened)}: Bars initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
+                Logger.Write($"Pair initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
             }
             catch (Exception ex)
             {
-                Logger.Write($"{nameof(BarOpened)}: {ex}");
+                Logger.Write($"{nameof(BarClosed)}: {ex}");
             }
         }
 
@@ -438,14 +437,24 @@ namespace TradeKit.Core.Common
         {
             ModifySymbolPositions(setupId, positionId);
             ClosedPositionEventArgs closedArgs = null;
-            if (m_RobotParams.AllowToTrade || m_IsBackTesting) 
+            if (m_RobotParams.AllowToTrade || m_IsBackTesting)
+            {
+                Logger.Write($"SetupId {setupId} - handle position {positionId}");
                 m_ClosedPositionMap.Remove(positionId, out closedArgs);
+            }
 
             if (sender is not TF sf ||
                 !m_ChartFileFinderMap.TryGetValue(sf.Id, out TK signalEventArgs))
+            {
+                Logger.Write($"SetupId {setupId} - no chart map found");
                 return null;
+            }
 
-            if (closedArgs == null) TradeManager.CancelOrder(positionId);
+            if (closedArgs == null)
+            {
+                Logger.Write($"SetupId {setupId} is not found");
+                TradeManager.CancelOrder(positionId);
+            }
 
             string resultChartPath = m_GenerateReport && closedArgs != null
                 ? GenerateReportFile(closedArgs, sf.TimeFrame.ShortName)
@@ -475,6 +484,7 @@ namespace TradeKit.Core.Common
         /// <param name="successTrade">True - TP hit, False - SL hit</param>
         private string ShowResultChart(TF sf, TK signalEventArgs, bool successTrade)
         {
+            Logger.Write($"On ShowResultChart, position comment: {signalEventArgs.Comment}");
             if (m_IsBackTesting)
                 OnResultForManualAnalysis(signalEventArgs, sf, successTrade);
 
@@ -838,6 +848,7 @@ namespace TradeKit.Core.Common
 
         private string GenerateReportFile(ClosedPositionEventArgs closedArgs, string tfName)
         {
+            Logger.Write($"On GenerateReportFile, position comment: {closedArgs.Position.Comment}");
             IPosition position = TradeManager.GetClosedPosition(
                 closedArgs.Position.Comment, 
                 closedArgs.Position.TakeProfit,
@@ -1093,7 +1104,7 @@ namespace TradeKit.Core.Common
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
                 sf.OnTakeProfit -= OnBreakeven;
-                sf.BarsProvider.BarOpened -= BarOpened;
+                sf.BarsProvider.BarClosed -= BarClosed;
                 IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
                 bp.Dispose();
             }

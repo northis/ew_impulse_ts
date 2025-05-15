@@ -30,7 +30,9 @@ namespace TradeKit.CTrader.Gartley
                 UseCandlePatterns,
                 UseTrendOnly, 
                 BreakEvenRatio,
-                MaxPatternSizeBars);
+                MaxPatternSizeBars,
+                TakeProfitRatio,
+                StopLossRatio);
         }
 
         #region Input parameters
@@ -46,6 +48,20 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter(nameof(Accuracy), DefaultValue = Helper.GARTLEY_ACCURACY, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
         public double Accuracy { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the ratio used to calculate the take profit level in the Gartley pattern strategy.
+        /// </summary>
+        [Parameter("Take profit ratio", DefaultValue = Helper.GARTLEY_TP_RATIO, MinValue = 0.1, MaxValue = Helper.GARTLEY_TP2_RATIO, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
+        public double TakeProfitRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the stop-loss ratio, which determines the proportional distance at which a stop-loss is set
+        /// relative to the calculated pattern level. This value is configurable within a range and is used to
+        /// manage risk during trades.
+        /// </summary>
+        [Parameter("Stop loss ratio", DefaultValue = Helper.GARTLEY_SL_RATIO, MinValue = 0.1, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
+        public double StopLossRatio { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.

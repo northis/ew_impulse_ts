@@ -73,8 +73,8 @@
         int GetIndexByTime(DateTime dateTime);
 
         /// <summary>
-        /// Called when a new bar is opened and the previous bar is ready to analyze.
+        /// Called when current bar is closed and ready to analyze.
         /// </summary>
-        event EventHandler BarOpened;
+        event EventHandler BarClosed;
     }
 }

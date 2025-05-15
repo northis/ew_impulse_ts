@@ -55,6 +55,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="filterByTrend">If true - use only the patterns in the same direction as the trend.</param>
     /// <param name="filterByPriceAction">If true - use only the patterns with Price Action candle patterns.</param>
     /// <param name="maxPatternSizeBars">The minimum pattern size (duration) in bars</param>
+    /// <param name="tpRatio">Take profit ratio</param>
+    /// <param name="slRatio">Stop loss ratio</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null if you don't want to use the breakeven.</param>
     /// <param name="period">The pivot period for find Gartley patterns dots.</param>
     public GartleySetupFinder(
@@ -67,6 +69,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool filterByTrend,
         bool filterByPriceAction,
         int maxPatternSizeBars,
+        double tpRatio,
+        double slRatio,
         double? breakevenRatio = null,
         int period = Helper.GARTLEY_MIN_PERIOD) : base(mainBarsProvider, symbol)
     {
@@ -76,10 +80,13 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         if (filterByTrend)
         {
-            m_Supertrend = new SupertrendFinder(mainBarsProvider, useAutoCalculateEvent: false);
+            m_Supertrend = new SupertrendFinder(mainBarsProvider,
+                useAutoCalculateEvent: false);
             m_ZoneAlligatorFinder =
-                new ZoneAlligatorFinder(mainBarsProvider, jawsPeriods: 26, jawsShift: 0, teethPeriods: 16,
-                    teethShift: 0, lipsPeriods: 10, lipsShift: 0, useAutoCalculateEvent: false);
+                new ZoneAlligatorFinder(mainBarsProvider, jawsPeriods: 26,
+                    jawsShift: 0, teethPeriods: 16,
+                    teethShift: 0, lipsPeriods: 10, lipsShift: 0,
+                    useAutoCalculateEvent: false);
         }
 
         CandlePatternFinder cpf = filterByPriceAction
@@ -93,9 +100,11 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_FilterByDivergence = filterByDivergence;
         m_MaxPatternSizeBars = maxPatternSizeBars;
 
-        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy, barsDepth,period);
+        m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy,
+            barsDepth, tpRatio, slRatio, period);
         var comparer = new GartleyItemComparer();
-        m_PatternsEntryMap = new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
+        m_PatternsEntryMap =
+            new Dictionary<GartleyItem, GartleySignalEventArgs>(comparer);
     }
 
     private void AddSetup(

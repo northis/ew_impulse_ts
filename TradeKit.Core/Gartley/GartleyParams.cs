@@ -18,7 +18,9 @@
         bool UseCandlePatterns,
         bool UseTrendOnly,
         double BreakEvenRatio,
-        int MaxPatternSizeBars)
+        int MaxPatternSizeBars,
+        double TakeProfitRatio,
+        double StopLossRatio)
     {
 
         /// <summary>
@@ -95,5 +97,15 @@
         /// Gets or sets a breakeven level. Use 0 to disable
         /// </summary>
         public double BreakEvenRatio { get; set; } = BreakEvenRatio;
+
+        /// <summary>
+        /// Gets or sets the ratio used to determine the take profit level in trading calculations.
+        /// </summary>
+        public double TakeProfitRatio { get; init; } = TakeProfitRatio;
+
+        /// <summary>
+        /// Gets or sets the ratio used for calculating the stop-loss level.
+        /// </summary>
+        public double StopLossRatio { get; init; } = StopLossRatio;
     }
 }

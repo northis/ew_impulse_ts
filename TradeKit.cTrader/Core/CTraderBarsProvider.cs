@@ -32,8 +32,7 @@ namespace TradeKit.CTrader.Core
         public CTraderBarsProvider(Bars bars, ISymbol symbolEntity)
         {
             m_Bars = bars;
-            m_TotalBarsCount = m_Bars.Count;
-            bars.BarOpened += OnBarOpened;
+            bars.BarClosed += OnBarClosed;
             BarSymbol = symbolEntity;
             TimeFrame = new CTraderTimeFrame(bars.TimeFrame);
         }
@@ -43,6 +42,7 @@ namespace TradeKit.CTrader.Core
             int dCount = m_TotalBarsCount - m_Bars.Count;
             if (dCount > 0)
             {
+                Logger.Write($"ActualIndex: {index} -> {dCount} ");
                 return index - dCount;
             }
 
@@ -64,7 +64,7 @@ namespace TradeKit.CTrader.Core
             return cTraderBarsProvider;
         }
 
-        private void OnBarOpened(BarOpenedEventArgs obj)
+        private void UpdateCount()
         {
             if (m_TotalBarsCount < m_Bars.Count)
             {
@@ -77,8 +77,12 @@ namespace TradeKit.CTrader.Core
                     m_TotalBarsCount++;
                 }
             }
+        }
 
-            BarOpened?.Invoke(this, EventArgs.Empty);
+        private void OnBarClosed(BarClosedEventArgs obj)
+        {
+            UpdateCount();
+            BarClosed?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>
@@ -205,17 +209,15 @@ namespace TradeKit.CTrader.Core
             return index;
         }
 
-        /// <summary>
-        /// Called when a new bar is opened and the previous bar is ready to analyze.
-        /// </summary>
-        public event EventHandler BarOpened;
+      
+        public event EventHandler BarClosed;
 
         /// <summary>
         /// Releases unmanaged and - optionally - managed resources.
         /// </summary>
         public void Dispose()
         {
-            m_Bars.BarOpened -= OnBarOpened;
+            m_Bars.BarClosed -= OnBarClosed;
         }
     }
 }

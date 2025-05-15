@@ -8,6 +8,8 @@ namespace TradeKit.Core.AlgoBase
         private readonly IBarsProvider m_BarsProvider;
 
         private readonly int m_BarsDepth;
+        private readonly double m_TpRatio;
+        private readonly double m_SlRatio;
         private readonly PivotPointsFinder m_PivotPointsFinder;
 
         private readonly GartleyPattern[] m_RealPatterns;
@@ -28,18 +30,24 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="accuracy">The accuracy filter - from 0 to 1.</param>
         /// <param name="barsProvider">The bar provider.</param>
         /// <param name="barsDepth">How many bars we should analyze backwards.</param>
+        /// <param name="tpRatio">Take profit ratio</param>
+        /// <param name="slRatio">Stop loss ratio</param>
         /// <param name="period">The pivot period for find Gartley patterns dots.</param>
         /// <param name="patterns">Patterns supported.</param>
         public GartleyPatternFinder(
             IBarsProvider barsProvider, 
             double accuracy,
             int barsDepth,
+            double tpRatio = Helper.GARTLEY_TP_RATIO,
+            double slRatio= Helper.GARTLEY_SL_RATIO,
             int period = Helper.GARTLEY_MIN_PERIOD,
             HashSet<GartleyPatternType> patterns = null)
         {
             m_PivotPointsFinder = new PivotPointsFinder(period, barsProvider, false);
             m_BarsProvider = barsProvider;
             m_BarsDepth = barsDepth;
+            m_TpRatio = tpRatio;
+            m_SlRatio = slRatio;
             m_RealPatterns = patterns == null
                 ? GartleyProjection.Patterns
                 : GartleyProjection.Patterns.Where(a => patterns.Contains(a.PatternType))
@@ -185,7 +193,9 @@ namespace TradeKit.Core.AlgoBase
                             realPattern.PatternType,
                             xBarPoint,
                             aBarPoint,
-                            allowances);
+                            allowances,
+                            m_TpRatio,
+                            m_SlRatio);
 
                         m_ActiveProjections.AddValue(pointDateTimeX, projection);
                     }

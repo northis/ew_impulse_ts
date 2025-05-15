@@ -38,6 +38,9 @@ namespace TradeKit.Core.Common
         public const string DEV_SETTINGS_NAME = "& Dev settings";
         public const int GARTLEY_BARS_COUNT = 300;
         public const double GARTLEY_ACCURACY = 0.95;
+        public const double GARTLEY_TP_RATIO = 0.382;
+        public const double GARTLEY_TP2_RATIO = 0.618;
+        public const double GARTLEY_SL_RATIO = 0.272;
         public const int GARTLEY_MIN_PERIOD = 3;
         public const string DATE_COLLECTION_SEPARATOR = "->";
         public const string DATE_COLLECTION_FORMAT = "yyyy-MM-ddTHH:mm:ss";

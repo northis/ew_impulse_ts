@@ -52,6 +52,11 @@ namespace TradeKit.Core.Common
             return symbolName + timeFrame;
         }
 
+        static BaseSetupFinder()
+        {
+            Logger.Write($"Trade Kit version {Assembly.GetExecutingAssembly().GetName().Version}");
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseSetupFinder{T}"/> class.
         /// </summary>
@@ -64,7 +69,6 @@ namespace TradeKit.Core.Common
             Symbol = symbol;
             BarsProvider = mainBarsProvider;
             TimeFrame = mainBarsProvider.TimeFrame;
-            Logger.Write($"Trade Kit version {Assembly.GetExecutingAssembly().GetName().Version}");
         }
 
         /// <summary>

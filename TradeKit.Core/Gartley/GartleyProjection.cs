@@ -11,6 +11,8 @@ namespace TradeKit.Core.Gartley
     {
         private readonly IBarsProvider m_BarsProvider;
         private readonly double m_WickAllowanceZeroToOne;
+        private readonly double m_TpRatio;
+        private readonly double m_SlRatio;
         private double m_Min;
         private DateTime m_MinDate;
         private double m_Max;
@@ -30,10 +32,8 @@ namespace TradeKit.Core.Gartley
         private BarPoint m_ItemC;
         private BarPoint m_ItemB;
         
-        private const double SL_RATIO = 0.272;
-        private const double TP1_RATIO = 0.382;
         private const double TP2_RATIO = 0.618;
-        private const double MAX_SL_TP_RATIO_ALLOWED = 2;
+        private const double MAX_SL_TP_RATIO_ALLOWED = 3;
 
         private static readonly double[] LEVELS =
         {
@@ -139,10 +139,14 @@ namespace TradeKit.Core.Gartley
             GartleyPatternType patternType, 
             BarPoint itemX, 
             BarPoint itemA,
-            double wickAllowanceZeroToOne)
+            double wickAllowanceZeroToOne,
+            double tpRatio,
+            double slRatio)
         {
             m_BarsProvider = barsProvider;
             m_WickAllowanceZeroToOne = wickAllowanceZeroToOne;
+            m_TpRatio = tpRatio;
+            m_SlRatio = slRatio;
             PatternType = PATTERNS_MAP[patternType];
             ItemX = itemX;
             ItemA = itemA;
@@ -243,8 +247,8 @@ namespace TradeKit.Core.Gartley
  
             double actualSize = PatternType.SetupType == GartleySetupType.AD ? aD : cD;
 
-            double slLen = actualSize * SL_RATIO;
-            double tp1Len = actualSize * TP1_RATIO;
+            double slLen = actualSize * m_SlRatio;
+            double tp1Len = actualSize * m_TpRatio;
             sl = isBull ? -slLen + ItemD : slLen + ItemD;
             //double tp1Len = Math.Abs(sl - closeD);
 
