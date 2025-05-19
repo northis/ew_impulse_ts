@@ -32,7 +32,8 @@ namespace TradeKit.CTrader.Gartley
                 BreakEvenRatio,
                 MaxPatternSizeBars,
                 TakeProfitRatio,
-                StopLossRatio);
+                StopLossRatio,
+                Period);
         }
 
         #region Input parameters
@@ -62,6 +63,12 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter("Stop loss ratio", DefaultValue = Helper.GARTLEY_SL_RATIO, MinValue = 0.1, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
         public double StopLossRatio { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the pivot (zigzag) period.
+        /// </summary>
+        [Parameter("Pivot period", DefaultValue = Helper.GARTLEY_MIN_PERIOD, MinValue = 1, MaxValue = 230, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
+        public int Period { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.

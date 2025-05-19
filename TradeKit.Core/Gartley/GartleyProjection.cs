@@ -33,7 +33,7 @@ namespace TradeKit.Core.Gartley
         private BarPoint m_ItemB;
         
         private const double TP2_RATIO = 0.618;
-        private const double MAX_SL_TP_RATIO_ALLOWED = 3;
+        private const double MAX_SL_TP_RATIO_ALLOWED = 2;
 
         private static readonly double[] LEVELS =
         {
@@ -438,13 +438,13 @@ namespace TradeKit.Core.Gartley
         }
 
         /// <summary>
-        /// Checks the point.
+        /// Updates points of the current pattern projection.
         /// </summary>
         /// <param name="dt">The current dt.</param>
         /// <param name="value">The current value.</param>
         /// <param name="isHigh">if set to <c>true</c> if the value is a high extremum.</param>
         /// <returns>True if we can continue the calculation, false if the projection should be canceled.</returns>
-        private bool CheckPoint(DateTime dt, double value, bool isHigh)
+        private bool UpdatePoints(DateTime dt, double value, bool isHigh)
         {
             bool isStraightExtrema = IsBull == isHigh;
             // if (m_ItemBRange.Min > value || m_ItemBRange.Max < value)
@@ -548,8 +548,8 @@ namespace TradeKit.Core.Gartley
                 }
             }
             
-            bool result = CheckPoint(currentDt, high, true);
-            result &= CheckPoint(currentDt, low, false);
+            bool result = UpdatePoints(currentDt, high, true);
+            result &= UpdatePoints(currentDt, low, false);
 
             if (!result)
             {

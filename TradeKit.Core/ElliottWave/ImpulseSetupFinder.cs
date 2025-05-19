@@ -133,41 +133,6 @@ namespace TradeKit.Core.ElliottWave
             return res;
         }
 
-        private bool GotFlat(BarPoint startC, BarPoint endC)
-        {
-            bool isImpulseUp = endC > startC;
-            double waveCLength = Math.Abs(startC - endC);
-
-            foreach (DeviationExtremumFinder extremumFinder in m_ExtremumFinders)
-            {
-                BarPoint[] testExtrema = extremumFinder.Extrema
-                    .TakeWhile(a => a.Key <= startC.OpenTime)
-                    .TakeLast(3)
-                    .Select(a => a.Value)
-                    .ToArray();
-
-                if (testExtrema.Length != 3 || testExtrema[2].OpenTime != startC.OpenTime)
-                    continue;
-
-                BarPoint startB = testExtrema[1];
-                BarPoint startA = testExtrema[0];
-
-                if (isImpulseUp != startA < startB ||
-                    isImpulseUp != startA > startC)
-                    continue;
-
-                double waveALength = Math.Abs(startB - startA);
-                if (waveALength < double.Epsilon)
-                    continue;
-
-                double ratio = waveCLength / waveALength;
-                if (ratio is > 0.618 and < 0.7 or > 1 and < 1.1 or > 1.618 and < 1.7)
-                    return true;
-            }
-
-            return false;
-        }
-
         LevelEventArgs GetCurrentLevelArgs(int index)
         {
             var levelArgs = new LevelEventArgs(
@@ -235,7 +200,6 @@ namespace TradeKit.Core.ElliottWave
             if (isProfitHit)
             {
                 IsInSetup = false;
-
                 LevelEventArgs levelArgs = GetCurrentLevelArgs(index);
                 if (needToCheckLimit)
                     OnCanceledInvoke(levelArgs);
@@ -367,7 +331,6 @@ namespace TradeKit.Core.ElliottWave
                     useLimit = true;
                 else
                 {
-                    
                     //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not at the level yet");
                     return false;
                 }
@@ -481,8 +444,7 @@ namespace TradeKit.Core.ElliottWave
             var slArg = new BarPoint(SetupStartPrice, SetupStartIndex, BarsProvider);
             DateTime viewDateTime = BarsProvider.GetOpenTime(signalArgs.EdgeIndex);
 
-            bool hasFlat = GotFlat(signalArgs.StartItem.Value, signalArgs.EndItem.Value);
-            CurrentStatistic = $"{signalArgs.Stats};{hasFlat:F2}";
+            CurrentStatistic = signalArgs.Stats.ToString();
             CurrentSignalEventArgs = new ImpulseSignalEventArgs(
                 new BarPoint(
                     signalArgs.UseLimit ? signalArgs.TriggerLevel : realPrice,
@@ -496,7 +458,6 @@ namespace TradeKit.Core.ElliottWave
                     : null,
                 signalArgs.UseLimit);
             Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: On before Enter");
-            CurrentSignalEventArgs.IsActive = true;
             OnEnterInvoke(CurrentSignalEventArgs);
             return true;
         }

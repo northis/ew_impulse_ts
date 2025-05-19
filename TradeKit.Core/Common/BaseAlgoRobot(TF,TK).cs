@@ -152,7 +152,7 @@ namespace TradeKit.Core.Common
             {
                 ITimeFrame chartTimeFrame = finder.Value.TimeFrame;
                 //Use this to show a smaller TF on the chart
-                //chartTimeFrame =  TimeFrameHelper.GetPreviousTimeFrameInfo(finder.Value.TimeFrame).TimeFrame;
+                //chartTimeFrame = TimeFrameHelper.GetPreviousTimeFrameInfo(finder.Value.TimeFrame).TimeFrame;
 
                 IBarsProvider barProvider = m_SetupFindersMap
                     .Where(a =>
@@ -687,11 +687,12 @@ namespace TradeKit.Core.Common
                 ? e.Level.Value
                 : isLong ? TradeManager.GetAsk(symbol) : TradeManager.GetBid(symbol);
 
-            if (!isLong)
+            /*if (!isLong)
             {
                 sl += spread * SPREAD_MARGIN_RATIO;
                 tp += spread * SPREAD_MARGIN_RATIO;
-            }
+            
+            }*/
 
             if (m_IsBackTesting || m_RobotParams.AllowToTrade)
             {

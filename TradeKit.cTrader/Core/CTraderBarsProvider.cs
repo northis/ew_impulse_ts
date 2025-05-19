@@ -42,7 +42,7 @@ namespace TradeKit.CTrader.Core
             int dCount = m_TotalBarsCount - m_Bars.Count;
             if (dCount > 0)
             {
-                Logger.Write($"ActualIndex: {index} -> {dCount} ");
+                //Logger.Write($"ActualIndex: {index} -> {dCount} ");
                 return index - dCount;
             }
 

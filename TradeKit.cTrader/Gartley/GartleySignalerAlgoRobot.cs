@@ -49,7 +49,9 @@ namespace TradeKit.CTrader.Gartley
                 GartleyParams.UseCandlePatterns,
                 GartleyParams.MaxPatternSizeBars,
                 GartleyParams.TakeProfitRatio,
-                GartleyParams.StopLossRatio);
+                GartleyParams.StopLossRatio,
+                null,
+                GartleyParams.Period);
 
             return setupFinder;
         }

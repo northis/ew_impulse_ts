@@ -20,11 +20,12 @@
         double BreakEvenRatio,
         int MaxPatternSizeBars,
         double TakeProfitRatio,
-        double StopLossRatio)
+        double StopLossRatio,
+        int Period)
     {
 
         /// <summary>
-        /// Gets or sets the value how deep should we analyze the candles.
+        /// Gets or sets the value how deep we should analyze the candles.
         /// </summary>
         public int BarDepthCount { get; set; } = BarDepthCount;
 
@@ -107,5 +108,11 @@
         /// Gets or sets the ratio used for calculating the stop-loss level.
         /// </summary>
         public double StopLossRatio { get; init; } = StopLossRatio;
+        
+        /// <summary>
+        /// Gets or sets the pivot (zigzag) period.
+        /// </summary>
+        public int Period { get;  init; } = Period;
+
     }
 }
