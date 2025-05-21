@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using TradeKit.Core.Common;
@@ -13,7 +15,11 @@ namespace TradeKit.CTrader.Core
     {
         private readonly Bars m_Bars;
         private int m_TotalBarsCount = 0;
-        private const int MAX_LOAD_ATTEMPTS = 5;
+        private const int MAX_BARS_TO_KEEP = 10000;
+        private const int CLEAN_EVERY = 1000;
+        
+        private readonly SortedDictionary<DateTime, int> m_CandlesDate;
+        private readonly SortedDictionary<int, Candle> m_CandlesIndex;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
@@ -31,22 +37,12 @@ namespace TradeKit.CTrader.Core
         /// <param name="symbolEntity">The symbol entity.</param>
         public CTraderBarsProvider(Bars bars, ISymbol symbolEntity)
         {
+            m_CandlesDate = new SortedDictionary<DateTime, int>();
+            m_CandlesIndex = new SortedDictionary<int, Candle>();
             m_Bars = bars;
             bars.BarClosed += OnBarClosed;
             BarSymbol = symbolEntity;
             TimeFrame = new CTraderTimeFrame(bars.TimeFrame);
-        }
-
-        private int GetActualIndex(int index)
-        {
-            int dCount = m_TotalBarsCount - m_Bars.Count;
-            if (dCount > 0)
-            {
-                //Logger.Write($"ActualIndex: {index} -> {dCount} ");
-                return index - dCount;
-            }
-
-            return index;
         }
 
         /// <summary>
@@ -66,22 +62,64 @@ namespace TradeKit.CTrader.Core
 
         private void UpdateCount()
         {
-            if (m_TotalBarsCount < m_Bars.Count)
+            unchecked
             {
-                m_TotalBarsCount = m_Bars.Count;
+                m_TotalBarsCount++;
             }
-            else
+        }
+
+        private void ReloadBars()
+        {
+            m_CandlesDate.Clear();
+            m_CandlesIndex.Clear();
+            for (int i = 0; i < m_Bars.OpenTimes.Count; i++)
             {
-                unchecked
-                {
-                    m_TotalBarsCount++;
-                }
+                DateTime dt = m_Bars.OpenTimes[i];
+                Candle candle = new Candle(m_Bars.OpenPrices[i], 
+                    m_Bars.HighPrices[i], 
+                    m_Bars.LowPrices[i],
+                    m_Bars.ClosePrices[i], null, i, dt);
+                m_CandlesIndex.Add(i, candle);
+                m_CandlesDate.Add(dt, i);
             }
+
+            m_TotalBarsCount = m_Bars.OpenTimes.Count;
+        }
+
+        private void UpdateLastBar()
+        {
+            Bar lastBar = m_Bars.LastBar;
+            if (m_CandlesDate.ContainsKey(lastBar.OpenTime))
+            {
+                return;
+            }
+            
+            Candle candle = new Candle(lastBar.Open, lastBar.High, lastBar.Low,
+                lastBar.Close, null, m_TotalBarsCount, lastBar.OpenTime);
+            m_CandlesIndex.Add(m_TotalBarsCount, candle);
+            m_CandlesDate.Add(lastBar.OpenTime, m_TotalBarsCount);
+            UpdateCount();
+
+            if (m_TotalBarsCount % CLEAN_EVERY != 0) return;
+            
+            int countDates = m_CandlesDate.Count;
+            int countCandles = m_CandlesIndex.Count;
+            if (countCandles != countDates)
+            {
+                Logger.Write(
+                    $"Wrong logic, check the code! Count of candles: {countCandles}, count of dates: {countDates}.");
+            }
+                
+            if (countDates > MAX_BARS_TO_KEEP)
+                m_CandlesDate.RemoveLeftTop(countDates - MAX_BARS_TO_KEEP);
+                
+            if (countCandles > MAX_BARS_TO_KEEP)
+                m_CandlesIndex.RemoveLeftTop(countCandles - MAX_BARS_TO_KEEP);
         }
 
         private void OnBarClosed(BarClosedEventArgs obj)
         {
-            UpdateCount();
+            UpdateLastBar();
             BarClosed?.Invoke(this, EventArgs.Empty);
         }
 
@@ -91,8 +129,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetLowPrice(int index)
         {
-            index = GetActualIndex(index);
-            return m_Bars.LowPrices[index];
+            return m_CandlesIndex[index].L;
         }
 
         /// <summary>
@@ -101,8 +138,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetHighPrice(int index)
         {
-            index = GetActualIndex(index);
-            return m_Bars.HighPrices[index];
+            return m_CandlesIndex[index].H;
         }
 
         /// <summary>
@@ -111,7 +147,6 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public double GetMedianPrice(int index)
         {
-            index = GetActualIndex(index);
             return (GetHighPrice(index) + GetLowPrice(index)) / 2;
         }
 
@@ -121,8 +156,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetOpenPrice(int index)
         {
-            index = GetActualIndex(index);
-            return m_Bars.OpenPrices[index];
+            return m_CandlesIndex[index].O;
         }
 
         /// <summary>
@@ -131,8 +165,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public virtual double GetClosePrice(int index)
         {
-            index = GetActualIndex(index);
-            return m_Bars.ClosePrices[index];
+            return m_CandlesIndex[index].C;
         }
 
         /// <summary>
@@ -141,8 +174,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public DateTime GetOpenTime(int index)
         {
-            index = GetActualIndex(index);
-            return m_Bars.OpenTimes[index];
+            return m_CandlesIndex[index].OpenDateTime.GetValueOrDefault();
         }
 
         /// <summary>
@@ -155,6 +187,7 @@ namespace TradeKit.CTrader.Core
         /// </summary>
         public void LoadBars(DateTime date)
         {
+            m_Bars.BarClosed -= OnBarClosed;
             if (m_Bars.OpenTimes.Count == 0)
                 m_Bars.LoadMoreHistory();
 
@@ -164,6 +197,9 @@ namespace TradeKit.CTrader.Core
             {
                 m_Bars.LoadMoreHistory();
             }
+
+            ReloadBars();
+            m_Bars.BarClosed += OnBarClosed;
         }
 
         /// <summary>
@@ -187,28 +223,8 @@ namespace TradeKit.CTrader.Core
         /// <param name="dateTime">The date time.</param>
         public int GetIndexByTime(DateTime dateTime)
         {
-            int index;
-            int attempts = 0;
-            do
-            {
-                index = m_Bars.OpenTimes.GetIndexByTime(dateTime);
-                if (index < 0)
-                {
-                    m_Bars.LoadMoreHistory();
-                }
-                else
-                {
-                    break;
-                }
-
-                attempts++;
-
-            } while (attempts < MAX_LOAD_ATTEMPTS);
-
-            index = GetActualIndex(index);
-            return index;
+            return m_CandlesDate[dateTime];
         }
-
       
         public event EventHandler BarClosed;
 

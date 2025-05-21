@@ -6,10 +6,10 @@ namespace TradeKit.CTrader.Core
 {
     internal class CTraderStorageManager : IStorageManager
     {
-        protected const string STATE_SAVE_KEY = "ReportStateMap";
-        protected const string STAT_ALL_SAVE_KEY = "StatisticStateAll";
-        protected const string TRADE_KIT_SCHEMA = "TradeKitSchema";
-        protected const string TRADE_KIT_SCHEMA_VAL = "2";
+        private const string STATE_SAVE_KEY = "ReportStateMap";
+        private const string STAT_ALL_SAVE_KEY = "StatisticStateAll";
+        private const string TRADE_KIT_SCHEMA = "TradeKitSchema";
+        private const string TRADE_KIT_SCHEMA_VAL = "3";
         private readonly Robot m_Robot;
 
         /// <summary>

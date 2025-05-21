@@ -212,7 +212,7 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Removes according to the func (left part of the dictionary).
+        /// Removes, according to the func (left part of the dictionary).
         /// </summary>
         /// <typeparam name="TK">The type of the key.</typeparam>
         /// <typeparam name="TV">The type of the value.</typeparam>
@@ -226,7 +226,29 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Removes according to the func (right part of the dictionary).
+        /// Removes the specified number of elements from the beginning of the <see cref="SortedDictionary{TK, TV}"/>.
+        /// </summary>
+        /// <param name="sortedList">The sorted dictionary to remove elements from.</param>
+        /// <param name="countToRemove">The number of elements to remove from the beginning of the dictionary.</param>
+        /// <typeparam name="TK">The type of the keys in the dictionary.</typeparam>
+        /// <typeparam name="TV">The type of the values in the dictionary.</typeparam>
+        /// <returns>The number of elements removed from the dictionary.</returns>
+        public static int RemoveLeftTop<TK, TV>(
+            this SortedDictionary<TK, TV> sortedList, int countToRemove)
+        {
+            List<TK> keysToDelete = sortedList.Keys.Take(countToRemove).ToList();
+            int count = 0;
+            foreach (TK key in keysToDelete)
+            {
+                sortedList.Remove(key);
+                count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Removes, according to the func (right part of the dictionary).
         /// </summary>
         /// <typeparam name="TK">The type of the key.</typeparam>
         /// <typeparam name="TV">The type of the value.</typeparam>

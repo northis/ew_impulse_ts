@@ -6,7 +6,7 @@ namespace TradeKit.Core.Common
     /// OHLC Candle
     /// </summary>
     /// <seealso cref="IEquatable&lt;Candle&gt;" />
-    public record Candle(double O, double H, double L, double C, bool? IsHighFirst = null, int? Index = null) : ICandle
+    public record Candle(double O, double H, double L, double C, bool? IsHighFirst = null, int? Index = null, DateTime? OpenDateTime = null) : ICandle
     {
         private double? m_BodyLow;
 
@@ -45,7 +45,24 @@ namespace TradeKit.Core.Common
             }
         }
 
+        /// <summary>
+        /// Indicates whether the highest price of the candle occurred before the lowest price.
+        /// </summary>
+        /// <remarks>
+        /// This nullable property can help determine the sequence of price movements within a candle.
+        /// It is typically initialized either directly or through a calculation method, such as <c>InitIsHighFirst</c>.
+        /// If <c>null</c>, the sequence of the price extremes is undefined or has not been determined.
+        /// </remarks>
         public bool? IsHighFirst { get; set; } = IsHighFirst;
+
+        /// <summary>
+        /// Gets the open date and time of the candle, representing when the candle started forming.
+        /// </summary>
+        /// <remarks>
+        /// This property is nullable and may be used to track the timestamp associated with the beginning of the candle.
+        /// It is typically set during initialization and remains immutable post-creation.
+        /// </remarks>
+        public DateTime? OpenDateTime { get; init; } = OpenDateTime;
 
         /// <summary>
         /// Creates from the bar index specified.

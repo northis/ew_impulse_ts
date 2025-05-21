@@ -283,13 +283,13 @@ namespace TradeKit.Core.Telegram
                     $"Profit = {Helper.PriceFormat(profit, 2)}; {Helper.PriceFormat(nom / signalArgs.PipSize, 0)} pips; Δ={Helper.PriceFormat(100 * nom / price, 2)}%");
             }
 
-            sb.AppendLine($"Spread = {Helper.PriceFormat(spread * Math.Pow(10, signalArgs.Digits), 0)}");
+            //sb.AppendLine($"Spread = {Helper.PriceFormat(spread * Math.Pow(10, signalArgs.Digits), 0)}");
 
-            string comment = signalArgs.SignalEventArgs.Comment;
-            if (!string.IsNullOrEmpty(comment))
-            {
-                sb.AppendLine(comment);
-            }
+            // string comment = signalArgs.SignalEventArgs.Comment;
+            // if (!string.IsNullOrEmpty(comment))
+            // {
+            //     sb.AppendLine(comment);
+            // }
 
             TimeSpan tfTs = TimeFrameHelper.GetTimeFrameInfo(signalArgs.SignalEventArgs.Level.BarTimeFrame).TimeSpan;
             if (!m_ProviderMap.TryGetValue(signalArgs.SymbolName, out string provPart))

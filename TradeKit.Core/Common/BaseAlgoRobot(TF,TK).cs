@@ -131,11 +131,7 @@ namespace TradeKit.Core.Common
                     TF sf = CreateSetupFinder(timeFrame, symbolEntity);
                     string key = sf.Id;
 
-                    if (!m_IsBackTesting)
-                    {
-                        sf.BarsProvider.LoadBars(DateTime.Now.AddDays(-2));
-                    }
-
+                    sf.BarsProvider.LoadBars(DateTime.Now.AddDays(-2));
                     sf.BarsProvider.BarClosed += BarClosed;
                     m_SymbolsMap[key] = symbolEntity;
                     m_SetupFindersMap[key] = sf;

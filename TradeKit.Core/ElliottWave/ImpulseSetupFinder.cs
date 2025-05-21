@@ -191,9 +191,10 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
-            isImpulseUp = SetupEndPrice > SetupStartPrice;
-            bool isProfitHit = isImpulseUp && high >= SetupEndPrice
-                               || !isImpulseUp && low <= SetupEndPrice;
+            isImpulseUp = CurrentSignalEventArgs.TakeProfit >
+                          CurrentSignalEventArgs.StopLoss;
+            bool isProfitHit = isImpulseUp && high >= CurrentSignalEventArgs.TakeProfit.Value
+                               || !isImpulseUp && low <= CurrentSignalEventArgs.TakeProfit.Value;
 
             bool needToCheckLimit = CurrentSignalEventArgs.IsLimit &&
                                     !CurrentSignalEventArgs.IsActive;
@@ -208,8 +209,8 @@ namespace TradeKit.Core.ElliottWave
                 m_ImpulseCache[finder].Clear();
             }
 
-            bool isStopHit = isImpulseUp && low <= SetupStartPrice
-                             || !isImpulseUp && high >= SetupStartPrice;
+            bool isStopHit = isImpulseUp && low <= CurrentSignalEventArgs.StopLoss.Value
+                             || !isImpulseUp && high >= CurrentSignalEventArgs.StopLoss.Value;
             if (isStopHit)
             {
                 IsInSetup = false;
@@ -369,7 +370,7 @@ namespace TradeKit.Core.ElliottWave
                 SetupEndIndex == signalArgs.EndItem.Value.BarIndex)
             {
                 // Cannot use the same impulse twice.
-                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: Cannot use the same impulse twice");
+                //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: Cannot use the same impulse twice");
                 return false;
             }
 
