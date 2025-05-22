@@ -24,7 +24,9 @@ namespace TradeKit.Core.Gartley
         double BtoDActual,
         double BtoD,
         double XtoBActual,
-        double XtoB = 0)
+        double XtoB = 0,
+        BarPoint ItemE = null,
+        double CtoE = 0)
     {
         /// <summary>
         /// Gets true if this item equals to the passed one.
@@ -39,7 +41,8 @@ namespace TradeKit.Core.Gartley
                 !ItemA.Equals(other.ItemA) ||
                 !ItemB.Equals(other.ItemB) ||
                 !ItemC.Equals(other.ItemC) ||
-                !ItemD.Equals(other.ItemD))
+                !ItemD.Equals(other.ItemD) ||
+                ItemE != null && !ItemE.Equals(other.ItemE))
             {
                 return false;
             }
@@ -83,6 +86,9 @@ namespace TradeKit.Core.Gartley
             hashCode.Add(ItemB);
             hashCode.Add(ItemC);
             hashCode.Add(ItemD);
+            if (ItemE != null)
+                hashCode.Add(ItemE);
+            
             return hashCode.ToHashCode();
         }
     };

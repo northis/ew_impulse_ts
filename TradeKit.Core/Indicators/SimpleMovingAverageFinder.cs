@@ -42,8 +42,9 @@ namespace TradeKit.Core.Indicators
             return BarsProvider.GetMedianPrice(index);
         }
 
-        public override void OnCalculate(int index, DateTime openDateTime)
+        public override void OnCalculate(DateTime openDateTime)
         {
+            int index = BarsProvider.GetIndexByTime(openDateTime);
             //TODO get rid of the index usage, can be issues on int shift
             int index1 = checked(index + Shift);
             DateTime dtIndex1 = BarsProvider.GetOpenTime(index1);

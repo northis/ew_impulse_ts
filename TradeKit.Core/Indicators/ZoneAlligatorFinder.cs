@@ -37,7 +37,7 @@ namespace TradeKit.Core.Indicators
             m_SmaLips = new SimpleMovingAverageFinder(barsProvider, lipsPeriods, lipsShift);
         }
 
-        public override void OnCalculate(int index, DateTime openDateTime)
+        public override void OnCalculate(DateTime openDateTime)
         {
             double jaw = m_SmaJaws.GetResultValue(openDateTime);
             double teeth = m_SmaTeeth.GetResultValue(openDateTime);

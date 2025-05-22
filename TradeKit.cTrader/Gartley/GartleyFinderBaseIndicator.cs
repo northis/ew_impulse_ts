@@ -134,7 +134,7 @@ namespace TradeKit.CTrader.Gartley
 
         public override void Calculate(int index)
         {
-            m_SupertrendFinder?.OnCalculate(index, m_BarsProvider.GetOpenTime(index));
+            m_SupertrendFinder?.OnCalculate(Bars.OpenTimes[index]);
             if (SaveCandles && !m_CandlesSaved)
             {
                 string savedFilePath = m_BarsProvider.SaveCandlesForDateRange(DateRangeToCollect);
@@ -179,15 +179,15 @@ namespace TradeKit.CTrader.Gartley
         /// <param name="e">The event argument type.</param>
         protected override void OnEnter(object sender, GartleySignalEventArgs e)
         {
-            int levelIndex = e.Level.BarIndex;
-            int indexX = e.GartleyItem.ItemX.BarIndex;
-            int indexA = e.GartleyItem.ItemA.BarIndex;
-            int indexB = e.GartleyItem.ItemB.BarIndex;
-            int indexC = e.GartleyItem.ItemC.BarIndex;
-            int indexD = e.GartleyItem.ItemD.BarIndex;
+            int levelIndex = Bars.OpenTimes.GetIndexByTime(e.Level.OpenTime);
+            int indexX = Bars.OpenTimes.GetIndexByTime(e.GartleyItem.ItemX.OpenTime);
+            int indexA = Bars.OpenTimes.GetIndexByTime(e.GartleyItem.ItemA.OpenTime);
+            int indexB = Bars.OpenTimes.GetIndexByTime(e.GartleyItem.ItemB.OpenTime);
+            int indexC = Bars.OpenTimes.GetIndexByTime(e.GartleyItem.ItemC.OpenTime);
+            int indexD =  Bars.OpenTimes.GetIndexByTime(e.GartleyItem.ItemD.OpenTime);
             if (indexX == 0 || indexA == 0 || indexB == 0 || indexC == 0 || indexD == 0)
                 return;
-
+            
             string name = $"{levelIndex}{e.GartleyItem.GetHashCode()}";
             double valueX = e.GartleyItem.ItemX.Value;
             double valueA = e.GartleyItem.ItemA.Value;
@@ -195,17 +195,35 @@ namespace TradeKit.CTrader.Gartley
             double valueC = e.GartleyItem.ItemC.Value;
             double valueD = e.GartleyItem.ItemD.Value;
 
+            bool useE = e.GartleyItem.ItemE != null;
+
+            int indexE = useE
+                ? Bars.OpenTimes.GetIndexByTime(e.GartleyItem.ItemE.OpenTime)
+                : 0;
+            double valueE = useE
+                ? e.GartleyItem.ItemE.Value
+                : 0;
+
             bool isBull = valueX < valueA;
+            if(useE) isBull = !isBull;
+            
             Color colorFill = isBull ? m_BullColorFill : m_BearColorFill;
             Color colorBorder = isBull ? m_BullColorBorder : m_BearColorBorder;
             
             ChartTriangle p1 = 
             Chart.DrawTriangle($"P1{name}", indexX, valueX, indexA, valueA, indexB, valueB, colorFill, 0);
             p1.IsFilled = true;
-
+            
             ChartTriangle p2 = 
-            Chart.DrawTriangle($"P2{name}", indexB, valueB, indexC, valueC, indexD, valueD, colorFill, 0);
+                Chart.DrawTriangle($"P2{name}", indexB, valueB, indexC, valueC, indexD, valueD, colorFill, 0);
             p2.IsFilled = true;
+
+            if (useE)
+            {
+                ChartTriangle p3 = 
+                    Chart.DrawTriangle($"P3{name}", indexC, valueC, indexD, valueD, indexE, valueE, colorFill, 0);
+                p3.IsFilled = true;
+            }
 
             string percent = ShowRatio ? $" ({e.GartleyItem.AccuracyPercent}%)" : string.Empty;
             string header =
@@ -222,21 +240,15 @@ namespace TradeKit.CTrader.Gartley
             {
                 string[] pNames = e.GartleyItem.PatternType.GetPointNames();
                 Chart.DrawText($"XText{name}", pNames[0], indexX, valueX, colorBorder)
-                    .ChartTextAlign(!isBull);
+                    .ChartTextAlign(!e.GartleyItem.IsBull);
                 Chart.DrawText($"AText{name}", pNames[1], indexA, valueA, colorBorder)
-                    .ChartTextAlign(isBull);
+                    .ChartTextAlign(e.GartleyItem.IsBull);
                 Chart.DrawText($"BText{name}", pNames[2], indexB, valueB, colorBorder)
-                    .ChartTextAlign(!isBull);
+                    .ChartTextAlign(!e.GartleyItem.IsBull);
                 Chart.DrawText($"CText{name}", pNames[3], indexC, valueC, colorBorder)
-                    .ChartTextAlign(isBull);
+                    .ChartTextAlign(e.GartleyItem.IsBull);
                 Chart.DrawText($"DText{name}", pNames[4], indexD, valueD, colorBorder)
-                    .ChartTextAlign(!isBull);
-
-                /*
-                if (pNames.Length > 5)
-                    Chart.DrawText($"EText{name}", pNames[5], indexE, valueE, colorBorder)                        
-                        .ChartTextAlign(isBull);
-                */
+                    .ChartTextAlign(!e.GartleyItem.IsBull);
 
                 ChartTrendLine xbLine =
                     Chart.DrawTrendLine($"XB{name}", indexX, valueX, indexB, valueB, colorBorder, LINE_WIDTH);
@@ -244,7 +256,6 @@ namespace TradeKit.CTrader.Gartley
                     ? $" ({e.GartleyItem.XtoB.Ratio()})"
                     : string.Empty;
                 xbLine.TextForLine(Chart, $"{e.GartleyItem.XtoBActual.Ratio()}{xbLevel}", !true, indexX, indexB);
-
 
                 ChartTrendLine bdLine = Chart.DrawTrendLine(
                     $"BD{name}", indexB, valueB, indexD, valueD, colorBorder, LINE_WIDTH);
@@ -257,6 +268,23 @@ namespace TradeKit.CTrader.Gartley
 
                 acLine.TextForLine(Chart, $"{e.GartleyItem.AtoCActual.Ratio()} ({e.GartleyItem.AtoC.Ratio()})",
                     isBull, indexA, indexC);
+
+                if (pNames.Length > 5 && useE)
+                {
+                    Chart.DrawText($"EText{name}", pNames[5], indexE, valueE,
+                            colorBorder)
+                        .ChartTextAlign(e.GartleyItem.IsBull);
+
+                    ChartTrendLine ceLine =
+                        Chart.DrawTrendLine($"CE{name}", indexC, valueC, indexE,
+                            valueE, colorBorder, LINE_WIDTH);
+                    string ceLevel = e.GartleyItem.CtoE > 0
+                        ? $" ({e.GartleyItem.CtoE.Ratio()})"
+                        : string.Empty;
+                    ceLine.TextForLine(Chart,
+                        $"{e.GartleyItem.XtoBActual.Ratio()}{ceLevel}", !true,
+                        indexC, indexE);
+                }
             }
 
             if (ShowSetups)

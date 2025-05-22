@@ -40,6 +40,7 @@ namespace TradeKit.CTrader.Core
             m_CandlesDate = new SortedDictionary<DateTime, int>();
             m_CandlesIndex = new SortedDictionary<int, Candle>();
             m_Bars = bars;
+            ReloadBars();
             bars.BarClosed += OnBarClosed;
             BarSymbol = symbolEntity;
             TimeFrame = new CTraderTimeFrame(bars.TimeFrame);

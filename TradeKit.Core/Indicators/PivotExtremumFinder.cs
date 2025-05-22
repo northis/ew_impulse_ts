@@ -41,14 +41,14 @@ namespace TradeKit.Core.Indicators
         /// <summary>
         /// Called inside the <see cref="BaseFinder{T}.Calculate(int)" /> method.
         /// </summary>
-        /// <param name="index">The index.</param>
         /// <param name="openDateTime">The open date time.</param>
-        public override void OnCalculate(int index, DateTime openDateTime)
+        public override void OnCalculate(DateTime openDateTime)
         {
-            m_PivotPointsFinder.Calculate(index);
+            m_PivotPointsFinder.Calculate(BarsProvider.GetIndexByTime(openDateTime));
             if (BarsProvider.Count < 2)
                 return;
-
+            
+            int index = BarsProvider.GetIndexByTime(openDateTime);
             int currentIndex = index - m_Period;
             if (currentIndex < 0)
                 return;

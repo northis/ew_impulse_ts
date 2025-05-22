@@ -303,6 +303,12 @@ namespace TradeKit.Core.AlgoBase
                           HasExtremaBetweenPoints(projection.ItemB, projection.ItemC) ||
                           HasExtremaBetweenPoints(projection.ItemC, projection.ItemD);
 
+            if (projection.ItemE != null)
+            {
+                result = result ||
+                         HasExtremaBetweenPoints(projection.ItemD, projection.ItemE);
+            }
+
             return result;
         }
         
@@ -317,15 +323,16 @@ namespace TradeKit.Core.AlgoBase
                 projection.ItemA == null ||
                 projection.ItemB == null ||
                 projection.ItemC == null ||
-                projection.ItemD == null)
+                projection.ItemD == null ||
+                projection.CtoE > 0 && projection.ItemE == null)
                 return null;
 
-            if (0d == projection.ItemX.Value || 
-                0d == projection.ItemA.Value || 
-                0d == projection.ItemB.Value || 
-                0d == projection.ItemC.Value || 
-                0d == projection.ItemD.Value)
-                return null;
+            // if (0d == projection.ItemX.Value || 
+            //     0d == projection.ItemA.Value || 
+            //     0d == projection.ItemB.Value || 
+            //     0d == projection.ItemC.Value || 
+            //     0d == projection.ItemD.Value)
+            //     return null;
 
             double xA = Math.Abs(projection.ItemA - projection.ItemX);
             double aB = Math.Abs(projection.ItemB - projection.ItemA);
@@ -337,6 +344,14 @@ namespace TradeKit.Core.AlgoBase
             if (xA <= 0 || aB <= 0 || cB <= 0 || cD <= 0 || aD <= 0)
                 return null;
 
+            double dE = 0;
+            if (projection.CtoE > 0)
+            {
+                dE = Math.Abs(projection.ItemD - projection.ItemE);
+                if (dE <= 0)
+                    return null;
+            }
+            
             if (HasExtremaBetweenPoints(projection))
             {
                 //Logger.Write($"{nameof(HasExtremaBetweenPoints)}: {projection.PatternType.PatternType}");
@@ -359,18 +374,24 @@ namespace TradeKit.Core.AlgoBase
 
             var accuracyList = new List<double>
             {
-                GetRatio(projection.XtoD, xD),
                 GetRatio(projection.AtoC, aC),
                 GetRatio(projection.BtoD, bD)
             };
 
             if(projection.XtoB > 0)
                 accuracyList.Add(GetRatio(projection.XtoB, xB));
+            if(projection.XtoD > 0)
+                accuracyList.Add(GetRatio(projection.XtoD, xD));
+            if (projection.CtoE > 0)
+            {
+                double cE = dE / cD;
+                accuracyList.Add(GetRatio(projection.CtoE, cE));
+            }
 
             double accuracy = accuracyList.Average();
             if (!projection.IsPatternFitForTrade(out double sl, out double tp1, out double tp2))
                 return null;
-            
+
             var item = new GartleyItem(Convert.ToInt32(accuracy * 100),
                 projection.PatternType.PatternType,
                 projection.ItemX,
@@ -382,7 +403,8 @@ namespace TradeKit.Core.AlgoBase
                 xD, projection.XtoD,
                 aC, projection.AtoC,
                 bD, projection.BtoD,
-                xB, projection.XtoB);
+                xB, projection.XtoB,
+                projection.ItemE, projection.CtoE);
             return item;
         }
 

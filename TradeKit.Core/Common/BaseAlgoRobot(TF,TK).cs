@@ -754,7 +754,7 @@ namespace TradeKit.Core.Common
                 }
             }
 
-            if (m_RobotParams.SaveChartForManualAnalysis || m_IsBackTesting)
+            if (m_RobotParams.SaveChartForManualAnalysis || m_IsBackTesting || m_RobotParams.AllowToTrade)
                 m_ChartFileFinderMap[sf.Id] = e;
             if (!TelegramReporter.IsReady)
                 return;

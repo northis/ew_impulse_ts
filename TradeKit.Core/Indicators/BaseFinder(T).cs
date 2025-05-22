@@ -11,7 +11,7 @@ namespace TradeKit.Core.Indicators
         private readonly TimeSpan m_DefaultCleanDuration;
 
         /// <summary>
-        /// Gets the bars provider.
+        /// Gets the bar provider.
         /// </summary>
         public IBarsProvider BarsProvider { get; }
 
@@ -44,7 +44,8 @@ namespace TradeKit.Core.Indicators
 
         private void OnBarClosed(object sender, System.EventArgs e)
         {
-            Calculate(BarsProvider.Count - 1);
+            DateTime lastDate = BarsProvider.GetOpenTime(BarsProvider.Count - 1);
+            Calculate(lastDate);
         }
 
         /// <summary>
@@ -56,7 +57,8 @@ namespace TradeKit.Core.Indicators
         {
             for (int i = startIndex; i <= endIndex; i++)
             {
-                Calculate(i);
+                DateTime date = BarsProvider.GetOpenTime(i);
+                Calculate(date);
             }
         }
 
@@ -75,24 +77,22 @@ namespace TradeKit.Core.Indicators
         /// <summary>
         /// Called on new bar coming.
         /// </summary>
-        /// <param name="index">The index.</param>
         /// <param name="openDateTime">The open date time.</param>
-        public abstract void OnCalculate(int index, DateTime openDateTime);
+        public abstract void OnCalculate(DateTime openDateTime);
 
         /// <summary>
-        /// Calculates the extrema for the specified <see cref="index"/>.
+        /// Calculates the extrema for the specified <see cref="openDateTime"/>.
         /// </summary>
-        /// <param name="index">The index.</param>
-        public void Calculate(int index)
+        /// <param name="openDateTime">The open date time.</param>
+        public void Calculate(DateTime openDateTime)
         {
-            DateTime dt = BarsProvider.GetOpenTime(index);
-
+            int index = BarsProvider.GetIndexByTime(openDateTime);
             if (index % m_DefaultCleanBarsCount == 0)
             {
-                Result.RemoveLeft(a => a < dt.Add(m_DefaultCleanDuration));
+                Result.RemoveLeft(a => a < openDateTime.Add(m_DefaultCleanDuration));
             }
 
-            OnCalculate(index, dt);
+            OnCalculate(openDateTime);
         }
 
         /// <summary>
@@ -116,7 +116,7 @@ namespace TradeKit.Core.Indicators
             if (!UseAutoCalculateEvent)
                 return default;
 
-            OnCalculate(BarsProvider.GetIndexByTime(dt), dt);
+            OnCalculate(dt);
             return Result.GetValueOrDefault(dt);
         }
 

@@ -6,6 +6,6 @@
         double[] XDValues,
         double[] BDValues,
         double[] ACValues,
-        double[] CEValues = null,
+        double[] CEValues,
         GartleySetupType SetupType = GartleySetupType.AD);
 }

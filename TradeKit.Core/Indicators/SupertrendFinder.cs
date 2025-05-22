@@ -28,8 +28,9 @@ namespace TradeKit.Core.Indicators
             m_MovingAverageFinder = new TrueRangeMovingAverageFinder(barsProvider, Periods);
         }
 
-        public override void OnCalculate(int index, DateTime openDateTime)
+        public override void OnCalculate(DateTime openDateTime)
         {
+            int index = BarsProvider.GetIndexByTime(openDateTime);
             double median = BarsProvider.GetMedianPrice(index);
             double averageTrueRangeValue = m_MovingAverageFinder.GetResultValue(index);
             Up.SetResult(openDateTime, median + Multiplier * averageTrueRangeValue);

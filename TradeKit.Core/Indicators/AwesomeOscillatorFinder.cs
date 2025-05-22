@@ -13,7 +13,7 @@ namespace TradeKit.Core.Indicators
             m_Sma34 = new SimpleMovingAverageFinder(barsProvider, 34);
         }
 
-        public override void OnCalculate(int index, DateTime openDateTime)
+        public override void OnCalculate(DateTime openDateTime)
         {
             double result = m_Sma5.GetResultValue(openDateTime) - m_Sma34.GetResultValue(openDateTime);
             SetResultValue(openDateTime, result);

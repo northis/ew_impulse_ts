@@ -492,7 +492,7 @@ namespace TradeKit.Core.ElliottWave
         {
             foreach (DeviationExtremumFinder finder in m_ExtremumFinders)
             {
-                finder.OnCalculate(BarsProvider.GetIndexByTime(openDateTime), openDateTime);
+                finder.OnCalculate(openDateTime);
                 if (!IsInitialized)
                     continue;
                 

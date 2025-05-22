@@ -24,7 +24,7 @@ namespace TradeKit.Core.Indicators
         public SimpleDoubleFinder Bottom { get; }
         public SimpleDoubleFinder Top { get; }
 
-        public override void OnCalculate(int index, DateTime openDateTime)
+        public override void OnCalculate(DateTime openDateTime)
         {
             double num = m_Sda.GetResultValue(openDateTime) * m_StandardDeviations;
             double smaValue = m_Sma.GetResultValue(openDateTime);

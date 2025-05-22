@@ -18,6 +18,7 @@ namespace TradeKit.Core.Gartley
         private double m_Max;
         private DateTime m_MaxDate;
         private double m_ItemDCancelPrice = double.NaN;
+        private double m_ItemECancelPrice = double.NaN;
         private readonly int m_IsUpK;
         private bool m_PatternIsReady;
         private bool m_ProjectionIsReady;
@@ -28,10 +29,10 @@ namespace TradeKit.Core.Gartley
         private RealLevel[] m_RatioToXeLevelsMap;
         private RealLevel[] m_RatioToBdLevelsMap;
         private readonly bool m_IsCd;
-        private readonly bool m_hasE;
+        private readonly bool m_HasE;
 
         private readonly List<RealLevelCombo> m_XdToDbMapSortedItems;
-        private readonly List<RealLevelCombo> m_CdToDeMapSortedItems;
+        private readonly List<RealLevel> m_CdToDeMapSortedItems;
         private BarPoint m_ItemC;
         private BarPoint m_ItemB;
         private BarPoint m_ItemD;
@@ -68,50 +69,58 @@ namespace TradeKit.Core.Gartley
                     XBValues: new[] {0.618},
                     XDValues: new[] {0.786},
                     BDValues: LEVELS.RangeVal(1.13, 1.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
+                    ACValues: LEVELS.RangeVal(0.382, 0.886),
+                    CEValues:Array.Empty<double>()),
                 new(GartleyPatternType.BUTTERFLY,
                     XBValues: new[] {0.786},
                     XDValues: LEVELS.RangeVal(1.27, 1.41),
                     BDValues: LEVELS.RangeVal(1.618, 2.24),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
+                    ACValues: LEVELS.RangeVal(0.382, 0.886),
+                    CEValues:Array.Empty<double>()),
                 new(GartleyPatternType.SHARK,
                     XBValues: LEVELS.RangeVal(0.382, 0.618),
                     XDValues: LEVELS.RangeVal(0.886, 1.13),
                     BDValues: LEVELS.RangeVal(1.618, 2.24),
-                    ACValues: LEVELS.RangeVal(1.13, 1.618)),
+                    ACValues: LEVELS.RangeVal(1.13, 1.618),
+                    CEValues:Array.Empty<double>()),
                 new(GartleyPatternType.CRAB,
                     XBValues: LEVELS.RangeVal(0.382, 0.618),
                     XDValues: new[] {1.618},
                     BDValues: LEVELS.RangeVal(2.618, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
+                    ACValues: LEVELS.RangeVal(0.382, 0.886),
+                    CEValues:Array.Empty<double>()),
                 new(GartleyPatternType.DEEP_CRAB,
                     XBValues: new[] {0.886},
                     XDValues: new[] {1.618},
                     BDValues: LEVELS.RangeVal(2, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
+                    ACValues: LEVELS.RangeVal(0.382, 0.886),
+                    CEValues:Array.Empty<double>()),
                 new(GartleyPatternType.BAT,
                     XBValues: LEVELS.RangeVal(0.382, 0.5),
                     XDValues: new[] {0.886},
                     BDValues: LEVELS.RangeVal(1.618, 2.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
+                    ACValues: LEVELS.RangeVal(0.382, 0.886),
+                    CEValues:Array.Empty<double>()),
                 new(GartleyPatternType.ALT_BAT,
                     XBValues: new[] {0.382},
                     XDValues: new[] {1.13},
                     BDValues: LEVELS.RangeVal(2, 3.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886)),
+                    ACValues: LEVELS.RangeVal(0.382, 0.886),
+                    CEValues:Array.Empty<double>()),
                 new(GartleyPatternType.CYPHER,
                     XBValues: LEVELS.RangeVal(0.382, 0.618),
                     XDValues: new[] {0.786},
                     BDValues: LEVELS.RangeVal(1.272, 2),
                     ACValues: LEVELS.RangeVal(1.13, 1.41),
-                    SetupType: GartleySetupType.CD),
-               // new(GartleyPatternType.FIVE_ZERO,
-               //     XBValues: Array.Empty<double>(),
-               //     XDValues: Array.Empty<double>(),
-               //     BDValues: LEVELS.RangeVal(1.618, 2.24),
-               //     ACValues: LEVELS.RangeVal(1.13, 1.618),
-               //     CEValues: new[] {0.5},
-               //     SetupType: GartleySetupType.CD)
+                    SetupType: GartleySetupType.CD,
+                    CEValues:Array.Empty<double>()),
+               new(GartleyPatternType.FIVE_ZERO,
+                   XBValues: Array.Empty<double>(),
+                   XDValues: Array.Empty<double>(),
+                   BDValues: LEVELS.RangeVal(1.618, 2.24),
+                   ACValues: LEVELS.RangeVal(1.13, 1.618),
+                   CEValues: new[] {0.5},
+                   SetupType: GartleySetupType.CD)
             };
 
             PATTERNS_MAP = Patterns.ToDictionary(a => a.PatternType, a => a);
@@ -140,14 +149,23 @@ namespace TradeKit.Core.Gartley
 
         private void UpdateDtoE()
         {
-            if (ItemD == null || 
-                ItemC == null ||
-                !m_hasE)
+            if (ItemD == null || ItemC == null || !m_HasE)
                 return;
+            
+            m_CdToDeMapSortedItems.Clear();
             
             double lengthCtoD = Math.Abs(ItemC - ItemD);
             m_RatioToXeLevelsMap = InitPriceRanges(
                 PatternType.CEValues, false, lengthCtoD, ItemD.Value);
+
+            foreach (RealLevel map in m_RatioToXeLevelsMap)
+            {
+                m_CdToDeMapSortedItems.Add(map);
+            }
+
+            m_ItemECancelPrice = IsBull
+                ? m_RatioToXeLevelsMap.MaxBy(a => a.Max).Max
+                : m_RatioToXeLevelsMap.MinBy(a => a.Min).Min;
         }
         
         public GartleyProjection(
@@ -169,7 +187,7 @@ namespace TradeKit.Core.Gartley
             IsBull = itemX < itemA;
             LengthAtoX = Math.Abs(ItemA - ItemX);
             m_IsCd = PatternType.SetupType == GartleySetupType.CD;
-            m_hasE = PatternType.CEValues.Length > 0;
+            m_HasE = PatternType.CEValues.Length > 0;
 
             m_Min = double.PositiveInfinity;
             m_Max = double.NegativeInfinity;
@@ -191,7 +209,7 @@ namespace TradeKit.Core.Gartley
 
             //We cannot initialize BD/XD ranges until points B/C is calculated.
             m_XdToDbMapSortedItems = new List<RealLevelCombo>();
-            m_CdToDeMapSortedItems = new List<RealLevelCombo>();
+            m_CdToDeMapSortedItems = new List<RealLevel>();
         }
         
         /// <summary>
@@ -279,18 +297,20 @@ namespace TradeKit.Core.Gartley
         {
             double cD = Math.Abs(ItemC - ItemD);
             double aD = Math.Abs(ItemA - ItemD);
-            bool isBull = IsBull;
-            double closeD = m_BarsProvider.GetClosePrice(ItemD.BarIndex);
+            BarPoint targetPoint = m_HasE ? ItemE : ItemD;
+            bool isBull = m_HasE ? !IsBull : IsBull;// Well, the 5-0 pattern has one extra point, and it was easier to calculate it like a Shark pattern and reverse the direction in the end.
+            double closeLastCandle =
+                m_BarsProvider.GetClosePrice((m_HasE ? ItemE : ItemD).BarIndex);
  
             double actualSize = PatternType.SetupType == GartleySetupType.AD ? aD : cD;
 
             double slLen = actualSize * m_SlRatio;
             double tp1Len = actualSize * m_TpRatio;
-            sl = isBull ? -slLen + ItemD : slLen + ItemD;
+            sl = isBull ? -slLen + targetPoint : slLen + targetPoint;
             //double tp1Len = Math.Abs(sl - closeD);
 
-            tp1 = isBull ? tp1Len + ItemD : -tp1Len + ItemD;
-            if (isBull && closeD - tp1 >= 0 || !isBull && closeD - tp1 <= 0)
+            tp1 = isBull ? tp1Len + targetPoint : -tp1Len + targetPoint;
+            if (isBull && closeLastCandle - tp1 >= 0 || !isBull && closeLastCandle - tp1 <= 0)
             {
                 //Logger.Write("TP is already hit.");
                 tp2 = double.NaN;
@@ -298,9 +318,9 @@ namespace TradeKit.Core.Gartley
             }
 
             double tp2Len = actualSize * TP2_RATIO;
-            tp2 = isBull ? tp2Len + ItemD : -tp2Len + ItemD;
+            tp2 = isBull ? tp2Len + targetPoint : -tp2Len + targetPoint;
 
-            double def = Math.Abs(closeD - sl) / Math.Abs(closeD - tp1);
+            double def = Math.Abs(closeLastCandle - sl) / Math.Abs(closeLastCandle - tp1);
             if (def > MAX_SL_TP_RATIO_ALLOWED)
             {
                 //Logger.Write("SL/TP is too big.");
@@ -350,18 +370,6 @@ namespace TradeKit.Core.Gartley
                 AtoC = levelRange.Ratio;
                 break;
             }
-        }
-
-        /// <summary>
-        /// Gets ranges for the D point for the projection if available.
-        /// </summary>
-        /// <returns>The D point.</returns>
-        public List<RealLevelCombo> GetProjectionDPoint()
-        {
-            if (!m_ProjectionIsReady)
-                return null;
-
-            return m_XdToDbMapSortedItems;
         }
 
         private void UpdateD(DateTime dt, double value)
@@ -418,7 +426,7 @@ namespace TradeKit.Core.Gartley
                     continue;
 
                 ItemD = new BarPoint(value, dt, m_BarsProvider);
-                if (!IsPatternFitForTrade(out _, out _, out _))
+                if (!m_HasE && !IsPatternFitForTrade(out _, out _, out _))
                 {
                     //ItemD = null;
                     continue;
@@ -434,7 +442,7 @@ namespace TradeKit.Core.Gartley
             if (levelsToDelete == null || !patternIsReady)
                 return;
 
-            if (!m_hasE)
+            if (!m_HasE)
             {
                 m_PatternIsReady = true;
                 m_ProjectionIsReady = false;// Stop using the projection when we got the whole pattern
@@ -450,28 +458,47 @@ namespace TradeKit.Core.Gartley
 
         private void UpdateE(DateTime dt, double value)
         {
-            if (!m_hasE || ItemD == null || ItemC == null)
+            if (!m_HasE || ItemD == null || ItemC == null)
                 return;
-
-            foreach (RealLevel level in m_RatioToXeLevelsMap)
+            
+            List<RealLevel> levelsToDelete = new List<RealLevel>();
+            foreach (RealLevel level in
+                     m_CdToDeMapSortedItems.OrderByDescending(a => a.Ratio))
             {
                 if (IsBull)
                 {
-                    if (value > level.StartValue || value < level.EndValue)
+                    if (value < level.StartValue)
                         continue;
+                    
+                    if (value > level.EndValue)
+                    {
+                        levelsToDelete.Add(level);
+                        continue;
+                    }
                 }
                 else
                 {
-                    if (value < level.StartValue || value > level.EndValue)
+                    if (value > level.StartValue)
                         continue;
+                    
+                    if (value < level.EndValue)
+                    {
+                        levelsToDelete.Add(level);
+                        continue;
+                    }
                 }
-                
+
                 ItemE = new BarPoint(value, dt, m_BarsProvider);
                 CtoE = level.Ratio;
                 m_PatternIsReady = true;
                 m_ProjectionIsReady = false;
 
                 break;
+            }
+
+            foreach (RealLevel item in levelsToDelete)
+            {
+                m_CdToDeMapSortedItems.Remove(item);
             }
         }
 
@@ -582,13 +609,26 @@ namespace TradeKit.Core.Gartley
             }
 
             //if the price squeezes through all the levels without a pattern
-            if (!double.IsNaN(m_ItemDCancelPrice) && !m_PatternIsReady)
+            if (!m_PatternIsReady)
             {
-                if (IsBull && low < m_ItemDCancelPrice ||
-                    !IsBull && high > m_ItemDCancelPrice)
+                if (!double.IsNaN(m_ItemDCancelPrice))
                 {
-                    m_IsInvalid = true;
-                    return ProjectionState.NO_PROJECTION;
+                    if (IsBull && low < m_ItemDCancelPrice ||
+                        !IsBull && high > m_ItemDCancelPrice)
+                    {
+                        m_IsInvalid = true;
+                        return ProjectionState.NO_PROJECTION;
+                    }
+                }
+                
+                if (!double.IsNaN(m_ItemECancelPrice))
+                {
+                    if (IsBull && high > m_ItemECancelPrice ||
+                        !IsBull && low < m_ItemECancelPrice)
+                    {
+                        m_IsInvalid = true;
+                        return ProjectionState.NO_PROJECTION;
+                    }
                 }
             }
 
@@ -611,7 +651,7 @@ namespace TradeKit.Core.Gartley
                 }
             }
 
-            if (m_hasE && ItemC != null)
+            if (m_HasE && ItemC != null)
             {
                 if (IsBull && high > ItemC || !IsBull && low < ItemC)
                 {
@@ -691,7 +731,7 @@ namespace TradeKit.Core.Gartley
 
                     UpdateXdToDbMaps();
 
-                    if (!m_hasE)
+                    if (!m_HasE)
                         m_ProjectionIsReady = true;
                 }
             }
@@ -703,7 +743,7 @@ namespace TradeKit.Core.Gartley
             set
             {
                 m_ItemD = value;
-                if (!m_hasE)
+                if (!m_HasE)
                     return;
 
                 if (value == null)

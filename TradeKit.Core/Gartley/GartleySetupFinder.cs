@@ -166,8 +166,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     protected override void CheckSetup(DateTime openDateTime)
     {
         int index = m_MainBarsProvider.GetIndexByTime(openDateTime);
-        m_Supertrend?.OnCalculate(index, openDateTime);
-        m_ZoneAlligatorFinder?.OnCalculate(index, openDateTime);
+        m_Supertrend?.OnCalculate(openDateTime);
+        m_ZoneAlligatorFinder?.OnCalculate(openDateTime);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
         var localPatterns = m_PatternFinder.FindGartleyPatterns(index);

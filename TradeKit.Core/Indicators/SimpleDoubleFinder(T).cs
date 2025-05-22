@@ -8,7 +8,7 @@ namespace TradeKit.Core.Indicators
         {
         }
 
-        public override void OnCalculate(int index, DateTime openDateTime)
+        public override void OnCalculate(DateTime openDateTime)
         {
         }
 

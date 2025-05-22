@@ -84,6 +84,6 @@ public class ExactZigzagIndicator : Indicator
 
     public override void Calculate(int index)
     {
-        m_ExtremumFinder.Calculate(index);
+        m_ExtremumFinder.Calculate(Bars.OpenTimes[index]);
     }
 }
