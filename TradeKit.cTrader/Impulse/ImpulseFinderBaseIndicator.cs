@@ -30,8 +30,8 @@ namespace TradeKit.CTrader.Impulse
             m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame.ToITimeFrame());
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, GetImpulseParams());
             Subscribe(m_SetupFinder);
+            m_SetupFinder.MarkAsInitialized();
         }
-
 
         /// <summary>
         /// Joins the EW-specific parameters into one record.
@@ -39,7 +39,7 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                Period, MinChannelRatio, EnterRatio, TakeRatio, MaxZigzagPercent, MaxOverlapseLengthPercent,
+                Period, EnterRatio, TakeRatio, 0,MaxZigzagPercent, MaxOverlapseLengthPercent,
                 HeterogeneityMaxPercent, MinSizePercent, BarsCount);
         }
 
@@ -58,12 +58,6 @@ namespace TradeKit.CTrader.Impulse
         public int Period { get; set; }
 
         /// <summary>
-        /// Gets or sets how far impulse went from the previous trend.
-        /// </summary>
-        [Parameter(nameof(MinChannelRatio), DefaultValue = 2.0, MinValue = 0.1, MaxValue = 10.0, Group = Helper.TRADE_SETTINGS_NAME)]
-        public double MinChannelRatio { get; set; }
-
-        /// <summary>
         /// How deep we should go until enter.
         /// </summary>
         [Parameter(nameof(EnterRatio), DefaultValue = 0.35, MinValue = 0.1, MaxValue = 0.95, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -72,7 +66,7 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// How far we should go until take profit.
         /// </summary>
-        [Parameter(nameof(TakeRatio), DefaultValue = 1.6, MinValue = 1, MaxValue = 4.236, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(TakeRatio), DefaultValue = 1.6, MinValue = 0.9, MaxValue = 4.236, Group = Helper.TRADE_SETTINGS_NAME)]
         public double TakeRatio { get; set; }
 
         /// <summary>
@@ -82,7 +76,7 @@ namespace TradeKit.CTrader.Impulse
         public int BarsCount { get; set; }
 
         /// <summary>
-        /// Gets or sets the maximum percent of the zigzag degree (how far the pullbacks can go from the main movement, in percents of the total bars).
+        /// Gets or sets the maximum percentage of the zigzag degree (how far the pullbacks can go from the main movement, in percentages of the total bars).
         /// </summary>
         [Parameter(nameof(MaxZigzagPercent), DefaultValue = Helper.MAX_ZIGZAG_DEGREE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxZigzagPercent { get; set; }
@@ -107,8 +101,8 @@ namespace TradeKit.CTrader.Impulse
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
-            int levelIndex = e.Level.BarIndex;
-            Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.BarIndex, e.FromLevel.Value, levelIndex, e.Level.Value, Color.LightCoral, 2);
+            int levelIndex = Bars.OpenTimes.GetIndexByTime(e.Level.OpenTime);
+            Chart.DrawTrendLine($"LineSL{levelIndex}", e.FromLevel.OpenTime, e.FromLevel.Value, e.Level.OpenTime, e.Level.Value, Color.LightCoral, 2);
             Chart.DrawIcon($"SL{levelIndex}", ChartIconType.Star, levelIndex
                 , e.Level.Value, Color.LightCoral);
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
@@ -116,18 +110,18 @@ namespace TradeKit.CTrader.Impulse
         }
 
         /// <summary>
-        /// Called when take profit event occurs.
+        /// Called when take-profit event occurs.
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected override void OnTakeProfit(object sender, LevelEventArgs e)
         {
-            int levelIndex = e.Level.BarIndex;
-            Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.BarIndex, e.FromLevel.Value, levelIndex, e.Level.Value, Color.LightGreen, 2);
+            int levelIndex = Bars.OpenTimes.GetIndexByTime(e.Level.OpenTime);
+            Chart.DrawTrendLine($"LineTP{levelIndex}", e.FromLevel.OpenTime, e.FromLevel.Value, e.Level.OpenTime, e.Level.Value, Color.LightGreen, 2);
             Chart.DrawIcon($"TP{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.LightGreen);
 
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
-            Logger.Write($"TP hit! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
+            Logger.Write($"TP hit! Price:{priceFmt} ({e.Level.OpenTime:s})");
         }
 
         /// <summary>
@@ -137,7 +131,7 @@ namespace TradeKit.CTrader.Impulse
         /// <param name="e">The event argument type.</param>
         protected override void OnEnter(object sender, ImpulseSignalEventArgs e)
         {
-            int levelIndex = e.Level.BarIndex;
+            int levelIndex = Bars.OpenTimes.GetIndexByTime(e.Level.OpenTime);
             Chart.DrawIcon($"E{levelIndex}", ChartIconType.Star, levelIndex, e.Level.Value, Color.White);
             Chart.DrawText($"T{levelIndex}", e.Comment, levelIndex, e.Level.Value, Color.White);
 
@@ -151,7 +145,7 @@ namespace TradeKit.CTrader.Impulse
             }
 
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
-            Logger.Write($"New setup found! Price:{priceFmt} ({Bars[levelIndex].OpenTime:s})");
+            Logger.Write($"New setup found! Price:{priceFmt} ({e.Level.OpenTime:s})");
         }
     }
 }

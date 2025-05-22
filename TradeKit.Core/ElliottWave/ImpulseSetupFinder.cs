@@ -132,14 +132,6 @@ namespace TradeKit.Core.ElliottWave
             //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
             return res;
         }
-
-        LevelEventArgs GetCurrentLevelArgs(int index)
-        {
-            var levelArgs = new LevelEventArgs(
-                new BarPoint(SetupStartPrice, index, BarsProvider),
-                CurrentSignalEventArgs.Level, false, CurrentStatistic);
-            return levelArgs;
-        }
         
         /// <summary>
         /// Determines whether the data for a specified index contains a trade setup.
@@ -201,7 +193,10 @@ namespace TradeKit.Core.ElliottWave
             if (isProfitHit)
             {
                 IsInSetup = false;
-                LevelEventArgs levelArgs = GetCurrentLevelArgs(index);
+                LevelEventArgs levelArgs = new LevelEventArgs(
+                    CurrentSignalEventArgs.TakeProfit.WithIndex(index,
+                        BarsProvider),
+                    CurrentSignalEventArgs.Level);
                 if (needToCheckLimit)
                     OnCanceledInvoke(levelArgs);
                 else
@@ -214,7 +209,10 @@ namespace TradeKit.Core.ElliottWave
             if (isStopHit)
             {
                 IsInSetup = false;
-                LevelEventArgs levelArgs = GetCurrentLevelArgs(index);
+                LevelEventArgs levelArgs = new LevelEventArgs(
+                    CurrentSignalEventArgs.StopLoss.WithIndex(index,
+                        BarsProvider),
+                    CurrentSignalEventArgs.Level);
                 if (needToCheckLimit)
                     OnCanceledInvoke(levelArgs);
                 else
@@ -434,7 +432,10 @@ namespace TradeKit.Core.ElliottWave
 
                 if (CurrentSignalEventArgs.IsLimit)
                 {
-                    LevelEventArgs levelArgs = GetCurrentLevelArgs(signalArgs.Index);
+                    LevelEventArgs levelArgs = new LevelEventArgs(
+                        CurrentSignalEventArgs.Level,
+                        new BarPoint(signalArgs.TriggerLevel,
+                            signalArgs.Index, BarsProvider));
                     OnCanceledInvoke(levelArgs);
                 }
                 

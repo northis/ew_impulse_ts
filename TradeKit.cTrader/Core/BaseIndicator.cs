@@ -27,7 +27,7 @@ namespace TradeKit.CTrader.Core
             m_SetupFinder.OnEnter += OnEnter;
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
-            m_SetupFinder.OnTakeProfit += OnBreakeven;
+            m_SetupFinder.OnBreakeven += OnBreakeven;
         }
         
         /// <summary>
