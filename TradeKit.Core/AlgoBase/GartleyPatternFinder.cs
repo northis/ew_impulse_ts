@@ -382,9 +382,10 @@ namespace TradeKit.Core.AlgoBase
                 accuracyList.Add(GetRatio(projection.XtoB, xB));
             if(projection.XtoD > 0)
                 accuracyList.Add(GetRatio(projection.XtoD, xD));
+            double cE = 0;
             if (projection.CtoE > 0)
             {
-                double cE = dE / cD;
+                cE = dE / cD;
                 accuracyList.Add(GetRatio(projection.CtoE, cE));
             }
 
@@ -404,7 +405,7 @@ namespace TradeKit.Core.AlgoBase
                 aC, projection.AtoC,
                 bD, projection.BtoD,
                 xB, projection.XtoB,
-                projection.ItemE, projection.CtoE);
+                projection.ItemE, projection.CtoE, cE);
             return item;
         }
 

@@ -26,7 +26,8 @@ namespace TradeKit.Core.Gartley
         double XtoBActual,
         double XtoB = 0,
         BarPoint ItemE = null,
-        double CtoE = 0)
+        double CtoE = 0,
+        double CtoEActual = 0)
     {
         /// <summary>
         /// Gets true if this item equals to the passed one.

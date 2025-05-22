@@ -229,12 +229,23 @@ namespace TradeKit.CTrader.Gartley
             string header =
                 $"{(isBull ? "Bullish" : "Bearish")} {e.GartleyItem.PatternType.Format()}{percent}";
 
-            string xdRatio = ShowRatio
-                ? $"{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()} ({e.GartleyItem.XtoD.Ratio()})"
-                : string.Empty;
+            string xdRatio;
+            if (ShowRatio)
+            {
+                string xdLevel = e.GartleyItem.XtoD > 0
+                    ? $" ({e.GartleyItem.XtoD.Ratio()})"
+                    : string.Empty;
+                xdRatio =
+                    $"{Environment.NewLine}{e.GartleyItem.XtoDActual.Ratio()}{xdLevel}";
+            }
+            else
+            {
+                xdRatio = string.Empty;
+            }
+
             Chart.DrawTrendLine($"XD{name}", indexX, valueX, indexD, valueD,
                     colorBorder, ShowRatio ? LINE_WIDTH : 0)
-                .TextForLine(Chart, $"{header}{xdRatio}", !isBull, indexX, indexD);
+                .TextForLine(Chart, $"{header}{xdRatio}", !e.GartleyItem.IsBull, indexX, indexD);
 
             if (ShowRatio)
             {
@@ -282,7 +293,7 @@ namespace TradeKit.CTrader.Gartley
                         ? $" ({e.GartleyItem.CtoE.Ratio()})"
                         : string.Empty;
                     ceLine.TextForLine(Chart,
-                        $"{e.GartleyItem.XtoBActual.Ratio()}{ceLevel}", !true,
+                        $"{e.GartleyItem.CtoEActual.Ratio()}{ceLevel}", !true,
                         indexC, indexE);
                 }
             }
