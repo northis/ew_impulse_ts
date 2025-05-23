@@ -316,7 +316,9 @@ namespace TradeKit.CTrader.Gartley
             BarPoint div = e.DivergenceStart;
             if (ShowDivergences && div is not null)
             {
-                Chart.DrawTrendLine($"Div{name}", div.BarIndex, div.Value, indexD, valueD, colorBorder, DIV_LINE_WIDTH);
+                Chart.DrawTrendLine($"Div{name}", div.BarIndex, div.Value,
+                    useE ? indexE : indexD, useE ? valueE : valueD, colorBorder,
+                    DIV_LINE_WIDTH);
             }
 
             string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");

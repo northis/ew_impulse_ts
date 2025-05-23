@@ -110,12 +110,15 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private void AddSetup(
         GartleyItem localPattern, double close, int index, List<CandlesResult> candlePatterns = null)
     {
+        bool realIsBull = localPattern.ItemE == null
+            ? localPattern.IsBull
+            : !localPattern.IsBull;
         if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
             TrendType trendAlligator = SignalFilters.GetTrend(
                 m_ZoneAlligatorFinder, BarsProvider.GetOpenTime(index));
             bool isCounterTrend = /*(localPattern.IsBull ? trend != TrendType.BULLISH : trend != TrendType.BEARISH) ||*/
-                (localPattern.IsBull ? trendAlligator == TrendType.BEARISH : trendAlligator == TrendType.BULLISH);
+                (realIsBull ? trendAlligator == TrendType.BEARISH : trendAlligator == TrendType.BULLISH);
 
             if (isCounterTrend)
                 return;
@@ -124,20 +127,20 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         BarPoint divItem = null;
         if (m_AwesomeOscillator != null)
         {
+            BarPoint targetPoint = localPattern.ItemE ?? localPattern.ItemD;
             divItem = SignalFilters.FindDivergence(
                 m_AwesomeOscillator,
                 BarsProvider,
                 localPattern.ItemX,
-                localPattern.ItemD,
-                localPattern.IsBull);
+                targetPoint,realIsBull);
             if (divItem is null)
             {
                 if (m_FilterByDivergence)
                     return;
             }
-            else
+            /*else
             {
-                int divLength = localPattern.ItemD.BarIndex - divItem.BarIndex;
+                int divLength = targetPoint.BarIndex - divItem.BarIndex;
                 int thrdCtoD = (localPattern.ItemD.BarIndex - localPattern.ItemC.BarIndex) / 2;
 
                 if (divLength < thrdCtoD)
@@ -147,7 +150,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
                     divItem = null;
                 }
-            }
+            }*/
         }
 
         DateTime startView = m_MainBarsProvider.GetOpenTime(localPattern.ItemX.BarIndex);
@@ -186,13 +189,15 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 if (localPattern.ItemD.BarIndex - localPattern.ItemX.BarIndex > m_MaxPatternSizeBars)
                     continue;
 
-                List<CandlesResult> instantCandles = m_CandlePatternFilter?
+                bool realIsBull = localPattern.ItemE == null
+                    ? localPattern.IsBull
+                    : !localPattern.IsBull;
+                List<CandlesResult> instantCandles = m_CandlePatternFilter ?
                     .GetCandlePatterns(index)?
-                    .Where(a => a.IsBull == localPattern.IsBull &&
-                                m_InstantPatterns.Contains(a.Type))
+                    .Where(a => a.IsBull == realIsBull && m_InstantPatterns.Contains(a.Type))
                     .ToList();
-                if (m_CandlePatternFilter != null && (instantCandles == null ||
-                        instantCandles.Count == 0))
+                if (m_CandlePatternFilter != null &&
+                    (instantCandles == null || instantCandles.Count == 0))
                 {
                     continue;
                 }
