@@ -47,7 +47,7 @@ namespace TradeKit.CTrader.Gartley
                 GartleyParams.UseDivergences,
                 GartleyParams.UseTrendOnly, 
                 GartleyParams.UseCandlePatterns,
-                GartleyParams.MaxPatternSizeBars,
+                GartleyParams.MinPatternSizeBars,
                 GartleyParams.TakeProfitRatio,
                 GartleyParams.StopLossRatio,
                 null,

@@ -54,7 +54,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
     /// <param name="filterByTrend">If true - use only the patterns in the same direction as the trend.</param>
     /// <param name="filterByPriceAction">If true - use only the patterns with Price Action candle patterns.</param>
-    /// <param name="maxPatternSizeBars">The minimum pattern size (duration) in bars</param>
+    /// <param name="minPatternSizeBars">The minimum pattern size (duration) in bars</param>
     /// <param name="tpRatio">Take profit ratio</param>
     /// <param name="slRatio">Stop loss ratio</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null if you don't want to use the breakeven.</param>
@@ -68,7 +68,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool filterByDivergence,
         bool filterByTrend,
         bool filterByPriceAction,
-        int maxPatternSizeBars,
+        int minPatternSizeBars,
         double tpRatio,
         double slRatio,
         double? breakevenRatio = null,
@@ -98,7 +98,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_CandlePatternFilter = cpf;
         m_BreakevenRatio = breakevenRatio;
         m_FilterByDivergence = filterByDivergence;
-        m_MaxPatternSizeBars = maxPatternSizeBars;
+        m_MaxPatternSizeBars = minPatternSizeBars;
 
         m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy,
             barsDepth, tpRatio, slRatio, period);
@@ -186,7 +186,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                     m_PatternsEntryMap.ContainsKey(localPattern))
                     continue;
 
-                if (localPattern.ItemD.BarIndex - localPattern.ItemX.BarIndex > m_MaxPatternSizeBars)
+                if (localPattern.ItemD.BarIndex - localPattern.ItemX.BarIndex < m_MaxPatternSizeBars)
                     continue;
 
                 bool realIsBull = localPattern.ItemE == null

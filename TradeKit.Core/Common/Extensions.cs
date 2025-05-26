@@ -110,7 +110,9 @@ namespace TradeKit.Core.Common
             {GartleyPatternType.DEEP_CRAB, "Deep Crab"},
             {GartleyPatternType.GARTLEY, "Gartley"},
             {GartleyPatternType.SHARK, "Shark"},
-            {GartleyPatternType.FIVE_ZERO, "5-0"}
+            {GartleyPatternType.FIVE_ZERO, "5-0"},
+            {GartleyPatternType.NEN_STAR, "Nen Star"},
+            {GartleyPatternType.LEONARDO, "Leonardo"}
         };
 
         /// <summary>

@@ -95,8 +95,8 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.
         /// </summary>
-        [Parameter(nameof(MaxPatternSizeBars), DefaultValue = 50, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
-        public int MaxPatternSizeBars { get; set; }
+        [Parameter(nameof(MinPatternSizeBars), DefaultValue = 50, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int MinPatternSizeBars { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether candle information should be saved to file.
@@ -127,7 +127,7 @@ namespace TradeKit.CTrader.Gartley
             m_SetupFinder = new GartleySetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), Accuracy,
                 BarDepthCount, ShowDivergences, UseDivergences, UseTrendOnly,
-                UseCandlePatterns, MaxPatternSizeBars, TakeProfitRatio,
+                UseCandlePatterns, MinPatternSizeBars, TakeProfitRatio,
                 StopLossRatio, null, Period);
             Subscribe(m_SetupFinder);
         }

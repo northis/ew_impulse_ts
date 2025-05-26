@@ -10,6 +10,8 @@
         ALT_BAT,
         CYPHER,
         DEEP_CRAB,
-        FIVE_ZERO
+        FIVE_ZERO,
+        NEN_STAR,
+        LEONARDO
     }
 }
