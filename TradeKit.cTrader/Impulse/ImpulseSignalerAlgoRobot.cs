@@ -46,7 +46,7 @@ namespace TradeKit.CTrader.Impulse
             ITimeFrame timeFrame, ISymbol symbolEntity)
         {
             IBarsProvider barsProvider = CreateBarsProvider(timeFrame, symbolEntity);
-            var sf = new ImpulseSetupFinder(barsProvider, m_ImpulseParams);
+            var sf = new ImpulseSetupFinder(barsProvider,m_TradeManager, m_ImpulseParams);
             return sf;
         }
     }

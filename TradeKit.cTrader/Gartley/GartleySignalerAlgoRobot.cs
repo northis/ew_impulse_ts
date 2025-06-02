@@ -40,13 +40,15 @@ namespace TradeKit.CTrader.Gartley
         {
             IBarsProvider cTraderBarsProvider = CreateBarsProvider(timeFrame, symbolEntity);
             var setupFinder = new GartleySetupFinder(
-                cTraderBarsProvider, symbolEntity,
+                cTraderBarsProvider,
+                symbolEntity,
                 GartleyParams.Accuracy, 
                 GartleyParams.BarDepthCount,
                 false, 
                 GartleyParams.UseDivergences,
                 GartleyParams.UseTrendOnly, 
                 GartleyParams.UseCandlePatterns,
+                GartleyParams.MoreThanOnePatternToReact,
                 GartleyParams.MinPatternSizeBars,
                 GartleyParams.TakeProfitRatio,
                 GartleyParams.StopLossRatio,

@@ -640,10 +640,8 @@ namespace TradeKit.Core.Common
             double tp = e.TakeProfit.Value;
             double sl = e.StopLoss.Value;
             bool isLong = sl < tp;
-            double spread = TradeManager.GetSpread(symbol);
-            double rangeLen = Math.Abs(tp - sl);
 
-            if (spread > 0 && rangeLen / spread < Helper.MAX_SPREAD_RATIO)
+            if (TradeManager.IsBigSpread(symbol, sl, tp))
             {
                 if (!m_RobotParams.AllowEnterOnBigSpread)
                 {
@@ -699,6 +697,7 @@ namespace TradeKit.Core.Common
 
                 double tpLen = Math.Abs(priceNow - tp);
                 double tpP = Math.Round(tpLen / sf.Symbol.PipSize);
+                double rangeLen = Math.Abs(tp - sl);
                 double rangeP = Math.Round(rangeLen / sf.Symbol.PipSize);
 
                 double volume = GetVolume(symbol, rangeP);

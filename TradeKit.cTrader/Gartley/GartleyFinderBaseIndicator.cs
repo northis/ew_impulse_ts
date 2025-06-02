@@ -91,6 +91,12 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter("Trend only patterns", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use more than one pattern to react.
+        /// </summary>
+        [Parameter("Use second pattern conformation", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool MoreThanOnePatternToReact { get; set; }
 
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.
@@ -125,9 +131,12 @@ namespace TradeKit.CTrader.Gartley
 
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             m_SetupFinder = new GartleySetupFinder(
-                m_BarsProvider, Symbol.ToISymbol(), Accuracy,
+                m_BarsProvider, 
+                Symbol.ToISymbol(), Accuracy,
                 BarDepthCount, ShowDivergences, UseDivergences, UseTrendOnly,
-                UseCandlePatterns, MinPatternSizeBars, TakeProfitRatio,
+                UseCandlePatterns,
+                MoreThanOnePatternToReact,
+                MinPatternSizeBars, TakeProfitRatio,
                 StopLossRatio, null, Period);
             Subscribe(m_SetupFinder);
         }

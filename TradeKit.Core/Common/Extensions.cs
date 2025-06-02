@@ -574,5 +574,24 @@ namespace TradeKit.Core.Common
             
             return filePath;
         }
+
+        /// <summary>
+        /// Determines whether the spread of the specified symbol is considered large based on the take profit (tp)
+        /// and stop loss (sl) range compared to a maximum spread ratio.
+        /// </summary>
+        /// <param name="manager">The trade view manager responsible for retrieving the spread value.</param>
+        /// <param name="symbol">The trading symbol for which the spread is being evaluated.</param>
+        /// <param name="tp">The take-profit value associated with a trade.</param>
+        /// <param name="sl">The stop-loss value associated with a trade.</param>
+        /// <returns>True if the spread is larger than the allowable range based on the maximum spread ratio; otherwise, false.</returns>
+        public static bool IsBigSpread(this ITradeViewManager manager,
+            ISymbol symbol,
+            double tp, double sl)
+        {
+            double spread = manager.GetSpread(symbol);
+            double rangeLen = Math.Abs(tp - sl);
+
+            return spread > 0 && rangeLen / spread < Helper.MAX_SPREAD_RATIO;
+        }
     }
 }

@@ -55,7 +55,7 @@ namespace TradeKit.CTrader.Indicators
         }
 
         /// <summary>
-        /// Calculate the value(s) of indicator for the given index.
+        /// Calculate the value(s) of the indicator for the given index.
         /// </summary>
         public override void Calculate(int index)
         {

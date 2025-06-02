@@ -1,16 +1,19 @@
-﻿using TradeKit.Core.Common;
+﻿using System.Diagnostics;
+using TradeKit.Core.Common;
 using TradeKit.Core.Gartley;
 
 namespace TradeKit.Core.AlgoBase
 {
     public class GartleyPatternFinder
     {
+        private readonly ITradeViewManager m_TradeViewManager;
         private readonly IBarsProvider m_BarsProvider;
 
         private readonly int m_BarsDepth;
         private readonly double m_TpRatio;
         private readonly double m_SlRatio;
         private readonly PivotPointsFinder m_PivotPointsFinder;
+        private readonly TimeSpan m_CoolingTimeOfDay;
 
         private readonly GartleyPattern[] m_RealPatterns;
         private readonly SortedDictionary<DateTime, List<GartleyProjection>> m_ActiveProjections;
@@ -368,7 +371,7 @@ namespace TradeKit.Core.AlgoBase
             double xD = aD / xA;
             double bD = cD / cB;
             double aC =
-                projection.PatternType.PatternType == GartleyPatternType.CYPHER
+                projection.PatternType.SetupType == GartleySetupType.CD
                     ? xC / xA
                     : cB / aB;
 

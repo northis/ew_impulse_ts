@@ -12,6 +12,7 @@ namespace TradeKit.Core.ElliottWave
     /// </summary>
     public class ImpulseSetupFinder : SingleSetupFinder<ImpulseSignalEventArgs>
     {
+        private readonly ITradeViewManager m_TradeViewManager;
         private readonly ImpulseParams m_ImpulseParams;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly double m_MaxZigzagRatio;
@@ -19,14 +20,14 @@ namespace TradeKit.Core.ElliottWave
 
         private readonly Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
 
-        private const int IMPULSE_END_NUMBER = 1;
-        private const int IMPULSE_START_NUMBER = 2;
+        private const int IMPULSE_END_NUMBER = 2;
+        private const int IMPULSE_START_NUMBER = 3;
         // We want to collect at least this number of extrema
         // 1. Extremum of a correction.
         // 2. End of the impulse
         // 3. Start of the impulse
         // 4. The previous extremum (to find out whether this impulse is initial or not).
-        private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 2;
+        private const int MINIMUM_EXTREMA_COUNT_TO_CALCULATE = 3;
 
         public int SetupStartIndex { get; set; }
         public int SetupEndIndex { get; set; }
@@ -41,12 +42,15 @@ namespace TradeKit.Core.ElliottWave
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bar provider.</param>
+        /// <param name="tradeViewManager">The trade manager (read only).</param>
         /// <param name="impulseParams">The impulse parameters.</param>
         public ImpulseSetupFinder(
             IBarsProvider mainBarsProvider,
+            ITradeViewManager tradeViewManager,
             ImpulseParams impulseParams)
             : base(mainBarsProvider, mainBarsProvider.BarSymbol)
         {
+            m_TradeViewManager = tradeViewManager;
             m_ImpulseParams = impulseParams;
 
             for (int i = impulseParams.Period; i <= impulseParams.Period * 4; i += 10)
@@ -379,6 +383,13 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
+            // if (m_TradeViewManager.IsBigSpread(Symbol, signalArgs.EndItem.Value.Value,
+            //         signalArgs.StartItem.Value.Value))
+            // {
+            //     Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: big spread, lets wait for a while");
+            //     return false;
+            // }
+
             double realPrice;
             if (signalArgs.TriggerLevel >= signalArgs.Low && signalArgs.TriggerLevel <= signalArgs.High)
             {
@@ -491,6 +502,11 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="openDateTime">The open date and time to check the setup against.</param>
         protected override void CheckSetup(DateTime openDateTime)
         {
+            if (openDateTime is { Day: 27, Month: 5, Hour: 21, Minute: 0 })
+            {
+                
+            }
+            
             foreach (DeviationExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.OnCalculate(openDateTime);

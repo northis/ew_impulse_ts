@@ -17,6 +17,7 @@
         bool UseDivergences,
         bool UseCandlePatterns,
         bool UseTrendOnly,
+        bool MoreThanOnePatternToReact,
         double BreakEvenRatio,
         int MinPatternSizeBars,
         double TakeProfitRatio,
@@ -78,6 +79,11 @@
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
         /// </summary>
         public bool UseDivergences { get; set; } = UseDivergences;
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use more than one pattern to react.
+        /// </summary>
+        public bool MoreThanOnePatternToReact { get; set; } = MoreThanOnePatternToReact;
 
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.

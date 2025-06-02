@@ -28,7 +28,8 @@ namespace TradeKit.CTrader.Impulse
             var barProvidersFactory = new BarProvidersFactory(
                 Symbol, MarketData, cTraderViewManager);
             m_BarsProvider = barProvidersFactory.GetBarsProvider(TimeFrame.ToITimeFrame());
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, GetImpulseParams());
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider,
+                cTraderViewManager, GetImpulseParams());
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }

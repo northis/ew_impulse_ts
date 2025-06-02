@@ -14,6 +14,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 {
     private readonly IBarsProvider m_MainBarsProvider;
     private readonly bool m_FilterByDivergence;
+    private readonly bool m_MoreThanOnePatternToReact;
     private readonly int m_MaxPatternSizeBars;
     private readonly SupertrendFinder m_Supertrend;
     private readonly ZoneAlligatorFinder m_ZoneAlligatorFinder;
@@ -54,6 +55,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="filterByDivergence">If true - use only the patterns with divergences.</param>
     /// <param name="filterByTrend">If true - use only the patterns in the same direction as the trend.</param>
     /// <param name="filterByPriceAction">If true - use only the patterns with Price Action candle patterns.</param>
+    /// <param name="moreThanOnePatternToReact">When true, we issue a signal only if more than 1 pattern is found on the current bar.</param>
     /// <param name="minPatternSizeBars">The minimum pattern size (duration) in bars</param>
     /// <param name="tpRatio">Take profit ratio</param>
     /// <param name="slRatio">Stop loss ratio</param>
@@ -68,6 +70,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool filterByDivergence,
         bool filterByTrend,
         bool filterByPriceAction,
+        bool moreThanOnePatternToReact,
         int minPatternSizeBars,
         double tpRatio,
         double slRatio,
@@ -98,6 +101,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         m_CandlePatternFilter = cpf;
         m_BreakevenRatio = breakevenRatio;
         m_FilterByDivergence = filterByDivergence;
+        m_MoreThanOnePatternToReact = moreThanOnePatternToReact;
         m_MaxPatternSizeBars = minPatternSizeBars;
 
         m_PatternFinder = new GartleyPatternFinder(m_MainBarsProvider, accuracy,
@@ -180,6 +184,9 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         double close = BarsProvider.GetClosePrice(index);
         if (localPatterns != null)
         {
+            int patternToReact =
+                m_MoreThanOnePatternToReact ? 1 : 0;
+            
             foreach (GartleyItem localPattern in localPatterns)
             {
                 if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) ||
@@ -199,6 +206,12 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 if (m_CandlePatternFilter != null &&
                     (instantCandles == null || instantCandles.Count == 0))
                 {
+                    continue;
+                }
+
+                if (patternToReact > 0)
+                {
+                    patternToReact--;
                     continue;
                 }
 

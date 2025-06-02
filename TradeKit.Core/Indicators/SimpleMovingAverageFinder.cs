@@ -50,6 +50,8 @@ namespace TradeKit.Core.Indicators
             DateTime dtIndex1 = BarsProvider.GetOpenTime(index1);
             double num = 0d;
             int index2 = checked(index - Periods + 1);
+            if (index2 < 1)
+                return;
 
             while (index2 <= index)
             {

@@ -19,7 +19,7 @@ namespace TradeKit.Core.Common
         public const double BARS_DEPTH = 30000;
         public const double PERCENT_ALLOWANCE_SL = 2;
         public const double PERCENT_ALLOWANCE_TP = 0;
-        public const double MAX_SPREAD_RATIO = 0.1;
+        public const double MAX_SPREAD_RATIO = 0.2;
         public const int MIN_IMPULSE_PERIOD = 5;
         public const double MAX_OVERLAPSE_LENGTH_PERCENT = 20;
         public const double MAX_ZIGZAG_DEGREE_PERCENT = 20;

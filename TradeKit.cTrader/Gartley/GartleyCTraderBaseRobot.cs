@@ -28,7 +28,8 @@ namespace TradeKit.CTrader.Gartley
                 true, 
                 UseDivergences,
                 UseCandlePatterns,
-                UseTrendOnly, 
+                UseTrendOnly,
+                MoreThanOnePatternToReact,
                 BreakEvenRatio,
                 MaxPatternSizeBars,
                 TakeProfitRatio,
@@ -87,6 +88,12 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter(nameof(UseTrendOnly), DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseTrendOnly { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether we should use more than one pattern to react.
+        /// </summary>
+        [Parameter("Use second pattern conformation", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool MoreThanOnePatternToReact { get; set; }
 
         /// <summary>
         /// Gets or sets a breakeven level. Use 0 to disable
