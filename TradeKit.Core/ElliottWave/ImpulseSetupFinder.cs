@@ -19,6 +19,8 @@ namespace TradeKit.Core.ElliottWave
         private readonly double m_MaxOverlapseLengthRatio;
 
         private readonly Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
+        
+        private const double LIMIT_RATIO = 0.8;
 
         private const int IMPULSE_END_NUMBER = 2;
         private const int IMPULSE_START_NUMBER = 3;
@@ -200,7 +202,8 @@ namespace TradeKit.Core.ElliottWave
                 LevelEventArgs levelArgs = new LevelEventArgs(
                     CurrentSignalEventArgs.TakeProfit.WithIndex(index,
                         BarsProvider),
-                    CurrentSignalEventArgs.Level);
+                    CurrentSignalEventArgs.Level, false,
+                    CurrentSignalEventArgs.Comment);
                 if (needToCheckLimit)
                     OnCanceledInvoke(levelArgs);
                 else
@@ -216,7 +219,8 @@ namespace TradeKit.Core.ElliottWave
                 LevelEventArgs levelArgs = new LevelEventArgs(
                     CurrentSignalEventArgs.StopLoss.WithIndex(index,
                         BarsProvider),
-                    CurrentSignalEventArgs.Level);
+                    CurrentSignalEventArgs.Level, false,
+                    CurrentSignalEventArgs.Comment);
                 if (needToCheckLimit)
                     OnCanceledInvoke(levelArgs);
                 else
@@ -329,7 +333,7 @@ namespace TradeKit.Core.ElliottWave
             bool useLimit = false;
             if (!gotSetupMain)
             {
-                gotSetupArgs.LevelRatio *= 0.8;
+                gotSetupArgs.LevelRatio *= LIMIT_RATIO;
                 if (GotSetup(gotSetupArgs, out _))
                     useLimit = true;
                 else
@@ -383,12 +387,12 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
-            // if (m_TradeViewManager.IsBigSpread(Symbol, signalArgs.EndItem.Value.Value,
-            //         signalArgs.StartItem.Value.Value))
-            // {
-            //     Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: big spread, lets wait for a while");
-            //     return false;
-            // }
+            if (m_TradeViewManager.IsBigSpread(Symbol, signalArgs.EndItem.Value.Value,
+                    signalArgs.StartItem.Value.Value))
+            {
+                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: big spread, lets wait for a while");
+                return false;
+            }
 
             double realPrice;
             if (signalArgs.TriggerLevel >= signalArgs.Low && signalArgs.TriggerLevel <= signalArgs.High)

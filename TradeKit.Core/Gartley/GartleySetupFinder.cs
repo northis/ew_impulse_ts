@@ -18,6 +18,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly int m_MaxPatternSizeBars;
     private readonly SupertrendFinder m_Supertrend;
     private readonly ZoneAlligatorFinder m_ZoneAlligatorFinder;
+    private readonly BollingerBandsFinder m_BollingerBandsFinder;
     private readonly AwesomeOscillatorFinder m_AwesomeOscillator;
     private readonly CandlePatternFinder m_CandlePatternFilter;
     private readonly double? m_BreakevenRatio;
@@ -77,6 +78,9 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         double? breakevenRatio = null,
         int period = Helper.GARTLEY_MIN_PERIOD) : base(mainBarsProvider, symbol)
     {
+        m_BollingerBandsFinder =
+            new BollingerBandsFinder(mainBarsProvider, 40, 4);
+        
         AwesomeOscillatorFinder ao = filterByDivergence || findDivergence
             ? new AwesomeOscillatorFinder(mainBarsProvider)
             : null;
@@ -117,6 +121,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool realIsBull = localPattern.ItemE == null
             ? localPattern.IsBull
             : !localPattern.IsBull;
+        
         if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
             TrendType trendAlligator = SignalFilters.GetTrend(
@@ -175,6 +180,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         int index = m_MainBarsProvider.GetIndexByTime(openDateTime);
         m_Supertrend?.OnCalculate(openDateTime);
         m_ZoneAlligatorFinder?.OnCalculate(openDateTime);
+        m_BollingerBandsFinder.OnCalculate(openDateTime);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
         var localPatterns = m_PatternFinder.FindGartleyPatterns(index);
@@ -199,6 +205,16 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                 bool realIsBull = localPattern.ItemE == null
                     ? localPattern.IsBull
                     : !localPattern.IsBull;
+                BarPoint realItem = localPattern.ItemE ?? localPattern.ItemD;
+
+                if (!realIsBull && 
+                    m_BollingerBandsFinder.Top.GetResultValue(realItem.OpenTime) > realItem.Value ||
+                    realIsBull && 
+                    m_BollingerBandsFinder.Bottom.GetResultValue(realItem.OpenTime) < realItem.Value)
+                {
+                    continue;
+                }
+
                 List<CandlesResult> instantCandles = m_CandlePatternFilter ?
                     .GetCandlePatterns(index)?
                     .Where(a => a.IsBull == realIsBull && m_InstantPatterns.Contains(a.Type))

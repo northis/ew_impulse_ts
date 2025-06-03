@@ -591,7 +591,7 @@ namespace TradeKit.Core.Common
             double spread = manager.GetSpread(symbol);
             double rangeLen = Math.Abs(tp - sl);
 
-            return spread > 0 && rangeLen / spread < Helper.MAX_SPREAD_RATIO;
+            return spread > 0 && spread / rangeLen > Helper.MAX_SPREAD_RATIO;
         }
     }
 }

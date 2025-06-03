@@ -10,7 +10,7 @@ namespace TradeKit.Core.Indicators
         public StandardDeviationFinder(IBarsProvider barsProvider, int periods = 14, bool useAutoCalculateEvent = true) : base(barsProvider, useAutoCalculateEvent)
         {
             m_Periods = periods;
-            m_Sma = new SimpleMovingAverageFinder(barsProvider, periods, 0, false);
+            m_Sma = new SimpleMovingAverageFinder(barsProvider, periods, 0, true);
         }
 
         public override void OnCalculate(DateTime openDateTime)
@@ -21,7 +21,11 @@ namespace TradeKit.Core.Indicators
             int num3 = 0;
             while (num3 < m_Periods)
             {
-                double value = BarsProvider.GetMedianPrice(checked(index - num3));
+                int res = index - num3;
+                if (res < 1)
+                    break;
+                
+                double value = BarsProvider.GetMedianPrice(res);
                 num1 += Math.Pow(value - num2, 2.0);
                 checked { ++num3; }
             }

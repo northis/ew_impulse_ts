@@ -7,10 +7,10 @@ namespace TradeKit.CTrader.Indicators
 {
     /// <summary>
     /// Bollinger Bands are used to confirm signals. The bands indicate overbought and oversold levels relative to a moving average.
-    /// <remarks>Bollinger bands widen in volatile market periods, and contract during less volatile periods. Tightening of the bands is often used a signal that there will shortly be a sharp increase in market volatility.
+    /// <remarks>Bollinger bands widen in volatile market periods, and contract during less volatile periods. Tightening of the bands is often used as a signal that there will shortly be a sharp increase in market volatility.
     /// </remarks>
     /// </summary>
-    //[Indicator(IsOverlay = false, AutoRescale = true, AccessRights = AccessRights.None)]
+    [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.None)]
     public class BollingerBandsIndicator : Indicator
     {
         private BollingerBandsFinder m_BollingerBands;
@@ -51,7 +51,7 @@ namespace TradeKit.CTrader.Indicators
         protected override void Initialize()
         {
             m_BollingerBands = new BollingerBandsFinder(
-                new CTraderBarsProvider(Bars, Symbol.ToISymbol()));
+                new CTraderBarsProvider(Bars, Symbol.ToISymbol()), Periods, StandardDeviations);
         }
 
         /// <summary>

@@ -39,7 +39,7 @@ namespace TradeKit.Core.Indicators
         /// <param name="index">The index.</param>
         public virtual double GetPrice(int index)
         {
-            return BarsProvider.GetMedianPrice(index);
+            return BarsProvider.GetClosePrice(index);
         }
 
         public override void OnCalculate(DateTime openDateTime)
