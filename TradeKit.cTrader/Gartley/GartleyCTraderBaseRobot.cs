@@ -31,16 +31,18 @@ namespace TradeKit.CTrader.Gartley
                 UseTrendOnly,
                 MoreThanOnePatternToReact,
                 BreakEvenRatio,
-                MaxPatternSizeBars,
+                MinPatternSizeBars,
                 TakeProfitRatio,
                 StopLossRatio,
-                Period);
+                Period,
+                BollingerPeriod,
+                BollingerStandardDeviation);
         }
 
         #region Input parameters
 
         /// <summary>
-        /// Gets or sets the value how deep should we analyze the candles.
+        /// Gets or sets the value how deep we should analyze the candles.
         /// </summary>
         [Parameter(nameof(BarDepthCount), DefaultValue = Helper.GARTLEY_BARS_COUNT, MinValue = 10, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarDepthCount { get; set; }
@@ -70,6 +72,18 @@ namespace TradeKit.CTrader.Gartley
         /// </summary>
         [Parameter("Pivot period", DefaultValue = Helper.GARTLEY_MIN_PERIOD, MinValue = 1, MaxValue = 230, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
         public int Period { get; set; }
+
+        /// <summary>
+        /// Gets or sets the period used for calculating the Bollinger Bands.
+        /// </summary>
+        [Parameter("Bollinger period", DefaultValue = 40, MinValue = 5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 5)]
+        public int BollingerPeriod { get; set; }
+
+        /// <summary>
+        /// Gets or sets the standard deviation value used for Bollinger Bands calculation.
+        /// </summary>
+        [Parameter("Bollinger standard deviation", DefaultValue = 4, MinValue = 1, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
+        public int BollingerStandardDeviation { get; set; }
         
         /// <summary>
         /// Gets or sets a value indicating whether we should use divergences with the patterns.
@@ -104,8 +118,8 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets the minimum pattern size in bars.
         /// </summary>
-        [Parameter(nameof(MaxPatternSizeBars), DefaultValue = 25, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
-        public int MaxPatternSizeBars { get; set; }
+        [Parameter(nameof(MinPatternSizeBars), DefaultValue = 50, MinValue = 5, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int MinPatternSizeBars { get; set; }
         #endregion
     }
 }

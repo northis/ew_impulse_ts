@@ -101,6 +101,7 @@ namespace TradeKit.CTrader.Core
             m_CandlesDate.Add(lastBar.OpenTime, m_TotalBarsCount);
             UpdateCount();
 
+            return;
             if (m_TotalBarsCount % CLEAN_EVERY != 0) return;
             
             int countDates = m_CandlesDate.Count;

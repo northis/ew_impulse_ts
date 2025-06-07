@@ -52,7 +52,9 @@ namespace TradeKit.CTrader.Gartley
                 GartleyParams.MinPatternSizeBars,
                 GartleyParams.TakeProfitRatio,
                 GartleyParams.StopLossRatio,
-                null,
+                GartleyParams.BollingerPeriod,
+                GartleyParams.BollingerStdDev,
+                GartleyParams.BreakEvenRatio,
                 GartleyParams.Period);
 
             return setupFinder;

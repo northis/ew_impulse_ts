@@ -38,7 +38,7 @@ namespace TradeKit.Core.Gartley
         private BarPoint m_ItemD;
 
         private const double TP2_RATIO = 0.618;
-        private const double MAX_SL_TP_RATIO_ALLOWED = 2;
+        private const double MAX_SL_TP_RATIO_ALLOWED = 4;
 
         private static readonly double[] LEVELS =
         {
@@ -121,7 +121,7 @@ namespace TradeKit.Core.Gartley
                    ACValues: LEVELS.RangeVal(1.13, 1.618),
                    CEValues: new[] {0.5},
                    SetupType: GartleySetupType.CD),
-                /*new(GartleyPatternType.NEN_STAR,
+                new(GartleyPatternType.NEN_STAR,
                     XBValues: LEVELS.RangeVal(0.382, 0.618),
                     XDValues: new[] {1.272},
                     BDValues: new[] {2d},//LEVELS.RangeVal(1.272, 2),
@@ -134,7 +134,7 @@ namespace TradeKit.Core.Gartley
                     BDValues: new[] {2.618},//LEVELS.RangeVal(1.272, 2.618),
                     ACValues: LEVELS.RangeVal(0.382, 0.886),
                     
-                    CEValues:Array.Empty<double>()),*/
+                    CEValues:Array.Empty<double>())
             };
 
             PATTERNS_MAP = Patterns.ToDictionary(a => a.PatternType, a => a);

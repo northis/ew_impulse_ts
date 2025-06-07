@@ -22,7 +22,9 @@
         int MinPatternSizeBars,
         double TakeProfitRatio,
         double StopLossRatio,
-        int Period)
+        int Period,
+        int BollingerPeriod,
+        int BollingerStdDev)
     {
 
         /// <summary>
@@ -120,5 +122,14 @@
         /// </summary>
         public int Period { get;  init; } = Period;
 
+        /// <summary>
+        /// Gets or sets the period used for calculating Bollinger Bands.
+        /// </summary>
+        public int BollingerPeriod { get; init; } = BollingerPeriod;
+
+        /// <summary>
+        /// Gets or sets the standard deviation value for calculations.
+        /// </summary>
+        public int BollingerStdDev { get; init; } = BollingerStdDev;
     }
 }

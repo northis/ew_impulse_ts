@@ -60,8 +60,10 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     /// <param name="minPatternSizeBars">The minimum pattern size (duration) in bars</param>
     /// <param name="tpRatio">Take profit ratio</param>
     /// <param name="slRatio">Stop loss ratio</param>
+    /// <param name="bollingerStdDev">The standard deviation value used for Bollinger Bands calculation</param>
     /// <param name="breakevenRatio">Set as value between 0 (entry) and 1 (TP) to define the breakeven level or leave it null if you don't want to use the breakeven.</param>
     /// <param name="period">The pivot period for find Gartley patterns dots.</param>
+    /// <param name="bollingerPeriod">The period used for calculating the Bollinger Bands</param>
     public GartleySetupFinder(
         IBarsProvider mainBarsProvider,
         ISymbol symbol,
@@ -75,11 +77,13 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         int minPatternSizeBars,
         double tpRatio,
         double slRatio,
+        int bollingerPeriod,
+        int bollingerStdDev,
         double? breakevenRatio = null,
         int period = Helper.GARTLEY_MIN_PERIOD) : base(mainBarsProvider, symbol)
     {
         m_BollingerBandsFinder =
-            new BollingerBandsFinder(mainBarsProvider, 40, 4);
+            new BollingerBandsFinder(mainBarsProvider, bollingerPeriod, bollingerStdDev);
         
         AwesomeOscillatorFinder ao = filterByDivergence || findDivergence
             ? new AwesomeOscillatorFinder(mainBarsProvider)
@@ -163,8 +167,10 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         DateTime startView = m_MainBarsProvider.GetOpenTime(localPattern.ItemX.BarIndex);
-        var args = new GartleySignalEventArgs(new BarPoint(close, index, m_MainBarsProvider),
-            localPattern, startView, false, divItem, m_BreakevenRatio, candlePatterns);
+        var args = new GartleySignalEventArgs(
+            new BarPoint(close, index, m_MainBarsProvider),
+            localPattern, startView, false, divItem,
+            m_BreakevenRatio == 0 ? null : m_BreakevenRatio, candlePatterns);
 
         OnEnterInvoke(args);
         m_PatternsEntryMap[localPattern] = args;
@@ -265,6 +271,9 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         foreach (GartleyItem toRemoveItem in toRemove) m_PatternsEntryMap.Remove(toRemoveItem);
     }
 
+    // public static List<double> Stops = new List<double>();
+    // public static List<double> Takes = new List<double>();
+
     private bool CheckArgLevel(
         GartleySignalEventArgs args, double low, double high, int index, DateTime currentDt)
     {
@@ -282,7 +291,13 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             if (isWaitingLimit)
                 OnCanceledInvoke(levelArgs);
             else
+            {
+                // double extremaLength = GetActualLength(args, currentDt, false);
+                // Takes.Add(extremaLength);
+                // Logger.Write($"Takes distribution: ");
+                // CalculateAndLogStopsDistribution(Takes);
                 OnTakeProfitInvoke(levelArgs);
+            }
 
             isClosed = true;
         }
@@ -296,7 +311,14 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
             if (isWaitingLimit)
                 OnCanceledInvoke(levelArgs);
             else
+            {
+                // double extremaLength = GetActualLength(args, currentDt, true);
+                // Stops.Add(extremaLength);
+                //
+                // Logger.Write($"Stops distribution: ");
+                // CalculateAndLogStopsDistribution(Stops);
                 OnStopLossInvoke(levelArgs);
+            }
 
             isClosed = true;
         }
@@ -319,6 +341,59 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         return isClosed;
     }
+
+    /*private double GetActualLength(GartleySignalEventArgs args, DateTime dt, bool isStop)
+    {
+        int index = BarsProvider.GetIndexByTime(dt);
+        BarPoint effectiveItem =
+            args.GartleyItem.ItemE ?? args.GartleyItem.ItemD;
+        bool isReallyBull = args.StopLoss < effectiveItem;
+        double currentExtremum = effectiveItem.Value;
+        for (int i = BarsProvider.GetIndexByTime(effectiveItem.OpenTime); i < index; i++)
+        {
+            if (isReallyBull && isStop || !isReallyBull && !isStop)
+            {
+                double highValue = BarsProvider.GetHighPrice(i);
+                if (highValue > currentExtremum)
+                    currentExtremum = highValue;
+            }
+            else
+            {
+                double lowValue = BarsProvider.GetLowPrice(i);
+                if (lowValue < currentExtremum)
+                    currentExtremum = lowValue;
+            }
+        }
+
+        double extremaLength =
+            Math.Abs(effectiveItem.Value - currentExtremum) /
+            Math.Abs(effectiveItem.Value -
+                     (isStop ? args.TakeProfit.Value : args.StopLoss.Value));
+
+        return extremaLength;
+    
+    }*/
+
+    /*/// <summary>
+    /// Calculates the distribution of stop values and logs the results.
+    /// </summary>
+    /// <param name="stops">The collection of stop values to analyze.</param>
+    private void CalculateAndLogStopsDistribution(IEnumerable<double> stops)
+    {
+        var distribution = new int[10];
+        foreach (double value in stops)
+        {
+            int ind = Math.Min((int)(value * 10), 9);
+            distribution[ind]++;
+        }
+
+        for (int i = 0; i < 10; i++)
+        {
+            double start = i * 0.1;
+            double end = (i + 1) * 0.1;
+            Logger.Write($"Range {start:F1}-{end:F1}: {distribution[i]} values");
+        }
+    }*/
 
     public override void CheckTick(SymbolTickEventArgs tick)
     {

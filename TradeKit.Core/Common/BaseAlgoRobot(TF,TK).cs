@@ -481,11 +481,11 @@ namespace TradeKit.Core.Common
         private string ShowResultChart(TF sf, TK signalEventArgs, bool successTrade)
         {
             Logger.Write($"On ShowResultChart, position comment: {signalEventArgs.Comment}");
-            if (m_IsBackTesting)
-                OnResultForManualAnalysis(signalEventArgs, sf, successTrade);
-
             if (!m_RobotParams.SaveChartForManualAnalysis)
                 return null;
+            
+            if (m_IsBackTesting)
+                OnResultForManualAnalysis(signalEventArgs, sf, successTrade);
 
             IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
             string res = GeneratePlotImageFile(bp, signalEventArgs, true, successTrade);
