@@ -506,11 +506,6 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="openDateTime">The open date and time to check the setup against.</param>
         protected override void CheckSetup(DateTime openDateTime)
         {
-            if (openDateTime is { Day: 27, Month: 5, Hour: 21, Minute: 0 })
-            {
-                
-            }
-            
             foreach (DeviationExtremumFinder finder in m_ExtremumFinders)
             {
                 finder.OnCalculate(openDateTime);

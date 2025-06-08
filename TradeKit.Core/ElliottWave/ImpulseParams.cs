@@ -12,7 +12,7 @@
         double MaxOverlapseLengthPercent,
         double HeterogeneityMax,
         double MinSizePercent,
-        int BarsCount)
+        int BarsCount) : EWParams(Period, MinSizePercent, BarsCount)
     {
     }
 }
