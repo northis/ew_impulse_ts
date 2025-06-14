@@ -151,7 +151,7 @@ namespace TradeKit.Core.ElliottWave
         private bool IsSetup(DateTime openDateTime, DeviationExtremumFinder finder, double? currentPriceBid = null)
         {
             int index = BarsProvider.GetIndexByTime(openDateTime);
-            SortedDictionary<DateTime, BarPoint> extrema = finder.Extrema;
+            SortedList<DateTime, BarPoint> extrema = finder.Extrema;
             int count = extrema.Count;
             if (count < MINIMUM_EXTREMA_COUNT_TO_CALCULATE)
             {
@@ -163,16 +163,14 @@ namespace TradeKit.Core.ElliottWave
 
             int startIndex = count - IMPULSE_START_NUMBER;
             int endIndex = count - IMPULSE_END_NUMBER;
-            KeyValuePair<DateTime, BarPoint> startItem = extrema
-                .ElementAt(startIndex);
-            KeyValuePair<DateTime, BarPoint> endItem = extrema
-                .ElementAt(endIndex);
+            BarPoint startItem = extrema.Values[startIndex];
+            BarPoint endItem = extrema.Values[endIndex];
 
             bool isInSetupBefore = IsInSetup;
-            double startValue = startItem.Value.Value;
-            double endValue = endItem.Value.Value;
+            double startValue = startItem.Value;
+            double endValue = endItem.Value;
             bool isImpulseUp = endValue > startValue;
-            bool hasInCache = m_ImpulseCache[finder].ContainsKey(endItem.Key);
+            bool hasInCache = m_ImpulseCache[finder].ContainsKey(endItem.OpenTime);
 
             if (!IsInSetup)
             {
@@ -258,7 +256,7 @@ namespace TradeKit.Core.ElliottWave
         private bool CheckForSignal(CheckSignalArgs checkSignalArgs)
         {
             if (checkSignalArgs.HasInCache && 
-                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] == null)
+                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] == null)
             {
                 return false;
             }
@@ -268,23 +266,23 @@ namespace TradeKit.Core.ElliottWave
             //    return;
             Candle edgeExtremum = null;
             bool isInitialMove = checkSignalArgs.HasInCache || IsInitialMovement(
-                checkSignalArgs.StartValue, checkSignalArgs.EndValue, checkSignalArgs.StartItem.Value.BarIndex, checkSignalArgs.Finder, out edgeExtremum);
+                checkSignalArgs.StartValue, checkSignalArgs.EndValue, checkSignalArgs.StartItem.BarIndex, checkSignalArgs.Finder, out edgeExtremum);
             if (!isInitialMove)
             {
                 // The move (impulse candidate) is no longer initial.
-                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
+                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: {checkSignalArgs.EndItem.Key} is no longer initial");
                 return false;
             }
 
-            ImpulseResult stats = checkSignalArgs.HasInCache && m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] != null
-                ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key]
+            ImpulseResult stats = checkSignalArgs.HasInCache && m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] != null
+                ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime]
                 : MovementStatistic.GetMovementStatistic(
-                    checkSignalArgs.StartItem.Value, checkSignalArgs.EndItem.Value, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
+                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
             if (!checkSignalArgs.HasInCache &&
                 (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
             {
-                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
+                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats})");
                 return false;
             }
@@ -293,12 +291,12 @@ namespace TradeKit.Core.ElliottWave
             {
                 double max = checkSignalArgs.IsImpulseUp ? checkSignalArgs.EndValue : checkSignalArgs.StartValue;
                 double min = checkSignalArgs.IsImpulseUp ? checkSignalArgs.StartValue : checkSignalArgs.EndValue;
-                for (int i = checkSignalArgs.EndItem.Value.BarIndex + 1; i < checkSignalArgs.Index; i++)
+                for (int i = checkSignalArgs.EndItem.BarIndex + 1; i < checkSignalArgs.Index; i++)
                 {
                     if (max <= BarsProvider.GetHighPrice(i) ||
                         min >= BarsProvider.GetLowPrice(i))
                     {
-                        m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = null;
+                        m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                         //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: The setup is no longer valid, TP or SL is already hit");
                         return false;
                         // The setup is no longer valid, TP or SL is already hit.  
@@ -309,10 +307,10 @@ namespace TradeKit.Core.ElliottWave
             if (!checkSignalArgs.HasInCache)
             {
                 stats.EdgeExtremum = edgeExtremum;
-                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key] = stats;
+                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = stats;
             }
 
-            edgeExtremum ??= m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.Key].EdgeExtremum;
+            edgeExtremum ??= m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime].EdgeExtremum;
 
             int edgeIndex = edgeExtremum.Index.GetValueOrDefault();
             //double channelRatio = (startItem.Value.BarIndex - edgeIndex) / (double)stats.CandlesCount;
@@ -368,27 +366,27 @@ namespace TradeKit.Core.ElliottWave
             Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: On IssueSignal");
             var outExtrema = new ImpulseElliottModelResult
             {
-                Wave0 = signalArgs.StartItem.Value,
-                Wave5 = signalArgs.EndItem.Value
+                Wave0 = signalArgs.StartItem,
+                Wave5 = signalArgs.EndItem
             };
 
-            if (SetupStartIndex == signalArgs.StartItem.Value.BarIndex ||
-                SetupEndIndex == signalArgs.EndItem.Value.BarIndex)
+            if (SetupStartIndex == signalArgs.StartItem.BarIndex ||
+                SetupEndIndex == signalArgs.EndItem.BarIndex)
             {
                 // Cannot use the same impulse twice.
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: Cannot use the same impulse twice");
                 return false;
             }
 
-            if (signalArgs.EndItem.Value.BarIndex == signalArgs.Index)
+            if (signalArgs.EndItem.BarIndex == signalArgs.Index)
             {
                 // Wait for the next bar
                 Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: Wait for the next bar");
                 return false;
             }
 
-            if (m_TradeViewManager.IsBigSpread(Symbol, signalArgs.EndItem.Value.Value,
-                    signalArgs.StartItem.Value.Value))
+            if (m_TradeViewManager.IsBigSpread(Symbol, signalArgs.EndItem.Value,
+                    signalArgs.StartItem.Value))
             {
                 Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: big spread, lets wait for a while");
                 return false;
@@ -415,8 +413,8 @@ namespace TradeKit.Core.ElliottWave
             double endAllowance = Math.Abs(realPrice - signalArgs.EndValue) * Helper.PERCENT_ALLOWANCE_TP / 100;
             double startAllowance = Math.Abs(realPrice - signalArgs.StartValue) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
-            SetupStartIndex = signalArgs.StartItem.Value.BarIndex;
-            SetupEndIndex = signalArgs.EndItem.Value.BarIndex;
+            SetupStartIndex = signalArgs.StartItem.BarIndex;
+            SetupEndIndex = signalArgs.EndItem.BarIndex;
 
             double tpRatio = m_ImpulseParams.TakeRatio;
             double setupLength = Math.Abs(signalArgs.StartValue - signalArgs.EndValue) * tpRatio;

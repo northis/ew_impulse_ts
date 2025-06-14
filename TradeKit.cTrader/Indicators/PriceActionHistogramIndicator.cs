@@ -42,8 +42,8 @@ namespace TradeKit.CTrader.Indicators
         [Output(nameof(Histogram), PlotType = PlotType.Line, LineColor = "Blue")]
         public IndicatorDataSeries Histogram { get; set; }
 
-        private SortedDictionary<DateTime, int> m_UpDictionary;
-        private SortedDictionary<DateTime, int> m_DownDictionary;
+        private SortedList<DateTime, int> m_UpDictionary;
+        private SortedList<DateTime, int> m_DownDictionary;
 
         /// <summary>
         /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.

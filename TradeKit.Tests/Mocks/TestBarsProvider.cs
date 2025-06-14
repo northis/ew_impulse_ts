@@ -20,8 +20,6 @@ namespace TradeKit.Tests.Mocks
         
         public ISymbol BarSymbol { get; }
 
-        public event EventHandler? BarOpened;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="TestBarsProvider"/> class.
         /// </summary>
@@ -108,7 +106,7 @@ namespace TradeKit.Tests.Mocks
             // Trigger BarOpened event for the newly added candle
             if (index > 0)
             {
-                OnBarOpened();
+                OnBarClosed();
             }
         }
 
@@ -156,18 +154,20 @@ namespace TradeKit.Tests.Mocks
 
         public int GetIndexByTime(DateTime time)
         {
-            return m_TimeToIndexMap.TryGetValue(time, out int index) ? index : -1;
+            return m_TimeToIndexMap.GetValueOrDefault(time, -1);
         }
-        
+
+        public event EventHandler? BarClosed;
+
         public void LoadBars(DateTime date)
         {
             // In test implementation, we don't need to load bars from external source
             // as they are manually added via AddCandle method
         }
         
-        protected virtual void OnBarOpened()
+        protected virtual void OnBarClosed()
         {
-            BarOpened?.Invoke(this, EventArgs.Empty);
+            BarClosed?.Invoke(this, EventArgs.Empty);
         }
 
         public void Dispose()

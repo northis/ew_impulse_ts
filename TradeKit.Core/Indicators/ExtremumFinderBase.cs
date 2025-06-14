@@ -28,7 +28,7 @@ namespace TradeKit.Core.Indicators
         /// <summary>
         /// Gets or the main extrema dictionary.
         /// </summary>
-        public SortedDictionary<DateTime, BarPoint> Extrema => Result;
+        public SortedList<DateTime, BarPoint> Extrema => Result;
 
         /// <summary>
         /// Moves the extremum to the (index, price) point.

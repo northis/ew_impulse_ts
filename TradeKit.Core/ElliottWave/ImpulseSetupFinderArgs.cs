@@ -25,7 +25,7 @@ namespace TradeKit.Core.ElliottWave
 
     internal class SignalArgs
     {
-        internal SignalArgs(int index, double? currentPriceBid, KeyValuePair<DateTime, BarPoint> startItem, KeyValuePair<DateTime, BarPoint> endItem, double triggerLevel, double low, double high, double endValue, double startValue, bool isImpulseUp, int edgeIndex, ImpulseResult stats)
+        internal SignalArgs(int index, double? currentPriceBid, BarPoint startItem, BarPoint endItem, double triggerLevel, double low, double high, double endValue, double startValue, bool isImpulseUp, int edgeIndex, ImpulseResult stats)
         {
             Index = index;
             CurrentPriceBid = currentPriceBid;
@@ -43,8 +43,8 @@ namespace TradeKit.Core.ElliottWave
 
         public int Index { get; }
         public double? CurrentPriceBid { get; }
-        public KeyValuePair<DateTime, BarPoint> StartItem { get; }
-        public KeyValuePair<DateTime, BarPoint> EndItem { get; }
+        public BarPoint StartItem { get; }
+        public BarPoint EndItem { get; }
         public double TriggerLevel { get; }
         public double Low { get; }
         public double High { get; }
@@ -59,7 +59,7 @@ namespace TradeKit.Core.ElliottWave
 
     internal class CheckSignalArgs
     {
-        internal CheckSignalArgs(int index, DeviationExtremumFinder finder, double? currentPriceBid, bool hasInCache, KeyValuePair<DateTime, BarPoint> endItem, double startValue, double endValue, KeyValuePair<DateTime, BarPoint> startItem, bool isImpulseUp, double low, double high)
+        internal CheckSignalArgs(int index, DeviationExtremumFinder finder, double? currentPriceBid, bool hasInCache, BarPoint endItem, double startValue, double endValue, BarPoint startItem, bool isImpulseUp, double low, double high)
         {
             Index = index;
             Finder = finder;
@@ -78,10 +78,10 @@ namespace TradeKit.Core.ElliottWave
         public DeviationExtremumFinder Finder { get; private set; }
         public double? CurrentPriceBid { get; private set; }
         public bool HasInCache { get; private set; }
-        public KeyValuePair<DateTime, BarPoint> EndItem { get; private set; }
+        public BarPoint EndItem { get; private set; }
         public double StartValue { get; private set; }
         public double EndValue { get; private set; }
-        public KeyValuePair<DateTime, BarPoint> StartItem { get; private set; }
+        public BarPoint StartItem { get; private set; }
         public bool IsImpulseUp { get; private set; }
         public double Low { get; private set; }
         public double High { get; private set; }

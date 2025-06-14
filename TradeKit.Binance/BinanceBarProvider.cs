@@ -5,8 +5,6 @@ namespace TradeKit.Binance
 {
     public class BinanceBarProvider : IBarsProvider
     {
-
-
         public BinanceBarProvider()
         {
         }
@@ -60,6 +58,6 @@ namespace TradeKit.Binance
             throw new NotImplementedException();
         }
 
-        public event EventHandler? BarOpened;
+        public event EventHandler? BarClosed;
     }
 }

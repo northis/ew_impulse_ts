@@ -35,7 +35,7 @@ namespace TradeKit.Tests
                 BreakEvenRatio: breakeven, 
                 MinSizePercent: 0.1);
 
-            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, impulseParams);
+            m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, new TestTradeViewManager(m_BarsProvider) ,impulseParams);
 
             // Set up event handlers
             m_ReceivedSignals = new List<ImpulseSignalEventArgs>();
@@ -47,7 +47,7 @@ namespace TradeKit.Tests
             m_SetupFinder.OnTakeProfit += (_, args) => m_TakeProfitEvents.Add(args);
             m_SetupFinder.OnStopLoss += (_, args) => m_StopLossEvents.Add(args);
             m_SetupFinder.OnBreakeven += (_, args) => m_BreakEvenEvents.Add(args);
-            m_BarsProvider.BarOpened += (bp, args) =>
+            m_BarsProvider.BarClosed += (bp, args) =>
             {
                 m_SetupFinder.CheckBar(m_BarsProvider.GetOpenTime(m_BarsProvider.Count - 1));
             };

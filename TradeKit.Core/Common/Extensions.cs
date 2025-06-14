@@ -161,7 +161,7 @@ namespace TradeKit.Core.Common
         /// <param name="key">The key.</param>
         /// <param name="value">The value.</param>
         public static void AddValue<TK, TV>(
-            this SortedDictionary<TK, List<TV>> sortedDictionary, TK key, TV value)
+            this SortedList<TK, List<TV>> sortedDictionary, TK key, TV value)
         {
             if (!sortedDictionary.TryGetValue(key, out List<TV> valList))
             {
@@ -222,13 +222,13 @@ namespace TradeKit.Core.Common
         /// <param name="compareFunc">The function for comparing.</param>
         /// <returns>Removed items count.</returns>
         public static int RemoveLeft<TK, TV>(
-            this SortedDictionary<TK, TV> sortedList, Func<TK, bool> compareFunc)
+            this SortedList<TK, TV> sortedList, Func<TK, bool> compareFunc)
         {
             return sortedList.RemoveWhere(sortedList.Keys.TakeWhile(compareFunc));
         }
 
         /// <summary>
-        /// Removes the specified number of elements from the beginning of the <see cref="SortedDictionary{TK, TV}"/>.
+        /// Removes the specified number of elements from the beginning of the <see cref="SortedList{TK, TV}"/>.
         /// </summary>
         /// <param name="sortedList">The sorted dictionary to remove elements from.</param>
         /// <param name="countToRemove">The number of elements to remove from the beginning of the dictionary.</param>
@@ -236,7 +236,7 @@ namespace TradeKit.Core.Common
         /// <typeparam name="TV">The type of the values in the dictionary.</typeparam>
         /// <returns>The number of elements removed from the dictionary.</returns>
         public static int RemoveLeftTop<TK, TV>(
-            this SortedDictionary<TK, TV> sortedList, int countToRemove)
+            this SortedList<TK, TV> sortedList, int countToRemove)
         {
             List<TK> keysToDelete = sortedList.Keys.Take(countToRemove).ToList();
             int count = 0;

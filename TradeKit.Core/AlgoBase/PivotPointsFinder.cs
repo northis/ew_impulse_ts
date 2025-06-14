@@ -21,12 +21,12 @@ namespace TradeKit.Core.AlgoBase
         /// <summary>
         /// Gets the collection of pivot points (highs) found.
         /// </summary>
-        public SortedDictionary<DateTime, double> HighValues { get; }
+        public SortedList<DateTime, double> HighValues { get; }
 
         /// <summary>
         /// Gets the collection of pivot points (lows) found.
         /// </summary>
-        public SortedDictionary<DateTime, double> LowValues { get; }
+        public SortedList<DateTime, double> LowValues { get; }
 
         /// <summary>
         /// Gets the low extrema.
@@ -50,8 +50,8 @@ namespace TradeKit.Core.AlgoBase
             SetPeriod(period);
             m_BarsProvider = barsProvider;
             m_FillWithNans = fillWithNans;
-            HighValues = new SortedDictionary<DateTime, double>();
-            LowValues = new SortedDictionary<DateTime, double>();
+            HighValues = new SortedList<DateTime, double>();
+            LowValues = new SortedList<DateTime, double>();
             LowExtrema = new SortedSet<DateTime>();
             HighExtrema = new SortedSet<DateTime>();
             AllExtrema = new SortedSet<DateTime>();

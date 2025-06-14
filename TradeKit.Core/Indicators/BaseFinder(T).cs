@@ -39,7 +39,7 @@ namespace TradeKit.Core.Indicators
                 BarsProvider.BarClosed += OnBarClosed;
 
             m_DefaultCleanDuration = TimeFrameHelper.TimeFrames[BarsProvider.TimeFrame.Name].TimeSpan;
-            Result = new SortedDictionary<DateTime, T>();
+            Result = new SortedList<DateTime, T>();
         }
 
         private void OnBarClosed(object sender, System.EventArgs e)
@@ -133,6 +133,6 @@ namespace TradeKit.Core.Indicators
         /// <summary>
         /// Gets the collection of extrema found.
         /// </summary>
-        protected readonly SortedDictionary<DateTime, T> Result;
+        protected readonly SortedList<DateTime, T> Result;
     }
 }

@@ -18,8 +18,8 @@ namespace TradeKit.CTrader.Core
         private const int MAX_BARS_TO_KEEP = 10000;
         private const int CLEAN_EVERY = 1000;
         
-        private readonly SortedDictionary<DateTime, int> m_CandlesDate;
-        private readonly SortedDictionary<int, Candle> m_CandlesIndex;
+        private readonly SortedList<DateTime, int> m_CandlesDate;
+        private readonly SortedList<int, Candle> m_CandlesIndex;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
@@ -37,8 +37,8 @@ namespace TradeKit.CTrader.Core
         /// <param name="symbolEntity">The symbol entity.</param>
         public CTraderBarsProvider(Bars bars, ISymbol symbolEntity)
         {
-            m_CandlesDate = new SortedDictionary<DateTime, int>();
-            m_CandlesIndex = new SortedDictionary<int, Candle>();
+            m_CandlesDate = new SortedList<DateTime, int>();
+            m_CandlesIndex = new SortedList<int, Candle>();
             m_Bars = bars;
             ReloadBars();
             bars.BarClosed += OnBarClosed;

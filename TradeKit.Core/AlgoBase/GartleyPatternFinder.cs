@@ -16,13 +16,13 @@ namespace TradeKit.Core.AlgoBase
         private readonly TimeSpan m_CoolingTimeOfDay;
 
         private readonly GartleyPattern[] m_RealPatterns;
-        private readonly SortedDictionary<DateTime, List<GartleyProjection>> m_ActiveProjections;
-        private readonly SortedDictionary<DateTime, DateTime> m_BullXtoA;
-        private readonly SortedDictionary<DateTime, DateTime> m_BearXtoA;
+        private readonly SortedList<DateTime, List<GartleyProjection>> m_ActiveProjections;
+        private readonly SortedList<DateTime, DateTime> m_BullXtoA;
+        private readonly SortedList<DateTime, DateTime> m_BearXtoA;
         private readonly HashSet<DateTime> m_BullWastedX;
         private readonly HashSet<DateTime> m_BearWastedX;
-        private readonly SortedDictionary<DateTime, double> m_BullAMax;
-        private readonly SortedDictionary<DateTime, double> m_BearAMin;
+        private readonly SortedList<DateTime, double> m_BullAMax;
+        private readonly SortedList<DateTime, double> m_BearAMin;
 
         private DateTime? m_BorderDateTime;
         private readonly double[] m_Allowances;
@@ -56,14 +56,14 @@ namespace TradeKit.Core.AlgoBase
                 : GartleyProjection.Patterns.Where(a => patterns.Contains(a.PatternType))
                     .ToArray();
 
-            m_ActiveProjections = new SortedDictionary<DateTime, List<GartleyProjection>>();
-            m_BullXtoA = new SortedDictionary<DateTime, DateTime>();
-            m_BearXtoA = new SortedDictionary<DateTime, DateTime>();
+            m_ActiveProjections = new SortedList<DateTime, List<GartleyProjection>>();
+            m_BullXtoA = new SortedList<DateTime, DateTime>();
+            m_BearXtoA = new SortedList<DateTime, DateTime>();
             m_BullWastedX = new HashSet<DateTime>();
             m_BearWastedX = new HashSet<DateTime>();
-            m_BullAMax = new SortedDictionary<DateTime, double>();
+            m_BullAMax = new SortedList<DateTime, double>();
             m_Allowances = new[] { 1 - accuracy };
-            m_BearAMin = new SortedDictionary<DateTime, double>();
+            m_BearAMin = new SortedList<DateTime, double>();
         }
 
         private void InitDatesIfNeeded(int index)
@@ -122,8 +122,8 @@ namespace TradeKit.Core.AlgoBase
 
         private void ProcessProjections(
             DateTime pointDateTimeX, 
-            SortedDictionary<DateTime, double> values,
-            SortedDictionary<DateTime, double> counterValues,
+            SortedList<DateTime, double> values,
+            SortedList<DateTime, double> counterValues,
             bool isUp)
         {
             HashSet<DateTime> wastedValues = isUp
@@ -139,7 +139,7 @@ namespace TradeKit.Core.AlgoBase
             if (double.IsNaN(valX))
                 return;
 
-            SortedDictionary<DateTime, double> aRanges = isUp
+            SortedList<DateTime, double> aRanges = isUp
                 ? m_BullAMax
                 : m_BearAMin;
             if (!aRanges.TryGetValue(pointDateTimeX, out double aExtrema))
@@ -148,7 +148,7 @@ namespace TradeKit.Core.AlgoBase
                 aRanges[pointDateTimeX] = aExtrema;
             }
 
-            SortedDictionary<DateTime, DateTime> processedValues = isUp 
+            SortedList<DateTime, DateTime> processedValues = isUp 
                 ? m_BullXtoA 
                 : m_BearXtoA;
 

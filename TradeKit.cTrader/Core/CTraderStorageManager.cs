@@ -9,7 +9,7 @@ namespace TradeKit.CTrader.Core
         private const string STATE_SAVE_KEY = "ReportStateMap";
         private const string STAT_ALL_SAVE_KEY = "StatisticStateAll";
         private const string TRADE_KIT_SCHEMA = "TradeKitSchema";
-        private const string TRADE_KIT_SCHEMA_VAL = "3";
+        private const string TRADE_KIT_SCHEMA_VAL = "4";
         private readonly Robot m_Robot;
 
         /// <summary>

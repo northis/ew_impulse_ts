@@ -7,7 +7,10 @@ namespace TradeKit.Core.Indicators
     /// </summary>
     public class DeviationExtremumFinder : ExtremumFinderBase
     {
-        private readonly int m_ScaleRate;
+        /// <summary>
+        /// Gets the scaling rate for identifying deviations in extremum calculations.
+        /// </summary>
+        public int ScaleRate { get; }
 
         /// <summary>
         /// Gets the deviation price in absolute value.
@@ -17,7 +20,7 @@ namespace TradeKit.Core.Indicators
             get
             {
                 double percentRate = IsUpDirection ? -0.0001 : 0.0001;
-                return Extremum.Value * (1.0 + m_ScaleRate * percentRate);
+                return Extremum.Value * (1.0 + ScaleRate * percentRate);
             }
         }
 
@@ -29,7 +32,7 @@ namespace TradeKit.Core.Indicators
         /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
         public DeviationExtremumFinder(int scaleRate, IBarsProvider barsProvider, bool isUpDirection = false) : base(barsProvider, isUpDirection, false)
         {
-            m_ScaleRate = scaleRate;
+            ScaleRate = scaleRate;
         }
 
         /// <summary>

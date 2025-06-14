@@ -39,7 +39,10 @@ namespace TradeKit.Tests
             m_GartleyPatternFinder = new GartleyPatternFinder(
                 m_SourceProvider,
                 accuracy,
-                barsDepth, 3, new HashSet<GartleyPatternType>
+                barsDepth, 
+                Helper.GARTLEY_TP_RATIO,
+                Helper.GARTLEY_SL_RATIO,
+                3, new HashSet<GartleyPatternType>
                 {
                     GartleyPatternType.BUTTERFLY
                 });
