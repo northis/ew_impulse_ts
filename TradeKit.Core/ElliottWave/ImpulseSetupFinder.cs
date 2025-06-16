@@ -363,7 +363,6 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IssueSignal(SignalArgs signalArgs)
         {
-            Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: On IssueSignal");
             var outExtrema = new ImpulseElliottModelResult
             {
                 Wave0 = signalArgs.StartItem,
