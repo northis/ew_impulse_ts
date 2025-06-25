@@ -165,6 +165,7 @@ namespace TradeKit.Core.ElliottWave
             int endIndex = count - IMPULSE_END_NUMBER;
             BarPoint startItem = extrema.Values[startIndex];
             BarPoint endItem = extrema.Values[endIndex];
+            BarPoint lastItem = extrema.Values[^1];
 
             bool isInSetupBefore = IsInSetup;
             double startValue = startItem.Value;
@@ -174,6 +175,12 @@ namespace TradeKit.Core.ElliottWave
 
             if (!IsInSetup)
             {
+                if (isImpulseUp && (lastItem > endItem || lastItem < startItem) ||
+                    !isImpulseUp && (lastItem < endItem || lastItem > startItem))
+                {
+                    return false;
+                }
+                
                 if (!CheckForSignal(new CheckSignalArgs(index, finder, currentPriceBid, hasInCache, endItem, startValue, endValue, startItem, isImpulseUp, low, high))) return false;
             }
 

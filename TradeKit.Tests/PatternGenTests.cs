@@ -127,7 +127,7 @@ public class PatternGenTests
     [Test]
     public void TriangleTest()
     {
-        for (int i = 15; i <= 15; i++)
+        for (int i = 100; i <= 100; i++)
         {
             (DateTime, DateTime) dates = GetDateRange(i);
             ModelPattern model = m_PatternGenerator.GetPattern(

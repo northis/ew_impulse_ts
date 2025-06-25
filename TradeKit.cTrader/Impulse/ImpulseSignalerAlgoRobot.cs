@@ -1,4 +1,6 @@
-﻿using cAlgo.API;
+﻿using System;
+using System.Diagnostics;
+using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.CTrader.Core;
@@ -45,8 +47,20 @@ namespace TradeKit.CTrader.Impulse
         protected override ImpulseSetupFinder CreateSetupFinder(
             ITimeFrame timeFrame, ISymbol symbolEntity)
         {
-            IBarsProvider barsProvider = CreateBarsProvider(timeFrame, symbolEntity);
-            var sf = new ImpulseSetupFinder(barsProvider,m_TradeManager, m_ImpulseParams);
+            TimeFrameInfo mainTimeFrame =
+                TimeFrameHelper.TimeFrames[m_HostRobot.TimeFrame.Name];
+            TimeFrameInfo currentTimeFrame =
+                TimeFrameHelper.TimeFrames[timeFrame.Name];
+            double ratio = mainTimeFrame.TimeSpan / currentTimeFrame.TimeSpan;
+            ImpulseParams impulseParams = m_ImpulseParams with
+            {
+                BarsCount = Convert.ToInt32(m_ImpulseParams.BarsCount * ratio)
+            };
+
+            IBarsProvider barsProvider =
+                CreateBarsProvider(timeFrame, symbolEntity);
+            ImpulseSetupFinder sf = new ImpulseSetupFinder(barsProvider,
+                m_TradeManager, impulseParams);
             return sf;
         }
     }

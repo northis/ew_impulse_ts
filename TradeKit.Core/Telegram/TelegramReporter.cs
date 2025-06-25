@@ -245,6 +245,9 @@ namespace TradeKit.Core.Telegram
             double spread = signalArgs.Ask - signalArgs.Bid;
             bool isLong = signalEventArgs.StopLoss.Value < signalEventArgs.TakeProfit.Value;
             string tradeType;
+            
+            double sl = signalEventArgs.StopLoss.Value;
+            double tp = signalEventArgs.TakeProfit.Value;
             if (isLong)
             {
                 price = signalEventArgs.IsLimit ? signalEventArgs.Level.Value : signalArgs.Ask;
@@ -254,10 +257,11 @@ namespace TradeKit.Core.Telegram
             {
                 price = signalEventArgs.IsLimit ? signalEventArgs.Level.Value : signalArgs.Bid;
                 tradeType = "SELL";
+
+                tp -= spread;
+                sl += spread;
             }
 
-            double sl = signalEventArgs.StopLoss.Value;
-            double tp = signalEventArgs.TakeProfit.Value;
 
             double nom = Math.Abs(price - tp);
             double den = Math.Abs(sl - tp);

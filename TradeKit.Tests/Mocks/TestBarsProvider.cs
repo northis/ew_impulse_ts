@@ -103,11 +103,7 @@ namespace TradeKit.Tests.Mocks
             m_OpenTimes[index] = openTime;
             m_TimeToIndexMap[openTime] = index;
             
-            // Trigger BarOpened event for the newly added candle
-            if (index > 0)
-            {
-                OnBarClosed();
-            }
+            OnBarClosed();
         }
 
         /// <summary>

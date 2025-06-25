@@ -81,8 +81,9 @@ namespace TradeKit.CTrader.Core
         /// <summary>
         /// Gets or sets the max money (stop-take range) per setup. Use 0 to disable.
         /// </summary>
-        [Parameter(nameof(MaxMoneyPerSetup), DefaultValue = 0, MinValue = 0, Group = Helper.TRADE_SETTINGS_NAME)]
-        public double MaxMoneyPerSetup { get; set; }
+        [Parameter(nameof(MaxMoneyPerSetup), DefaultValue = 0.0, MinValue = 0.0,
+            Group = Helper.TRADE_SETTINGS_NAME)]
+        private double MaxMoneyPerSetup { get; set; }
 
         /// <summary>
         /// Gets or sets the max allowed volume in lots.
