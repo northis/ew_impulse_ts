@@ -13,6 +13,8 @@ namespace TradeKit.Core.ElliottWave
     {
         private readonly EWParams m_EwParams;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
+        
+        internal ElliottWaveSignalEventArgs CurrentSignalEventArgs { get; set; }
 
         private const double RATIO_ALLOWANCE = 0.1;
         private const double MAX_D_TO_E_RATIO = 1.618 + RATIO_ALLOWANCE;
@@ -41,16 +43,60 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="openDateTime">The open date and time to check the setup against.</param>
         protected override void CheckSetup(DateTime openDateTime)
         {
-            foreach (DeviationExtremumFinder finder in m_ExtremumFinders
-                         .OrderByDescending(a => a.ScaleRate))
+            // If we're currently in a setup, check for stop loss and take profit hits
+            if (IsInSetup && CurrentSignalEventArgs != null)
             {
-                finder.OnCalculate(openDateTime);
-                if (!IsInitialized)
-                    continue;
-
-                if (IsSetup(openDateTime, finder))
+                int index = BarsProvider.GetIndexByTime(openDateTime);
+                double low = BarsProvider.GetLowPrice(index);
+                double high = BarsProvider.GetHighPrice(index);
+                
+                bool isUp = CurrentSignalEventArgs.TakeProfit > CurrentSignalEventArgs.StopLoss;
+                
+                // Check for take profit hit
+                bool isProfitHit = isUp && high >= CurrentSignalEventArgs.TakeProfit.Value
+                                   || !isUp && low <= CurrentSignalEventArgs.TakeProfit.Value;
+                
+                if (isProfitHit)
                 {
-                    break;
+                    IsInSetup = false;
+                    LevelEventArgs levelArgs = new LevelEventArgs(
+                        CurrentSignalEventArgs.TakeProfit.WithIndex(index, BarsProvider),
+                        CurrentSignalEventArgs.Level, false,
+                        CurrentSignalEventArgs.Comment);
+                    OnTakeProfitInvoke(levelArgs);
+                    return;
+                }
+                
+                // Check for stop loss hit
+                bool isStopHit = isUp && low <= CurrentSignalEventArgs.StopLoss.Value
+                                 || !isUp && high >= CurrentSignalEventArgs.StopLoss.Value;
+                
+                if (isStopHit)
+                {
+                    IsInSetup = false;
+                    LevelEventArgs levelArgs = new LevelEventArgs(
+                        CurrentSignalEventArgs.StopLoss.WithIndex(index, BarsProvider),
+                        CurrentSignalEventArgs.Level, false,
+                        CurrentSignalEventArgs.Comment);
+                    OnStopLossInvoke(levelArgs);
+                    return;
+                }
+            }
+            
+            // If not in setup, look for new setups
+            if (!IsInSetup)
+            {
+                foreach (DeviationExtremumFinder finder in m_ExtremumFinders
+                             .OrderByDescending(a => a.ScaleRate))
+                {
+                    finder.OnCalculate(openDateTime);
+                    if (!IsInitialized)
+                        continue;
+
+                    if (IsSetup(openDateTime, finder))
+                    {
+                        break;
+                    }
                 }
             }
         }
@@ -169,10 +215,20 @@ namespace TradeKit.Core.ElliottWave
                         openDateTime,
                         BarsProvider);
 
-                    OnEnterInvoke(new ElliottWaveSignalEventArgs(level, point0,
+                    bool isInitialMove = IsInitialMovement(point0.Value,
+                        waveA.Value, point0.BarIndex, BarsProvider, out _);
+
+                    if (!isInitialMove)
+                    {
+                        return false;
+                    }
+
+                    CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(level, point0,
                         waveA,
                         new[] { point0, waveA, waveB, waveC, waveD, waveE },
-                        point0.OpenTime, null));
+                        point0.OpenTime, null);
+                    OnEnterInvoke(CurrentSignalEventArgs);
+                    IsInSetup = true;
                     return true;
                 }
 

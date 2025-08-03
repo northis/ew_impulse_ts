@@ -32,6 +32,21 @@ namespace TradeKit.CTrader.Triangle
         protected override void OnEnter(object sender, ElliottWaveSignalEventArgs e)
         {
             Logger.Write($"Setup found! {e.Level.OpenTime:s}");
+            int levelIndex = Bars.OpenTimes.GetIndexByTime(e.Level.OpenTime);
+
+            BarPoint[] wp = e.WavePoints;
+            if (wp.Length < 1)
+                return;
+
+            BarPoint current = wp[0];
+            foreach (BarPoint wave in wp.Skip(1))
+            {
+                Chart.DrawTrendLine($"Tr{levelIndex}+{wave.OpenTime}",
+                    current.OpenTime, current.Value, wave.OpenTime, wave.Value, Color.MediumPurple);
+
+                current = wave;
+            }
+            
         }
 
         /// <summary>
