@@ -16,6 +16,8 @@ namespace TradeKit.CTrader.Triangle
     {
         private TriangleSetupFinder m_SetupFinder;
         private IBarsProvider m_BarsProvider;
+        private Color m_SlColor;
+        private Color m_TpColor;
 
         protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
@@ -31,10 +33,10 @@ namespace TradeKit.CTrader.Triangle
 
         protected override void OnEnter(object sender, ElliottWaveSignalEventArgs e)
         {
+            BarPoint[] wp = e.WavePoints;
             Logger.Write($"Setup found! {e.Level.OpenTime:s}");
             int levelIndex = Bars.OpenTimes.GetIndexByTime(e.Level.OpenTime);
 
-            BarPoint[] wp = e.WavePoints;
             if (wp.Length < 1)
                 return;
 
@@ -43,9 +45,19 @@ namespace TradeKit.CTrader.Triangle
             {
                 Chart.DrawTrendLine($"Tr{levelIndex}+{wave.OpenTime}",
                     current.OpenTime, current.Value, wave.OpenTime, wave.Value, Color.MediumPurple);
+                Logger.Write($"Wave  {wave.OpenTime:s} - {wave.Value}");
 
                 current = wave;
             }
+            
+            double levelValue = e.Level.Value;
+
+            Chart.DrawRectangle($"SL{levelIndex}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
+                    e.StopLoss.Value, m_SlColor, LINE_WIDTH)
+                .SetFilled();
+            Chart.DrawRectangle($"TP{levelIndex}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
+                    e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
+                .SetFilled();
             
         }
 
@@ -55,6 +67,8 @@ namespace TradeKit.CTrader.Triangle
         protected override void Initialize()
         {
             base.Initialize();
+            m_SlColor = Color.FromHex("#50F00000");
+            m_TpColor = Color.FromHex("#5000F000");
 
             var cTraderViewManager = new CTraderViewManager(this);
             var barProvidersFactory = new BarProvidersFactory(

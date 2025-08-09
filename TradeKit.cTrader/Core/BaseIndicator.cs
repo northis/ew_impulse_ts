@@ -16,6 +16,8 @@ namespace TradeKit.CTrader.Core
     {
         private bool m_IsInitialized;
         private T m_SetupFinder;
+        protected const int SETUP_WIDTH = 3;
+        protected const int LINE_WIDTH = 1;
 
         /// <summary>
         /// Subscribes to the events of the setup finder passed.

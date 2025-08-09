@@ -9,10 +9,20 @@ namespace TradeKit.Core.ElliottWave
     /// <summary>
     /// Class contains the EW ABCDE-triangle logic of trade setups searching.
     /// </summary>
+    /// <summary>
+    /// Record to represent a unique signal combination based on takeProfit and stopLoss BarPoints
+    /// </summary>
+    /// <param name="TakeProfitDate">Datetime of takeProfit BarPoint</param>
+    /// <param name="TakeProfitValue">Value of takeProfit BarPoint</param>
+    /// <param name="StopLossDate">Datetime of stopLoss BarPoint</param>
+    /// <param name="StopLossValue">Value of stopLoss BarPoint</param>
+    internal record SignalKey(DateTime TakeProfitDate, double TakeProfitValue, DateTime StopLossDate, double StopLossValue);
+
     public class TriangleSetupFinder : SingleSetupFinder<ElliottWaveSignalEventArgs>
     {
         private readonly EWParams m_EwParams;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
+        private readonly HashSet<SignalKey> m_ProcessedSignals = new();
         
         internal ElliottWaveSignalEventArgs CurrentSignalEventArgs { get; set; }
 
@@ -30,7 +40,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_EwParams = ewParams;
 
-            for (int i = ewParams.Period; i <= ewParams.Period * 4; i += 10)
+            for (int i = ewParams.Period; i <= ewParams.Period + 50; i += 5)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ExtremumFinders.Add(localFinder);
@@ -64,6 +74,7 @@ namespace TradeKit.Core.ElliottWave
                         CurrentSignalEventArgs.Level, false,
                         CurrentSignalEventArgs.Comment);
                     OnTakeProfitInvoke(levelArgs);
+                    CurrentSignalEventArgs = null;
                     return;
                 }
                 
@@ -79,6 +90,7 @@ namespace TradeKit.Core.ElliottWave
                         CurrentSignalEventArgs.Level, false,
                         CurrentSignalEventArgs.Comment);
                     OnStopLossInvoke(levelArgs);
+                    CurrentSignalEventArgs = null;
                     return;
                 }
             }
@@ -107,22 +119,21 @@ namespace TradeKit.Core.ElliottWave
             return isUp && currentExtremum > compareExtremum ||
                    !isUp && currentExtremum < compareExtremum;
         }
-
-        private bool IsSetup(DateTime openDateTime,
-            DeviationExtremumFinder finder)
+        
+        private bool IsSetup(DateTime openDateTime, DeviationExtremumFinder finder)
         {
             if (finder.Extrema.Count < MIN_EXTREMUM_COUNT)
                 return false;
 
-            BarPoint waveE = finder.Extrema.Values[^1];
-            BarPoint waveD = finder.Extrema.Values[^2];
+            BarPoint waveE = finder.Extrema.Values[^2];
+            BarPoint waveD = finder.Extrema.Values[^3];
             BarPoint waveC = null;
             BarPoint waveB = null;
             BarPoint waveA = null;
             BarPoint point0 = null;
             bool isUp = waveD > waveE;
 
-            for (int i = finder.Extrema.Count - 3;
+            for (int i = finder.Extrema.Count - 4;
                  i > Math.Max(0, finder.Extrema.Count - MAX_EXTREMA_DEPTH);
                  i--)
             {
@@ -209,9 +220,7 @@ namespace TradeKit.Core.ElliottWave
                 }
                 else
                 {
-                    var level = new BarPoint(isUp
-                            ? BarsProvider.GetLowPrice(openDateTime)
-                            : BarsProvider.GetHighPrice(openDateTime),
+                    var level = new BarPoint(BarsProvider.GetClosePrice(openDateTime),
                         openDateTime,
                         BarsProvider);
 
@@ -223,10 +232,51 @@ namespace TradeKit.Core.ElliottWave
                         return false;
                     }
 
+                    // if (openDateTime is
+                    //     { Day: 29, Month: 7, Hour: 6, Minute: 45 })
+                    // {
+                    //     Logger.Write("Gotcha.");
+                    //     Debugger.Launch();
+                    // }
+
+                    BarPoint localExtremum =
+                        BarsProvider.GetExtremumBetween(waveC.OpenTime,
+                            level.OpenTime, isUp);
+                    if (!isUp && localExtremum < waveD ||
+                        isUp && localExtremum > waveD)
+                    {
+                        Logger.Write("The triangle is no longer valid.");
+                        return false;
+                    }
+
                     CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(level, point0,
                         waveA,
                         new[] { point0, waveA, waveB, waveC, waveD, waveE },
                         point0.OpenTime, null);
+                    
+                    // Check if this signal combination has already been processed
+                    var signalKey = new SignalKey(
+                        CurrentSignalEventArgs.TakeProfit.OpenTime,
+                        CurrentSignalEventArgs.TakeProfit.Value,
+                        CurrentSignalEventArgs.StopLoss.OpenTime,
+                        CurrentSignalEventArgs.StopLoss.Value);
+
+                    if (Math.Abs(
+                            level.Value - CurrentSignalEventArgs.TakeProfit) /
+                        Math.Abs(CurrentSignalEventArgs.TakeProfit -
+                                 CurrentSignalEventArgs.StopLoss) < 0.4)
+                    {
+                        CurrentSignalEventArgs = null;
+                        return false;
+                    }
+
+                    if (!m_ProcessedSignals.Add(signalKey))
+                    {
+                        CurrentSignalEventArgs = null;
+                        return false;
+                    }
+                    
+                    // Add to processed signals set
                     OnEnterInvoke(CurrentSignalEventArgs);
                     IsInSetup = true;
                     return true;
@@ -244,6 +294,6 @@ namespace TradeKit.Core.ElliottWave
         }
 
         private const int MAX_EXTREMA_DEPTH = 100;
-        private const int MIN_EXTREMUM_COUNT = 6;
+        private const int MIN_EXTREMUM_COUNT = 7;
     }
 }

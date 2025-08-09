@@ -26,8 +26,6 @@ namespace TradeKit.CTrader.Gartley
         private Color m_BearColorBorder;
         private Color m_BullColorBorder;
         private bool m_CandlesSaved;
-        private const int SETUP_WIDTH = 3;
-        private const int LINE_WIDTH = 1;
         private const int DIV_LINE_WIDTH = 3;
 
         /// <summary>
