@@ -245,7 +245,7 @@ namespace TradeKit.Core.ElliottWave
                     if (!isUp && localExtremum < waveD ||
                         isUp && localExtremum > waveD)
                     {
-                        Logger.Write("The triangle is no longer valid.");
+                        //Logger.Write("The triangle is no longer valid.");
                         return false;
                     }
 
@@ -270,7 +270,7 @@ namespace TradeKit.Core.ElliottWave
                         return false;
                     }
 
-                    if (!m_ProcessedSignals.Add(signalKey))
+                    if (!m_ProcessedSignals.Add(signalKey) || !IsTrendRatioEnough(CurrentSignalEventArgs))
                     {
                         CurrentSignalEventArgs = null;
                         return false;
@@ -293,7 +293,13 @@ namespace TradeKit.Core.ElliottWave
             return false;
         }
 
+        private bool IsTrendRatioEnough(ElliottWaveSignalEventArgs args)
+        {
+            return true;
+        }
+
         private const int MAX_EXTREMA_DEPTH = 100;
         private const int MIN_EXTREMUM_COUNT = 7;
+        private const int TRIANGLE_TREND_RATIO = 3;
     }
 }

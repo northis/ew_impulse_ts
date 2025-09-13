@@ -45,7 +45,7 @@ namespace TradeKit.CTrader.Triangle
             {
                 Chart.DrawTrendLine($"Tr{levelIndex}+{wave.OpenTime}",
                     current.OpenTime, current.Value, wave.OpenTime, wave.Value, Color.MediumPurple);
-                Logger.Write($"Wave  {wave.OpenTime:s} - {wave.Value}");
+                //Logger.Write($"Wave  {wave.OpenTime:s} - {wave.Value}");
 
                 current = wave;
             }

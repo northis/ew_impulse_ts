@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("Triangle Finder Indicator for cTrader")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyProduct("Triangle Finder")]
-[assembly: AssemblyTrademark("Mikhail Berdnikov (C) 2024")]
+[assembly: AssemblyTrademark("Mikhail Berdnikov (C) 2025")]
 [assembly: AssemblyCulture("")]
 
 [assembly: ComVisible(false)]

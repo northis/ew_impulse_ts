@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("Gartley Finder Indicator for cTrader")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyProduct("Gartley Finder")]
-[assembly: AssemblyTrademark("Mikhail Berdnikov (C) 2024")]
+[assembly: AssemblyTrademark("Mikhail Berdnikov (C) 2025")]
 [assembly: AssemblyCulture("")]
 
 [assembly: ComVisible(false)]
