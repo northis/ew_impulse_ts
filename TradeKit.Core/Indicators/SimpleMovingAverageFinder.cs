@@ -1,5 +1,4 @@
-﻿using System;
-using TradeKit.Core.Common;
+﻿using TradeKit.Core.Common;
 
 namespace TradeKit.Core.Indicators
 {
@@ -24,13 +23,13 @@ namespace TradeKit.Core.Indicators
         /// <param name="shift">The shift.</param>
         /// <exception cref="ArgumentOutOfRangeException">periods</exception>
         public SimpleMovingAverageFinder(
-            IBarsProvider barsProvider, int periods = 14, int shift = 0, bool useAutoCalculateEvent = true) : base(barsProvider, useAutoCalculateEvent)
+            IBarsProvider barsProvider, int periods = 14, bool useAutoCalculateEvent = true) : base(barsProvider, useAutoCalculateEvent)
         {
             if (periods < 1)
                 throw new ArgumentOutOfRangeException(nameof(periods));
 
             Periods = periods;
-            Shift = shift;
+            //Shift = shift; //TODO not supported
         }
 
         /// <summary>

@@ -27,10 +27,10 @@ namespace TradeKit.Core.ElliottWave
         internal ElliottWaveSignalEventArgs CurrentSignalEventArgs { get; set; }
 
         private const double RATIO_ALLOWANCE = 0.1;
-        private const double MAX_D_TO_E_RATIO = 1.618 + RATIO_ALLOWANCE;
-        private const double MAX_C_TO_E_RATIO = 2 + RATIO_ALLOWANCE;
-        private const double MAX_B_TO_E_RATIO = 2.618 + RATIO_ALLOWANCE;
-        private const double MAX_A_TO_E_RATIO = 3.618 + RATIO_ALLOWANCE;
+        private const double MAX_WAVE_RATIO = 3 + RATIO_ALLOWANCE;
+        // private const double MAX_C_TO_E_RATIO = 2.618 + RATIO_ALLOWANCE;
+        // private const double MAX_B_TO_E_RATIO = 3.618 + RATIO_ALLOWANCE;
+        // private const double MAX_A_TO_E_RATIO = 3.618 + RATIO_ALLOWANCE;
 
         /// <summary>
         /// Implements the logic for searching trade setups based on the EW ABCDE-triangle pattern.
@@ -133,6 +133,15 @@ namespace TradeKit.Core.ElliottWave
             BarPoint point0 = null;
             bool isUp = waveD > waveE;
 
+            if (waveE.OpenTime is
+                { Day: 12, Month: 9, Hour: 0, Minute: 30 } &&
+                waveD.OpenTime is
+                    { Day: 11, Month: 9, Hour: 22, Minute: 20 })
+            {
+                Logger.Write("Gotcha.");
+                Debugger.Launch();
+            }
+
             for (int i = finder.Extrema.Count - 4;
                  i > Math.Max(0, finder.Extrema.Count - MAX_EXTREMA_DEPTH);
                  i--)
@@ -144,16 +153,23 @@ namespace TradeKit.Core.ElliottWave
 
                 if (waveC == null)
                 {
+
                     if (IsMovementForward(isUp, currentExtremum, waveD))
                     {
                         waveD = currentExtremum;
+                        //if (currentExtremum.OpenTime is
+                        //    { Day: 5, Month: 9, Hour: 13, Minute: 19 })
+                        //{
+                        //    Logger.Write("Gotcha.");
+                        //    Debugger.Launch();
+                        //}
                         continue;
                     }
 
                     if (!IsMovementForward(isUp, currentExtremum, waveE))
                     {
                         waveC = currentExtremum;
-                        if (Math.Abs(waveD - waveC) / dToE > MAX_D_TO_E_RATIO)
+                        if (Math.Abs(waveD - waveC) / dToE > MAX_WAVE_RATIO)
                             return false;
                     }
 
@@ -165,7 +181,7 @@ namespace TradeKit.Core.ElliottWave
                     if (!IsMovementForward(isUp, currentExtremum, waveC))
                     {
                         waveC = currentExtremum;
-                        if (Math.Abs(waveD - waveC) / dToE > MAX_D_TO_E_RATIO)
+                        if (Math.Abs(waveD - waveC) / dToE > MAX_WAVE_RATIO)
                             return false;
 
                         continue;
@@ -174,7 +190,7 @@ namespace TradeKit.Core.ElliottWave
                     if (IsMovementForward(isUp, currentExtremum, waveD))
                     {
                         waveB = currentExtremum;
-                        if (Math.Abs(waveC - waveB) / dToE > MAX_C_TO_E_RATIO)
+                        if (Math.Abs(waveC - waveB) / Math.Abs(waveC - waveD) > MAX_WAVE_RATIO)
                             return false;
                     }
 
@@ -186,7 +202,7 @@ namespace TradeKit.Core.ElliottWave
                     if (IsMovementForward(isUp, currentExtremum, waveB))
                     {
                         waveB = currentExtremum;
-                        if (Math.Abs(waveB - waveC) / dToE > MAX_C_TO_E_RATIO)
+                        if (Math.Abs(waveB - waveC) / Math.Abs(waveC - waveD)  > MAX_WAVE_RATIO)
                             return false;
 
                         continue;
@@ -195,7 +211,7 @@ namespace TradeKit.Core.ElliottWave
                     if (!IsMovementForward(isUp, currentExtremum, waveC))
                     {
                         waveA = currentExtremum;
-                        if (Math.Abs(waveB - waveA) / dToE > MAX_B_TO_E_RATIO)
+                        if (Math.Abs(waveB - waveA) / Math.Abs(waveC - waveB) > MAX_WAVE_RATIO)
                             return false;
                     }
 
@@ -207,14 +223,14 @@ namespace TradeKit.Core.ElliottWave
                     if (!IsMovementForward(isUp, currentExtremum, waveA))
                     {
                         waveA = currentExtremum;
-                        if (Math.Abs(waveA - waveB) / dToE > MAX_B_TO_E_RATIO)
+                        if (Math.Abs(waveA - waveB) / Math.Abs(waveC - waveB) > MAX_WAVE_RATIO)
                             return false;
                     }
 
                     if (IsMovementForward(isUp, currentExtremum, waveB))
                     {
                         point0 = currentExtremum;
-                        if (Math.Abs(waveA - point0) / dToE > MAX_A_TO_E_RATIO)
+                        if (Math.Abs(waveA - point0) / Math.Abs(waveA - waveB) > 1)
                             return false;
                     }
                 }
@@ -232,13 +248,6 @@ namespace TradeKit.Core.ElliottWave
                         return false;
                     }
 
-                    // if (openDateTime is
-                    //     { Day: 29, Month: 7, Hour: 6, Minute: 45 })
-                    // {
-                    //     Logger.Write("Gotcha.");
-                    //     Debugger.Launch();
-                    // }
-
                     BarPoint localExtremum =
                         BarsProvider.GetExtremumBetween(waveC.OpenTime,
                             level.OpenTime, isUp);
@@ -249,10 +258,21 @@ namespace TradeKit.Core.ElliottWave
                         return false;
                     }
 
+                    //int waveADuration = waveA.BarIndex - point0.BarIndex;
+                    //int waveBDuration = waveB.BarIndex - waveA.BarIndex;
+                    // int waveCDuration = waveC.BarIndex - waveB.BarIndex;
+                    // int waveDDuration = waveD.BarIndex - waveC.BarIndex;
+                    // int waveEDuration = waveE.BarIndex - waveD.BarIndex;
+                    //if (waveBDuration > waveADuration)
+                    //{
+                    //    return false;
+                    //}
+
                     CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(level, point0,
                         waveA,
                         new[] { point0, waveA, waveB, waveC, waveD, waveE },
                         point0.OpenTime, null);
+                    
                     
                     // Check if this signal combination has already been processed
                     var signalKey = new SignalKey(
@@ -264,7 +284,7 @@ namespace TradeKit.Core.ElliottWave
                     if (Math.Abs(
                             level.Value - CurrentSignalEventArgs.TakeProfit) /
                         Math.Abs(CurrentSignalEventArgs.TakeProfit -
-                                 CurrentSignalEventArgs.StopLoss) < 0.4)
+                                 CurrentSignalEventArgs.StopLoss) < MIN_TO_SL_RATIO)
                     {
                         CurrentSignalEventArgs = null;
                         return false;
@@ -295,11 +315,21 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsTrendRatioEnough(ElliottWaveSignalEventArgs args)
         {
-            return true;
+            double range = args.WholeRange;
+            bool isUp = args.StopLoss < args.TakeProfit;
+            BarPoint point0 = args.WavePoints[0];
+            BarPoint pointA = args.WavePoints[1];
+
+            double endValue =
+                pointA.Value + (isUp ? -1 : 1) * range * TRIANGLE_TREND_RATIO;
+            
+            bool isEnough = IsInitialMovement(point0.Value,endValue,point0.BarIndex, BarsProvider, out _);
+            return isEnough;
         }
 
         private const int MAX_EXTREMA_DEPTH = 100;
         private const int MIN_EXTREMUM_COUNT = 7;
         private const int TRIANGLE_TREND_RATIO = 3;
+        private const double MIN_TO_SL_RATIO = 0.4;
     }
 }

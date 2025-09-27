@@ -121,20 +121,20 @@ namespace TradeKit.Core.Gartley
                    ACValues: LEVELS.RangeVal(1.13, 1.618),
                    CEValues: new[] {0.5},
                    SetupType: GartleySetupType.CD),
-                new(GartleyPatternType.NEN_STAR,
-                    XBValues: LEVELS.RangeVal(0.382, 0.618),
-                    XDValues: new[] {1.272},
-                    BDValues: new[] {2d},//LEVELS.RangeVal(1.272, 2),
-                    ACValues: LEVELS.RangeVal(1.13, 1.41),
-                    SetupType: GartleySetupType.CD,
-                    CEValues:Array.Empty<double>()),
-                new(GartleyPatternType.LEONARDO,
-                    XBValues: new[] {0.5},
-                    XDValues: new[] {0.786},
-                    BDValues: new[] {2.618},//LEVELS.RangeVal(1.272, 2.618),
-                    ACValues: LEVELS.RangeVal(0.382, 0.886),
+                //new(GartleyPatternType.NEN_STAR,
+                //    XBValues: LEVELS.RangeVal(0.382, 0.618),
+                //    XDValues: new[] {1.272},
+                //    BDValues: new[] {2d},//LEVELS.RangeVal(1.272, 2),
+                //    ACValues: LEVELS.RangeVal(1.13, 1.41),
+                //    SetupType: GartleySetupType.CD,
+                //    CEValues:Array.Empty<double>()),
+                //new(GartleyPatternType.LEONARDO,
+                //    XBValues: new[] {0.5},
+                //    XDValues: new[] {0.786},
+                //    BDValues: new[] {2.618},//LEVELS.RangeVal(1.272, 2.618),
+                //    ACValues: LEVELS.RangeVal(0.382, 0.886),
                     
-                    CEValues:Array.Empty<double>())
+                //    CEValues:Array.Empty<double>())
             };
 
             PATTERNS_MAP = Patterns.ToDictionary(a => a.PatternType, a => a);

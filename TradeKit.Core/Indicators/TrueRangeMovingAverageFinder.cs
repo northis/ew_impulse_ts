@@ -4,7 +4,7 @@ namespace TradeKit.Core.Indicators
 {
     public class TrueRangeMovingAverageFinder : SimpleMovingAverageFinder
     {
-        public TrueRangeMovingAverageFinder(IBarsProvider barsProvider, int periods = 14, int shift = 0, bool useAutoCalculateEvent = true) : base(barsProvider, periods, shift, useAutoCalculateEvent)
+        public TrueRangeMovingAverageFinder(IBarsProvider barsProvider, int periods = 14, bool useAutoCalculateEvent = true) : base(barsProvider, periods, useAutoCalculateEvent)
         {
         }
 

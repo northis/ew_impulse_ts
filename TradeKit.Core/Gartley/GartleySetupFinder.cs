@@ -91,12 +91,9 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
 
         if (filterByTrend)
         {
-            m_Supertrend = new SupertrendFinder(mainBarsProvider,
-                useAutoCalculateEvent: false);
+            m_Supertrend = new SupertrendFinder(mainBarsProvider, useAutoCalculateEvent: false);
             m_ZoneAlligatorFinder =
-                new ZoneAlligatorFinder(mainBarsProvider, jawsPeriods: 26,
-                    jawsShift: 0, teethPeriods: 16,
-                    teethShift: 0, lipsPeriods: 10, lipsShift: 0,
+                new ZoneAlligatorFinder(mainBarsProvider, jawsPeriods: 26, teethPeriods: 16, lipsPeriods: 10,
                     useAutoCalculateEvent: false);
         }
 
@@ -125,16 +122,30 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         bool realIsBull = localPattern.ItemE == null
             ? localPattern.IsBull
             : !localPattern.IsBull;
-        
+
         if (m_Supertrend != null && m_ZoneAlligatorFinder != null)
         {
-            TrendType trendAlligator = SignalFilters.GetTrend(
-                m_ZoneAlligatorFinder, BarsProvider.GetOpenTime(index));
-            bool isCounterTrend = /*(localPattern.IsBull ? trend != TrendType.BULLISH : trend != TrendType.BEARISH) ||*/
-                (realIsBull ? trendAlligator == TrendType.BEARISH : trendAlligator == TrendType.BULLISH);
-
-            if (isCounterTrend)
+            BarPoint lastItem = localPattern.ItemE ?? localPattern.ItemD;
+            int patternFlatCounter = 0;
+            int patternLength = lastItem.BarIndex - localPattern.ItemX.BarIndex;
+            if (patternLength <= 0)
                 return;
+
+            for (int i = localPattern.ItemX.BarIndex; i <= lastItem.BarIndex; i++)
+            {
+                patternFlatCounter += m_Supertrend.FlatCounter.GetResultValue(i);
+            }
+
+            if ((double)patternFlatCounter / patternLength < Helper.GARTLEY_MIN_FLAT_RATIO)
+                return;
+
+            //TrendType trendAlligator = SignalFilters.GetTrend(
+            //    m_ZoneAlligatorFinder, BarsProvider.GetOpenTime(index));
+            //bool isCounterTrend = /*(localPattern.IsBull ? trend != TrendType.BULLISH : trend != TrendType.BEARISH) ||*/
+            //    (realIsBull ? trendAlligator == TrendType.BEARISH : trendAlligator == TrendType.BULLISH);
+
+            //if (isCounterTrend)
+            //    return;
         }
 
         BarPoint divItem = null;
@@ -213,9 +224,9 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                     : !localPattern.IsBull;
                 BarPoint realItem = localPattern.ItemE ?? localPattern.ItemD;
 
-                if (!realIsBull && 
+                if (!realIsBull &&
                     m_BollingerBandsFinder.Top.GetResultValue(realItem.OpenTime) > realItem.Value ||
-                    realIsBull && 
+                    realIsBull &&
                     m_BollingerBandsFinder.Bottom.GetResultValue(realItem.OpenTime) < realItem.Value)
                 {
                     continue;
