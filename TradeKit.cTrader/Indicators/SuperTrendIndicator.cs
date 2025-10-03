@@ -36,7 +36,6 @@ namespace TradeKit.CTrader.Indicators
         /// </summary>
         protected override void Initialize()
         {
-            this.Indicators.RelativeStrengthIndex()
             m_SupertrendFinder = new SupertrendFinder(new CTraderBarsProvider(Bars, Symbol), Multiplier, Periods);
         }
 

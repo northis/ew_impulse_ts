@@ -43,6 +43,8 @@ namespace TradeKit.Core.Common
         public const double GARTLEY_SL_RATIO = 0.272;
         public const int GARTLEY_MIN_PERIOD = 3;
         public const double GARTLEY_MIN_FLAT_RATIO = 0.8;
+        public const int GARTLEY_RSI_RANGE_MAX = 75;
+        public const int GARTLEY_RSI_RANGE_MIN = 25;
         public const string DATE_COLLECTION_SEPARATOR = "->";
         public const string DATE_COLLECTION_FORMAT = "yyyy-MM-ddTHH:mm:ss";
 

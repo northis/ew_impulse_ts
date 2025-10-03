@@ -19,6 +19,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
     private readonly SupertrendFinder m_Supertrend;
     private readonly ZoneAlligatorFinder m_ZoneAlligatorFinder;
     private readonly BollingerBandsFinder m_BollingerBandsFinder;
+    private readonly RelativeStrengthIndexFinder m_RelativeStrengthIndexFinder;
     private readonly AwesomeOscillatorFinder m_AwesomeOscillator;
     private readonly CandlePatternFinder m_CandlePatternFilter;
     private readonly double? m_BreakevenRatio;
@@ -82,9 +83,9 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         double? breakevenRatio = null,
         int period = Helper.GARTLEY_MIN_PERIOD) : base(mainBarsProvider, symbol)
     {
-        m_BollingerBandsFinder =
-            new BollingerBandsFinder(mainBarsProvider, bollingerPeriod, bollingerStdDev);
-        
+        //m_BollingerBandsFinder =new BollingerBandsFinder(mainBarsProvider, bollingerPeriod, bollingerStdDev);
+        m_RelativeStrengthIndexFinder = new RelativeStrengthIndexFinder(mainBarsProvider, bollingerPeriod);
+
         AwesomeOscillatorFinder ao = filterByDivergence || findDivergence
             ? new AwesomeOscillatorFinder(mainBarsProvider)
             : null;
@@ -197,7 +198,8 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         int index = m_MainBarsProvider.GetIndexByTime(openDateTime);
         m_Supertrend?.OnCalculate(openDateTime);
         m_ZoneAlligatorFinder?.OnCalculate(openDateTime);
-        m_BollingerBandsFinder.OnCalculate(openDateTime);
+        //m_BollingerBandsFinder.OnCalculate(openDateTime);
+        m_RelativeStrengthIndexFinder.OnCalculate(openDateTime);
         bool noOpenedPatterns = m_PatternsEntryMap.Count == 0;
 
         var localPatterns = m_PatternFinder.FindGartleyPatterns(index);
@@ -209,7 +211,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         {
             int patternToReact =
                 m_MoreThanOnePatternToReact ? 1 : 0;
-            
+
             foreach (GartleyItem localPattern in localPatterns)
             {
                 if (m_PatternsEntryMap.Any(a => m_GartleyItemComparer.Equals(localPattern, a.Key)) ||
@@ -224,15 +226,14 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
                     : !localPattern.IsBull;
                 BarPoint realItem = localPattern.ItemE ?? localPattern.ItemD;
 
-                if (!realIsBull &&
-                    m_BollingerBandsFinder.Top.GetResultValue(realItem.OpenTime) > realItem.Value ||
-                    realIsBull &&
-                    m_BollingerBandsFinder.Bottom.GetResultValue(realItem.OpenTime) < realItem.Value)
+                int rsi = m_RelativeStrengthIndexFinder.GetResultValue(realItem.OpenTime);
+                //m_BollingerBandsFinder.Top.GetResultValue(realItem.OpenTime) > realItem.Value 
+                if (realIsBull && rsi < Helper.GARTLEY_RSI_RANGE_MIN || !realIsBull && rsi > Helper.GARTLEY_RSI_RANGE_MAX)
                 {
                     continue;
                 }
 
-                List<CandlesResult> instantCandles = m_CandlePatternFilter ?
+                List<CandlesResult> instantCandles = m_CandlePatternFilter?
                     .GetCandlePatterns(index)?
                     .Where(a => a.IsBull == realIsBull && m_InstantPatterns.Contains(a.Type))
                     .ToList();

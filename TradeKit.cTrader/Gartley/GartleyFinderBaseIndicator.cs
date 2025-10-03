@@ -75,7 +75,7 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets the period used for calculating the Bollinger Bands.
         /// </summary>
-        [Parameter("Bollinger period", DefaultValue = 40, MinValue = 5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 5)]
+        [Parameter("Bollinger period", DefaultValue = 14, MinValue = 2, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 5)]
         public int BollingerPeriod { get; set; }
 
         /// <summary>
