@@ -10,7 +10,7 @@ namespace TradeKit.Core.Indicators
         public StandardDeviationFinder(IBarsProvider barsProvider, int periods = 14, bool useAutoCalculateEvent = true) : base(barsProvider, useAutoCalculateEvent)
         {
             m_Periods = periods;
-            m_Sma = new SimpleMovingAverageFinder(barsProvider, periods, 0, true);
+            m_Sma = new SimpleMovingAverageFinder(barsProvider, periods);
         }
 
         public override void OnCalculate(DateTime openDateTime)

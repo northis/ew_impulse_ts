@@ -37,6 +37,7 @@
     <Compile Include="Gartley\GartleyCTraderBaseRobot.cs" />
     <Compile Include="Gartley\GartleySignalerAlgoRobot.cs" />
     <Compile Include="Impulse\ImpulseCTraderBaseRobot.cs" />
+    <Compile Include="Indicators\RelativeStrengthIndexIndicator.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\PriceActionHistogramIndicator.cs" />
     <Compile Include="Indicators\SuperTrendIndicator.cs" />
@@ -59,6 +60,7 @@
     <Compile Include="Signals\SignalsCheckAlgoRobot.cs" />
     <Compile Include="Signals\SignalsCTraderBaseRobot.cs" />
     <Compile Include="Signals\SignalsCheckBaseIndicator.cs" />
+    <Compile Include="Triangle\TriangleFinderBaseIndicator.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TradeKit.Core\TradeKit.Core.csproj" />

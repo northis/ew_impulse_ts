@@ -420,6 +420,20 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
+        /// Gets the close price.
+        /// </summary>
+        /// <param name="barProvider">The bar provider.</param>
+        /// <param name="dateTime">The date time.</param>
+        public static double GetClosePrice(
+            this IBarsProvider barProvider, DateTime dateTime)
+        {
+            int index = barProvider.GetIndexByTime(dateTime);
+            double res = barProvider.GetClosePrice(index);
+
+            return res;
+        }
+
+        /// <summary>
         /// Initializes the IsHighFirst property. This can be costly, we do this on-demand only.
         /// </summary>
         /// <param name="candle">The candle we should check</param>

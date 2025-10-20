@@ -2,10 +2,10 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("Impulse Finder")]
-[assembly: AssemblyDescription("Impulse Finder Indicator for cTrader")]
+[assembly: AssemblyTitle("Triangle Finder")]
+[assembly: AssemblyDescription("Triangle Finder Indicator for cTrader")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyProduct("Impulse Finder")]
+[assembly: AssemblyProduct("Triangle Finder")]
 [assembly: AssemblyTrademark("Mikhail Berdnikov (C) 2025")]
 [assembly: AssemblyCulture("")]
 

@@ -26,8 +26,6 @@ namespace TradeKit.CTrader.Gartley
         private Color m_BearColorBorder;
         private Color m_BullColorBorder;
         private bool m_CandlesSaved;
-        private const int SETUP_WIDTH = 3;
-        private const int LINE_WIDTH = 1;
         private const int DIV_LINE_WIDTH = 3;
 
         /// <summary>
@@ -77,7 +75,7 @@ namespace TradeKit.CTrader.Gartley
         /// <summary>
         /// Gets or sets the period used for calculating the Bollinger Bands.
         /// </summary>
-        [Parameter("Bollinger period", DefaultValue = 40, MinValue = 5, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 5)]
+        [Parameter("Bollinger period", DefaultValue = 14, MinValue = 2, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 5)]
         public int BollingerPeriod { get; set; }
 
         /// <summary>

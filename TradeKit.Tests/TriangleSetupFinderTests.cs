@@ -32,11 +32,14 @@ namespace TradeKit.Tests
             ModelPattern? model = patternGenerator.GetPattern(
                 new PatternArgsItem(90, 80, dates.Item1, dates.Item2, TimeFrameHelper.Minute5)
                 { Min = 60, Max = 90}, ElliottModelType.TRIANGLE_CONTRACTING);
-            
+
             PatternArgsItem paramArgs = new PatternArgsItem(
-                40, 90, datesImp.Item1, dates.Item1.Subtract(TimeFrameHelper.TimeFrames[TimeFrameHelper.Minute5.Name].TimeSpan), TimeFrameHelper.Minute5);
+                40, 90,  dates.Item1.Subtract(TimeFrameHelper
+                                            .TimeFrames[TimeFrameHelper.Minute5.Name].TimeSpan * 200),
+               datesImp.Item1,
+                TimeFrameHelper.Minute5);
             ModelPattern modelImp = patternGenerator.GetPattern(
-                paramArgs, ElliottModelType.IMPULSE, true);
+                paramArgs, ElliottModelType.ZIGZAG);
 
             // Convert generated candles to (Candle, DateTime) tuples
             var testCandles = new List<(Candle candle, DateTime openTime)>();

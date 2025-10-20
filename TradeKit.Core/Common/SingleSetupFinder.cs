@@ -21,6 +21,66 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
+        /// Determines whether the movement from <see cref="startValue"/> to <see cref="endValue"/> is initial.
+        /// </summary>
+        /// <param name="startValue">The start value.</param>
+        /// <param name="endValue">The end value.</param>
+        /// <param name="startIndex">The start index.</param>
+        /// <param name="bp">The source bars provider.</param>
+        /// <param name="edgeExtremum">The extremum from the end of the movement to the previous counter-movement or how far this movement went away from the price channel.</param>
+        /// <returns>
+        ///   <c>true</c> if the move is initial; otherwise, <c>false</c>.
+        /// </returns>
+        protected bool IsInitialMovement(
+            double startValue, 
+            double endValue, 
+            int startIndex, 
+            IBarsProvider bp,
+            out Candle edgeExtremum)
+        {
+            // We want to rewind the bars to be sure this impulse candidate is really an initial one
+            bool isInitialMove = false;
+            bool isImpulseUp = endValue > startValue;
+            edgeExtremum = null;
+
+            for (int curIndex = startIndex - 1; curIndex >= 0; curIndex--)
+            {
+                edgeExtremum = Candle.FromIndex(bp, curIndex);
+
+                if (isImpulseUp)
+                {
+                    if (edgeExtremum.L <= startValue)
+                    {
+                        break;
+                    }
+
+                    if (edgeExtremum.H - endValue > 0)
+                    {
+                        isInitialMove = true;
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if (edgeExtremum.H >= startValue)
+                {
+                    break;
+                }
+
+                if (!(edgeExtremum.L - endValue < 0))
+                {
+                    continue;
+                }
+
+                isInitialMove = true;
+                break;
+            }
+
+            return isInitialMove;
+        }
+
+        /// <summary>
         /// Gets or sets a value indicating whether this finder is in setup.
         /// </summary>
         /// <value>

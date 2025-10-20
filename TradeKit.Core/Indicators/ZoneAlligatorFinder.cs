@@ -25,16 +25,13 @@ namespace TradeKit.Core.Indicators
 
         public ZoneAlligatorFinder(IBarsProvider barsProvider, 
             int jawsPeriods = 13,
-            int jawsShift = 18,
             int teethPeriods = 8,
-            int teethShift = 5,
             int lipsPeriods = 5,
-            int lipsShift = 3,
             bool useAutoCalculateEvent = true) : base(barsProvider, useAutoCalculateEvent)
         {
-            m_SmaJaws = new SimpleMovingAverageFinder(barsProvider, jawsPeriods, jawsShift);
-            m_SmaTeeth = new SimpleMovingAverageFinder(barsProvider, teethPeriods, teethShift);
-            m_SmaLips = new SimpleMovingAverageFinder(barsProvider, lipsPeriods, lipsShift);
+            m_SmaJaws = new SimpleMovingAverageFinder(barsProvider, jawsPeriods);
+            m_SmaTeeth = new SimpleMovingAverageFinder(barsProvider, teethPeriods);
+            m_SmaLips = new SimpleMovingAverageFinder(barsProvider, lipsPeriods);
         }
 
         public override void OnCalculate(DateTime openDateTime)

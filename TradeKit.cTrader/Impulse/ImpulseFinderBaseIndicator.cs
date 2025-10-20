@@ -40,7 +40,8 @@ namespace TradeKit.CTrader.Impulse
         protected ImpulseParams GetImpulseParams()
         {
             return new ImpulseParams(
-                Period, EnterRatio, TakeRatio, 0,MaxZigzagPercent, MaxOverlapseLengthPercent,
+                Period, EnterRatio, TakeRatio, 0, MaxZigzagPercent,
+                MaxOverlapseLengthPercent,
                 HeterogeneityMaxPercent, MinSizePercent, BarsCount);
         }
 
