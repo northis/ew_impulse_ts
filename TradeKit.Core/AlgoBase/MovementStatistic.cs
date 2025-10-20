@@ -107,9 +107,17 @@ namespace TradeKit.Core.AlgoBase
             }
 
             //double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
-            double sumRelative = devs.Count > 0 ? devs.Sum() / maxSum : 0;
+            //double sumRelative = devs.Count > 0 ? devs.Sum() / maxSum : 0;
             double maxRelative = devs.Count > 0 ? devs.Max() / fullLength : 0;
-            return (sumRelative, maxRelative);
+            double minRelative = devs.Count > 0 ? devs.Min() / fullLength : 0;
+
+            int third = Convert.ToInt32(devs.Count / 3);
+            double range = maxRelative - minRelative;
+            double firstThird = devs.Take(third).Average();
+            double lastThird = devs.TakeLast(third).Average();
+            double revThirds = 100 * Math.Abs(firstThird - lastThird) / range;
+            
+            return (revThirds, maxRelative);
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
