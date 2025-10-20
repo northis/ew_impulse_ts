@@ -62,11 +62,12 @@ namespace TradeKit.Core.ElliottWave
                    !isUp && currentExtremum < compareExtremum;
         }
 
-        private bool IsSetup(DateTime openDateTime, DeviationExtremumFinder finder)
+        private bool IsSetup(DateTime openDateTime,
+            DeviationExtremumFinder finder)
         {
             if (finder.Extrema.Count < MIN_EXTREMUM_COUNT)
                 return false;
-            
+
             BarPoint waveE = finder.Extrema.Values[^1];
             BarPoint waveD = finder.Extrema.Values[^2];
             BarPoint waveC = null;
@@ -75,13 +76,15 @@ namespace TradeKit.Core.ElliottWave
             BarPoint point0 = null;
             bool isUp = waveD > waveE;
 
-            for (int i = finder.Extrema.Count - 3; i < MAX_EXTREMA_DEPTH; i--)
+            for (int i = finder.Extrema.Count - 3;
+                 i > Math.Max(0, finder.Extrema.Count - MAX_EXTREMA_DEPTH);
+                 i--)
             {
                 BarPoint currentExtremum = finder.Extrema.Values[i];
                 double dToE = Math.Abs(waveD - waveE);
                 if (dToE == 0)
                     return false;
-                
+
                 if (waveC == null)
                 {
                     if (IsMovementForward(isUp, currentExtremum, waveD))
@@ -89,14 +92,14 @@ namespace TradeKit.Core.ElliottWave
                         waveD = currentExtremum;
                         continue;
                     }
-                    
+
                     if (!IsMovementForward(isUp, currentExtremum, waveE))
                     {
                         waveC = currentExtremum;
                         if (Math.Abs(waveD - waveC) / dToE > MAX_D_TO_E_RATIO)
                             return false;
                     }
-                    
+
                     continue;
                 }
 
@@ -107,7 +110,7 @@ namespace TradeKit.Core.ElliottWave
                         waveC = currentExtremum;
                         if (Math.Abs(waveD - waveC) / dToE > MAX_D_TO_E_RATIO)
                             return false;
-                        
+
                         continue;
                     }
 
@@ -117,7 +120,7 @@ namespace TradeKit.Core.ElliottWave
                         if (Math.Abs(waveC - waveB) / dToE > MAX_C_TO_E_RATIO)
                             return false;
                     }
-                    
+
                     continue;
                 }
 
@@ -128,7 +131,7 @@ namespace TradeKit.Core.ElliottWave
                         waveB = currentExtremum;
                         if (Math.Abs(waveB - waveC) / dToE > MAX_C_TO_E_RATIO)
                             return false;
-                        
+
                         continue;
                     }
 
@@ -138,7 +141,7 @@ namespace TradeKit.Core.ElliottWave
                         if (Math.Abs(waveB - waveA) / dToE > MAX_B_TO_E_RATIO)
                             return false;
                     }
-                    
+
                     continue;
                 }
 
@@ -158,18 +161,27 @@ namespace TradeKit.Core.ElliottWave
                             return false;
                     }
                 }
-                
-                if (IsMovementForward(isUp, currentExtremum, waveB))
+                else
                 {
-                    point0 = currentExtremum;
-                    if (Math.Abs(waveA - point0) / dToE > MAX_A_TO_E_RATIO)
-                        return false;
-                }
+                    var level = new BarPoint(isUp
+                            ? BarsProvider.GetLowPrice(openDateTime)
+                            : BarsProvider.GetHighPrice(openDateTime),
+                        openDateTime,
+                        BarsProvider);
 
-                if (!IsMovementForward(isUp, currentExtremum, waveA))
-                {
+                    OnEnterInvoke(new ElliottWaveSignalEventArgs(level, point0,
+                        waveA,
+                        new[] { point0, waveA, waveB, waveC, waveD, waveE },
+                        point0.OpenTime, null));
                     return true;
                 }
+
+                // if (IsMovementForward(isUp, currentExtremum, waveB))
+                // {
+                //     point0 = currentExtremum;
+                //     if (Math.Abs(waveA - point0) / dToE > MAX_A_TO_E_RATIO)
+                //         return false;
+                // }
             }
 
             return false;
