@@ -27,7 +27,7 @@ namespace TradeKit.Core.ElliottWave
         internal ElliottWaveSignalEventArgs CurrentSignalEventArgs { get; set; }
 
         private const double RATIO_ALLOWANCE = 0.1;
-        private const double MAX_WAVE_RATIO = 3 + RATIO_ALLOWANCE;
+        private const double MAX_WAVE_RATIO = 1.5 + RATIO_ALLOWANCE;
         // private const double MAX_C_TO_E_RATIO = 2.618 + RATIO_ALLOWANCE;
         // private const double MAX_B_TO_E_RATIO = 3.618 + RATIO_ALLOWANCE;
         // private const double MAX_A_TO_E_RATIO = 3.618 + RATIO_ALLOWANCE;
@@ -150,6 +150,7 @@ namespace TradeKit.Core.ElliottWave
                 double dToE = Math.Abs(waveD - waveE);
                 if (dToE == 0)
                     return false;
+                double dToEDuration = Math.Abs(waveE.BarIndex - waveD.BarIndex);
 
                 if (waveC == null)
                 {
@@ -168,9 +169,9 @@ namespace TradeKit.Core.ElliottWave
 
                     if (!IsMovementForward(isUp, currentExtremum, waveE))
                     {
+                        if (Math.Abs(currentExtremum.BarIndex - waveD.BarIndex) / dToEDuration > MAX_WAVE_RATIO) continue;
+
                         waveC = currentExtremum;
-                        if (Math.Abs(waveD - waveC) / dToE > MAX_WAVE_RATIO)
-                            return false;
                     }
 
                     continue;
@@ -180,18 +181,17 @@ namespace TradeKit.Core.ElliottWave
                 {
                     if (!IsMovementForward(isUp, currentExtremum, waveC))
                     {
+                        if (Math.Abs(currentExtremum.BarIndex - waveD.BarIndex) / dToEDuration > MAX_WAVE_RATIO) continue;
+                        
                         waveC = currentExtremum;
-                        if (Math.Abs(waveD - waveC) / dToE > MAX_WAVE_RATIO)
-                            return false;
-
                         continue;
                     }
 
                     if (IsMovementForward(isUp, currentExtremum, waveD))
                     {
+                        if (Math.Abs(currentExtremum.BarIndex - waveC.BarIndex) /
+                            (double)Math.Abs(waveD.BarIndex - waveC.BarIndex) > MAX_WAVE_RATIO) continue;
                         waveB = currentExtremum;
-                        if (Math.Abs(waveC - waveB) / Math.Abs(waveC - waveD) > MAX_WAVE_RATIO)
-                            return false;
                     }
 
                     continue;
@@ -201,18 +201,17 @@ namespace TradeKit.Core.ElliottWave
                 {
                     if (IsMovementForward(isUp, currentExtremum, waveB))
                     {
+                        if (Math.Abs(currentExtremum.BarIndex - waveC.BarIndex) /
+                            (double)Math.Abs(waveD.BarIndex - waveC.BarIndex) > MAX_WAVE_RATIO) continue;
                         waveB = currentExtremum;
-                        if (Math.Abs(waveB - waveC) / Math.Abs(waveC - waveD)  > MAX_WAVE_RATIO)
-                            return false;
-
                         continue;
                     }
 
                     if (!IsMovementForward(isUp, currentExtremum, waveC))
                     {
+                        if (Math.Abs(currentExtremum.BarIndex - waveB.BarIndex) /
+                            (double)Math.Abs(waveC.BarIndex - waveB.BarIndex) > MAX_WAVE_RATIO) continue;
                         waveA = currentExtremum;
-                        if (Math.Abs(waveB - waveA) / Math.Abs(waveC - waveB) > MAX_WAVE_RATIO)
-                            return false;
                     }
 
                     continue;
@@ -222,16 +221,17 @@ namespace TradeKit.Core.ElliottWave
                 {
                     if (!IsMovementForward(isUp, currentExtremum, waveA))
                     {
+                        if (Math.Abs(currentExtremum.BarIndex - waveB.BarIndex) /
+                            (double)Math.Abs(waveC.BarIndex - waveB.BarIndex) > MAX_WAVE_RATIO) continue;
+                        
                         waveA = currentExtremum;
-                        if (Math.Abs(waveA - waveB) / Math.Abs(waveC - waveB) > MAX_WAVE_RATIO)
-                            return false;
                     }
 
                     if (IsMovementForward(isUp, currentExtremum, waveB))
                     {
+                        if (Math.Abs(currentExtremum.BarIndex - waveA.BarIndex) /
+                            (double)Math.Abs(waveB.BarIndex - waveA.BarIndex) > MAX_WAVE_RATIO) continue;
                         point0 = currentExtremum;
-                        if (Math.Abs(waveA - point0) / Math.Abs(waveA - waveB) > 1)
-                            return false;
                     }
                 }
                 else
