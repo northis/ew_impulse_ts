@@ -19,7 +19,7 @@ namespace TradeKit.Core.ElliottWave
             //return
             //    $"h{HeterogeneityDegree.ToPercent()}-{HeterogeneityMax.ToPercent()};o{OverlapseDegree.ToPercent()}-{OverlapseMaxDepth.ToPercent()};c{CandlesCount};s{Size:F4};rz{RatioZigzag.ToPercent()}";
             return
-                $"h{HeterogeneityMax.ToPercent()}%;o{OverlapseMaxDepth.ToPercent()}%;c{CandlesCount};s{Math.Round(Size * 100, 2):F2}%;rz{Math.Round(RatioZigzag, 4).ToPercent()}%";
+                $"h{HeterogeneityMax.ToPercent()}%";
         }
     }
 

@@ -26,8 +26,8 @@ namespace TradeKit.Core.AlgoBase
             double? rateZigzagMaxLimit = null, 
             double? rateHeterogeneityMaxLimit = null)
         {
-            var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag, areaRelative) = GetMaxOverlapseScore(start, end, barsProvider,
-                overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
+            //var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag, areaRelative) = GetMaxOverlapseScore(start, end, barsProvider,
+            //    overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
             double heterogeneityMax = 1;
             //if (rateZigzag < 1)
             //{
@@ -44,7 +44,7 @@ namespace TradeKit.Core.AlgoBase
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
             int count = end.BarIndex - start.BarIndex;
-            return new ImpulseResult(overlapseMaxDepth, count, size, rateZigzag, heterogeneity, areaRelative);
+            return new ImpulseResult(0, count, size, 0, heterogeneity, 0);
         }
 
         /// <summary>
@@ -75,6 +75,9 @@ namespace TradeKit.Core.AlgoBase
             double dx = fullLength / (indexDiff > 0 ? indexDiff : 0.5);
             //double currentValue = start.Value;
             double maxSum = fullLength * indexDiff * 0.75;
+
+            if (indexDiff < 3)
+                return (1, 1);
 
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
             {
@@ -108,16 +111,20 @@ namespace TradeKit.Core.AlgoBase
 
             //double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
             //double sumRelative = devs.Count > 0 ? devs.Sum() / maxSum : 0;
-            double maxRelative = devs.Count > 0 ? devs.Max() / fullLength : 0;
-            double minRelative = devs.Count > 0 ? devs.Min() / fullLength : 0;
+            double maxDevs = devs.Max();
 
             int third = Convert.ToInt32(devs.Count / 3);
-            double range = maxRelative - minRelative;
+            double range = maxDevs - devs.Min();
+            if (range < double.Epsilon)
+                return (1, 1);
+
             double firstThird = devs.Take(third).Average();
+            double secondThird = devs.TakeLast(third).Take(third).Average();
             double lastThird = devs.TakeLast(third).Average();
-            double revThirds = 100 * Math.Abs(firstThird - lastThird) / range;
-            
-            return (revThirds, maxRelative);
+            double rev1Thirds = Math.Abs(firstThird - lastThird) / fullLength;
+            double rev2Thirds = Math.Abs(secondThird - lastThird) / fullLength;
+
+            return (Math.Max(rev1Thirds, rev2Thirds), maxDevs);
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
