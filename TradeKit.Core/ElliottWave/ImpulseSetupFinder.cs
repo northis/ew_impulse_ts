@@ -68,7 +68,7 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool res = //stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
+            bool res = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
                       // stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 && stats.RatioZigzag > 0.005 &&
                        stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
                        stats.Size >= m_ImpulseParams.MinSizePercent / 100;// &&
@@ -335,8 +335,8 @@ namespace TradeKit.Core.ElliottWave
             if (m_TradeViewManager.IsBigSpread(Symbol, signalArgs.EndItem.Value,
                     signalArgs.StartItem.Value))
             {
-                Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: big spread, lets wait for a while");
-                return false;
+                //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: big spread, lets wait for a while");
+                //return false;
             }
 
             double realPrice;

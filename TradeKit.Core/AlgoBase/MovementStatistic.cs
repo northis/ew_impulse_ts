@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Net;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
@@ -22,8 +22,8 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="rateHeterogeneityMaxLimit">Optional max value of heterogeneity to reduce calculations</param>
         public static ImpulseResult GetMovementStatistic(
             BarPoint start, BarPoint end, IBarsProvider barsProvider,
-            double? overlapseMaxDepthMaxLimit = null, 
-            double? rateZigzagMaxLimit = null, 
+            double? overlapseMaxDepthMaxLimit = null,
+            double? rateZigzagMaxLimit = null,
             double? rateHeterogeneityMaxLimit = null)
         {
             //var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag, areaRelative) = GetMaxOverlapseScore(start, end, barsProvider,
@@ -31,11 +31,13 @@ namespace TradeKit.Core.AlgoBase
             double heterogeneityMax = 1;
             //if (rateZigzag < 1)
             //{
-            //    var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
+            var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
             //    heterogeneityMax = heterogeneityMaxLoc;
             //}
 
-            var (heterogeneity, _) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
+            double pullback = GetPullbackScore(start, end, barsProvider);
+
+            //var (heterogeneity, _) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
 
             //var (profile, overlapseDegree, singleCandle) = GetOverlapseStatistic(start, end, barsProvider);
 
@@ -44,7 +46,7 @@ namespace TradeKit.Core.AlgoBase
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
             int count = end.BarIndex - start.BarIndex;
-            return new ImpulseResult(0, count, size, 0, heterogeneity, 0);
+            return new ImpulseResult(heterogeneity, count, size, 0, pullback, 0);
         }
 
         /// <summary>
@@ -81,7 +83,7 @@ namespace TradeKit.Core.AlgoBase
 
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
             {
-                if(i == start.BarIndex)
+                if (i == start.BarIndex)
                     continue;
 
                 //double open = barsProvider.GetOpenPrice(i);
@@ -109,22 +111,23 @@ namespace TradeKit.Core.AlgoBase
                 devs.Add(part);
             }
 
-            //double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average());
+            double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average()) / fullLength;
             //double sumRelative = devs.Count > 0 ? devs.Sum() / maxSum : 0;
             double maxDevs = devs.Max();
 
-            int third = Convert.ToInt32(devs.Count / 3);
-            double range = maxDevs - devs.Min();
-            if (range < double.Epsilon)
-                return (1, 1);
+            //int third = Convert.ToInt32(devs.Count / 3);
+            //double range = maxDevs - devs.Min();
+            //if (range < double.Epsilon)
+            //    return (1, 1);
 
-            double firstThird = devs.Take(third).Average();
-            double secondThird = devs.TakeLast(third).Take(third).Average();
-            double lastThird = devs.TakeLast(third).Average();
-            double rev1Thirds = Math.Abs(firstThird - lastThird) / fullLength;
-            double rev2Thirds = Math.Abs(secondThird - lastThird) / fullLength;
+            //double firstThird = devs.Take(third).Average();
+            //double secondThird = devs.TakeLast(third).Take(third).Average();
+            //double lastThird = devs.TakeLast(third).Average();
+            //double rev1Thirds = Math.Abs(firstThird - lastThird) / fullLength;
+            //double rev2Thirds = Math.Abs(secondThird - lastThird) / fullLength;
+            //double maxD = 1 - devs.Average() / maxDevs;
 
-            return (Math.Max(rev1Thirds, rev2Thirds), maxDevs);
+            return (sqrtDev, maxDevs);
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
@@ -134,7 +137,7 @@ namespace TradeKit.Core.AlgoBase
             int startIndex = start.BarIndex;
             int endIndex = end.BarIndex;
 
-            for (int i = startIndex; i <= endIndex; i++) 
+            for (int i = startIndex; i <= endIndex; i++)
                 res.Add(barsProvider.GetOpenTime(i), valueByIndex(i));
 
             return res;
@@ -147,6 +150,83 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
+        /// Gets the pullback score from 0 to 1, where 0 means monotonic movement without pullbacks,
+        /// and 1 means theoretical maximum pullback (each bar travels the full movement length in opposite direction).
+        /// </summary>
+        /// <param name="start">The start point.</param>
+        /// <param name="end">The end point.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <returns>Pullback score from 0 to 1.</returns>
+        public static double GetPullbackScore(BarPoint start, BarPoint end, IBarsProvider barsProvider)
+        {
+            bool isUp = end > start;
+            double length = Math.Abs(end - start);
+            if (length < double.Epsilon)
+                return 0;
+
+            int barCount = end.BarIndex - start.BarIndex;
+            if (barCount <= 0)
+                return 0;
+
+            SortedDictionary<DateTime, double> hVals = GetPoints(
+                start, end, barsProvider.GetHighPrice, barsProvider);
+
+            SortedDictionary<DateTime, double> lVals = GetPoints(
+                start, end, barsProvider.GetLowPrice, barsProvider);
+
+            SortedDictionary<DateTime, double> inputKeys = isUp
+                ? hVals
+                : lVals;
+
+            SortedDictionary<DateTime, double> inputCounterKeys = isUp
+                ? lVals
+                : hVals;
+
+            // Calculate the ideal monotonic progression for each bar
+            double totalPullbackScore = 0;
+            double previousExtreme = start.Value;
+
+            foreach (DateTime dt in Helper.GetKeysRange(inputKeys, start.OpenTime, end.OpenTime))
+            {
+                if (dt == start.OpenTime)
+                    continue;
+
+                double currentMainExtreme = inputKeys[dt];
+                double currentCounterExtreme = inputCounterKeys[dt];
+
+                // Check if there is a pullback (movement against the main direction)
+                double pullbackDistance = 0;
+                if (isUp)
+                {
+                    // For upward movement, pullback is when low goes below previous high
+                    if (currentCounterExtreme < previousExtreme)
+                        pullbackDistance = previousExtreme - currentCounterExtreme;
+                }
+                else
+                {
+                    // For downward movement, pullback is when high goes above previous low
+                    if (currentCounterExtreme > previousExtreme)
+                        pullbackDistance = currentCounterExtreme - previousExtreme;
+                }
+
+                // Add to total pullback score (distance * 1 bar)
+                totalPullbackScore += pullbackDistance;
+
+                // Update previous extreme if we moved in the main direction
+                if (isUp && currentMainExtreme > previousExtreme)
+                    previousExtreme = currentMainExtreme;
+                else if (!isUp && currentMainExtreme < previousExtreme)
+                    previousExtreme = currentMainExtreme;
+            }
+
+            // Normalize: theoretical maximum is when each bar travels the full length in opposite direction
+            double theoreticalMax = length * barCount;
+            double normalizedScore = theoreticalMax > 0 ? totalPullbackScore / theoreticalMax : 0;
+
+            return Math.Min(normalizedScore, 1.0);
+        }
+
+        /// <summary>
         /// Gets the maximum overlapse depth & distance & ratio ZigZag (from 0 to 1) & extrema polygon area/length (from 0 to 1) 
         /// </summary>
         /// <param name="start">The start.</param>
@@ -155,8 +235,8 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="overlapseMaxDepthMaxLimit">Optional max value of overlapse to reduce calculations</param>
         /// <param name="rateZigzagMaxLimit">Optional max value of rate zigzag to reduce calculations</param>
         public static (double, double, double, double) GetMaxOverlapseScore(
-            BarPoint start, BarPoint end, IBarsProvider barsProvider,
-            double? overlapseMaxDepthMaxLimit = null, double? rateZigzagMaxLimit = null)
+        BarPoint start, BarPoint end, IBarsProvider barsProvider,
+        double? overlapseMaxDepthMaxLimit = null, double? rateZigzagMaxLimit = null)
         {
             bool isUp = end > start;
             double length = Math.Abs(end - start);
@@ -219,7 +299,7 @@ namespace TradeKit.Core.AlgoBase
 
                 if (!scores.TryGetValue(dt, out (double, DateTime) score))
                     continue;
-                
+
                 if (isUp && current.Value < currentPrice || !isUp && current.Value > currentPrice)
                 {
                     current = new(barsProvider.GetIndexByTime(dt), currentPrice);
@@ -352,7 +432,7 @@ namespace TradeKit.Core.AlgoBase
                 double localMax = Math.Max(nextPoint, currentPoint);
                 double localMin = Math.Min(nextPoint, currentPoint);
 
-                int cdlCount = candles.Count(a => 
+                int cdlCount = candles.Count(a =>
                     a.L <= localMin && a.H >= localMax);
 
                 cdlCount = cdlCount == 0 ? 1 : cdlCount;
@@ -370,8 +450,8 @@ namespace TradeKit.Core.AlgoBase
                 overlappedIndexLocal += diffLength * cdlCount / countToCompare;
             }
 
-            IOrderedEnumerable<double> orderedPoints = isUp 
-                ? points.OrderBy(a => a) 
+            IOrderedEnumerable<double> orderedPoints = isUp
+                ? points.OrderBy(a => a)
                 : points.OrderByDescending(a => a);
 
             foreach (double nextPoint in orderedPoints.Skip(1))
