@@ -31,11 +31,26 @@ namespace TradeKit.Core.AlgoBase
             double heterogeneityMax = 1;
             //if (rateZigzag < 1)
             //{
-            var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
+            //var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
             //    heterogeneityMax = heterogeneityMaxLoc;
             //}
 
             double pullback = GetPullbackScore(start, end, barsProvider);
+            
+            SortedDictionary<double, int> profiles = GetOverlapseStatistic(start, end, barsProvider).Item1;
+            int thirdCount = profiles.Count / 3;
+
+            double heterogeneity = 1;
+            if (thirdCount >= 1)
+            {
+                int firstThird = profiles.Take(thirdCount).Sum(a => a.Value);
+                int secondThird = profiles.Skip(thirdCount).Take(thirdCount).Sum(a => a.Value);
+                int lastThird = profiles.Skip(thirdCount * 2).Sum(a => a.Value);
+                int whole = firstThird + secondThird + lastThird;
+                heterogeneity = (secondThird + Math.Abs((double)firstThird - lastThird)) / whole;
+            }
+
+            //double entropy = GetEntropy(profileVals);
 
             //var (heterogeneity, _) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
 
@@ -47,6 +62,28 @@ namespace TradeKit.Core.AlgoBase
 
             int count = end.BarIndex - start.BarIndex;
             return new ImpulseResult(heterogeneity, count, size, 0, pullback, 0);
+        }
+
+        public static double GetEntropy(List<double> values)
+        {
+            if (values == null || values.Count == 0)
+                return 0;
+
+            double sum = values.Sum();
+            if (sum == 0)
+                return 0;
+
+            double[] p = values.Select(v => v / sum).ToArray();
+            double entropy = 0;
+            foreach (double pi in p)
+            {
+                if (pi > 0)
+                    entropy -= pi * Math.Log(pi, 2);
+            }
+
+            double maxEntropy = Math.Log(values.Count, 2);
+            double unevenness = 1.0 - (entropy / maxEntropy);
+            return unevenness;
         }
 
         /// <summary>
@@ -76,7 +113,7 @@ namespace TradeKit.Core.AlgoBase
 
             double dx = fullLength / (indexDiff > 0 ? indexDiff : 0.5);
             //double currentValue = start.Value;
-            double maxSum = fullLength * indexDiff * 0.75;
+            double maxSum = fullLength * indexDiff;
 
             if (indexDiff < 3)
                 return (1, 1);
@@ -111,8 +148,9 @@ namespace TradeKit.Core.AlgoBase
                 devs.Add(part);
             }
 
-            double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average()) / fullLength;
-            //double sumRelative = devs.Count > 0 ? devs.Sum() / maxSum : 0;
+            double ent = GetEntropy(devs);
+            //double sqrtDev = Math.Sqrt(devs.Select(a => a * a).Average()) / fullLength;
+            //double sumRelative = devs.Count > 0 ? devs.Sum() / maxSum : 1;
             double maxDevs = devs.Max();
 
             //int third = Convert.ToInt32(devs.Count / 3);
@@ -127,7 +165,7 @@ namespace TradeKit.Core.AlgoBase
             //double rev2Thirds = Math.Abs(secondThird - lastThird) / fullLength;
             //double maxD = 1 - devs.Average() / maxDevs;
 
-            return (sqrtDev, maxDevs);
+            return (ent, maxDevs);
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
