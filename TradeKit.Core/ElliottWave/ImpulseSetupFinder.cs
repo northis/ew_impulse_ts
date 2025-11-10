@@ -69,11 +69,12 @@ namespace TradeKit.Core.ElliottWave
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
             bool res = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
-                      // stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 && stats.RatioZigzag > 0.005 &&
+                        stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 &&
+                       //stats.RatioZigzag > m_ImpulseParams.MaxZigzagPercent / 100 &&
                        stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
                        stats.Size >= m_ImpulseParams.MinSizePercent / 100;// &&
                        //stats.CandlesCount < 90 &&
-                       //stats.Area <= 0.1;
+                       //stats.Area <= m_ImpulseParams.AreaPercent / 100;
 
             //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
             return res;

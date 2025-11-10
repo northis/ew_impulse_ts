@@ -26,8 +26,8 @@ namespace TradeKit.Core.AlgoBase
             double? rateZigzagMaxLimit = null,
             double? rateHeterogeneityMaxLimit = null)
         {
-            //var (overlapseMaxDepth, overlapseMaxDistance, rateZigzag, areaRelative) = GetMaxOverlapseScore(start, end, barsProvider,
-            //    overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
+            var (overlapseMaxDepth, _, _, _) = GetMaxOverlapseScore(start, end, barsProvider,
+                overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
             double heterogeneityMax = 1;
             //if (rateZigzag < 1)
             //{
@@ -35,19 +35,28 @@ namespace TradeKit.Core.AlgoBase
             //    heterogeneityMax = heterogeneityMaxLoc;
             //}
 
-            double pullback = GetPullbackScore(start, end, barsProvider);
+            //double pullback = GetPullbackScore(start, end, barsProvider);
             
             SortedDictionary<double, int> profiles = GetOverlapseStatistic(start, end, barsProvider).Item1;
-            int thirdCount = profiles.Count / 3;
+            int decCount = profiles.Count / 10;
 
-            double heterogeneity = 1;
-            if (thirdCount >= 1)
+            double middlePart = 1;
+            double diffPart = 1;
+            //double diffDec = 1;
+            double firstDecPart = 1;
+            if (decCount >= 1)
             {
-                int firstThird = profiles.Take(thirdCount).Sum(a => a.Value);
-                int secondThird = profiles.Skip(thirdCount).Take(thirdCount).Sum(a => a.Value);
-                int lastThird = profiles.Skip(thirdCount * 2).Sum(a => a.Value);
-                int whole = firstThird + secondThird + lastThird;
-                heterogeneity = (secondThird + Math.Abs((double)firstThird - lastThird)) / whole;
+                int firstThird = profiles.Take(decCount * 3).Sum(a => a.Value);
+                int secondThird = profiles.Skip(decCount * 3).Take(decCount * 4).Sum(a => a.Value);
+                int lastThird = profiles.Skip(decCount * 7).Sum(a => a.Value);
+                int whole = profiles.Sum(a => a.Value);
+                middlePart = (double)secondThird / whole;
+                diffPart = Math.Abs((double)firstThird - lastThird) / whole;
+                
+                int firstDec = profiles.Take(decCount).Sum(a => a.Value);
+                int lastDec = profiles.Skip(decCount * 9).Sum(a => a.Value);
+                //diffDec = Math.Abs((double)firstDec - lastDec) / whole;
+                firstDecPart = (double)firstDec / whole;
             }
 
             //double entropy = GetEntropy(profileVals);
@@ -61,7 +70,7 @@ namespace TradeKit.Core.AlgoBase
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
             int count = end.BarIndex - start.BarIndex;
-            return new ImpulseResult(heterogeneity, count, size, 0, pullback, 0);
+            return new ImpulseResult(middlePart, count, size, overlapseMaxDepth, diffPart, firstDecPart);
         }
 
         public static double GetEntropy(List<double> values)
