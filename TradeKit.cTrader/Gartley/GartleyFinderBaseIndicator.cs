@@ -63,7 +63,7 @@ namespace TradeKit.CTrader.Gartley
         /// relative to the calculated pattern level. This value is configurable within a range and is used to
         /// manage risk during trades.
         /// </summary>
-        [Parameter("Stop loss ratio", DefaultValue = Helper.GARTLEY_SL_RATIO, MinValue = 0.1, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
+        [Parameter("Stop loss ratio", DefaultValue = Helper.GARTLEY_SL_RATIO, MinValue = 0.01, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.005)]
         public double StopLossRatio { get; set; }
         
         /// <summary>

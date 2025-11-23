@@ -42,10 +42,13 @@ namespace TradeKit.CTrader.Impulse
             return new ImpulseParams(
                 Period, EnterRatio, TakeRatio, 0, MaxZigzagPercent,
                 MaxOverlapseLengthPercent,
-                HeterogeneityMaxPercent, MinSizePercent, BarsCount);
+                HeterogeneityMaxPercent, MinSizePercent, AreaPercent, BarsCount);
         }
 
         #region Input parameters
+
+        [Parameter(nameof(AreaPercent), DefaultValue = 20, MinValue = 0, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double AreaPercent { get; set; }
 
         /// <summary>
         /// Gets or sets the minimum size of the impulse in percent.

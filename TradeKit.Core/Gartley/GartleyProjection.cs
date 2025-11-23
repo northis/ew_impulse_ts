@@ -114,13 +114,13 @@ namespace TradeKit.Core.Gartley
                     ACValues: LEVELS.RangeVal(1.13, 1.41),
                     SetupType: GartleySetupType.CD,
                     CEValues:Array.Empty<double>()),
-               new(GartleyPatternType.FIVE_ZERO,
-                   XBValues: Array.Empty<double>(),
-                   XDValues: Array.Empty<double>(),
-                   BDValues: LEVELS.RangeVal(1.618, 2.24),
-                   ACValues: LEVELS.RangeVal(1.13, 1.618),
-                   CEValues: new[] {0.5},
-                   SetupType: GartleySetupType.CD),
+               //new(GartleyPatternType.FIVE_ZERO,
+               //    XBValues: Array.Empty<double>(),
+               //    XDValues: Array.Empty<double>(),
+               //    BDValues: LEVELS.RangeVal(1.618, 2.24),
+               //    ACValues: LEVELS.RangeVal(1.13, 1.618),
+               //    CEValues: new[] {0.5},
+               //    SetupType: GartleySetupType.CD),
                 //new(GartleyPatternType.NEN_STAR,
                 //    XBValues: LEVELS.RangeVal(0.382, 0.618),
                 //    XDValues: new[] {1.272},
@@ -317,13 +317,12 @@ namespace TradeKit.Core.Gartley
                 m_BarsProvider.GetClosePrice((m_HasE ? ItemE : ItemD).BarIndex);
  
             double actualSize = PatternType.SetupType == GartleySetupType.AD ? aD : cD;
-
-            double slLen = actualSize * m_SlRatio;
-            double tp1Len = actualSize * m_TpRatio;
-            sl = isBull ? -slLen + targetPoint : slLen + targetPoint;
+            double slLen = Math.Abs(targetPoint.Value - closeLastCandle) * (1 + m_SlRatio);//actualSize * m_SlRatio;
+            double tp1Len = slLen;//actualSize * m_TpRatio; TODO
+            sl = isBull ? -slLen + closeLastCandle : slLen + closeLastCandle;
             //double tp1Len = Math.Abs(sl - closeD);
 
-            tp1 = isBull ? tp1Len + targetPoint : -tp1Len + targetPoint;
+            tp1 = isBull ? tp1Len + closeLastCandle : -tp1Len + closeLastCandle;
             if (isBull && closeLastCandle - tp1 >= 0 || !isBull && closeLastCandle - tp1 <= 0)
             {
                 //Logger.Write("TP is already hit.");

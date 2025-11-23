@@ -176,7 +176,8 @@ namespace TradeKit.CTrader.Core
         /// <param name="index">The index.</param>
         public DateTime GetOpenTime(int index)
         {
-            return m_CandlesIndex[index].OpenDateTime.GetValueOrDefault();
+            Candle candle = m_CandlesIndex.GetValueOrDefault(index, null);
+            return candle == null ? default : m_CandlesIndex[index].OpenDateTime.GetValueOrDefault();
         }
 
         /// <summary>
@@ -194,10 +195,11 @@ namespace TradeKit.CTrader.Core
                 m_Bars.LoadMoreHistory();
 
             DateTime lastDate;
-            while ((lastDate = m_Bars.OpenTimes[0]) > date && 
-                   m_Bars.OpenTimes[0] != lastDate)
+            while ((lastDate = m_Bars.OpenTimes[0]) > date)
             {
                 m_Bars.LoadMoreHistory();
+                if (m_Bars.OpenTimes[0] == lastDate)
+                    break;
             }
 
             ReloadBars();
@@ -225,7 +227,7 @@ namespace TradeKit.CTrader.Core
         /// <param name="dateTime">The date time.</param>
         public int GetIndexByTime(DateTime dateTime)
         {
-            return m_CandlesDate[dateTime];
+            return m_CandlesDate.GetValueOrDefault(dateTime, -1);
         }
       
         public event EventHandler BarClosed;

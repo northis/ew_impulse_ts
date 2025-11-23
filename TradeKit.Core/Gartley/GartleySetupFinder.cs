@@ -99,7 +99,7 @@ public class GartleySetupFinder : BaseSetupFinder<GartleySignalEventArgs>
         }
 
         CandlePatternFinder cpf = filterByPriceAction
-            ? new CandlePatternFinder(mainBarsProvider)
+            ? new CandlePatternFinder(mainBarsProvider, false, new HashSet<CandlePatternType>{ CandlePatternType.DOWN_OUTER_BAR, CandlePatternType.UP_OUTER_BAR, CandlePatternType.DOWN_PIN_BAR, CandlePatternType.UP_PIN_BAR })
             : null;
 
         m_MainBarsProvider = mainBarsProvider;
