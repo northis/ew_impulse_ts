@@ -69,8 +69,9 @@ namespace TradeKit.Core.AlgoBase
             //return new ImpulseResult(profile, overlapseDegree, overlapseMaxDepth, overlapseMaxDistance, heterogeneity,
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
+            double area = GetEnvelopeAreaScore(start, end, barsProvider);
             int count = end.BarIndex - start.BarIndex;
-            return new ImpulseResult(middlePart, count, size, overlapseMaxDepth, diffPart, firstDecPart);
+            return new ImpulseResult(middlePart, count, size, overlapseMaxDepth, diffPart, area);
         }
 
         public static double GetEntropy(List<double> values)
@@ -175,6 +176,52 @@ namespace TradeKit.Core.AlgoBase
             //double maxD = 1 - devs.Average() / maxDevs;
 
             return (ent, maxDevs);
+        }
+
+        /// <summary>
+        /// Gets the normalized area between upper and lower candle wicks within the movement from 0 to 1.
+        /// 0 means candles form a straight line (minimal area),
+        /// 1 means each candle fully spans the movement range from A to B.
+        /// </summary>
+        /// <param name="start">The start point.</param>
+        /// <param name="end">The end point.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <returns>Normalized area between upper and lower wicks from 0 to 1.</returns>
+        public static double GetEnvelopeAreaScore(BarPoint start, BarPoint end, IBarsProvider barsProvider)
+        {
+            double fullLength = Math.Abs(start.Value - end.Value);
+            if (fullLength < double.Epsilon)
+                return 0;
+
+            int barCount = end.BarIndex - start.BarIndex;
+            if (barCount <= 0)
+                return 0;
+
+            double minPrice = Math.Min(start.Value, end.Value);
+            double maxPrice = Math.Max(start.Value, end.Value);
+
+            double area = 0;
+            for (int i = start.BarIndex + 1; i <= end.BarIndex; i++)
+            {
+                double localLow = Math.Max(barsProvider.GetLowPrice(i), minPrice);
+                double localHigh = Math.Min(barsProvider.GetHighPrice(i), maxPrice);
+
+                double range = localHigh - localLow;
+                if (range > 0)
+                    area += range;
+            }
+
+            double maxArea = fullLength * barCount;
+            if (maxArea <= 0)
+                return 0;
+
+            double score = area / maxArea;
+            if (score < 0)
+                return 0;
+            if (score > 1)
+                return 1;
+
+            return score;
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(

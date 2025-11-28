@@ -26,14 +26,15 @@ namespace TradeKit.Tests
 
             // Create default impulse parameters
             ImpulseParams impulseParams = new ImpulseParams(Period: 10,
-                BarsCount: 3,
                 EnterRatio: 0.4,
                 TakeRatio: 1.0,
                 MaxZigzagPercent: 20,
                 MaxOverlapseLengthPercent: 30,
                 HeterogeneityMax: 50,
                 BreakEvenRatio: breakeven, 
-                MinSizePercent: 0.1);
+                MinSizePercent: 0.1,
+                AreaPercent: 0.5,
+                BarsCount: 3);
 
             m_SetupFinder = new ImpulseSetupFinder(m_BarsProvider, new TestTradeViewManager(m_BarsProvider) ,impulseParams);
 

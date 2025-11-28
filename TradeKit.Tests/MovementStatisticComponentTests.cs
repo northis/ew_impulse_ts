@@ -1,6 +1,10 @@
 using NUnit.Framework;
+using System.Linq;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
+using TradeKit.Core.ElliottWave;
+using TradeKit.Core.Json;
+using TradeKit.Core.PatternGeneration;
 using TradeKit.Tests.Mocks;
 
 namespace TradeKit.Tests
@@ -11,12 +15,39 @@ namespace TradeKit.Tests
     internal class MovementStatisticComponentTests
     {
         private TestBarsProvider m_BarsProvider;
-        private readonly ITimeFrame m_TimeFrame = new TimeFrameBase("Minute5", "m5");
+
+        private PatternGenerator m_PatternGenerator;
+        private static readonly ITimeFrame TIME_FRAME = new TimeFrameBase("Minute5", "m5");
+        private static (DateTime, DateTime) GetDateRange(int barCount)
+        {
+            return Helper.GetDateRange(barCount, TIME_FRAME);
+        }
 
         [SetUp]
         public void Setup()
         {
-            m_BarsProvider = new TestBarsProvider(m_TimeFrame);
+            m_BarsProvider = new TestBarsProvider(TIME_FRAME);
+            m_PatternGenerator = new PatternGenerator(false);
+        }
+
+
+        [Test]
+        public void Debug_MovementStatistic()
+        {
+            (DateTime, DateTime) dates = GetDateRange(50);
+
+            PatternArgsItem paramArgs = new PatternArgsItem(
+                40, 60, dates.Item1, dates.Item2, TIME_FRAME);
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                paramArgs, ElliottModelType.SIMPLE_IMPULSE, true);
+
+            var bp = new TestBarsProvider(TIME_FRAME);
+            IEnumerable<(Candle, DateTime OpenDate)> toAdd = 
+                model.Candles.Select(a => (new Candle(a.O, a.H, a.L, a.C), a.OpenDate));
+            bp.AddCandles(toAdd);
+
+            var area = MovementStatistic.GetEnvelopeAreaScore(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
+            Assert.That(area, Is.LessThan(0.1), "Area is too big on impulse");
         }
 
         [Test]
