@@ -76,7 +76,7 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// Gets or sets the bars count.
         /// </summary>
-        [Parameter(nameof(BarsCount), DefaultValue = Helper.MINIMUM_BARS_IN_IMPULSE, MinValue = 3, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(BarsCount), DefaultValue = Helper.MINIMUM_BARS_IN_IMPULSE, MinValue = 3, MaxValue = 500, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarsCount { get; set; }
         #endregion
     }
