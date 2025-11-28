@@ -26,7 +26,7 @@ namespace TradeKit.Core.AlgoBase
             double? rateZigzagMaxLimit = null,
             double? rateHeterogeneityMaxLimit = null)
         {
-            var (overlapseMaxDepth, _, _, _) = GetMaxOverlapseScore(start, end, barsProvider,
+            var (overlapseMaxDepth, _, rz, _) = GetMaxOverlapseScore(start, end, barsProvider,
                 overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
             double heterogeneityMax = 1;
             //if (rateZigzag < 1)
@@ -71,7 +71,7 @@ namespace TradeKit.Core.AlgoBase
 
             double area = GetEnvelopeAreaScore(start, end, barsProvider);
             int count = end.BarIndex - start.BarIndex;
-            return new ImpulseResult(middlePart, count, size, overlapseMaxDepth, diffPart, area);
+            return new ImpulseResult(rz, count, size, overlapseMaxDepth, diffPart, area);
         }
 
         public static double GetEntropy(List<double> values)
@@ -179,40 +179,65 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Gets the normalized area between upper and lower candle wicks within the movement from 0 to 1.
-        /// 0 means candles form a straight line (minimal area),
-        /// 1 means each candle fully spans the movement range from A to B.
+        /// Calculates the normalized area of the ribbon stretched over highs (top) and lows (bottom) between two bar points.
+        /// 0 means the ribbon is a straight segment between start and end, 1 corresponds to the rectangle that spans
+        /// the whole price range of the movement across every bar between start and end.
         /// </summary>
         /// <param name="start">The start point.</param>
         /// <param name="end">The end point.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        /// <returns>Normalized area between upper and lower wicks from 0 to 1.</returns>
+        /// <returns>Normalized ribbon area from 0 to 1.</returns>
         public static double GetEnvelopeAreaScore(BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
             double fullLength = Math.Abs(start.Value - end.Value);
             if (fullLength < double.Epsilon)
                 return 0;
 
-            int barCount = end.BarIndex - start.BarIndex;
+            int startIndex = start.BarIndex;
+            int endIndex = end.BarIndex;
+            int barCount = endIndex - startIndex;
             if (barCount <= 0)
                 return 0;
 
             double minPrice = Math.Min(start.Value, end.Value);
             double maxPrice = Math.Max(start.Value, end.Value);
 
-            double area = 0;
-            for (int i = start.BarIndex + 1; i <= end.BarIndex; i++)
-            {
-                double localLow = Math.Max(barsProvider.GetLowPrice(i), minPrice);
-                double localHigh = Math.Min(barsProvider.GetHighPrice(i), maxPrice);
+            var upperCandidates = new List<Point>();
+            var lowerCandidates = new List<Point>();
 
-                double range = localHigh - localLow;
-                if (range > 0)
-                    area += range;
+            upperCandidates.Add(new Point(startIndex, start.Value));
+            lowerCandidates.Add(new Point(startIndex, start.Value));
+
+            for (int i = startIndex + 1; i < endIndex; i++)
+            {
+                double high = barsProvider.GetHighPrice(i);
+                double low = barsProvider.GetLowPrice(i);
+
+                double clampedHigh = Math.Min(Math.Max(high, minPrice), maxPrice);
+                double clampedLow = Math.Max(Math.Min(low, maxPrice), minPrice);
+
+                upperCandidates.Add(new Point(i, clampedHigh));
+                lowerCandidates.Add(new Point(i, clampedLow));
             }
 
+            upperCandidates.Add(new Point(endIndex, end.Value));
+            lowerCandidates.Add(new Point(endIndex, end.Value));
+
+            var upperEnvelope = BuildEnvelope(upperCandidates, true);
+            var lowerEnvelope = BuildEnvelope(lowerCandidates, false);
+
+            if (upperEnvelope.Count < 2 || lowerEnvelope.Count < 2)
+                return 0;
+
+            var polygon = new List<Point>(upperEnvelope);
+            for (int i = lowerEnvelope.Count - 2; i > 0; i--)
+            {
+                polygon.Add(lowerEnvelope[i]);
+            }
+
+            double area = ComputeArea(polygon);
             double maxArea = fullLength * barCount;
-            if (maxArea <= 0)
+            if (maxArea <= double.Epsilon)
                 return 0;
 
             double score = area / maxArea;
@@ -222,6 +247,38 @@ namespace TradeKit.Core.AlgoBase
                 return 1;
 
             return score;
+        }
+
+        private static List<Point> BuildEnvelope(IReadOnlyList<Point> candidates, bool isUpper)
+        {
+            List<Point> envelope = new List<Point>();
+            foreach (Point candidate in candidates)
+            {
+                while (envelope.Count >= 2)
+                {
+                    Point penultimate = envelope[envelope.Count - 2];
+                    Point last = envelope[envelope.Count - 1];
+                    double cross = GetCrossProduct(penultimate, last, candidate);
+                    bool shouldRemove = isUpper ? cross >= 0 : cross <= 0;
+                    if (!shouldRemove)
+                        break;
+
+                    envelope.RemoveAt(envelope.Count - 1);
+                }
+
+                envelope.Add(candidate);
+            }
+
+            return envelope;
+        }
+
+        private static double GetCrossProduct(Point first, Point second, Point third)
+        {
+            double firstDx = second.Index - first.Index;
+            double firstDy = second.Value - first.Value;
+            double secondDx = third.Index - second.Index;
+            double secondDy = third.Value - second.Value;
+            return firstDx * secondDy - firstDy * secondDx;
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
@@ -438,7 +495,7 @@ namespace TradeKit.Core.AlgoBase
 
             KeyValuePair<DateTime, (double, DateTime)> maxBy = scores.MaxBy(a => a.Value.Item1);
             double depth = maxBy.Value.Item1 / length;
-
+            
             int startIndex = barsProvider.GetIndexByTime(maxBy.Key);
             int endIndex = barsProvider.GetIndexByTime(maxBy.Value.Item2);
             double distance = duration > 0 ? (endIndex - startIndex) / (double)duration : 0;

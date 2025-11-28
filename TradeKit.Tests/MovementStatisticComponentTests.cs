@@ -39,7 +39,7 @@ namespace TradeKit.Tests
             PatternArgsItem paramArgs = new PatternArgsItem(
                 40, 60, dates.Item1, dates.Item2, TIME_FRAME);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                paramArgs, ElliottModelType.SIMPLE_IMPULSE, true);
+                paramArgs, ElliottModelType.IMPULSE, true);
 
             var bp = new TestBarsProvider(TIME_FRAME);
             IEnumerable<(Candle, DateTime OpenDate)> toAdd = 
@@ -48,6 +48,79 @@ namespace TradeKit.Tests
 
             var area = MovementStatistic.GetEnvelopeAreaScore(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
             Assert.That(area, Is.LessThan(0.1), "Area is too big on impulse");
+        }
+        
+        [Test]
+        public void GetEnvelopeAreaScore_Zigzag_MaximumScore()
+        {
+            DateTime startTime = new DateTime(2024, 1, 1, 10, 0, 0);
+            Candle[] candles =
+            {
+                new (100, 200, 100, 200),
+                new (200, 200, 100, 100),
+                new (100, 200, 100, 200),
+                new (200, 200, 100, 100),
+                new (100, 200, 100, 200)
+            };
+
+            for (int i = 0; i < candles.Length; i++)
+            {
+                m_BarsProvider.AddCandle(candles[i], startTime.AddMinutes(i * 5));
+            }
+
+            BarPoint start = new BarPoint(candles[0].L, 0, m_BarsProvider);
+            BarPoint end = new BarPoint(candles[^1].H, candles.Length - 1, m_BarsProvider);
+
+            double area = MovementStatistic.GetEnvelopeAreaScore(start, end, m_BarsProvider);
+
+            Assert.That(area, Is.InRange(0.8,1), "Area should be close to 1 in zigzag");
+        }
+
+        [Test]
+        public void GetEnvelopeAreaScore_LinearMovement_ReturnsZeroArea()
+        {
+            DateTime startTime = new DateTime(2024, 1, 1, 10, 0, 0);
+            double[] prices = { 100, 125, 150, 175, 200 };
+            for (int i = 0; i < prices.Length; i++)
+            {
+                Candle candle = new Candle(prices[i], prices[i], prices[i], prices[i]);
+                m_BarsProvider.AddCandle(candle, startTime.AddMinutes(i * 5));
+            }
+
+            BarPoint start = new BarPoint(prices[0], 0, m_BarsProvider);
+            BarPoint end = new BarPoint(prices[^1], prices.Length - 1, m_BarsProvider);
+
+            double area = MovementStatistic.GetEnvelopeAreaScore(start, end, m_BarsProvider);
+
+            Assert.That(area, Is.EqualTo(0).Within(1e-9), "Area should be zero for perfectly linear movement");
+        }
+
+        [Test]
+        public void GetEnvelopeAreaScore_PeakedExtremes_ComputesExpectedArea()
+        {
+            DateTime startTime = new DateTime(2024, 1, 1, 12, 0, 0);
+            (double O, double H, double L, double C)[] candles =
+            {
+                (100, 100, 100, 100),
+                (130, 140, 110, 130),
+                (170, 200, 150, 170),
+                (160, 180, 130, 160),
+                (200, 200, 200, 200)
+            };
+
+            for (int i = 0; i < candles.Length; i++)
+            {
+                (double O, double H, double L, double C) candleSpec = candles[i];
+                Candle candle = new Candle(candleSpec.O, candleSpec.H, candleSpec.L, candleSpec.C);
+                m_BarsProvider.AddCandle(candle, startTime.AddMinutes(i * 5));
+            }
+
+            BarPoint start = new BarPoint(100, 0, m_BarsProvider);
+            BarPoint end = new BarPoint(200, candles.Length - 1, m_BarsProvider);
+
+            double area = MovementStatistic.GetEnvelopeAreaScore(start, end, m_BarsProvider);
+
+            Assert.That(area, Is.EqualTo(0.475).Within(1e-9), "Area should match the manually calculated ribbon area");
         }
 
         [Test]
