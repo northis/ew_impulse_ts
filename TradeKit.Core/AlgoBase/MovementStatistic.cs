@@ -208,7 +208,7 @@ namespace TradeKit.Core.AlgoBase
             upperCandidates.Add(new Point(startIndex, start.Value));
             lowerCandidates.Add(new Point(startIndex, start.Value));
 
-            for (int i = startIndex + 1; i < endIndex; i++)
+            for (int i = startIndex; i <= endIndex; i++)
             {
                 double high = barsProvider.GetHighPrice(i);
                 double low = barsProvider.GetLowPrice(i);
@@ -229,18 +229,22 @@ namespace TradeKit.Core.AlgoBase
             if (upperEnvelope.Count < 2 || lowerEnvelope.Count < 2)
                 return 0;
 
-            var polygon = new List<Point>(upperEnvelope);
-            for (int i = lowerEnvelope.Count - 2; i > 0; i--)
+            double[] upperValues = SampleEnvelope(upperEnvelope, startIndex, endIndex);
+            double[] lowerValues = SampleEnvelope(lowerEnvelope, startIndex, endIndex);
+
+            double sum = 0;
+            for (int i = 1; i < upperValues.Length; i++)
             {
-                polygon.Add(lowerEnvelope[i]);
+                double diff = upperValues[i] - lowerValues[i];
+                if (diff > 0)
+                    sum += diff;
             }
 
-            double area = ComputeArea(polygon);
             double maxArea = fullLength * barCount;
             if (maxArea <= double.Epsilon)
                 return 0;
 
-            double score = area / maxArea;
+            double score = sum / maxArea;
             if (score < 0)
                 return 0;
             if (score > 1)
@@ -279,6 +283,39 @@ namespace TradeKit.Core.AlgoBase
             double secondDx = third.Index - second.Index;
             double secondDy = third.Value - second.Value;
             return firstDx * secondDy - firstDy * secondDx;
+        }
+
+        private static double[] SampleEnvelope(IReadOnlyList<Point> envelope, int startIndex, int endIndex)
+        {
+            int length = endIndex - startIndex + 1;
+            if (length <= 0)
+                return Array.Empty<double>();
+
+            double[] values = new double[length];
+            int segment = 0;
+            for (int offset = 0; offset < length; offset++)
+            {
+                int targetIndex = startIndex + offset;
+                while (segment + 1 < envelope.Count && envelope[segment + 1].Index < targetIndex)
+                {
+                    segment++;
+                }
+
+                Point first = envelope[segment];
+                Point second = envelope[Math.Min(segment + 1, envelope.Count - 1)];
+
+                if (Math.Abs(second.Index - first.Index) < double.Epsilon)
+                {
+                    values[offset] = first.Value;
+                    continue;
+                }
+
+                double relative = (targetIndex - first.Index) / (double)(second.Index - first.Index);
+                double interpolated = first.Value + relative * (second.Value - first.Value);
+                values[offset] = interpolated;
+            }
+
+            return values;
         }
 
         private static SortedDictionary<DateTime, double> GetPoints(
