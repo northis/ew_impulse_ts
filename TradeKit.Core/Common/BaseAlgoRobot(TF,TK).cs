@@ -719,7 +719,7 @@ namespace TradeKit.Core.Common
                         $"The calculated volume is too big - {volumeInLots:F2}; max value is {m_RobotParams.MaxVolumeLots:F2} lots");
                     return;
                 }
-
+                
                 string stringPositionId = Helper.GetPositionId(sf.Id, e.Level, e.Comment);
                 OrderResult order = TradeManager.OpenOrder(
                     isLong, sf.Symbol, volume, GetBotName(), slP, tpP, stringPositionId

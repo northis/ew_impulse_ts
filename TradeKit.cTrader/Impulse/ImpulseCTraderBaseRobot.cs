@@ -50,7 +50,7 @@ namespace TradeKit.CTrader.Impulse
         /// Gets or sets a breakeven level. Use 0 to disable
         /// </summary>
         [Parameter(nameof(BreakEvenRatio), DefaultValue = 0.0, MinValue = Helper.BREAKEVEN_MIN, MaxValue = Helper.BREAKEVEN_MAX, Group = Helper.TRADE_SETTINGS_NAME)]
-        private double BreakEvenRatio { get; set; }
+        public double BreakEvenRatio { get; set; }
 
         /// <summary>
         /// Gets or sets the maximum percent of the zigzag degree (how far the pullbacks can go from the main movement, in percents of the total bars).
