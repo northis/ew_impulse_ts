@@ -33,6 +33,8 @@ namespace TradeKit.Core.Common
         private const int SETUP_MIN_WIDTH = 3;
         protected const string ZERO_CHART_FILE_POSTFIX = "img.00";
         protected const string FIRST_CHART_FILE_POSTFIX = "img.01";
+        protected const string BREAKEVEN_SUFFIX = "_BE";
+        protected const string TAKE_PROFIT_SUFFIX = "_TP";
         private double m_CurrentRisk;
         protected TelegramReporter TelegramReporter;
         private readonly Dictionary<string, TF> m_SetupFindersMap;
@@ -52,6 +54,7 @@ namespace TradeKit.Core.Common
         private int m_StopCount;
         private bool m_IsInit;
         private readonly string[] m_RestrictedChars = Path.GetInvalidPathChars().Select(a => a.ToString()).ToArray();
+        private readonly bool m_IsTradable;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseAlgoRobot{T,TK}"/> class.
@@ -99,6 +102,8 @@ namespace TradeKit.Core.Common
             m_TimeFrames = !robotParams.UseTimeFramesList || string.IsNullOrEmpty(robotParams.TimeFramesToProceed)
                 ? new[] { timeFrameName }
                 : SplitString(robotParams.TimeFramesToProceed);
+
+            m_IsTradable = m_RobotParams.AllowToTrade || m_IsBackTesting;
         }
 
         /// <summary>
@@ -248,6 +253,17 @@ namespace TradeKit.Core.Common
         /// <param name="symbolEntity">The symbol entity.</param>
         protected abstract TF CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity);
 
+        private string ToTakeProfit(string positionId)
+        {
+            if (string.IsNullOrEmpty(positionId))
+                return null;
+
+            if (positionId.EndsWith(BREAKEVEN_SUFFIX))
+                return positionId.Replace(BREAKEVEN_SUFFIX, TAKE_PROFIT_SUFFIX);
+
+            return null;
+        }
+        
         private void OnPositionsClosed(object sender, ClosedPositionEventArgs args)
         {
             if (args.Position.Label != GetBotName())
@@ -259,19 +275,27 @@ namespace TradeKit.Core.Common
 
             bool isSl = args.State == PositionClosedState.STOP_LOSS;
             bool isTp = args.State == PositionClosedState.TAKE_PROFIT;
-            
-            if (m_RobotParams.AllowToTrade || m_IsBackTesting)
+
+            if (m_IsTradable)
             {
                 m_ClosedPositionMap[args.Position.Comment] = args;
             }
 
-            if (m_PositionFinderMap.Remove(args.Position.Id, out TF sf))
+            if (m_PositionFinderMap.Remove(args.Position.Id, out TF sf) &&
+                m_PositionSignalArgsMap.Remove(positionId, out TK signalEventArgs))
             {
-                if (m_PositionSignalArgsMap.Remove(positionId, out TK signalEventArgs))
+                if (signalEventArgs.CanUseBreakeven && isTp && m_IsTradable)
                 {
-                    if (!isSl && !isTp)// We don't want ot handle usual closing, just manual or securing ones
-                        sf.NotifyManualClose(signalEventArgs, args);
+                    string bePositionId = ToTakeProfit(args.Position.Comment);
+                    if (!string.IsNullOrEmpty(bePositionId) && 
+                        m_PositionSignalArgsMap.TryGetValue(bePositionId, out TK beEventArgs))
+                    {
+                        OnBreakeven(sf, new LevelEventArgs(beEventArgs.StopLoss, beEventArgs.Level, true, beEventArgs.Comment));
+                    }
                 }
+
+                if (!isSl && !isTp)// We don't want ot handle usual closing, just manual or securing ones
+                    sf.NotifyManualClose(signalEventArgs, args);
             }
             
             if (isSl)
@@ -325,7 +349,9 @@ namespace TradeKit.Core.Common
                 sf.OnTakeProfit += OnTakeProfit;
                 sf.OnActivated += OnActivated;
                 sf.OnCanceled += OnCanceled;
-                sf.OnBreakeven += OnBreakeven;
+
+                if (m_IsTradable)
+                    sf.OnBreakeven += OnBreakeven;
                 sf.OnManualClose += OnManualClose;
                 sf.OnEdit += OnEdit;
                 //sf.IsInSetup = false; //TODO
@@ -554,7 +580,9 @@ namespace TradeKit.Core.Common
         {
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
             Logger.Write($"Breakeven is set! {positionId}");
-            ModifySymbolPositions(setupId, positionId, e.Level.Value);
+
+            string correctedPosId = m_IsTradable ? positionId + TAKE_PROFIT_SUFFIX : positionId;
+            ModifySymbolPositions(setupId, correctedPosId, e.Level.Value);
 
             if (!TelegramReporter.IsReady)
                 return;
@@ -720,22 +748,71 @@ namespace TradeKit.Core.Common
                     return;
                 }
                 
-                string stringPositionId = Helper.GetPositionId(sf.Id, e.Level, e.Comment);
-                OrderResult order = TradeManager.OpenOrder(
-                    isLong, sf.Symbol, volume, GetBotName(), slP, tpP, stringPositionId
-                    , e.IsLimit ? e.Level.Value : null);
-
-                if (order?.IsSuccessful == true)
+                if (e.CanUseBreakeven)
                 {
-                    if (!e.IsLimit)// foolproof only for active positions
+                    // Split volume into two positions: one with original TP, one with TP = BreakEvenPrice
+                    double halfVolume = volume / 2;
+                    double breakEvenTpLen = Math.Abs(priceNow - e.BreakEvenPrice);
+                    double breakEvenTpP = Math.Round(breakEvenTpLen / sf.Symbol.PipSize);
+
+                    // First position: half volume with original TP
+                    string stringPositionId1 = Helper.GetPositionId(sf.Id, e.Level, e.Comment + TAKE_PROFIT_SUFFIX);
+                    OrderResult order1 = TradeManager.OpenOrder(
+                        isLong, sf.Symbol, halfVolume, GetBotName(), slP, tpP, stringPositionId1,
+                        e.IsLimit ? e.Level.Value : null);
+
+                    if (order1?.IsSuccessful == true)
                     {
-                        TradeManager.SetTakeProfitPrice(order.Position, tp);
-                        TradeManager.SetStopLossPrice(order.Position, sl);
+                        if (!e.IsLimit)
+                        {
+                            TradeManager.SetTakeProfitPrice(order1.Position, tp);
+                            TradeManager.SetStopLossPrice(order1.Position, sl);
+                        }
+
+                        m_FinderPositionMap[sf.Id].Add(order1.Position.Id);
+                        m_PositionFinderMap[order1.Position.Id] = sf;
+                        m_PositionSignalArgsMap[stringPositionId1] = e;
                     }
 
-                    m_FinderPositionMap[sf.Id].Add(order.Position.Id);
-                    m_PositionFinderMap[order.Position.Id]= sf;
-                    m_PositionSignalArgsMap[stringPositionId] = e;
+                    // Second position: half volume with TP = BreakEvenPrice
+                    string stringPositionId2 = Helper.GetPositionId(sf.Id, e.Level, e.Comment + BREAKEVEN_SUFFIX);
+                    OrderResult order2 = TradeManager.OpenOrder(
+                        isLong, sf.Symbol, halfVolume, GetBotName(), slP, breakEvenTpP, stringPositionId2,
+                        e.IsLimit ? e.Level.Value : null);
+
+                    if (order2?.IsSuccessful == true)
+                    {
+                        if (!e.IsLimit)
+                        {
+                            TradeManager.SetTakeProfitPrice(order2.Position, e.BreakEvenPrice);
+                            TradeManager.SetStopLossPrice(order2.Position, sl);
+                        }
+
+                        m_FinderPositionMap[sf.Id].Add(order2.Position.Id);
+                        m_PositionFinderMap[order2.Position.Id] = sf;
+                        m_PositionSignalArgsMap[stringPositionId2] = e;
+                    }
+                }
+                else
+                {
+                    // Single position with original TP
+                    string stringPositionId = Helper.GetPositionId(sf.Id, e.Level, e.Comment);
+                    OrderResult order = TradeManager.OpenOrder(
+                        isLong, sf.Symbol, volume, GetBotName(), slP, tpP, stringPositionId,
+                        e.IsLimit ? e.Level.Value : null);
+
+                    if (order?.IsSuccessful == true)
+                    {
+                        if (!e.IsLimit)
+                        {
+                            TradeManager.SetTakeProfitPrice(order.Position, tp);
+                            TradeManager.SetStopLossPrice(order.Position, sl);
+                        }
+
+                        m_FinderPositionMap[sf.Id].Add(order.Position.Id);
+                        m_PositionFinderMap[order.Position.Id] = sf;
+                        m_PositionSignalArgsMap[stringPositionId] = e;
+                    }
                 }
             }
 
@@ -1099,7 +1176,8 @@ namespace TradeKit.Core.Common
                 sf.OnEnter -= OnEnter;
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
-                sf.OnTakeProfit -= OnBreakeven;
+                if (m_IsTradable)
+                    sf.OnTakeProfit -= OnBreakeven;
                 sf.BarsProvider.BarClosed -= BarClosed;
                 IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
                 bp.Dispose();
