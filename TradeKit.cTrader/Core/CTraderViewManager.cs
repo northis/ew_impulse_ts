@@ -76,7 +76,7 @@ namespace TradeKit.CTrader.Core
             Symbol valueLocal = GetCTraderSymbol(symbolName);
 
             value = valueLocal.ToISymbol();
-            valueLocal.Tick += OnSymbolTick;
+            //valueLocal.Tick += OnSymbolTick;
             m_ISymbolMap[symbolName] = value;
             return value;
         }

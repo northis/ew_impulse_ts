@@ -43,6 +43,7 @@ namespace TradeKit.Core.Common
         private readonly Dictionary<string, ISymbol> m_SymbolsMap;
         private readonly Dictionary<string, bool> m_BarsInitMap;
         private readonly Dictionary<string, List<int>> m_FinderPositionMap;
+        private readonly Dictionary<string, int> m_LimitIdCommentMap;
         private readonly Dictionary<string, TK> m_PositionSignalArgsMap;
         private readonly Dictionary<int, TF> m_PositionFinderMap;
         private readonly Dictionary<string, ClosedPositionEventArgs> m_ClosedPositionMap;
@@ -91,6 +92,7 @@ namespace TradeKit.Core.Common
             m_BarsInitMap = new Dictionary<string, bool>();
             m_SymbolsMap = new Dictionary<string, ISymbol>();
             m_SymbolFindersMap = new Dictionary<string, TF[]>();
+            m_LimitIdCommentMap = new Dictionary<string, int>();
             m_FinderPositionMap = new Dictionary<string, List<int>>();
             m_ChartFileFinderMap = new Dictionary<string, TK>();
             m_ClosedPositionMap = new Dictionary<string, ClosedPositionEventArgs>();
@@ -253,13 +255,13 @@ namespace TradeKit.Core.Common
         /// <param name="symbolEntity">The symbol entity.</param>
         protected abstract TF CreateSetupFinder(ITimeFrame timeFrame, ISymbol symbolEntity);
 
-        private string ToTakeProfit(string positionId)
+        private string ConvertCommentForBreakeven(string positionId, string to = "")
         {
             if (string.IsNullOrEmpty(positionId))
                 return null;
 
             if (positionId.EndsWith(BREAKEVEN_SUFFIX))
-                return positionId.Replace(BREAKEVEN_SUFFIX, TAKE_PROFIT_SUFFIX);
+                return positionId.Replace(BREAKEVEN_SUFFIX, to);
 
             return null;
         }
@@ -281,14 +283,20 @@ namespace TradeKit.Core.Common
                 m_ClosedPositionMap[args.Position.Comment] = args;
             }
 
-            if (m_PositionFinderMap.Remove(args.Position.Id, out TF sf) &&
+            int posId = args.Position.Id;
+            if (m_LimitIdCommentMap.TryGetValue(args.Position.Comment, out int value))
+            {
+                posId = value;
+                m_LimitIdCommentMap.Remove(args.Position.Comment);
+            }
+
+            if (m_PositionFinderMap.Remove(posId, out TF sf) &&
                 m_PositionSignalArgsMap.Remove(positionId, out TK signalEventArgs))
             {
                 if (signalEventArgs.CanUseBreakeven && isTp && m_IsTradable)
                 {
-                    string bePositionId = ToTakeProfit(args.Position.Comment);
-                    if (!string.IsNullOrEmpty(bePositionId) && 
-                        m_PositionSignalArgsMap.TryGetValue(bePositionId, out TK beEventArgs))
+                    string bePositionId = ConvertCommentForBreakeven(args.Position.Comment, TAKE_PROFIT_SUFFIX);
+                    if (m_PositionSignalArgsMap.TryGetValue(bePositionId, out TK beEventArgs))
                     {
                         OnBreakeven(sf, new LevelEventArgs(beEventArgs.StopLoss, beEventArgs.Level, true, beEventArgs.Comment));
                     }
@@ -350,8 +358,9 @@ namespace TradeKit.Core.Common
                 sf.OnActivated += OnActivated;
                 sf.OnCanceled += OnCanceled;
 
-                if (m_IsTradable)
+                if (!m_IsTradable)
                     sf.OnBreakeven += OnBreakeven;
+                
                 sf.OnManualClose += OnManualClose;
                 sf.OnEdit += OnEdit;
                 //sf.IsInSetup = false; //TODO
@@ -410,7 +419,8 @@ namespace TradeKit.Core.Common
                 return;
 
             IPosition[] positionsToModify = TradeManager.GetPositions()
-                .Where(a => posIds.Contains(a.Id) && a.Comment == posId)
+                .Where(a => posIds.Contains(a.Id) && a.Comment == posId || 
+                            m_LimitIdCommentMap.ContainsKey(posId))
                 .ToArray();
 
             foreach (IPosition position in positionsToModify)
@@ -769,9 +779,7 @@ namespace TradeKit.Core.Common
                             TradeManager.SetStopLossPrice(order1.Position, sl);
                         }
 
-                        m_FinderPositionMap[sf.Id].Add(order1.Position.Id);
-                        m_PositionFinderMap[order1.Position.Id] = sf;
-                        m_PositionSignalArgsMap[stringPositionId1] = e;
+                        RegisterPosition(sf, order1.Position.Id, stringPositionId1, e);
                     }
 
                     // Second position: half volume with TP = BreakEvenPrice
@@ -788,9 +796,7 @@ namespace TradeKit.Core.Common
                             TradeManager.SetStopLossPrice(order2.Position, sl);
                         }
 
-                        m_FinderPositionMap[sf.Id].Add(order2.Position.Id);
-                        m_PositionFinderMap[order2.Position.Id] = sf;
-                        m_PositionSignalArgsMap[stringPositionId2] = e;
+                        RegisterPosition(sf, order2.Position.Id, stringPositionId2, e);
                     }
                 }
                 else
@@ -809,9 +815,7 @@ namespace TradeKit.Core.Common
                             TradeManager.SetStopLossPrice(order.Position, sl);
                         }
 
-                        m_FinderPositionMap[sf.Id].Add(order.Position.Id);
-                        m_PositionFinderMap[order.Position.Id] = sf;
-                        m_PositionSignalArgsMap[stringPositionId] = e;
+                        RegisterPosition(sf, order.Position.Id, stringPositionId, e);
                     }
                 }
             }
@@ -848,6 +852,26 @@ namespace TradeKit.Core.Common
                 SenderId = sf.Id,
                 PlotImagePath = plotImagePath
             });
+        }
+
+        /// <summary>
+        /// Registers the position in the internal maps.
+        /// </summary>
+        /// <param name="setupFinder">The setup finder.</param>
+        /// <param name="positionId">The position identifier.</param>
+        /// <param name="stringPositionId">The string position identifier.</param>
+        /// <param name="signalEventArgs">The signal event arguments.</param>
+        private void RegisterPosition(TF setupFinder, int positionId, string stringPositionId, TK signalEventArgs)
+        {
+            if (signalEventArgs.IsLimit)
+            {
+                // For limited orders we can expect different order\position ID, so we save the comment
+                m_LimitIdCommentMap[stringPositionId] = positionId;
+            }
+
+            m_FinderPositionMap[setupFinder.Id].Add(positionId);
+            m_PositionFinderMap[positionId] = setupFinder;
+            m_PositionSignalArgsMap[stringPositionId] = signalEventArgs;
         }
 
         /// <summary>
@@ -1176,8 +1200,9 @@ namespace TradeKit.Core.Common
                 sf.OnEnter -= OnEnter;
                 sf.OnStopLoss -= OnStopLoss;
                 sf.OnTakeProfit -= OnTakeProfit;
-                if (m_IsTradable)
+                if (!m_IsTradable)
                     sf.OnTakeProfit -= OnBreakeven;
+                
                 sf.BarsProvider.BarClosed -= BarClosed;
                 IBarsProvider bp = m_FinderIdChartBarProviderMap[sf.Id];
                 bp.Dispose();

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.Common;
@@ -12,7 +11,7 @@ namespace TradeKit.CTrader.Core
     {
         private readonly Robot m_Robot;
         private string m_BotName;
-
+        
         private readonly Dictionary<PositionCloseReason, PositionClosedState> m_ReasonMapper =
             new()
             {
@@ -49,7 +48,7 @@ namespace TradeKit.CTrader.Core
         {
             if (!IsOwn(obj.Position))
                 return;
-
+            
             PositionClosedState reason = m_ReasonMapper[obj.Reason];
             PositionClosed?.Invoke(this, new ClosedPositionEventArgs(reason, ToIPosition(obj.Position)));
         }
@@ -82,7 +81,7 @@ namespace TradeKit.CTrader.Core
         {
             if (position == null)
                 return null;
-
+            
             return new CTraderPosition(position.Id,
                 GetSymbol(position.SymbolName),
                 position.VolumeInUnits,
@@ -101,6 +100,7 @@ namespace TradeKit.CTrader.Core
                 position.CurrentPrice, 
                 position.Commissions);
         }
+
         private IPosition ToIPosition(PendingOrder pendingOrder)
         {
             if (pendingOrder == null)
@@ -148,8 +148,7 @@ namespace TradeKit.CTrader.Core
 
         private Position ToPosition(IPosition position)
         {
-            Position cTraderPosition = m_Robot.Positions
-                .FirstOrDefault(a => a.Id == position.Id);
+            Position cTraderPosition = m_Robot.Positions.FirstOrDefault(a => a.Id == position.Id);
             if (cTraderPosition == null)
                 throw new InvalidOperationException(
                     $"Position with ID={position.Id} hasn't been found.");
@@ -236,7 +235,8 @@ namespace TradeKit.CTrader.Core
             {
                 order = m_Robot.PlaceLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value, botName,
                     stopInPips, takeInPips, null, positionId);
-                pos = ToIPosition(order.PendingOrder);
+
+                pos = ToIPosition(order.PendingOrder);//problem
             }
             else
             {
@@ -263,14 +263,15 @@ namespace TradeKit.CTrader.Core
                 return;
             }
 
+            double extra = Math.Abs(cTraderPosition.CurrentPrice - cTraderPosition.EntryPrice) * 0.1;
             double newPrice = cTraderPosition.StopLoss.HasValue
                 ? cTraderPosition.EntryPrice > cTraderPosition.StopLoss
-                    ? cTraderPosition.EntryPrice + cTraderPosition.Symbol.Spread
-                    : cTraderPosition.EntryPrice - cTraderPosition.Symbol.Spread
+                    ? cTraderPosition.EntryPrice + extra
+                    : cTraderPosition.EntryPrice - extra
                 : cTraderPosition.EntryPrice;
 
             cTraderPosition.ModifyStopLossPrice(newPrice);
-            cTraderPosition.ModifyVolume(Convert.ToInt32(cTraderPosition.VolumeInUnits / 2));
+            //cTraderPosition.ModifyVolume(Convert.ToInt32(cTraderPosition.VolumeInUnits / 2));
         }
 
         public void SetTakeProfitPrice(IPosition position, double? price)
