@@ -277,6 +277,7 @@ namespace TradeKit.Core.Common
 
             bool isSl = args.State == PositionClosedState.STOP_LOSS;
             bool isTp = args.State == PositionClosedState.TAKE_PROFIT;
+            bool isClosed = args.State == PositionClosedState.CLOSED;
 
             if (m_IsTradable)
             {
@@ -293,19 +294,21 @@ namespace TradeKit.Core.Common
             if (m_PositionFinderMap.Remove(posId, out TF sf) &&
                 m_PositionSignalArgsMap.Remove(positionId, out TK signalEventArgs))
             {
-                if (signalEventArgs.CanUseBreakeven && isTp && m_IsTradable)
+                if (signalEventArgs.CanUseBreakeven && (isTp || isClosed) && m_IsTradable)
                 {
                     string bePositionId = ConvertCommentForBreakeven(args.Position.Comment, TAKE_PROFIT_SUFFIX);
-                    if (m_PositionSignalArgsMap.TryGetValue(bePositionId, out TK beEventArgs))
+                    if (bePositionId != null &&
+                        m_PositionSignalArgsMap.TryGetValue(bePositionId, out TK beEventArgs))
                     {
-                        OnBreakeven(sf, new LevelEventArgs(beEventArgs.StopLoss, beEventArgs.Level, true, beEventArgs.Comment));
+                        OnBreakeven(sf,
+                            new LevelEventArgs(beEventArgs.StopLoss, beEventArgs.Level, true, beEventArgs.Comment));
                     }
                 }
 
-                if (!isSl && !isTp)// We don't want ot handle usual closing, just manual or securing ones
+                if (!isSl && !isTp) // We don't want ot handle usual closing, just manual or securing ones
                     sf.NotifyManualClose(signalEventArgs, args);
             }
-            
+
             if (isSl)
             {
                 UpRisk();
@@ -419,8 +422,7 @@ namespace TradeKit.Core.Common
                 return;
 
             IPosition[] positionsToModify = TradeManager.GetPositions()
-                .Where(a => posIds.Contains(a.Id) && a.Comment == posId || 
-                            m_LimitIdCommentMap.ContainsKey(posId))
+                .Where(a => posIds.Contains(a.Id) || a.Comment == posId)
                 .ToArray();
 
             foreach (IPosition position in positionsToModify)
