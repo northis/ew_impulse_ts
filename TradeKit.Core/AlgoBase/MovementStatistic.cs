@@ -46,9 +46,10 @@ namespace TradeKit.Core.AlgoBase
             double firstDecPart = 1;
             if (decCount >= 1)
             {
-                int firstThird = profiles.Take(decCount * 3).Sum(a => a.Value);
-                int secondThird = profiles.Skip(decCount * 3).Take(decCount * 4).Sum(a => a.Value);
-                int lastThird = profiles.Skip(decCount * 7).Sum(a => a.Value);
+                var exactThird = Convert.ToInt32(decCount * 3.33);
+                int firstThird = profiles.Take(exactThird).Sum(a => a.Value);
+                int secondThird = profiles.Skip(exactThird).Take(exactThird).Sum(a => a.Value);
+                int lastThird = profiles.Skip(exactThird * 2).Sum(a => a.Value);
                 int whole = profiles.Sum(a => a.Value);
                 middlePart = (double)secondThird / whole;
                 diffPart = Math.Abs((double)firstThird - lastThird) / whole;
@@ -70,8 +71,12 @@ namespace TradeKit.Core.AlgoBase
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
             double area = GetEnvelopeAreaScore(start, end, barsProvider);
+
             int count = end.BarIndex - start.BarIndex;
-            return new ImpulseResult(rz, count, size, overlapseMaxDepth, diffPart, area);
+            //double priceCorrection = end > start ? start.Value : end.Value;
+            //double profileArea = profiles.Sum(a => a.Value * Math.Abs(a.Key - priceCorrection))
+            //                     / (10 * count * Math.Abs(start - end));
+            return new ImpulseResult(rz, count, size, middlePart, diffPart, area);
         }
 
         public static double GetEntropy(List<double> values)

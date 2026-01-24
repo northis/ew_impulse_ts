@@ -55,10 +55,10 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// Gets or sets the maximum percent of the zigzag degree (how far the pullbacks can go from the main movement, in percents of the total bars).
         /// </summary>
-        [Parameter(nameof(MaxZigzagPercent), DefaultValue = Helper.MAX_ZIGZAG_DEGREE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(MaxZigzagPercent), DefaultValue = Helper.MAX_ZIGZAG_DEGREE_PERCENT, MinValue = 1, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxZigzagPercent { get; set; }
 
-        [Parameter(nameof(AreaPercent), DefaultValue = 20, MinValue = 0, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(AreaPercent), DefaultValue = 20, MinValue = 0, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME)]
         public double AreaPercent { get; set; }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// Gets or sets the max value of not-smooth of the impulse.
         /// </summary>
-        [Parameter(nameof(HeterogeneityMaxPercent), DefaultValue = Helper.IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT, MinValue = 1, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
+        [Parameter(nameof(HeterogeneityMaxPercent), DefaultValue = Helper.IMPULSE_MAX_HETEROGENEITY_DEGREE_PERCENT, MinValue = 0, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
         public double HeterogeneityMaxPercent { get; set; }
 
         /// <summary>

@@ -31,25 +31,27 @@ namespace TradeKit.Tests
         }
 
 
-        //[Test]
-        //public void Debug_MovementStatistic()
-        //{
-        //    (DateTime, DateTime) dates = GetDateRange(50);
+        [Test]
+        public void Debug_MovementStatistic()
+        {
+            (DateTime, DateTime) dates = GetDateRange(500);
 
-        //    PatternArgsItem paramArgs = new PatternArgsItem(
-        //        40, 60, dates.Item1, dates.Item2, TIME_FRAME);
-        //    ModelPattern model = m_PatternGenerator.GetPattern(
-        //        paramArgs, ElliottModelType.IMPULSE, true);
+            PatternArgsItem paramArgs = new PatternArgsItem(
+                40, 60, dates.Item1, dates.Item2, TIME_FRAME);
+            ModelPattern model = m_PatternGenerator.GetPattern(
+                paramArgs, ElliottModelType.IMPULSE, true);
 
-        //    var bp = new TestBarsProvider(TIME_FRAME);
-        //    IEnumerable<(Candle, DateTime OpenDate)> toAdd = 
-        //        model.Candles.Select(a => (new Candle(a.O, a.H, a.L, a.C), a.OpenDate));
-        //    bp.AddCandles(toAdd);
+            var bp = new TestBarsProvider(TIME_FRAME);
+            IEnumerable<(Candle, DateTime OpenDate)> toAdd =
+                model.Candles.Select(a => (new Candle(a.O, a.H, a.L, a.C), a.OpenDate));
+            bp.AddCandles(toAdd);
 
-        //    var area = MovementStatistic.GetEnvelopeAreaScore(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
-        //    Assert.That(area, Is.LessThan(0.1), "Area is too big on impulse");
-        //}
-        
+            //var area = MovementStatistic.GetEnvelopeAreaScore(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
+            //Assert.That(area, Is.LessThan(0.1), "Area is too big on impulse");
+            var st  = MovementStatistic.GetMovementStatistic(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
+            Assert.That(st.RatioZigzag, Is.LessThan(0.5), "Middle is too big on impulse");
+        }
+
         [Test]
         public void GetEnvelopeAreaScore_Zigzag_MaximumScore()
         {
