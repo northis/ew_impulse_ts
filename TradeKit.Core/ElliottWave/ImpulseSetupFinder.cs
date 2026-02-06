@@ -3,6 +3,7 @@ using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.ML;
 
 namespace TradeKit.Core.ElliottWave
 {
@@ -14,6 +15,7 @@ namespace TradeKit.Core.ElliottWave
     {
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly ImpulseParams m_ImpulseParams;
+        private readonly OnnxImpulseClassifier m_OnnxImpulseClassifier;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly double m_MaxZigzagRatio;
         private readonly double m_MaxOverlapseLengthRatio;
@@ -54,6 +56,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_TradeViewManager = tradeViewManager;
             m_ImpulseParams = impulseParams;
+            m_OnnxImpulseClassifier = new OnnxImpulseClassifier();
 
             for (int i = impulseParams.Period; i <= impulseParams.Period * 4; i += 10)
             {
@@ -224,11 +227,13 @@ namespace TradeKit.Core.ElliottWave
             }
 
             ImpulseResult stats = checkSignalArgs.HasInCache && m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] != null
-                ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime]
-                : MovementStatistic.GetMovementStatistic(
-                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
+               ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime]
+               : MovementStatistic.GetMovementStatistic(
+                   checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
             if (!checkSignalArgs.HasInCache &&
-                (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
+                (stats.CandlesCount < m_ImpulseParams.BarsCount ||
+                 m_OnnxImpulseClassifier.PredictProbability(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
+                     BarsProvider) < 0.506 /*!IsSmoothImpulse(stats)*/))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");
