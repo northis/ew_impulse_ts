@@ -31,10 +31,15 @@ namespace TrainML
             ModelPattern pattern = generator.GetPattern(
                 args, ElliottModelType.SIMPLE_IMPULSE, true);
 
-            using OnnxImpulseClassifier classifier = new OnnxImpulseClassifier(modelPath);
-            float probability = classifier.PredictProbability(pattern.Candles);
+            using OnnxModelClassifier classifier = new OnnxModelClassifier(modelPath);
+            Dictionary<ElliottModelType, float> probabilities = classifier.Predict(pattern.Candles);
 
-            Console.WriteLine($"Inference sample probability: {probability:F4}");
+            Console.WriteLine("Inference sample results:");
+            foreach (KeyValuePair<ElliottModelType, float> kvp in
+                probabilities.OrderByDescending(a => a.Value))
+            {
+                Console.WriteLine($"  {kvp.Key}: {kvp.Value:F4}");
+            }
         }
     }
 }

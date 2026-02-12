@@ -57,7 +57,7 @@ class InceptionTime(nn.Module):
         return self.fc(x)
 
 
-def read_csv_dataset(path: str) -> tuple[np.ndarray, np.ndarray]:
+def read_csv_dataset(path: str) -> tuple[np.ndarray, np.ndarray, int, list[str]]:
     with open(path, newline="", encoding="utf-8") as handle:
         reader = csv.reader(handle)
         header = next(reader)
@@ -65,7 +65,20 @@ def read_csv_dataset(path: str) -> tuple[np.ndarray, np.ndarray]:
 
     labels = np.array([int(row[0]) for row in rows], dtype=np.int64)
     features = np.array([[float(v) for v in row[2:]] for row in rows], dtype=np.float32)
-    return features, labels
+    num_classes = int(labels.max()) + 1
+
+    class_names: list[str] = [""] * num_classes
+    for row in rows:
+        idx = int(row[0])
+        if not class_names[idx]:
+            class_names[idx] = row[1]
+
+    print(f"Dataset: {len(rows)} samples, {num_classes} classes, {features.shape[1]} features")
+    for i, name in enumerate(class_names):
+        count = int((labels == i).sum())
+        print(f"  [{i}] {name}: {count} samples")
+
+    return features, labels, num_classes, class_names
 
 
 def build_dataloader(features: np.ndarray, labels: np.ndarray, batch_size: int, val_split: float, seed: int):
@@ -87,12 +100,12 @@ def build_dataloader(features: np.ndarray, labels: np.ndarray, batch_size: int, 
 
 def train(config: TrainConfig):
     torch.manual_seed(config.seed)
-    features, labels = read_csv_dataset(config.data_path)
+    features, labels, num_classes, class_names = read_csv_dataset(config.data_path)
     train_loader, val_loader, bars_count = build_dataloader(
         features, labels, config.batch_size, config.val_split, config.seed
     )
 
-    model = InceptionTime(in_channels=4, num_classes=2)
+    model = InceptionTime(in_channels=4, num_classes=num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     loss_fn = nn.CrossEntropyLoss()
 
@@ -119,7 +132,19 @@ def train(config: TrainConfig):
                 val_count += batch_y.size(0)
 
         val_loss /= max(1, val_count)
-        print(f"Epoch {epoch + 1}/{config.epochs} - val loss: {val_loss:.6f}")
+
+        model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for batch_x, batch_y in val_loader:
+                logits = model(batch_x)
+                preds = logits.argmax(dim=1)
+                correct += (preds == batch_y).sum().item()
+                total += batch_y.size(0)
+
+        accuracy = correct / max(1, total)
+        print(f"Epoch {epoch + 1}/{config.epochs} - val loss: {val_loss:.6f} - val acc: {accuracy:.4f}")
 
         if val_loss < best_val:
             best_val = val_loss

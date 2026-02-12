@@ -29,14 +29,9 @@ namespace TrainML
         public ITimeFrame TimeFrame { get; }
 
         /// <summary>
-        /// Gets the positive samples count.
+        /// Gets the number of samples to generate per class.
         /// </summary>
-        public int PositiveSamples { get; }
-
-        /// <summary>
-        /// Gets the negative samples count.
-        /// </summary>
-        public int NegativeSamples { get; }
+        public int SamplesPerClass { get; }
 
         /// <summary>
         /// Gets the minimum start value.
@@ -63,8 +58,7 @@ namespace TrainML
             string outputFileName,
             int barsCount,
             ITimeFrame timeFrame,
-            int positiveSamples,
-            int negativeSamples,
+            int samplesPerClass,
             double startValueMin,
             double startValueMax,
             double deltaMin,
@@ -74,8 +68,7 @@ namespace TrainML
             OutputFileName = outputFileName;
             BarsCount = barsCount;
             TimeFrame = timeFrame;
-            PositiveSamples = positiveSamples;
-            NegativeSamples = negativeSamples;
+            SamplesPerClass = samplesPerClass;
             StartValueMin = startValueMin;
             StartValueMax = startValueMax;
             DeltaMin = deltaMin;
@@ -96,12 +89,11 @@ namespace TrainML
 
             string outputDirectory = GetValue(map, "out", "data");
             string outputFileName = GetValue(map, "file", "impulse_dataset.csv");
-            int barsCount = GetIntValue(map, "bars", 120);
+            int barsCount = GetIntValue(map, "bars", 50);
             string tfName = GetValue(map, "tf", TimeFrameHelper.Minute5.Name);
             ITimeFrame timeFrame = GetTimeFrame(tfName);
 
-            int positiveSamples = GetIntValue(map, "pos", 500);
-            int negativeSamples = GetIntValue(map, "neg", 500);
+            int samplesPerClass = GetIntValue(map, "samples", 500);
 
             double startValueMin = GetDoubleValue(map, "startMin", 20);
             double startValueMax = GetDoubleValue(map, "startMax", 80);
@@ -113,8 +105,7 @@ namespace TrainML
                 outputFileName,
                 barsCount,
                 timeFrame,
-                positiveSamples,
-                negativeSamples,
+                samplesPerClass,
                 startValueMin,
                 startValueMax,
                 deltaMin,

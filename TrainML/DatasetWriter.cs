@@ -16,7 +16,30 @@ namespace TrainML
         private readonly GenerationOptions m_Options;
         private readonly PatternGenerator m_Generator;
         private readonly Random m_Random;
-        private readonly ElliottModelType[] m_NegativeModels;
+
+        /// <summary>
+        /// Per-model generation constraints derived from pattern test usage.
+        /// </summary>
+        private static readonly Dictionary<ElliottModelType, ModelGenParams> MODEL_PARAMS =
+            new Dictionary<ElliottModelType, ModelGenParams>
+            {
+                { ElliottModelType.IMPULSE, new ModelGenParams(40, 60) },
+                { ElliottModelType.SIMPLE_IMPULSE, new ModelGenParams(40, 60) },
+                { ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, new ModelGenParams(40, 60) },
+                { ElliottModelType.DIAGONAL_CONTRACTING_ENDING, new ModelGenParams(40, 60, max: 70) },
+                { ElliottModelType.DIAGONAL_EXPANDING_INITIAL, new ModelGenParams(40, 60) },
+                { ElliottModelType.DIAGONAL_EXPANDING_ENDING, new ModelGenParams(40, 60) },
+                { ElliottModelType.TRIANGLE_CONTRACTING, new ModelGenParams(70, 90, max: 120) },
+                { ElliottModelType.TRIANGLE_EXPANDING, new ModelGenParams(70, 90, min: 50) },
+                { ElliottModelType.TRIANGLE_RUNNING, new ModelGenParams(70, 90, min: 50, max: 120) },
+                { ElliottModelType.ZIGZAG, new ModelGenParams(60, 40) },
+                { ElliottModelType.DOUBLE_ZIGZAG, new ModelGenParams(60, 40) },
+                { ElliottModelType.TRIPLE_ZIGZAG, new ModelGenParams(60, 40) },
+                { ElliottModelType.FLAT_REGULAR, new ModelGenParams(60, 40) },
+                { ElliottModelType.FLAT_EXTENDED, new ModelGenParams(40, 60, min: 30) },
+                { ElliottModelType.FLAT_RUNNING, new ModelGenParams(60, 40, min: 34, max: 66) },
+                { ElliottModelType.COMBINATION, new ModelGenParams(70, 90, min: 50, max: 110) },
+            };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DatasetWriter"/> class.
@@ -27,9 +50,6 @@ namespace TrainML
             m_Options = options;
             m_Generator = new PatternGenerator(true);
             m_Random = new Random();
-            m_NegativeModels = Enum.GetValues<ElliottModelType>()
-                .Where(a => a != ElliottModelType.SIMPLE_IMPULSE)
-                .ToArray();
         }
 
         /// <summary>
@@ -43,25 +63,32 @@ namespace TrainML
             using StreamWriter writer = new StreamWriter(filePath, false, Encoding.UTF8);
             WriteHeader(writer);
 
-            int positiveWritten = 0;
-            int negativeWritten = 0;
+            ElliottModelType[] allModels = OnnxModelClassifier.ClassLabels;
+            int totalWritten = 0;
 
-            while (positiveWritten < m_Options.PositiveSamples)
+            for (int classIndex = 0; classIndex < allModels.Length; classIndex++)
             {
-                if (TryWriteSample(writer, true, ElliottModelType.SIMPLE_IMPULSE))
-                    positiveWritten++;
+                ElliottModelType model = allModels[classIndex];
+                int written = 0;
+
+                while (written < m_Options.SamplesPerClass)
+                {
+                    if (TryWriteSample(writer, classIndex, model))
+                        written++;
+                }
+
+                totalWritten += written;
+                Console.WriteLine(
+                    $"  [{classIndex}] {model}: {written} samples");
             }
 
-            while (negativeWritten < m_Options.NegativeSamples)
-            {
-                ElliottModelType model = m_NegativeModels[m_Random.Next(m_NegativeModels.Length)];
-                if (TryWriteSample(writer, false, model))
-                    negativeWritten++;
-            }
-
-            Console.WriteLine($"Dataset generated: {filePath}");
+            Console.WriteLine($"Dataset generated: {filePath} ({totalWritten} total samples)");
         }
 
+        /// <summary>
+        /// Writes the CSV header.
+        /// </summary>
+        /// <param name="writer">The stream writer.</param>
         private void WriteHeader(StreamWriter writer)
         {
             StringBuilder sb = new StringBuilder();
@@ -78,7 +105,14 @@ namespace TrainML
             writer.WriteLine(sb.ToString());
         }
 
-        private bool TryWriteSample(StreamWriter writer, bool isPositive, ElliottModelType model)
+        /// <summary>
+        /// Tries to write a single sample row to the CSV.
+        /// </summary>
+        /// <param name="writer">The stream writer.</param>
+        /// <param name="label">The integer class label.</param>
+        /// <param name="model">The Elliott model type.</param>
+        /// <returns>True if the sample was written successfully.</returns>
+        private bool TryWriteSample(StreamWriter writer, int label, ElliottModelType model)
         {
             ModelPattern? pattern = TryGeneratePattern(model);
             if (pattern == null)
@@ -90,7 +124,6 @@ namespace TrainML
                 return false;
 
             string className = model.ToString();
-            int label = isPositive ? 1 : 0;
 
             StringBuilder sb = new StringBuilder();
             sb.Append(label.ToString(CultureInfo.InvariantCulture));
@@ -105,18 +138,37 @@ namespace TrainML
             return true;
         }
 
+        /// <summary>
+        /// Tries to generate a pattern for the given model type with appropriate parameters.
+        /// </summary>
+        /// <param name="model">The Elliott model type.</param>
+        /// <returns>The generated pattern or null if generation failed.</returns>
         private ModelPattern? TryGeneratePattern(ElliottModelType model)
         {
+            ModelGenParams genParams = MODEL_PARAMS.TryGetValue(model, out ModelGenParams? p)
+                ? p
+                : new ModelGenParams(40, 60);
+
+            bool useScaleFrom1M = true;
+
             for (int attempt = 0; attempt < 50; attempt++)
             {
                 try
                 {
-                    double startValue = RandomBetween(m_Options.StartValueMin, m_Options.StartValueMax);
-                    double delta = RandomBetween(m_Options.DeltaMin, m_Options.DeltaMax);
-                    bool isUp = m_Random.NextDouble() >= 0.5;
-                    double endValue = isUp ? startValue + delta : startValue - delta;
+                    double startBase = genParams.StartValue;
+                    double endBase = genParams.EndValue;
+                    double jitter = (m_Random.NextDouble() - 0.5) * 10;
 
-                    (DateTime, DateTime) dates = Helper.GetDateRange(m_Options.BarsCount, m_Options.TimeFrame);
+                    double startValue = startBase + jitter;
+                    double endValue = endBase + jitter;
+
+                    if (startValue <= 0) startValue = 1;
+                    if (endValue <= 0) endValue = 1;
+                    if (Math.Abs(endValue - startValue) < 1)
+                        endValue = startValue + (genParams.IsUp ? 5 : -5);
+
+                    (DateTime, DateTime) dates = Helper.GetDateRange(
+                        m_Options.BarsCount, m_Options.TimeFrame);
 
                     PatternArgsItem args = new PatternArgsItem(
                         startValue,
@@ -127,7 +179,13 @@ namespace TrainML
                         null,
                         Helper.ML_DEF_ACCURACY_PART);
 
-                    ModelPattern pattern = m_Generator.GetPattern(args, model, true);
+                    if (genParams.Min.HasValue)
+                        args.Min = genParams.Min.Value + jitter;
+
+                    if (genParams.Max.HasValue)
+                        args.Max = genParams.Max.Value + jitter;
+
+                    ModelPattern pattern = m_Generator.GetPattern(args, model, useScaleFrom1M);
 
                     if (pattern.Candles.Count != m_Options.BarsCount)
                         continue;
@@ -143,13 +201,52 @@ namespace TrainML
             return null;
         }
 
-        private double RandomBetween(double min, double max)
+        /// <summary>
+        /// Per-model generation parameters.
+        /// </summary>
+        private sealed class ModelGenParams
         {
-            if (min >= max)
-                return min;
+            /// <summary>
+            /// Gets the start value for pattern generation.
+            /// </summary>
+            public double StartValue { get; }
 
-            double range = max - min;
-            return min + m_Random.NextDouble() * range;
+            /// <summary>
+            /// Gets the end value for pattern generation.
+            /// </summary>
+            public double EndValue { get; }
+
+            /// <summary>
+            /// Gets whether the pattern is upward.
+            /// </summary>
+            public bool IsUp => StartValue < EndValue;
+
+            /// <summary>
+            /// Gets the optional minimum constraint.
+            /// </summary>
+            public double? Min { get; }
+
+            /// <summary>
+            /// Gets the optional maximum constraint.
+            /// </summary>
+            public double? Max { get; }
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="ModelGenParams"/> class.
+            /// </summary>
+            /// <param name="startValue">The start value.</param>
+            /// <param name="endValue">The end value.</param>
+            /// <param name="min">The optional minimum constraint.</param>
+            /// <param name="max">The optional maximum constraint.</param>
+            public ModelGenParams(
+                double startValue, double endValue,
+                double? min = null, double? max = null)
+            {
+                StartValue = startValue;
+                EndValue = endValue;
+                Min = min;
+                Max = max;
+            }
         }
     }
 }

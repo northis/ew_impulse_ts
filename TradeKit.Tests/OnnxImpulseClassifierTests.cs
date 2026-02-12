@@ -47,6 +47,7 @@ public class OnnxImpulseClassifierTests
 
         using OnnxImpulseClassifier classifier = new OnnxImpulseClassifier(fullModelPath);
         float probability = classifier.PredictProbability(model.Candles);
+        double prop = probability * 1000000;
 
         Assert.That(probability, Is.GreaterThanOrEqualTo(0f).And.LessThanOrEqualTo(1f),
             "Probability must be in [0, 1] range.");
