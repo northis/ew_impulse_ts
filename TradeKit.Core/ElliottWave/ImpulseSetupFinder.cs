@@ -15,7 +15,7 @@ namespace TradeKit.Core.ElliottWave
     {
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly ImpulseParams m_ImpulseParams;
-        private readonly OnnxImpulseClassifier m_OnnxImpulseClassifier;
+        private readonly OnnxModelClassifier m_OnnxModelClassifier;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly double m_MaxZigzagRatio;
         private readonly double m_MaxOverlapseLengthRatio;
@@ -56,7 +56,7 @@ namespace TradeKit.Core.ElliottWave
         {
             m_TradeViewManager = tradeViewManager;
             m_ImpulseParams = impulseParams;
-            m_OnnxImpulseClassifier = new OnnxImpulseClassifier();
+            m_OnnxModelClassifier = new OnnxModelClassifier();
 
             for (int i = impulseParams.Period; i <= impulseParams.Period * 4; i += 10)
             {
@@ -232,8 +232,8 @@ namespace TradeKit.Core.ElliottWave
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
             if (!checkSignalArgs.HasInCache &&
                 (stats.CandlesCount < m_ImpulseParams.BarsCount ||
-                 m_OnnxImpulseClassifier.PredictProbability(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
-                     BarsProvider) < 0.506 /*!IsSmoothImpulse(stats)*/))
+                 m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
+                     BarsProvider) == null /*!IsSmoothImpulse(stats)*/))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");

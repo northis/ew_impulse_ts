@@ -63,6 +63,16 @@ namespace TradeKit.Core.Resources {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] multiModel {
+            get {
+                object obj = ResourceManager.GetObject("multiModel", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] SimpleImpulse {
             get {
                 object obj = ResourceManager.GetObject("SimpleImpulse", resourceCulture);

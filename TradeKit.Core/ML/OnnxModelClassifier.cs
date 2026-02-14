@@ -29,6 +29,14 @@ namespace TradeKit.Core.ML
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="OnnxModelClassifier"/> class using the embedded multi-class model.
+        /// </summary>
+        public OnnxModelClassifier()
+        {
+            m_Session = new InferenceSession(Resources.ResHolder.multiModel);
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="OnnxModelClassifier"/> class from a byte array.
         /// </summary>
         /// <param name="modelBytes">The ONNX model bytes.</param>
@@ -37,21 +45,24 @@ namespace TradeKit.Core.ML
             m_Session = new InferenceSession(modelBytes);
         }
 
-        /// <summary>
-        /// Predicts probabilities for all Elliott wave model types from bar points.
-        /// </summary>
-        /// <param name="start">The starting bar point.</param>
-        /// <param name="end">The ending bar point.</param>
-        /// <param name="barsProvider">The bars provider.</param>
-        /// <returns>Dictionary mapping each <see cref="ElliottModelType"/> to its predicted probability.</returns>
-        public Dictionary<ElliottModelType, float> Predict(
+       /// <summary>
+       /// Predicts the most likely Elliott wave model type based on the provided bar points and bars provider.
+       /// </summary>
+       /// <param name="start">The starting bar point for the prediction.</param>
+       /// <param name="end">The ending bar point for the prediction.</param>
+       /// <param name="barsProvider">The provider for accessing bar data.</param>
+       /// <returns>
+       /// The predicted <see cref="ElliottModelType"/> if the prediction is successful; otherwise, <c>null</c>.
+       /// </returns>
+        public ElliottModelType? Predict(
             BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
             double[] features = FeatureBuilder.BuildFeatures(start, end, barsProvider, out int count);
             if (features == null)
-                return EmptyResult();
+                return null;
 
-            return PredictInner(features, count);
+            Dictionary<ElliottModelType, float> res = PredictInner(features, count);
+            return res.MaxBy(a => a.Value).Key;
         }
 
         /// <summary>
