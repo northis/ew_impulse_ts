@@ -89,11 +89,11 @@ namespace TrainML
 
             string outputDirectory = GetValue(map, "out", "data");
             string outputFileName = GetValue(map, "file", "impulse_dataset.csv");
-            int barsCount = GetIntValue(map, "bars", 50);
+            int barsCount = GetIntValue(map, "bars", 30);
             string tfName = GetValue(map, "tf", TimeFrameHelper.Minute5.Name);
             ITimeFrame timeFrame = GetTimeFrame(tfName);
 
-            int samplesPerClass = GetIntValue(map, "samples", 500);
+            int samplesPerClass = GetIntValue(map, "samples", 1000);
 
             double startValueMin = GetDoubleValue(map, "startMin", 20);
             double startValueMax = GetDoubleValue(map, "startMax", 80);

@@ -18,6 +18,9 @@ public class OnnxModelClassifierTests
         AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..",
         "TradeKit.Core", "Resources", "multiModel.onnx");
 
+    private static readonly string FOLDER_TO_SAVE = Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory, "images");
+
     [SetUp]
     public void Setup()
     {
@@ -221,8 +224,8 @@ public class OnnxModelClassifierTests
     [Test]
     public void Predict_AccuracyEvaluation_AllModelTypes()
     {
-        const int SAMPLES_PER_TYPE = 1;
-        const int BAR_COUNT = 100;
+        const int SAMPLES_PER_TYPE = 10;
+        const int BAR_COUNT = 30;
 
         string fullModelPath = Path.GetFullPath(MODEL_PATH);
         Assert.That(File.Exists(fullModelPath), Is.True,
@@ -231,8 +234,8 @@ public class OnnxModelClassifierTests
         Dictionary<ElliottModelType, (double startValue, double endValue, double? min, double? max)> modelParams =
             new Dictionary<ElliottModelType, (double, double, double?, double?)>
             {
-                { ElliottModelType.IMPULSE, (40, 60, null, null) },
                 { ElliottModelType.SIMPLE_IMPULSE, (40, 60, null, null) },
+                { ElliottModelType.IMPULSE, (40, 60, null, null) },
                 { ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, (40, 60, null, null) },
                 { ElliottModelType.DIAGONAL_CONTRACTING_ENDING, (40, 60, null, 70d) },
                 { ElliottModelType.DIAGONAL_EXPANDING_INITIAL, (40, 60, null, null) },
@@ -258,9 +261,6 @@ public class OnnxModelClassifierTests
 
         foreach (ElliottModelType modelType in OnnxModelClassifier.ClassLabels)
         {
-            if(modelType!= ElliottModelType.SIMPLE_IMPULSE)
-                continue;
-            
             int correct = 0;
             int attempted = 0;
             int generated = 0;
@@ -273,9 +273,10 @@ public class OnnxModelClassifierTests
                 ModelPattern? pattern = TryGeneratePattern(
                     modelType, BAR_COUNT, p.startValue, p.endValue, p.min, p.max);
 
-                if (pattern == null || pattern.Candles.Count < 51)
+                if (pattern == null || pattern.Candles.Count < 30)
                     continue;
 
+                ChartGenerator.SaveResultFiles(pattern, FOLDER_TO_SAVE);
                 generated++;
                 Dictionary<ElliottModelType, float> probabilities = classifier.Predict(pattern.Candles);
                 if (probabilities == null || probabilities.Count == 0)

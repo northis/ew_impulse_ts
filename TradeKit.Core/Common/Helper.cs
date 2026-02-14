@@ -76,7 +76,7 @@ namespace TradeKit.Core.Common
         public const double MIN_ALLOWED_VOLUME_LOTS = 0.01;
         public const double MAX_ALLOWED_VOLUME_LOTS = 10;
 
-        public const ushort ML_IMPULSE_VECTOR_RANK = 400;
+        public const ushort ML_IMPULSE_VECTOR_RANK = 60;
         public const ushort ML_MIN_BARS_COUNT = ML_IMPULSE_VECTOR_RANK / 2;
         public const ushort ML_MAX_BARS_COUNT = 1000;
         public const ushort ML_MAX_BATCH_ITEMS = 100;

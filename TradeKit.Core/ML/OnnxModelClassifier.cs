@@ -139,7 +139,7 @@ namespace TradeKit.Core.ML
                     return dims[2];
             }
 
-            return Helper.ML_IMPULSE_VECTOR_RANK / 2;
+            return Helper.ML_MIN_BARS_COUNT;
         }
 
         /// <summary>

@@ -89,7 +89,7 @@ def read_csv_dataset(path: str) -> tuple[np.ndarray, np.ndarray, int, list[str]]
 def build_dataloader(features: np.ndarray, labels: np.ndarray, batch_size: int, val_split: float, seed: int):
     feature_count = features.shape[1]
     bars_count = feature_count // 4
-    tensor_x = torch.from_numpy(features.reshape(-1, 4, bars_count))
+    tensor_x = torch.from_numpy(features.reshape(-1, bars_count, 4).transpose(0, 2, 1))
     tensor_y = torch.from_numpy(labels)
 
     dataset = TensorDataset(tensor_x, tensor_y)
