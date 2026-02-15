@@ -1,0 +1,271 @@
+//@version=6
+indicator("Zig Zag Labeler", overlay = true, max_lines_count = 500, max_labels_count = 500)
+
+// ═══════════════════════════════════════════════════════════════
+// Zigzag Settings
+// ═══════════════════════════════════════════════════════════════
+float devInput   = input.float(5.0, "Deviation (%)", minval = 0.00001, maxval = 100.0, step = 0.5, group = "Zigzag")
+int   depthInput = input.int(10, "Depth", minval = 2, group = "Zigzag")
+color lineClr    = input.color(#2962FF, "Line color", group = "Zigzag")
+bool  extLast    = input.bool(true, "Extend to last bar", group = "Zigzag")
+
+// ═══════════════════════════════════════════════════════════════
+// Display Settings
+// ═══════════════════════════════════════════════════════════════
+color  labeledClr   = input.color(#FF6D00, "Labeled segment color", group = "Display")
+int    maxSegsShow  = input.int(30, "Max segments to number", minval = 5, maxval = 100, group = "Display")
+bool   showTable    = input.bool(true, "Show export table", group = "Display")
+string labelTicker  = input.string("", "Labels locked to ticker", group = "Display", tooltip = "Paste ticker (e.g. EURUSD). Labels only apply when chart matches. Empty = any symbol.")
+string labelTf      = input.string("", "Labels locked to timeframe", group = "Display", tooltip = "Paste timeframe (e.g. 60, D). Empty = any timeframe.")
+
+// ═══════════════════════════════════════════════════════════════
+// Label Slots (segment 1 = most recent confirmed zigzag segment)
+// ═══════════════════════════════════════════════════════════════
+string MODEL_NONE = "None"
+
+int    s1  = input.int(0, "Seg #", minval = 0, group = "Slot 1",  tooltip = "1 = newest segment, 0 = disabled")
+string m1  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 1")
+int    s2  = input.int(0, "Seg #", minval = 0, group = "Slot 2",  tooltip = "1 = newest segment, 0 = disabled")
+string m2  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 2")
+int    s3  = input.int(0, "Seg #", minval = 0, group = "Slot 3",  tooltip = "1 = newest segment, 0 = disabled")
+string m3  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 3")
+int    s4  = input.int(0, "Seg #", minval = 0, group = "Slot 4",  tooltip = "1 = newest segment, 0 = disabled")
+string m4  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 4")
+int    s5  = input.int(0, "Seg #", minval = 0, group = "Slot 5",  tooltip = "1 = newest segment, 0 = disabled")
+string m5  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 5")
+int    s6  = input.int(0, "Seg #", minval = 0, group = "Slot 6",  tooltip = "1 = newest segment, 0 = disabled")
+string m6  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 6")
+int    s7  = input.int(0, "Seg #", minval = 0, group = "Slot 7",  tooltip = "1 = newest segment, 0 = disabled")
+string m7  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 7")
+int    s8  = input.int(0, "Seg #", minval = 0, group = "Slot 8",  tooltip = "1 = newest segment, 0 = disabled")
+string m8  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 8")
+int    s9  = input.int(0, "Seg #", minval = 0, group = "Slot 9",  tooltip = "1 = newest segment, 0 = disabled")
+string m9  = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 9")
+int    s10 = input.int(0, "Seg #", minval = 0, group = "Slot 10", tooltip = "1 = newest segment, 0 = disabled")
+string m10 = input.string("None", "Model", options = ["None", "Impulse", "Zigzag", "Double Zigzag", "Diag.Contr.Init.", "Diag.Contr.End."], group = "Slot 10")
+
+// ═══════════════════════════════════════════════════════════════
+// Zigzag Calculation (no external library)
+// ═══════════════════════════════════════════════════════════════
+int depth = depthInput < 4 ? 2 : int(depthInput / 2)
+
+float ph = ta.pivothigh(high, depth, depth)
+float pl = ta.pivotlow(low, depth, depth)
+
+// Parallel arrays storing zigzag pivot data
+var array<float> zzPrice  = array.new<float>()
+var array<int>   zzBar    = array.new<int>()
+var array<int>   zzTime   = array.new<int>()
+var array<bool>  zzIsHigh = array.new<bool>()
+var array<line>  zzLines  = array.new<line>()
+
+
+// Process pivot high
+if not na(ph)
+    int pivBar  = bar_index - depth
+    int pivTime = time[depth]
+    int n = zzPrice.size()
+    if n == 0
+        zzPrice.push(ph)
+        zzBar.push(pivBar)
+        zzTime.push(pivTime)
+        zzIsHigh.push(true)
+    else
+        bool lastIsHigh = zzIsHigh.last()
+        float lastPrice = zzPrice.last()
+
+        if lastIsHigh
+            if ph > lastPrice
+                zzPrice.set(n - 1, ph)
+                zzBar.set(n - 1, pivBar)
+                zzTime.set(n - 1, pivTime)
+                if zzLines.size() > 0
+                    zzLines.last().set_xy2(pivBar, ph)
+        else
+            float dev = 100.0 * (ph - lastPrice) / math.abs(lastPrice)
+            if dev >= devInput
+                zzPrice.push(ph)
+                zzBar.push(pivBar)
+                zzTime.push(pivTime)
+                zzIsHigh.push(true)
+                line ln = line.new(zzBar.get(n - 1), zzPrice.get(n - 1), pivBar, ph, color = lineClr, width = 2)
+                zzLines.push(ln)
+
+// Process pivot low
+if not na(pl)
+    int pivBar  = bar_index - depth
+    int pivTime = time[depth]
+    int n = zzPrice.size()
+    if n == 0
+        zzPrice.push(pl)
+        zzBar.push(pivBar)
+        zzTime.push(pivTime)
+        zzIsHigh.push(false)
+    else
+        bool lastIsHigh = zzIsHigh.last()
+        float lastPrice = zzPrice.last()
+
+        if not lastIsHigh
+            if pl < lastPrice
+                zzPrice.set(n - 1, pl)
+                zzBar.set(n - 1, pivBar)
+                zzTime.set(n - 1, pivTime)
+                if zzLines.size() > 0
+                    zzLines.last().set_xy2(pivBar, pl)
+        else
+            float dev = 100.0 * (pl - lastPrice) / math.abs(lastPrice)
+            if dev <= -devInput
+                zzPrice.push(pl)
+                zzBar.push(pivBar)
+                zzTime.push(pivTime)
+                zzIsHigh.push(false)
+                line ln = line.new(zzBar.get(n - 1), zzPrice.get(n - 1), pivBar, pl, color = lineClr, width = 2)
+                zzLines.push(ln)
+
+// Extension line from last pivot to current bar
+var line extLine = na
+if extLast and barstate.islast and zzPrice.size() > 0
+    if not na(extLine)
+        extLine.delete()
+    bool lastIsHigh = zzIsHigh.last()
+    float curPrice  = lastIsHigh ? low : high
+    extLine := line.new(zzBar.last(), zzPrice.last(), bar_index, curPrice, color = lineClr, width = 2, style = line.style_dashed)
+
+// ═══════════════════════════════════════════════════════════════
+// Segment Labeling, Table, and Alert (on last bar)
+// ═══════════════════════════════════════════════════════════════
+var array<label> segLabels = array.new<label>()
+var table tbl = table.new(
+     position.bottom_right, 8, 11,
+     bgcolor = color.new(color.black, 85),
+     border_color = color.new(color.gray, 50),
+     border_width = 1)
+
+// Check if labels should apply to this symbol/timeframe
+bool symbolMatch = (labelTicker == "" or str.contains(str.upper(syminfo.tickerid), str.upper(labelTicker))) and (labelTf == "" or timeframe.period == labelTf)
+
+// Warning table when symbol doesn't match
+var table warnTbl = table.new(position.top_left, 1, 1, bgcolor = color.new(color.red, 70), border_color = color.red, border_width = 1)
+if barstate.islast and not symbolMatch and labelTicker != ""
+    warnTbl.cell(0, 0, "Labels locked to " + labelTicker + (labelTf != "" ? " / " + labelTf : ""), text_color = color.white, text_size = size.normal)
+
+if barstate.islast
+    // Clean up old segment number labels
+    if segLabels.size() > 0
+        for i = 0 to segLabels.size() - 1
+            label.delete(segLabels.get(i))
+        segLabels.clear()
+
+    int segCount = zzLines.size()
+
+    // Collect slot data into arrays for iteration
+    array<int>    slotSegs = array.from(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10)
+    array<string> slotMods = array.from(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+
+    // Build lookup: segment number (1=newest) -> model type
+    map<int, string> labelMap = map.new<int, string>()
+    if symbolMatch
+        for j = 0 to 9
+            int sn = slotSegs.get(j)
+            string mt = slotMods.get(j)
+            if sn > 0 and mt != MODEL_NONE and sn <= segCount
+                labelMap.put(sn, mt)
+
+    // Display segment numbers on the last N segments
+    int endSeg = segCount < maxSegsShow ? segCount : maxSegsShow
+    if endSeg > 0
+        for k = 1 to endSeg
+            int lineIdx       = segCount - k
+            int startPivotIdx = lineIdx
+            int endPivotIdx   = lineIdx + 1
+
+            int sBar   = zzBar.get(startPivotIdx)
+            int eBar   = zzBar.get(endPivotIdx)
+            float sPrc = zzPrice.get(startPivotIdx)
+            float ePrc = zzPrice.get(endPivotIdx)
+
+            int midBar     = int(math.round(math.avg(sBar, eBar)))
+            float midPrice = math.avg(sPrc, ePrc)
+
+            // Reset line to default appearance
+            line ln = zzLines.get(lineIdx)
+            if not na(ln)
+                ln.set_color(lineClr)
+                ln.set_width(2)
+
+            bool isLabeled = labelMap.contains(k)
+            string txt = str.tostring(k)
+            color clr  = color.new(lineClr, 30)
+
+            if isLabeled
+                txt := txt + "\n" + labelMap.get(k)
+                clr := labeledClr
+                if not na(ln)
+                    ln.set_color(labeledClr)
+                    ln.set_width(3)
+
+            label lb = label.new(
+                 midBar, midPrice, txt,
+                 xloc = xloc.bar_index, style = label.style_none,
+                 textcolor = clr, size = size.small)
+            segLabels.push(lb)
+
+    // ═══ Export Table ═══
+    if showTable and segCount > 0 and symbolMatch
+        tbl.cell(0, 0, "Ticker",      text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+        tbl.cell(1, 0, "TF",          text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+        tbl.cell(2, 0, "Broker",      text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+        tbl.cell(3, 0, "Start Time",  text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+        tbl.cell(4, 0, "Start Price", text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+        tbl.cell(5, 0, "End Time",    text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+        tbl.cell(6, 0, "End Price",   text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+        tbl.cell(7, 0, "Model",       text_color = color.white, text_size = size.tiny, bgcolor = color.new(color.teal, 60))
+
+        int row = 1
+        string alertPayload = ""
+
+        for j = 0 to 9
+            int sn = slotSegs.get(j)
+            string mt = slotMods.get(j)
+            if sn > 0 and mt != MODEL_NONE and sn <= segCount
+                int lineIdx       = segCount - sn
+                int startPivotIdx = lineIdx
+                int endPivotIdx   = lineIdx + 1
+
+                string startTimeStr = str.format("{0,date,yyyy-MM-dd HH:mm}", zzTime.get(startPivotIdx))
+                string endTimeStr   = str.format("{0,date,yyyy-MM-dd HH:mm}", zzTime.get(endPivotIdx))
+                string startPrcStr  = str.tostring(zzPrice.get(startPivotIdx), format.mintick)
+                string endPrcStr    = str.tostring(zzPrice.get(endPivotIdx), format.mintick)
+
+                tbl.cell(0, row, syminfo.ticker,   text_color = color.white, text_size = size.tiny)
+                tbl.cell(1, row, timeframe.period,  text_color = color.white, text_size = size.tiny)
+                tbl.cell(2, row, syminfo.prefix,    text_color = color.white, text_size = size.tiny)
+                tbl.cell(3, row, startTimeStr,      text_color = color.white, text_size = size.tiny)
+                tbl.cell(4, row, startPrcStr,       text_color = color.white, text_size = size.tiny)
+                tbl.cell(5, row, endTimeStr,        text_color = color.white, text_size = size.tiny)
+                tbl.cell(6, row, endPrcStr,         text_color = color.white, text_size = size.tiny)
+                tbl.cell(7, row, mt,                text_color = color.orange, text_size = size.tiny)
+                row += 1
+
+                // Build JSON entry for alert webhook
+                string stIso = str.format("{0,date,yyyy-MM-dd'T'HH:mm:ss}", zzTime.get(startPivotIdx))
+                string etIso = str.format("{0,date,yyyy-MM-dd'T'HH:mm:ss}", zzTime.get(endPivotIdx))
+                string entry = '{"ticker":"' + syminfo.ticker
+                     + '","tf":"' + timeframe.period
+                     + '","broker":"' + syminfo.prefix
+                     + '","startTime":"' + stIso
+                     + '","startPrice":' + str.tostring(zzPrice.get(startPivotIdx))
+                     + ',"endTime":"' + etIso
+                     + '","endPrice":' + str.tostring(zzPrice.get(endPivotIdx))
+                     + ',"model":"' + mt + '"}'
+                alertPayload := alertPayload + (alertPayload != "" ? "," : "") + entry
+
+        // Clear unused data rows
+        if row <= 10
+            for r = row to 10
+                for c = 0 to 7
+                    tbl.cell(c, r, "", bgcolor = color.new(color.black, 100))
+
+        // Fire alert with JSON array of all labeled segments
+        if alertPayload != ""
+            alert("[" + alertPayload + "]", alert.freq_once_per_bar_close)
