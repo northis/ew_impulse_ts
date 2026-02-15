@@ -191,7 +191,7 @@ if barstate.islast
             line ln = zzLines.get(lineIdx)
             if not na(ln)
                 ln.set_color(lineClr)
-                ln.set_width(2)
+                ln.set_width(1)
 
             bool isLabeled = labelMap.contains(k)
             string txt = str.tostring(k)
@@ -202,12 +202,12 @@ if barstate.islast
                 clr := labeledClr
                 if not na(ln)
                     ln.set_color(labeledClr)
-                    ln.set_width(3)
+                    ln.set_width(2)
 
             label lb = label.new(
                  midBar, midPrice, txt,
                  xloc = xloc.bar_index, style = label.style_none,
-                 textcolor = clr, size = size.small)
+                 textcolor = color.white, size = size.large)
             segLabels.push(lb)
 
     // ═══ Export Table ═══
