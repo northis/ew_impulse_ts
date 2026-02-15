@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
@@ -8,8 +8,12 @@ using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
 
-//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
-public class ExactZigzagIndicator : Indicator
+/// <summary>
+/// Simple zigzag indicator based on pivot points without determining which came first on a candle - the high or the low.
+/// Displays the predicted Elliott wave pattern type for each zigzag segment.
+/// </summary>
+[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+public class ZigzagIndicator : Indicator
 {
     /// <summary>
     /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -19,10 +23,11 @@ public class ExactZigzagIndicator : Indicator
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
         m_BarProvidersFactory = new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this));
         m_Classifier = new OnnxModelClassifier();
-        m_ExtremumFinder = new PivotExtremumFinder(Period, m_BarProvider, m_BarProvidersFactory);
+        m_ExtremumFinder = new SimpleExtremumFinder(Period, m_BarProvider);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
+    /// <inheritdoc />
     protected override void OnDestroy()
     {
         m_ExtremumFinder.OnSetExtremum -= OnSetExtremum;
@@ -40,6 +45,7 @@ public class ExactZigzagIndicator : Indicator
     private IBarsProvider m_BarProvider;
     private IBarProvidersFactory m_BarProvidersFactory;
     private OnnxModelClassifier m_Classifier;
+    private SimpleExtremumFinder m_ExtremumFinder;
 
     private void OnSetExtremum(object sender, ExtremumFinderBase.BarPointEventArgs e)
     {
@@ -112,8 +118,7 @@ public class ExactZigzagIndicator : Indicator
         return m_Classifier.Predict(lowerStart, lowerEnd, lowerProvider);
     }
 
-    private PivotExtremumFinder m_ExtremumFinder;
-
+    /// <inheritdoc />
     public override void Calculate(int index)
     {
         m_ExtremumFinder.Calculate(Bars.OpenTimes[index]);

@@ -1,6 +1,7 @@
 using Microsoft.FSharp.Core;
 using PuppeteerSharp.Input;
 using System.Globalization;
+using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Gartley;
 using TradeKit.Core.PriceAction;
 
@@ -100,6 +101,37 @@ namespace TradeKit.Core.Common
             return type.ToString().Replace("UP_","").Replace("DOWN_", "").Replace("_", " ").ToLower();
         }
 #endif
+        private static readonly Dictionary<ElliottModelType, string> ELLIOTT_MODEL_NAME_MAP = new()
+        {
+            {ElliottModelType.IMPULSE, "Impulse"},
+            {ElliottModelType.SIMPLE_IMPULSE, "Simple Imp."},
+            {ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, "Diag. Contr. Init."},
+            {ElliottModelType.DIAGONAL_CONTRACTING_ENDING, "Diag. Contr. End."},
+            {ElliottModelType.DIAGONAL_EXPANDING_INITIAL, "Diag. Exp. Init."},
+            {ElliottModelType.DIAGONAL_EXPANDING_ENDING, "Diag. Exp. End."},
+            {ElliottModelType.TRIANGLE_CONTRACTING, "Tri. Contr."},
+            {ElliottModelType.TRIANGLE_EXPANDING, "Tri. Exp."},
+            {ElliottModelType.TRIANGLE_RUNNING, "Tri. Running"},
+            {ElliottModelType.ZIGZAG, "Zigzag"},
+            {ElliottModelType.DOUBLE_ZIGZAG, "Double ZZ"},
+            {ElliottModelType.TRIPLE_ZIGZAG, "Triple ZZ"},
+            {ElliottModelType.FLAT_REGULAR, "Flat Reg."},
+            {ElliottModelType.FLAT_EXTENDED, "Flat Ext."},
+            {ElliottModelType.FLAT_RUNNING, "Flat Running"},
+            {ElliottModelType.COMBINATION, "Combination"},
+        };
+
+        /// <summary>
+        /// Formats the <see cref="ElliottModelType"/> enum to a short display name.
+        /// </summary>
+        /// <param name="type">The Elliott model type.</param>
+        public static string Format(this ElliottModelType type)
+        {
+            if (ELLIOTT_MODEL_NAME_MAP.TryGetValue(type, out string val))
+                return val;
+            return type.ToString();
+        }
+
         private static readonly Dictionary<GartleyPatternType, string> GARTLEY_PATTERN_NAME_MAP = new()
         {
             {GartleyPatternType.ALT_BAT, "Alt. Bat"},
@@ -463,6 +495,9 @@ namespace TradeKit.Core.Common
                 int startIndex1M = barsProvider1M.GetIndexByTime(startDate);
                 if (startIndex1M == -1)
                     barsProvider1M.LoadBars(startDate);
+
+                if (startIndex1M == -1)
+                    break;
 
                 int endIndex1M = barsProvider1M.GetIndexByTime(endDate);
 

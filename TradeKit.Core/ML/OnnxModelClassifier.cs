@@ -62,6 +62,9 @@ namespace TradeKit.Core.ML
                 return null;
 
             Dictionary<ElliottModelType, float> res = PredictInner(features, count);
+
+            if (res.Sum(a => a.Value) == 0)
+                return null;
             return res.MaxBy(a => a.Value).Key;
         }
 

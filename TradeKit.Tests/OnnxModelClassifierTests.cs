@@ -224,8 +224,8 @@ public class OnnxModelClassifierTests
     [Test]
     public void Predict_AccuracyEvaluation_AllModelTypes()
     {
-        const int SAMPLES_PER_TYPE = 10;
-        const int BAR_COUNT = 30;
+        const int SAMPLES_PER_TYPE = 1000;
+        const int BAR_COUNT = 100;
 
         string fullModelPath = Path.GetFullPath(MODEL_PATH);
         Assert.That(File.Exists(fullModelPath), Is.True,
@@ -273,10 +273,10 @@ public class OnnxModelClassifierTests
                 ModelPattern? pattern = TryGeneratePattern(
                     modelType, BAR_COUNT, p.startValue, p.endValue, p.min, p.max);
 
-                if (pattern == null || pattern.Candles.Count < 30)
+                if (pattern == null || pattern.Candles.Count < 100)
                     continue;
 
-                ChartGenerator.SaveResultFiles(pattern, FOLDER_TO_SAVE);
+                //ChartGenerator.SaveResultFiles(pattern, FOLDER_TO_SAVE);
                 generated++;
                 Dictionary<ElliottModelType, float> probabilities = classifier.Predict(pattern.Candles);
                 if (probabilities == null || probabilities.Count == 0)

@@ -89,7 +89,7 @@ namespace TrainML
 
             string outputDirectory = GetValue(map, "out", "data");
             string outputFileName = GetValue(map, "file", "impulse_dataset.csv");
-            int barsCount = GetIntValue(map, "bars", 30);
+            int barsCount = GetIntValue(map, "bars", 100);
             string tfName = GetValue(map, "tf", TimeFrameHelper.Minute5.Name);
             ITimeFrame timeFrame = GetTimeFrame(tfName);
 

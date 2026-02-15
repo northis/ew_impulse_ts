@@ -230,10 +230,11 @@ namespace TradeKit.Core.ElliottWave
                ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime]
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
+
+            ElliottModelType? prediction = m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
             if (!checkSignalArgs.HasInCache &&
                 (stats.CandlesCount < m_ImpulseParams.BarsCount ||
-                 m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
-                     BarsProvider) == null /*!IsSmoothImpulse(stats)*/))
+                 (prediction != ElliottModelType.SIMPLE_IMPULSE) /*!IsSmoothImpulse(stats)*/))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");
