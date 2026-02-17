@@ -1,3 +1,4 @@
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 
 namespace TradeKit.Core.ElliottWave
@@ -42,6 +43,26 @@ namespace TradeKit.Core.ElliottWave
         private const double HYSTERESIS_EDGE_MAX_RATIO = 3.0;
 
         /// <summary>
+        /// Minimum drawdown fraction (relative to total movement) to count as a correction episode.
+        /// </summary>
+        private const double ZIGZAG_EPISODE_THRESHOLD = 0.12;
+
+        /// <summary>
+        /// Maximum number of distinct correction episodes allowed for a smooth impulse.
+        /// </summary>
+        private const int MAX_CORRECTION_EPISODES = 1;
+
+        /// <summary>
+        /// Maximum allowed ratio of per-bar roughness between the two halves of the movement.
+        /// </summary>
+        private const double MAX_ROUGHNESS_RATIO = 3.5;
+
+        /// <summary>
+        /// Minimum per-bar roughness (normalized by total movement) required to trigger the ratio check.
+        /// </summary>
+        private const double MIN_ROUGHNESS_FOR_RATIO_CHECK = 0.02;
+
+        /// <summary>
         /// Determines whether the movement between the specified start and end points is a smooth impulse.
         /// A smooth impulse has no significant corrections, candles are tightly packed,
         /// and the shape is either a straight line (uniform progress) or a hysteresis loop
@@ -66,6 +87,10 @@ namespace TradeKit.Core.ElliottWave
             if (!AreExtremesValid(start, end, barsProvider, isUp, totalMovement))
                 return false;
 
+            // Reject if there is an unclosed price gap in the movement
+            if (MovementStatistic.HasUnclosedGap(start, end, barsProvider))
+                return false;
+
             // No significant corrections allowed (max drawdown within movement)
             double correctionDepth = GetMaxCorrectionDepth(start, end, barsProvider, isUp, totalMovement);
             if (correctionDepth > MAX_CORRECTION_DEPTH)
@@ -74,6 +99,14 @@ namespace TradeKit.Core.ElliottWave
             // Candles should be tightly packed — path efficiency close to 1.0
             double pathEfficiency = GetPathEfficiencyRatio(start, end, barsProvider);
             if (pathEfficiency > MAX_PATH_EFFICIENCY_RATIO)
+                return false;
+
+            // Reject zigzag-like patterns with multiple correction episodes
+            if (IsZigzagLike(start, end, barsProvider, isUp, totalMovement))
+                return false;
+
+            // Reject movements with unevenly distributed corrections
+            if (HasUnevenCorrections(start, end, barsProvider, isUp, totalMovement))
                 return false;
 
             // Determine shape type: straight line or hysteresis loop
@@ -226,6 +259,107 @@ namespace TradeKit.Core.ElliottWave
                 return edgeMax < 0.1;
 
             return edgeMax / edgeMin <= HYSTERESIS_EDGE_MAX_RATIO;
+        }
+
+        /// <summary>
+        /// Detects zigzag-like patterns by counting the number of distinct correction episodes
+        /// where the drawdown from the running extreme exceeds a threshold.
+        /// </summary>
+        private static bool IsZigzagLike(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider,
+            bool isUp, double totalMovement)
+        {
+            int episodes = 0;
+            bool inCorrection = false;
+            double runningExtreme = start.Value;
+
+            for (int i = start.BarIndex; i <= end.BarIndex; i++)
+            {
+                double high = barsProvider.GetHighPrice(i);
+                double low = barsProvider.GetLowPrice(i);
+
+                double mainPrice = isUp ? high : low;
+                double counterPrice = isUp ? low : high;
+
+                if (isUp ? mainPrice > runningExtreme : mainPrice < runningExtreme)
+                    runningExtreme = mainPrice;
+
+                double drawdown = Math.Abs(runningExtreme - counterPrice) / totalMovement;
+
+                if (drawdown > ZIGZAG_EPISODE_THRESHOLD)
+                {
+                    if (!inCorrection)
+                    {
+                        episodes++;
+                        inCorrection = true;
+                    }
+                }
+                else
+                {
+                    inCorrection = false;
+                }
+            }
+
+            return episodes > MAX_CORRECTION_EPISODES;
+        }
+
+        /// <summary>
+        /// Checks whether corrections are unevenly distributed across the movement
+        /// by comparing the per-bar roughness of the first and second halves.
+        /// </summary>
+        private static bool HasUnevenCorrections(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider,
+            bool isUp, double totalMovement)
+        {
+            int startIndex = start.BarIndex;
+            int endIndex = end.BarIndex;
+            int barCount = endIndex - startIndex;
+
+            if (barCount < 6)
+                return false;
+
+            int midIndex = startIndex + barCount / 2;
+
+            double firstHalfRoughness = GetSegmentRoughness(startIndex, midIndex, barsProvider, isUp);
+            double secondHalfRoughness = GetSegmentRoughness(midIndex, endIndex, barsProvider, isUp);
+
+            int firstLen = midIndex - startIndex;
+            int secondLen = endIndex - midIndex;
+
+            double firstNorm = firstLen > 0 ? firstHalfRoughness / (firstLen * totalMovement) : 0;
+            double secondNorm = secondLen > 0 ? secondHalfRoughness / (secondLen * totalMovement) : 0;
+
+            double maxNorm = Math.Max(firstNorm, secondNorm);
+            double minNorm = Math.Min(firstNorm, secondNorm);
+
+            if (maxNorm < MIN_ROUGHNESS_FOR_RATIO_CHECK)
+                return false;
+
+            if (minNorm < double.Epsilon)
+                return maxNorm > MIN_ROUGHNESS_FOR_RATIO_CHECK;
+
+            return maxNorm / minNorm > MAX_ROUGHNESS_RATIO;
+        }
+
+        /// <summary>
+        /// Computes the total counter-direction movement (roughness) within a bar segment.
+        /// </summary>
+        private static double GetSegmentRoughness(
+            int fromIndex, int toIndex, IBarsProvider barsProvider, bool isUp)
+        {
+            double roughness = 0;
+
+            for (int i = fromIndex + 1; i <= toIndex; i++)
+            {
+                double prevClose = barsProvider.GetClosePrice(i - 1);
+                double currClose = barsProvider.GetClosePrice(i);
+                double change = currClose - prevClose;
+
+                if (isUp ? change < 0 : change > 0)
+                    roughness += Math.Abs(change);
+            }
+
+            return roughness;
         }
     }
 
