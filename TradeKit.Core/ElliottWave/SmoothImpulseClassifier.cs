@@ -1,3 +1,4 @@
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 
 namespace TradeKit.Core.ElliottWave
@@ -60,6 +61,10 @@ namespace TradeKit.Core.ElliottWave
             bool isUp = end.Value > start.Value;
             double totalMovement = Math.Abs(end.Value - start.Value);
             if (totalMovement < double.Epsilon)
+                return false;
+
+            // Reject if there is an unclosed price gap in the movement
+            if (MovementStatistic.HasUnclosedGap(start, end, barsProvider))
                 return false;
 
             // Start and end must be the extremes of the entire movement (no truncation in wave 5)

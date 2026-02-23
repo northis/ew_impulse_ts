@@ -600,6 +600,21 @@ namespace TradeKit.Core.AlgoBase
         public static SortedDictionary<double, int> GetProfile(
             List<ICandle> candles, bool isUp, out double overlapseIndex, out double singleCandle)
         {
+            return GetProfile(candles, isUp, out overlapseIndex, out singleCandle, out _);
+        }
+
+        /// <summary>
+        /// Gets the profile for the set of candles with gap detection.
+        /// </summary>
+        /// <param name="candles">The candles.</param>
+        /// <param name="isUp">True if we consider the set of candles as ascending movement, otherwise false.</param>
+        /// <param name="overlapseIndex">The overlapse degree.</param>
+        /// <param name="singleCandle">The single candle degree.</param>
+        /// <param name="hasUnclosedGap">True if the movement contains a price range not covered by any candle.</param>
+        /// <returns>price-candles count dict.</returns>
+        public static SortedDictionary<double, int> GetProfile(
+            List<ICandle> candles, bool isUp, out double overlapseIndex, out double singleCandle, out bool hasUnclosedGap)
+        {
             var points = new List<double>();
             double min = double.MaxValue;
             double max = double.MinValue;
@@ -618,6 +633,7 @@ namespace TradeKit.Core.AlgoBase
             double overlappedIndexLocal = 0;
             double singleCandleLocal = 0;
             overlapseIndex = overlappedIndexLocal;
+            bool hasUnclosedGapLocal = false;
 
             var profileInner = new SortedDictionary<double, int>();
             void NextPoint(double nextPoint)
@@ -628,6 +644,8 @@ namespace TradeKit.Core.AlgoBase
                 int cdlCount = candles.Count(a =>
                     a.L <= localMin && a.H >= localMax);
 
+                if (cdlCount == 0)
+                    hasUnclosedGapLocal = true;
                 cdlCount = cdlCount == 0 ? 1 : cdlCount;
                 double diff = (nextPoint - currentPoint) * (isUp ? 1 : -1);
                 profileInner.Add(nextPoint, cdlCount);
@@ -658,7 +676,34 @@ namespace TradeKit.Core.AlgoBase
 
             overlapseIndex = candles.Count > 1 ? overlappedIndexLocal : 1;
             singleCandle = singleCandleLocal;
+            hasUnclosedGap = hasUnclosedGapLocal;
             return profileInner;
+        }
+
+        /// <summary>
+        /// Checks whether the movement between start and end contains an unclosed price gap
+        /// (a price range where no candle provides coverage).
+        /// </summary>
+        /// <param name="start">The start point.</param>
+        /// <param name="end">The end point.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <returns><c>true</c> if there is an unclosed gap; otherwise, <c>false</c>.</returns>
+        public static bool HasUnclosedGap(BarPoint start, BarPoint end, IBarsProvider barsProvider)
+        {
+            bool isUp = end > start;
+            List<ICandle> candles = new();
+            for (int i = start.BarIndex; i <= end.BarIndex; i++)
+            {
+                Candle cdl = Candle.FromIndex(barsProvider, i);
+                if (cdl != null)
+                    candles.Add(cdl);
+            }
+
+            if (candles.Count < 2)
+                return false;
+
+            GetProfile(candles, isUp, out _, out _, out bool hasGap);
+            return hasGap;
         }
     }
 }

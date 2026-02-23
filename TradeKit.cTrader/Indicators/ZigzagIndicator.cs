@@ -12,7 +12,7 @@ namespace TradeKit.CTrader.Indicators;
 /// Simple zigzag indicator based on pivot points without determining which came first on a candle - the high or the low.
 /// Displays the predicted Elliott wave pattern type for each zigzag segment.
 /// </summary>
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class ZigzagIndicator : Indicator
 {
     /// <summary>

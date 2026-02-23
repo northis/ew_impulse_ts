@@ -58,7 +58,7 @@ namespace TradeKit.Core.ElliottWave
             m_ImpulseParams = impulseParams;
             m_OnnxModelClassifier = new OnnxModelClassifier();
 
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 4; i += 10)
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 8; i += 5)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -234,6 +234,7 @@ namespace TradeKit.Core.ElliottWave
             //ElliottModelType? prediction = m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
             if (!checkSignalArgs.HasInCache &&
                 (stats.CandlesCount < m_ImpulseParams.BarsCount ||
+                 stats.Size < m_ImpulseParams.MinSizePercent / 100 ||
                  /*(prediction != ElliottModelType.SIMPLE_IMPULSE)*/ !SmoothImpulseClassifier.IsSmoothImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
