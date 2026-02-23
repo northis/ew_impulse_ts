@@ -19,7 +19,6 @@ public class IterativeImpulseZigzagIndicator : Indicator
     [Parameter(nameof(Period), DefaultValue = Helper.MIN_IMPULSE_PERIOD, MinValue = 1, MaxValue = 200, Group = Helper.TRADE_SETTINGS_NAME)]
     public int Period { get; set; }
 
-    private BarPoint m_CurrentExtremum;
     private IBarsProvider m_BarProvider;
     private SimpleExtremumFinder m_ExtremumFinder;
 
@@ -42,38 +41,46 @@ public class IterativeImpulseZigzagIndicator : Indicator
 
     private void OnSetExtremum(object sender, ExtremumFinderBase.BarPointEventArgs e)
     {
-        int? barIndex = m_ExtremumFinder.Extremum?.BarIndex;
-        if (!barIndex.HasValue)
+        var extremaValues = m_ExtremumFinder.Extrema.Values;
+        int count = extremaValues.Count;
+
+        if (count < 2)
             return;
 
-        if (m_CurrentExtremum == null)
+        BarPoint segStart = extremaValues[count - 2];
+        BarPoint segEnd = e.EventExtremum;
+
+        if (count >= 3)
         {
-            m_CurrentExtremum = e.EventExtremum;
-            return;
+            // The previous segment's endpoint may have moved via MoveExtremum after it was first
+            // drawn; redraw it now that segStart is confirmed as its final endpoint.
+            DrawSegment(extremaValues[count - 3], segStart);
         }
 
-        bool isImpulse = IterativeZigzagImpulseClassifier.IsImpulse(m_CurrentExtremum, e.EventExtremum, m_BarProvider, Period);
-        
+        DrawSegment(segStart, segEnd);
+    }
+
+    private void DrawSegment(BarPoint segStart, BarPoint segEnd)
+    {
+        bool isImpulse = IterativeZigzagImpulseClassifier.IsImpulse(segStart, segEnd, m_BarProvider, Period);
         Color color = isImpulse ? Color.LimeGreen : Color.Gray;
 
-        string id = $"{barIndex}{e.EventExtremum.Value}";
-        Chart.DrawTrendLine($"IIZ_{id}",
-            m_CurrentExtremum.BarIndex, m_CurrentExtremum.Value, e.EventExtremum.BarIndex, e.EventExtremum.Value,
+        string lineId = $"IIZ_{segStart.BarIndex}";
+        Chart.DrawTrendLine(lineId,
+            segStart.BarIndex, segStart.Value, segEnd.BarIndex, segEnd.Value,
             color, isImpulse ? 3 : 1);
 
+        string textId = $"T_{segStart.BarIndex}";
         if (isImpulse)
         {
-            ChartText text = Chart.DrawText($"T_{id}", "Impulse",
-                e.EventExtremum.OpenTime,
-                e.EventExtremum.Value, color);
-            
-            if (e.EventExtremum > m_CurrentExtremum)
-            {
+            ChartText text = Chart.DrawText(textId, "Impulse", segEnd.OpenTime, segEnd.Value, color);
+            if (segEnd > segStart)
                 text.VerticalAlignment = VerticalAlignment.Top;
-            }
         }
-
-        m_CurrentExtremum = e.EventExtremum;
+        else
+        {
+            Chart.RemoveObject(textId);
+        }
     }
 
     /// <inheritdoc />

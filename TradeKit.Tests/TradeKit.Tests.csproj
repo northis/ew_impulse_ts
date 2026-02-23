@@ -35,6 +35,9 @@
     <None Update="TestData\TriangleSetupFinderTests_001.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\USDJPY_m5_2026-02-12T00-00-00_2026-02-17T00-00-00.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

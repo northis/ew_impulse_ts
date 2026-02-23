@@ -49,6 +49,9 @@ namespace TradeKit.Core.Indicators
             if (!useHigh && !useLow)
                 return;
 
+            // Capture direction before processing high so we can detect a flip.
+            bool wasUpDirection = IsUpDirection;
+
             if (useHigh)
             {
                 BarPoint highPoint = new BarPoint(high, currentIndex, BarsProvider);
@@ -74,8 +77,11 @@ namespace TradeKit.Core.Indicators
                     if (Extremum == null || low <= Extremum.Value)
                         MoveExtremum(lowPoint);
                 }
-                else
+                else if (wasUpDirection)
                 {
+                    // Only switch down if we were already going up before this bar;
+                    // if we just flipped up due to a high pivot on the same bar, skip
+                    // to avoid a double direction flip that creates a spurious segment.
                     SetExtremum(lowPoint);
                     IsUpDirection = false;
                 }

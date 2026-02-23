@@ -68,13 +68,14 @@ namespace TradeKit.Core.Indicators
         /// <param name="extremum">The extremum object - the price and the timestamp.</param>
         private void SetExtremumInner(BarPoint extremum)
         {
-            m_ExtremumOpenDate = extremum.OpenTime;
             Extremum = extremum;
 
             DateTime dt = Result.ContainsKey(extremum.OpenTime) &&
                           Math.Abs(extremum.Value - Result[extremum.OpenTime]) > double.Epsilon
                 ? extremum.OpenTime.AddSeconds(1)
                 : extremum.OpenTime;
+
+            m_ExtremumOpenDate = dt;
             Result[dt] = Extremum;
         }
 
