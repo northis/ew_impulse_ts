@@ -12,30 +12,42 @@ namespace TradeKit.Core.ElliottWave
     /// </summary>
     public static class IterativeZigzagImpulseClassifier
     {
+        private const double MIN_DEVIATION = 0.01;
+
         /// <summary>
         /// Determines if the segment from start to end is an impulse.
         /// </summary>
         /// <param name="start">The start point of the segment.</param>
         /// <param name="end">The end point of the segment.</param>
         /// <param name="barsProvider">The bars provider.</param>
-        /// <param name="startPeriod">Optional. The starting period for the zigzag. If null, uses the segment length.</param>
+        /// <param name="startDeviation">Optional. The starting deviation percent for the zigzag. If null, computes from the segment price range.</param>
         /// <returns>True if it's an impulse, false otherwise.</returns>
-        public static bool IsImpulse(BarPoint start, BarPoint end, IBarsProvider barsProvider, int? startPeriod = null)
+        public static bool IsImpulse(BarPoint start, BarPoint end, IBarsProvider barsProvider, double? startDeviation = null)
         {
             int barCount = end.BarIndex - start.BarIndex;
             if (barCount < 3)
                 return false;
 
             bool isUp = end.Value > start.Value;
-            
-            int currentPeriod = startPeriod ?? barCount;
-            if (currentPeriod < 1) 
-                currentPeriod = 1;
 
-            while (currentPeriod >= 1)
+            double currentDeviation;
+            if (startDeviation.HasValue)
             {
-                List<BarPoint> extrema = GetZigzagExtrema(start, end, currentPeriod, barsProvider, isUp);
-                
+                currentDeviation = startDeviation.Value;
+            }
+            else
+            {
+                double segmentPercent = Math.Abs(end.Value - start.Value) / Math.Min(start.Value, end.Value) * 100;
+                currentDeviation = segmentPercent;
+            }
+
+            if (currentDeviation < MIN_DEVIATION)
+                currentDeviation = MIN_DEVIATION;
+
+            while (currentDeviation >= MIN_DEVIATION)
+            {
+                List<BarPoint> extrema = GetZigzagExtrema(start, end, currentDeviation, barsProvider, isUp);
+
                 // Filter extrema to be strictly within the segment boundaries
                 extrema = extrema.Where(e => e.BarIndex >= start.BarIndex && e.BarIndex <= end.BarIndex).ToList();
 
@@ -79,23 +91,20 @@ namespace TradeKit.Core.ElliottWave
                     }
                 }
 
-                currentPeriod--;
+                currentDeviation /= 2;
             }
 
-            // Reached minimum period (1) and segment count didn't increase (remained 1 segment)
+            // Reached minimum deviation and segment count didn't increase (remained 1 segment)
             return true;
         }
 
-        private static List<BarPoint> GetZigzagExtrema(BarPoint start, BarPoint end, int period, IBarsProvider barsProvider, bool isUp)
+        private static List<BarPoint> GetZigzagExtrema(BarPoint start, BarPoint end, double deviationPercent, IBarsProvider barsProvider, bool isUp)
         {
             // If the overall movement is Up, the prior movement was Down, so we initialize isUpDirection to false
             // to catch the 'start' point as a Low.
-            SimpleExtremumFinder finder = new SimpleExtremumFinder(period, barsProvider, !isUp);
-            
-            int startIndex = Math.Max(0, start.BarIndex - period);
-            int endIndex = Math.Min(barsProvider.Count - 1, end.BarIndex + period);
-            
-            finder.Calculate(startIndex, endIndex);
+            SimpleExtremumFinder finder = new SimpleExtremumFinder(deviationPercent, barsProvider, !isUp);
+
+            finder.Calculate(start.BarIndex, end.BarIndex);
             return finder.ToExtremaList();
         }
     }

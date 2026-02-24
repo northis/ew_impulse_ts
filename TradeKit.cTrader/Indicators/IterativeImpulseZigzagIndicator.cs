@@ -14,13 +14,13 @@ namespace TradeKit.CTrader.Indicators;
 public class IterativeImpulseZigzagIndicator : Indicator
 {
     /// <summary>
-    /// Gets or sets the zigzag period.
+    /// Gets or sets the zigzag deviation percent threshold.
     /// </summary>
-    [Parameter(nameof(Period), DefaultValue = Helper.MIN_IMPULSE_PERIOD, MinValue = 1, MaxValue = 200, Group = Helper.TRADE_SETTINGS_NAME)]
-    public int Period { get; set; }
+    [Parameter(nameof(DeviationPercent), DefaultValue = 0.3, MinValue = 0.01, Group = Helper.TRADE_SETTINGS_NAME)]
+    public double DeviationPercent { get; set; }
 
     private IBarsProvider m_BarProvider;
-    private SimplePivotExtremumFinder m_ExtremumFinder;
+    private SimpleExtremumFinder m_ExtremumFinder;
 
     /// <summary>
     /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -28,7 +28,7 @@ public class IterativeImpulseZigzagIndicator : Indicator
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_ExtremumFinder = new SimplePivotExtremumFinder(Period, m_BarProvider);
+        m_ExtremumFinder = new SimpleExtremumFinder(DeviationPercent, m_BarProvider);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
@@ -62,7 +62,7 @@ public class IterativeImpulseZigzagIndicator : Indicator
 
     private void DrawSegment(BarPoint segStart, BarPoint segEnd)
     {
-        bool isImpulse = IterativeZigzagImpulseClassifier.IsImpulse(segStart, segEnd, m_BarProvider, Period);
+        bool isImpulse = IterativeZigzagImpulseClassifier.IsImpulse(segStart, segEnd, m_BarProvider, DeviationPercent);
         Color color = isImpulse ? Color.LimeGreen : Color.Gray;
 
         string lineId = $"IIZ_{segStart.BarIndex}";
