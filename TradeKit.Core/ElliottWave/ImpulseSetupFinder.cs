@@ -58,7 +58,7 @@ namespace TradeKit.Core.ElliottWave
             m_ImpulseParams = impulseParams;
             m_OnnxModelClassifier = new OnnxModelClassifier();
 
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 8; i += 5)
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 4; i += 5)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -235,7 +235,10 @@ namespace TradeKit.Core.ElliottWave
             if (!checkSignalArgs.HasInCache &&
                 (stats.CandlesCount < m_ImpulseParams.BarsCount ||
                  stats.Size < m_ImpulseParams.MinSizePercent / 100 ||
-                 /*(prediction != ElliottModelType.SIMPLE_IMPULSE)*/ !SmoothImpulseClassifier.IsSmoothImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider)))
+                 /*(prediction != ElliottModelType.SIMPLE_IMPULSE)*/ !SmoothImpulseClassifier.IsSmoothImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
+                     BarsProvider) ||
+                 !IterativeZigzagImpulseClassifier.IsImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
+                     BarsProvider, checkSignalArgs.Finder.ScaleRate)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");

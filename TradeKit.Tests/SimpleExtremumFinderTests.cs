@@ -6,7 +6,7 @@ using TradeKit.Tests.Mocks;
 namespace TradeKit.Tests
 {
     /// <summary>
-    /// Tests for the <see cref="SimpleExtremumFinder"/> class.
+    /// Tests for the <see cref="SimplePivotExtremumFinder"/> class.
     /// </summary>
     internal class SimpleExtremumFinderTests
     {
@@ -17,7 +17,7 @@ namespace TradeKit.Tests
                 "USDJPY_m5_2026-02-12T00-00-00_2026-02-17T00-00-00.csv");
 
         /// <summary>
-        /// Verifies that the zigzag produced by <see cref="SimpleExtremumFinder"/> with period 10
+        /// Verifies that the zigzag produced by <see cref="SimplePivotExtremumFinder"/> with period 10
         /// on real USDJPY M5 data has strictly alternating segments (no two consecutive segments
         /// going in the same direction) and contains no orphaned extrema inside a segment that
         /// exceed the segment's start or end value.
@@ -26,7 +26,7 @@ namespace TradeKit.Tests
         public void SimpleExtremumFinder_RealData_ZigzagAlternatesAndHasNoOrphanedExtrema()
         {
             var barsProvider = new TestBarsProvider(TimeFrameHelper.Minute5);
-            var finder = new SimpleExtremumFinder(ZigzagPeriod, barsProvider);
+            var finder = new SimplePivotExtremumFinder(ZigzagPeriod, barsProvider);
 
             barsProvider.LoadCandles(m_TestDataPath);
 

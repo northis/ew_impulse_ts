@@ -6,18 +6,18 @@ namespace TradeKit.Core.Indicators
     /// <summary>
     /// Simple zigzag extremum finder based on pivot points without determining which came first on a candle - the high or the low.
     /// </summary>
-    public class SimpleExtremumFinder : ExtremumFinderBase
+    public class SimplePivotExtremumFinder : ExtremumFinderBase
     {
         private readonly PivotPointsFinder m_PivotPointsFinder;
         private readonly int m_Period;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SimpleExtremumFinder"/> class.
+        /// Initializes a new instance of the <see cref="SimplePivotExtremumFinder"/> class.
         /// </summary>
         /// <param name="period">The pivot period for extrema.</param>
         /// <param name="barsProvider">The source bars provider.</param>
         /// <param name="isUpDirection">if set to <c>true</c> than the direction is upward.</param>
-        public SimpleExtremumFinder(
+        public SimplePivotExtremumFinder(
             int period,
             IBarsProvider barsProvider,
             bool isUpDirection = false) : base(barsProvider, isUpDirection)

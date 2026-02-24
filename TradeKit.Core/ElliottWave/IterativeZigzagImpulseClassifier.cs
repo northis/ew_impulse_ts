@@ -50,6 +50,8 @@ namespace TradeKit.Core.ElliottWave
                     }
                     else if (segmentCount == 5)
                     {
+                        // Exclude for now
+                        return false;
                         double wave1 = Math.Abs(extrema[1].Value - extrema[0].Value);
                         double wave2 = Math.Abs(extrema[2].Value - extrema[1].Value);
                         double wave3 = Math.Abs(extrema[3].Value - extrema[2].Value);

@@ -23,7 +23,7 @@ public class ZigzagIndicator : Indicator
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
         m_BarProvidersFactory = new BarProvidersFactory(Symbol, MarketData, new CTraderViewManager(this));
         m_Classifier = new OnnxModelClassifier();
-        m_ExtremumFinder = new SimpleExtremumFinder(Period, m_BarProvider);
+        m_ExtremumFinder = new SimplePivotExtremumFinder(Period, m_BarProvider);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
@@ -45,7 +45,7 @@ public class ZigzagIndicator : Indicator
     private IBarsProvider m_BarProvider;
     private IBarProvidersFactory m_BarProvidersFactory;
     private OnnxModelClassifier m_Classifier;
-    private SimpleExtremumFinder m_ExtremumFinder;
+    private SimplePivotExtremumFinder m_ExtremumFinder;
 
     private void OnSetExtremum(object sender, ExtremumFinderBase.BarPointEventArgs e)
     {

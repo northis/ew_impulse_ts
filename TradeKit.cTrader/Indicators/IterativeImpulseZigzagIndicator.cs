@@ -20,7 +20,7 @@ public class IterativeImpulseZigzagIndicator : Indicator
     public int Period { get; set; }
 
     private IBarsProvider m_BarProvider;
-    private SimpleExtremumFinder m_ExtremumFinder;
+    private SimplePivotExtremumFinder m_ExtremumFinder;
 
     /// <summary>
     /// Custom initialization for the Indicator. This method is invoked when an indicator is launched.
@@ -28,7 +28,7 @@ public class IterativeImpulseZigzagIndicator : Indicator
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_ExtremumFinder = new SimpleExtremumFinder(Period, m_BarProvider);
+        m_ExtremumFinder = new SimplePivotExtremumFinder(Period, m_BarProvider);
         m_ExtremumFinder.OnSetExtremum += OnSetExtremum;
     }
 
