@@ -39,7 +39,7 @@ namespace TradeKit.Tests
             PatternArgsItem paramArgs = new PatternArgsItem(
                 40, 60, dates.Item1, dates.Item2, TIME_FRAME);
             ModelPattern model = m_PatternGenerator.GetPattern(
-                paramArgs, ElliottModelType.IMPULSE, true);
+                paramArgs, ElliottModelType.SIMPLE_IMPULSE, true);
 
             var bp = new TestBarsProvider(TIME_FRAME);
             IEnumerable<(Candle, DateTime OpenDate)> toAdd =
@@ -49,6 +49,8 @@ namespace TradeKit.Tests
             //var area = MovementStatistic.GetEnvelopeAreaScore(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
             //Assert.That(area, Is.LessThan(0.1), "Area is too big on impulse");
             var st  = MovementStatistic.GetMovementStatistic(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
+
+            double ratioZigZag = MovementStatistic.GetRatioZigZag(new BarPoint(0, bp), new BarPoint(bp.Count - 1, bp), bp);
             Assert.That(st.RatioZigzag, Is.LessThan(0.5), "Middle is too big on impulse");
         }
 

@@ -57,8 +57,8 @@ namespace TradeKit.Core.ElliottWave
             m_TradeViewManager = tradeViewManager;
             m_ImpulseParams = impulseParams;
             m_OnnxModelClassifier = new OnnxModelClassifier();
-
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 4; i += 5)
+            
+            for (int i = impulseParams.Period; i <= impulseParams.Period * 3; i += 10)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -231,14 +231,18 @@ namespace TradeKit.Core.ElliottWave
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
 
+            var rz = MovementStatistic.GetRatioZigZag(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
             //ElliottModelType? prediction = m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
+            MovementStatistic.GetDeviationScore(
+                checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider,
+                out double maxDev, out double avgDev);
             if (!checkSignalArgs.HasInCache &&
                 (stats.CandlesCount < m_ImpulseParams.BarsCount ||
                  stats.Size < m_ImpulseParams.MinSizePercent / 100 ||
-                 /*(prediction != ElliottModelType.SIMPLE_IMPULSE)*/ !SmoothImpulseClassifier.IsSmoothImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
-                     BarsProvider) ||
-                 !IterativeZigzagImpulseClassifier.IsImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem,
-                     BarsProvider, checkSignalArgs.Finder.ScaleRate)))
+                 rz > 0.25 ||
+                 stats.HeterogeneityMax > 0.1 ||
+                 maxDev > 0.25 ||
+                 stats.Area > 0.25 /*(prediction != ElliottModelType.SIMPLE_IMPULSE)*/))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");

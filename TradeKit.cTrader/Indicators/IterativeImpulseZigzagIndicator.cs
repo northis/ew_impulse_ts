@@ -1,4 +1,6 @@
+using System;
 using cAlgo.API;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
@@ -62,25 +64,45 @@ public class IterativeImpulseZigzagIndicator : Indicator
 
     private void DrawSegment(BarPoint segStart, BarPoint segEnd)
     {
-        bool isImpulse = IterativeZigzagImpulseClassifier.IsImpulse(segStart, segEnd, m_BarProvider, DeviationPercent);
-        Color color = isImpulse ? Color.LimeGreen : Color.Gray;
+        //bool isImpulse = IterativeZigzagImpulseClassifier.IsImpulse(segStart, segEnd, m_BarProvider, DeviationPercent);
+        ImpulseResult stat = MovementStatistic.GetMovementStatistic(segStart, segEnd, m_BarProvider);
+        int area = stat.Area.ToPercent();
+        int h = stat.HeterogeneityMax.ToPercent();
+        MovementStatistic.GetDeviationScore(segStart, segEnd, m_BarProvider, out double maxDev, out double avgDev);
+        int maxDistance = maxDev.ToPercent();
+        int avgDistance = avgDev.ToPercent();
+
+        double rz = MovementStatistic.GetRatioZigZag(segStart, segEnd, m_BarProvider);
+        int rzValue = rz.ToPercent();
+
+        //if (area > 35)
+        //{
+        //    return;
+        //}
+
+
+        int monocolor = Convert.ToInt32(255 - rz * 200);
+        var alfa = 200;
+        Color color = Color.FromArgb(alfa, monocolor, monocolor, monocolor);
 
         string lineId = $"IIZ_{segStart.BarIndex}";
         Chart.DrawTrendLine(lineId,
             segStart.BarIndex, segStart.Value, segEnd.BarIndex, segEnd.Value,
-            color, isImpulse ? 3 : 1);
+            color, 2);
 
         string textId = $"T_{segStart.BarIndex}";
-        if (isImpulse)
-        {
-            ChartText text = Chart.DrawText(textId, "Impulse", segEnd.OpenTime, segEnd.Value, color);
-            if (segEnd > segStart)
-                text.VerticalAlignment = VerticalAlignment.Top;
-        }
-        else
-        {
-            Chart.RemoveObject(textId);
-        }
+        ChartText text = Chart.DrawText(textId, $"{rzValue}/{area}/{maxDistance}/{avgDistance}/{h}", segEnd.OpenTime,
+            segEnd.Value, color);
+        if (segEnd > segStart)
+            text.VerticalAlignment = VerticalAlignment.Top;
+
+        //if (isImpulse)
+        //{
+        //}
+        //else
+        //{
+        //    Chart.RemoveObject(textId);
+        //}
     }
 
     /// <inheritdoc />

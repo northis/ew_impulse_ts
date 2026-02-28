@@ -12,7 +12,7 @@ namespace TradeKit.Core.ElliottWave
     /// </summary>
     public static class IterativeZigzagImpulseClassifier
     {
-        private const double MIN_DEVIATION = 0.01;
+        private const double MIN_DEVIATION = 0.005;
 
         /// <summary>
         /// Determines if the segment from start to end is an impulse.

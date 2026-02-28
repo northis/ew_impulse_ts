@@ -31,6 +31,11 @@ namespace TradeKit.Core.Indicators
         public override void OnCalculate(DateTime openDateTime)
         {
             int index = BarsProvider.GetIndexByTime(openDateTime);
+            if (index < 0)
+            {
+                return;
+            }
+
             double low = BarsProvider.GetLowPrice(index);
             double high = BarsProvider.GetHighPrice(index);
 

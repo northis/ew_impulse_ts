@@ -26,7 +26,7 @@ namespace TradeKit.Core.AlgoBase
             double? rateZigzagMaxLimit = null,
             double? rateHeterogeneityMaxLimit = null)
         {
-            var (overlapseMaxDepth, _, rz, _) = GetMaxOverlapseScore(start, end, barsProvider,
+            var (overlapseMaxDepth, distance, rz, _) = GetMaxOverlapseScore(start, end, barsProvider,
                 overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
             double heterogeneityMax = 1;
             //if (rateZigzag < 1)
@@ -76,7 +76,7 @@ namespace TradeKit.Core.AlgoBase
             //double priceCorrection = end > start ? start.Value : end.Value;
             //double profileArea = profiles.Sum(a => a.Value * Math.Abs(a.Key - priceCorrection))
             //                     / (10 * count * Math.Abs(start - end));
-            return new ImpulseResult(rz, count, size, middlePart, diffPart, area);
+            return new ImpulseResult(rz, count, size, middlePart, diffPart, area, distance);
         }
 
         public static double GetEntropy(List<double> values)
@@ -548,6 +548,92 @@ namespace TradeKit.Core.AlgoBase
             return (depth, distance, ratioZigZag, areaRelative);
         }
 
+        /// <summary>
+        /// Gets only the ratio zigzag score for the movement.
+        /// The score represents the maximum number of consecutive bars (going backwards from an extremum)
+        /// that do not cross the counter-extremum level, relative to the total segment duration.
+        /// </summary>
+        /// <param name="start">The start.</param>
+        /// <param name="end">The end.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="rateZigzagMaxLimit">Optional max value of rate zigzag to reduce calculations.</param>
+        /// <returns>The ratio zigzag score (0 to 1).</returns>
+        public static double GetRatioZigZag(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider,
+            double? rateZigzagMaxLimit = null)
+        {
+            bool isUp = end > start;
+            double length = Math.Abs(end - start);
+            if (length < double.Epsilon)
+                return 1;
+
+            int duration = Math.Abs(end.BarIndex - start.BarIndex);
+            if (duration <= 0)
+                return 0;
+
+            if (rateZigzagMaxLimit.HasValue)
+                rateZigzagMaxLimit *= duration;
+
+            SortedDictionary<DateTime, double> hVals = GetPoints(
+                start, end, barsProvider.GetHighPrice, barsProvider);
+
+            SortedDictionary<DateTime, double> lVals = GetPoints(
+                start, end, barsProvider.GetLowPrice, barsProvider);
+
+            SortedDictionary<DateTime, double> inputKeys = isUp ? hVals : lVals;
+            SortedDictionary<DateTime, double> inputCounterKeys = isUp ? lVals : hVals;
+
+            SortedDictionary<DateTime, (double, DateTime)> scores =
+                new SortedDictionary<DateTime, (double, DateTime)>();
+            int maxExtremaBarCount = 0;
+
+            foreach (DateTime dt in Helper.GetKeysRange(inputKeys, start.OpenTime, end.OpenTime))
+            {
+                if ((dt == start.OpenTime || dt == end.OpenTime) && IsUpCandle(dt, barsProvider) != isUp)
+                    continue;
+
+                double currentPrice = inputKeys[dt];
+                foreach (DateTime inputCounterKey in Helper.GetKeysRange(inputCounterKeys, dt, end.OpenTime))
+                {
+                    if (inputCounterKey == dt || inputCounterKey == end.OpenTime)
+                        continue;
+
+                    double localLength = (isUp ? 1 : -1) *
+                                         (currentPrice - inputCounterKeys[inputCounterKey]);
+                    if (localLength < 0)
+                        break;
+
+                    if (!scores.ContainsKey(dt) || scores[dt].Item1 < localLength)
+                        scores[dt] = new ValueTuple<double, DateTime>(localLength, inputCounterKey);
+                }
+
+                if (!scores.TryGetValue(dt, out (double, DateTime) score))
+                    continue;
+
+                double localExtremum = inputCounterKeys[score.Item2];
+                int extremaBarCount = 0;
+                for (int i = barsProvider.GetIndexByTime(dt); i >= start.BarIndex; i--)
+                {
+                    if (isUp && barsProvider.GetLowPrice(i) <= localExtremum ||
+                        !isUp && barsProvider.GetHighPrice(i) >= localExtremum)
+                        break;
+
+                    extremaBarCount++;
+
+                    if (rateZigzagMaxLimit < extremaBarCount)
+                        return 1;
+                }
+
+                if (extremaBarCount > maxExtremaBarCount)
+                    maxExtremaBarCount = extremaBarCount;
+            }
+
+            if (scores.Count <= 0)
+                return 0;
+
+            return maxExtremaBarCount / (double)duration;
+        }
+
         public static double ComputeArea(List<Point> polygon)
         {
             if (polygon == null || polygon.Count < 3)
@@ -587,6 +673,57 @@ namespace TradeKit.Core.AlgoBase
                 overlapseIndex = 1;
 
             return (profile, overlapseIndex, singleCandle);
+        }
+
+        /// <summary>
+        /// Gets the deviation scores of candle extrema from the straight line connecting start and end points.
+        /// Values range from 0 (linear movement) to 1 (Г-shaped movement where most of the price change happens in a single candle).
+        /// </summary>
+        /// <param name="start">The start point of the segment.</param>
+        /// <param name="end">The end point of the segment.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="maxDeviation">The maximum normalized deviation from the straight line (0 to 1).</param>
+        /// <param name="avgDeviation">The average normalized deviation from the straight line (0 to 1).</param>
+        public static void GetDeviationScore(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider,
+            out double maxDeviation, out double avgDeviation)
+        {
+            maxDeviation = 0;
+            avgDeviation = 0;
+
+            double totalRange = Math.Abs(end.Value - start.Value);
+            if (totalRange < double.Epsilon)
+                return;
+
+            int barCount = end.BarIndex - start.BarIndex;
+            if (barCount <= 0)
+                return;
+
+            double maxDistance = 0;
+            double sumDistance = 0;
+            int count = 0;
+
+            for (int i = start.BarIndex + 1; i < end.BarIndex; i++)
+            {
+                double t = (double)(i - start.BarIndex) / barCount;
+                double lineValue = start.Value + (end.Value - start.Value) * t;
+
+                double high = barsProvider.GetHighPrice(i);
+                double low = barsProvider.GetLowPrice(i);
+
+                double distHigh = Math.Abs(high - lineValue);
+                double distLow = Math.Abs(low - lineValue);
+                double dist = Math.Max(distHigh, distLow);
+
+                sumDistance += dist;
+                count++;
+
+                if (dist > maxDistance)
+                    maxDistance = dist;
+            }
+
+            maxDeviation = Math.Min(maxDistance / totalRange, 1.0);
+            avgDeviation = count > 0 ? Math.Min(sumDistance / count / totalRange, 1.0) : 0;
         }
 
         /// <summary>
