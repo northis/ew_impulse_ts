@@ -1,0 +1,356 @@
+//@version=6
+indicator("Zigzag Impulse Stats", overlay = true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 5000)
+
+if barstate.isfirst
+    log.warning("Zigzag Impulse Stats initialized. Collecting data...")
+
+// ═══════════════════════════════════════════════════════════════
+// Zigzag Settings
+// ═══════════════════════════════════════════════════════════════
+float devInput   = input.float(1.0, "Deviation (%)", minval = 0.00001, maxval = 100.0, step = 0.1, group = "Zigzag")
+int   depthInput = input.int(10, "Depth", minval = 2, group = "Zigzag")
+color lineClr    = input.color(#2962FF, "Line color", group = "Zigzag")
+bool  extLast    = input.bool(true, "Extend to last bar", group = "Zigzag")
+int   maxSegsShow= input.int(30, "Max segments to process", minval = 1, maxval = 50, group = "Display")
+int   maxSegBars = input.int(400, "Max bars per segment (timeout limit)", minval = 10, group = "Display")
+
+bool  showRZ     = input.bool(true, "Show Ratio Zigzag (rz)", group = "Metrics")
+bool  showH      = input.bool(true, "Show Heterogeneity (h)", group = "Metrics")
+bool  showDev    = input.bool(true, "Show Max Deviation (dev)", group = "Metrics")
+bool  showArea   = input.bool(true, "Show Envelope Area (area)", group = "Metrics")
+
+// ═══════════════════════════════════════════════════════════════
+// Calculation Functions
+// ═══════════════════════════════════════════════════════════════
+getCross(float x1, float y1, float x2, float y2, float x3, float y3) =>
+    float dx1 = x2 - x1
+    float dy1 = y2 - y1
+    float dx2 = x3 - x2
+    float dy2 = y3 - y2
+    dx1 * dy2 - dy1 * dx2
+
+update_envelope(array<float> upX, array<float> upY, array<float> dnX, array<float> dnY, float idx, float h, float l) =>
+    while array.size(upX) >= 2
+        int sz = array.size(upX)
+        if getCross(array.get(upX, sz - 2), array.get(upY, sz - 2), array.get(upX, sz - 1), array.get(upY, sz - 1), idx, h) >= 0
+            array.pop(upX)
+            array.pop(upY)
+        else
+            break
+    array.push(upX, idx)
+    array.push(upY, h)
+    
+    while array.size(dnX) >= 2
+        int sz = array.size(dnX)
+        if getCross(array.get(dnX, sz - 2), array.get(dnY, sz - 2), array.get(dnX, sz - 1), array.get(dnY, sz - 1), idx, l) <= 0
+            array.pop(dnX)
+            array.pop(dnY)
+        else
+            break
+    array.push(dnX, idx)
+    array.push(dnY, l)
+
+calc_area_metric(array<float> upX, array<float> upY, array<float> dnX, array<float> dnY, float startPrice, float endPrice, int duration) =>
+    float stat_area = 0.0
+    float fullLen = math.abs(endPrice - startPrice)
+    if fullLen > 1e-10
+        float upArea = 0.0
+        if array.size(upX) > 1
+            for i = 1 to array.size(upX) - 1
+                upArea += (array.get(upX, i) - array.get(upX, i - 1)) * (array.get(upY, i - 1) + array.get(upY, i)) / 2.0
+        float dnArea = 0.0
+        if array.size(dnX) > 1
+            for i = 1 to array.size(dnX) - 1
+                dnArea += (array.get(dnX, i) - array.get(dnX, i - 1)) * (array.get(dnY, i - 1) + array.get(dnY, i)) / 2.0
+        float sumArea = upArea - dnArea
+        float maxArea = fullLen * duration
+        if maxArea > 1e-10
+            stat_area := math.max(0.0, math.min(sumArea / maxArea, 1.0))
+    stat_area
+
+calc_heterogeneity(int startIndex, int duration, float minP, float maxP) =>
+    float diffPart = 1.0
+    float rangeP = maxP - minP
+    if rangeP > 1e-10
+        int BINS = 10
+        array<int> bins = array.new<int>(BINS, 0)
+        float binSize = rangeP / BINS
+        
+        for step = 0 to duration
+            int bIdx = startIndex + step
+            float l = low[bar_index - bIdx]
+            float h = high[bar_index - bIdx]
+            
+            int startBin = math.max(0, math.min(int((l - minP) / binSize), BINS - 1))
+            int endBin   = math.max(0, math.min(int((h - minP) / binSize), BINS - 1))
+            for b = startBin to endBin
+                array.set(bins, b, array.get(bins, b) + 1)
+                
+        int firstThird = array.get(bins, 0) + array.get(bins, 1) + array.get(bins, 2)
+        int lastThird  = array.get(bins, 7) + array.get(bins, 8) + array.get(bins, 9)
+        int whole = 0
+        for b = 0 to BINS - 1
+            whole += array.get(bins, b)
+        if whole > 0
+            diffPart := math.abs(firstThird - lastThird) / float(whole)
+    diffPart
+
+calc_rz_metric(array<float> L, array<float> H, int duration) =>
+    float stat_rz = na
+    if duration > 0
+        int maxExtremaBarCount = 0
+        array<int> stack = array.new<int>() // Monotonic stack of increasing L values
+        
+        for i = 0 to duration
+            float l_i = array.get(L, i)
+            
+            // Maintain stack
+            while array.size(stack) > 0
+                int top_idx = array.get(stack, array.size(stack) - 1)
+                if array.get(L, top_idx) > l_i
+                    array.pop(stack)
+                else
+                    break
+            array.push(stack, i)
+            
+            if i <= maxExtremaBarCount
+                continue
+                
+            float h_i = array.get(H, i)
+            float l_min = h_i
+            bool found = false
+            
+            if i < duration
+                for j = i + 1 to duration
+                    float l_j = array.get(L, j)
+                    if h_i < l_j
+                        break
+                    if l_j < l_min
+                        l_min := l_j
+                        found := true
+                    
+            if found
+                // Binary search on monotonic stack instantly finds the break index backward!
+                int low_idx = 0
+                int high_idx = array.size(stack) - 1
+                int best_k = -1
+                
+                while low_idx <= high_idx
+                    int mid_idx = low_idx + int((high_idx - low_idx) / 2)
+                    int stack_val_idx = array.get(stack, mid_idx)
+                    float s_val = array.get(L, stack_val_idx)
+                    
+                    if s_val <= l_min
+                        best_k := stack_val_idx
+                        low_idx := mid_idx + 1
+                    else
+                        high_idx := mid_idx - 1
+                        
+                int count = best_k != -1 ? (i - best_k) : (i + 1)
+                if count > maxExtremaBarCount
+                    maxExtremaBarCount := count
+                    
+        stat_rz := maxExtremaBarCount / float(duration)
+    stat_rz
+
+calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, bool calcRZ, bool calcH, bool calcDev, bool calcArea) =>
+    bool isUp = endPrice > startPrice
+    int duration = endIndex - startIndex
+    
+    float stat_rz = na
+    float stat_hMax = na
+    float stat_dev = na
+    float stat_area = na
+
+    if duration > 0
+        float minP = math.min(startPrice, endPrice)
+        float maxP = math.max(startPrice, endPrice)
+        float totalRange = math.abs(endPrice - startPrice)
+        float maxDistance = 0.0
+
+        array<float> L = calcRZ ? array.new<float>(duration + 1) : na
+        array<float> H = calcRZ ? array.new<float>(duration + 1) : na
+
+        array<float> upX = calcArea ? array.new<float>() : na
+        array<float> upY = calcArea ? array.new<float>() : na
+        array<float> dnX = calcArea ? array.new<float>() : na
+        array<float> dnY = calcArea ? array.new<float>() : na
+
+        // --- SINGLE PASS: GATHER DATA & ON-THE-FLY ALGORITHMS ---
+        for step = 0 to duration
+            int bIdx = startIndex + step
+            float cL = low[bar_index - bIdx]
+            float cH = high[bar_index - bIdx]
+            
+            minP := math.min(minP, cL)
+            maxP := math.max(maxP, cH)
+
+            if calcRZ
+                float rzL = cL
+                float rzH = cH
+                if not isUp
+                    rzL := -cH
+                    rzH := -cL
+                array.set(L, step, rzL)
+                array.set(H, step, rzH)
+
+            if calcDev and step > 0 and step < duration and totalRange > 1e-10
+                float t = step / float(duration)
+                float lineValue = startPrice + (endPrice - startPrice) * t
+                float distHigh = math.abs(cH - lineValue)
+                float distLow  = math.abs(cL - lineValue)
+                float dist = math.max(distHigh, distLow)
+                if dist > maxDistance
+                    maxDistance := dist
+
+            if calcArea
+                float h = cH
+                float l = cL
+                if step == 0
+                    h := startPrice
+                    l := startPrice
+                if step == duration
+                    h := endPrice
+                    l := endPrice
+                    
+                update_envelope(upX, upY, dnX, dnY, float(startIndex + step), h, l)
+
+        // --- CALC RESULTS ---
+        if calcDev
+            stat_dev := totalRange > 1e-10 ? math.min(maxDistance / totalRange, 1.0) : 0.0
+
+        if calcArea
+            stat_area := calc_area_metric(upX, upY, dnX, dnY, startPrice, endPrice, duration)
+
+        if calcH
+            stat_hMax := calc_heterogeneity(startIndex, duration, minP, maxP)
+
+        if calcRZ
+            stat_rz := calc_rz_metric(L, H, duration)
+
+    [stat_rz, stat_hMax, stat_dev, stat_area]
+
+update_zigzag(array<float> zzPrice, array<int> zzBar, array<bool> zzIsHigh, array<line> zzLines, float pivotPrice, int pivBar, bool isHigh, float devThreshold, color lineClr) =>
+    int n = zzPrice.size()
+    if n == 0
+        zzPrice.push(pivotPrice)
+        zzBar.push(pivBar)
+        zzIsHigh.push(isHigh)
+    else
+        bool lastIsHigh = zzIsHigh.get(n - 1)
+        float lastPrice = zzPrice.get(n - 1)
+
+        if lastIsHigh == isHigh
+            if (isHigh and pivotPrice > lastPrice) or (not isHigh and pivotPrice < lastPrice)
+                zzPrice.set(n - 1, pivotPrice)
+                zzBar.set(n - 1, pivBar)
+                if zzLines.size() > 0
+                    zzLines.get(zzLines.size() - 1).set_xy2(pivBar, pivotPrice)
+        else
+            float dev = 100.0 * (pivotPrice - lastPrice) / math.abs(lastPrice)
+            bool validDev = isHigh ? (dev >= devThreshold) : (dev <= -devThreshold)
+            if validDev
+                zzPrice.push(pivotPrice)
+                zzBar.push(pivBar)
+                zzIsHigh.push(isHigh)
+                line ln = line.new(zzBar.get(n - 1), zzPrice.get(n - 1), pivBar, pivotPrice, color = lineClr, width = 2)
+                zzLines.push(ln)
+
+// ═══════════════════════════════════════════════════════════════
+// Zigzag Calculation 
+// ═══════════════════════════════════════════════════════════════
+int depth = depthInput < 4 ? 2 : int(depthInput / 2)
+
+float ph = ta.pivothigh(high, depth, depth)
+float pl = ta.pivotlow(low, depth, depth)
+
+var array<float> zzPrice  = array.new<float>()
+var array<int>   zzBar    = array.new<int>()
+var array<bool>  zzIsHigh = array.new<bool>()
+var array<line>  zzLines  = array.new<line>()
+
+if not na(ph)
+    update_zigzag(zzPrice, zzBar, zzIsHigh, zzLines, ph, bar_index - depth, true, devInput, lineClr)
+
+if not na(pl)
+    update_zigzag(zzPrice, zzBar, zzIsHigh, zzLines, pl, bar_index - depth, false, devInput, lineClr)
+
+bool updateUI = barstate.islastconfirmedhistory or (barstate.islast and barstate.isconfirmed)
+
+var line extLine = na
+if extLast and updateUI and zzPrice.size() > 0
+    if not na(extLine)
+        extLine.delete()
+    bool lastIsHigh = zzIsHigh.get(zzIsHigh.size() - 1)
+    float curPrice  = lastIsHigh ? low : high
+    extLine := line.new(zzBar.get(zzBar.size() - 1), zzPrice.get(zzPrice.size() - 1), bar_index, curPrice, color = lineClr, width = 2, style = line.style_dashed)
+
+draw_segment_labels(int endSeg, int segCount, array<int> zzBar, array<float> zzPrice, bool showRZ, bool showH, bool showDev, bool showArea, array<label> segLabels) =>
+    if endSeg == 0
+        log.warning("No zigzag segments found to process. Try reducing Deviation (%) or Depth.")
+    else
+        log.warning("Processing {0,number,#} zigzag segments.", endSeg)
+        for k = 1 to endSeg
+            int lineIdx       = segCount - k
+            int startPivotIdx = lineIdx
+            int endPivotIdx   = lineIdx + 1
+
+            int sBar   = zzBar.get(startPivotIdx)
+            int eBar   = zzBar.get(endPivotIdx)
+            float sPrc = zzPrice.get(startPivotIdx)
+            float ePrc = zzPrice.get(endPivotIdx)
+
+            int barDiff = math.abs(eBar - sBar)
+            int age = bar_index - sBar
+
+            if age > 4500
+                log.error("Segment {0,number,#} starts {1,number,#} bars ago (max 4500 allowed). Skipping.", k, age)
+                continue
+
+            if barDiff > maxSegBars
+                log.warning("Segment {0,number,#}: startBar={1,number,#} endBar={2,number,#} length={3,number,#} exceeds maxSegBars. Skipping.", k, sBar, eBar, barDiff)
+                continue
+
+            log.warning("Segment {0,number,#}: startBar={1,number,#} endBar={2,number,#} startPrc={3} endPrc={4}", k, sBar, eBar, sPrc, ePrc)
+
+            [stat_rz, stat_hMax, stat_dev, stat_area] = calc_all_stats(sBar, sPrc, eBar, ePrc, showRZ, showH, showDev, showArea)
+
+            log.warning("Stats computed for segment {0,number,#} - rz: {1}, hMax: {2}, dev: {3}, area: {4}", k, stat_rz, stat_hMax, stat_dev, stat_area)
+
+            array<string> lines = array.new<string>()
+            if showRZ
+                array.push(lines, "rz: " + str.tostring(int(stat_rz * 100)))
+            if showH
+                array.push(lines, "h: " + str.tostring(int(stat_hMax * 100)))
+            if showDev
+                array.push(lines, "dev: " + str.tostring(int(stat_dev * 100)))
+            if showArea
+                array.push(lines, "area: " + str.tostring(int(stat_area * 100)))
+
+            string txt = array.join(lines, "\n")
+            
+            if txt != ""
+                string lblStyle = ePrc > sPrc ? label.style_label_down : label.style_label_up
+                label lb = label.new(
+                     eBar, ePrc, txt,
+                     xloc = xloc.bar_index, style = lblStyle,
+                     color = color.new(color.blue, 30), textcolor = color.white, size = size.normal)
+                segLabels.push(lb)
+
+// ═══════════════════════════════════════════════════════════════
+// Segment Labeling
+// ═══════════════════════════════════════════════════════════════
+var array<label> segLabels = array.new<label>()
+
+if updateUI
+    log.warning("Bar_index: {0,number,#}, Total pivots: {1,number,#}, Total lines: {2,number,#}", bar_index, zzBar.size(), zzLines.size())
+
+    if segLabels.size() > 0
+        for i = 0 to segLabels.size() - 1
+            label.delete(segLabels.get(i))
+        segLabels.clear()
+
+    int segCount = zzLines.size()
+    int endSeg = segCount < maxSegsShow ? segCount : maxSegsShow
+    
+    draw_segment_labels(endSeg, segCount, zzBar, zzPrice, showRZ, showH, showDev, showArea, segLabels)
