@@ -11,7 +11,7 @@ float devInput   = input.float(1.0, "Deviation (%)", minval = 0.00001, maxval = 
 int   depthInput = input.int(10, "Depth", minval = 2, group = "Zigzag")
 color lineClr    = input.color(#2962FF, "Line color", group = "Zigzag")
 bool  extLast    = input.bool(true, "Extend to last bar", group = "Zigzag")
-int   maxSegsShow= input.int(30, "Max segments to process", minval = 1, maxval = 50, group = "Display")
+int   maxSegsShow= input.int(300, "Max segments to process", minval = 1, maxval = 1000, group = "Display")
 int   maxSegBars = input.int(400, "Max bars per segment (timeout limit)", minval = 10, group = "Display")
 
 bool  showRZ     = input.bool(true, "Show Ratio Zigzag (rz)", group = "Metrics")
