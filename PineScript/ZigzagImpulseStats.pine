@@ -16,8 +16,34 @@ int   maxSegBars = input.int(400, "Max bars per segment (timeout limit)", minval
 
 bool  showRZ     = input.bool(true, "Show Ratio Zigzag (rz)", group = "Metrics")
 bool  showH      = input.bool(true, "Show Heterogeneity (h)", group = "Metrics")
-bool  showDev    = input.bool(true, "Show Max Deviation (dev)", group = "Metrics")
+bool  showUnif   = input.bool(true, "Show Uniformity (unif)", group = "Metrics")
+bool  showDevLine= input.bool(true, "Show Dev Line (devL)", group = "Metrics")
+bool  showDevCand= input.bool(true, "Show Dev Candle (devC)", group = "Metrics")
 bool  showArea   = input.bool(true, "Show Envelope Area (area)", group = "Metrics")
+
+// ═══════════════════════════════════════════════════════════════
+// Impulse Mode
+// ═══════════════════════════════════════════════════════════════
+bool  impulseMode   = input.bool(false, "Enable Impulse Mode", group = "Impulse Mode", tooltip = "If enabled, only segments satisfying the conditions below are highlighted as impulses")
+int   impMinBars    = input.int(10, "Min bars in segment", minval = 1, maxval = 300, group = "Impulse Mode")
+
+bool  impUseRZ      = input.bool(true, "Filter by RZ <", group = "Impulse Mode", inline = "irz")
+int   impThreshRZ   = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "irz")
+
+bool  impUseH       = input.bool(true, "Filter by H <", group = "Impulse Mode", inline = "ih")
+int   impThreshH    = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "ih")
+
+bool  impUseUnif    = input.bool(true, "Filter by Unif <", group = "Impulse Mode", inline = "iunif")
+int   impThreshUnif = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "iunif")
+
+bool  impUseDevL    = input.bool(true, "Filter by DevL <", group = "Impulse Mode", inline = "idevl")
+int   impThreshDevL = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "idevl")
+
+bool  impUseDevC    = input.bool(true, "Filter by DevC <", group = "Impulse Mode", inline = "idevc")
+int   impThreshDevC = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "idevc")
+
+bool  impUseArea    = input.bool(true, "Filter by Area <", group = "Impulse Mode", inline = "iarea")
+int   impThreshArea = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "iarea")
 
 // ═══════════════════════════════════════════════════════════════
 // Calculation Functions
@@ -153,23 +179,81 @@ calc_rz_metric(array<float> L, array<float> H, int duration) =>
         stat_rz := maxExtremaBarCount / float(duration)
     stat_rz
 
-calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, bool calcRZ, bool calcH, bool calcDev, bool calcArea) =>
+calc_uniformity(int startIndex, int duration) =>
+    float stat_unif = 0.0
+    if duration > 0
+        array<float> points = array.new<float>()
+        // Collect all H and L
+        for step = 0 to duration
+            int bIdx = startIndex + step
+            float cL = low[bar_index - bIdx]
+            float cH = high[bar_index - bIdx]
+            array.push(points, cL)
+            array.push(points, cH)
+        
+        array.sort(points)
+        
+        // Unique intervals and calculate counts
+        float currentPoint = array.get(points, 0)
+        float sumCounts = 0.0
+        float maxCount = 0.0
+        int validIntervals = 0
+        
+        for i = 1 to array.size(points) - 1
+            float nextPoint = array.get(points, i)
+            if nextPoint - currentPoint > 1e-10
+                float localMin = currentPoint
+                float localMax = nextPoint
+                
+                int cdlCount = 0
+                for step = 0 to duration
+                    int bIdx = startIndex + step
+                    float cL = low[bar_index - bIdx]
+                    float cH = high[bar_index - bIdx]
+                    if cL <= localMin + 1e-10 and cH >= localMax - 1e-10
+                        cdlCount += 1
+                
+                if cdlCount == 0
+                    cdlCount := 1
+                    
+                sumCounts += cdlCount
+                if cdlCount > maxCount
+                    maxCount := cdlCount
+                validIntervals += 1
+                
+                currentPoint := nextPoint
+                
+        if validIntervals > 0 and maxCount > 0
+            float n = sumCounts / validIntervals
+            float m = maxCount
+            stat_unif := 1.0 - (n / m)
+            
+    stat_unif
+
+calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, bool calcRZ, bool calcH, bool calcUnif, bool calcDevLine, bool calcDevCand, bool calcArea) =>
     bool isUp = endPrice > startPrice
     int duration = endIndex - startIndex
     
     float stat_rz = na
     float stat_hMax = na
-    float stat_dev = na
+    float stat_unif = na
+    float stat_devLine = na
+    float stat_devCand = na
     float stat_area = na
 
     if duration > 0
         float minP = math.min(startPrice, endPrice)
         float maxP = math.max(startPrice, endPrice)
         float totalRange = math.abs(endPrice - startPrice)
-        float maxDistance = 0.0
+        float maxDistanceLine = 0.0
+        float maxDistanceCand = 0.0
 
         array<float> L = calcRZ ? array.new<float>(duration + 1) : na
         array<float> H = calcRZ ? array.new<float>(duration + 1) : na
+        
+        array<float> movementExtrema = calcDevCand ? array.new<float>(duration + 1) : na
+        array<float> devCLs = calcDevCand ? array.new<float>(duration + 1) : na
+        array<float> devCHs = calcDevCand ? array.new<float>(duration + 1) : na
 
         array<float> upX = calcArea ? array.new<float>() : na
         array<float> upY = calcArea ? array.new<float>() : na
@@ -193,15 +277,21 @@ calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, b
                     rzH := -cL
                 array.set(L, step, rzL)
                 array.set(H, step, rzH)
+                
+            if calcDevCand
+                array.set(devCLs, step, cL)
+                array.set(devCHs, step, cH)
+                float movementExtremum = isUp ? cH : cL
+                array.set(movementExtrema, step, movementExtremum)
 
-            if calcDev and step > 0 and step < duration and totalRange > 1e-10
+            if calcDevLine and step > 0 and step < duration and totalRange > 1e-10
                 float t = step / float(duration)
                 float lineValue = startPrice + (endPrice - startPrice) * t
                 float distHigh = math.abs(cH - lineValue)
                 float distLow  = math.abs(cL - lineValue)
                 float dist = math.max(distHigh, distLow)
-                if dist > maxDistance
-                    maxDistance := dist
+                if dist > maxDistanceLine
+                    maxDistanceLine := dist
 
             if calcArea
                 float h = cH
@@ -216,19 +306,35 @@ calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, b
                 update_envelope(upX, upY, dnX, dnY, float(startIndex + step), h, l)
 
         // --- CALC RESULTS ---
-        if calcDev
-            stat_dev := totalRange > 1e-10 ? math.min(maxDistance / totalRange, 1.0) : 0.0
+        if calcDevLine
+            stat_devLine := totalRange > 1e-10 ? math.min(maxDistanceLine / totalRange, 1.0) : 0.0
+
+        if calcDevCand
+            if duration > 1 and totalRange > 1e-10
+                for step = 1 to duration - 1
+                    float candleExtremum = isUp ? array.get(devCLs, step) : array.get(devCHs, step)
+                    float dist = 1e10
+                    for j = 0 to duration
+                        float d = math.abs(array.get(movementExtrema, j) - candleExtremum)
+                        if d < dist
+                            dist := d
+                    if dist > maxDistanceCand
+                        maxDistanceCand := dist
+            stat_devCand := totalRange > 1e-10 ? math.min(maxDistanceCand / totalRange, 1.0) : 0.0
 
         if calcArea
             stat_area := calc_area_metric(upX, upY, dnX, dnY, startPrice, endPrice, duration)
 
         if calcH
             stat_hMax := calc_heterogeneity(startIndex, duration, minP, maxP)
+            
+        if calcUnif
+            stat_unif := calc_uniformity(startIndex, duration)
 
         if calcRZ
             stat_rz := calc_rz_metric(L, H, duration)
 
-    [stat_rz, stat_hMax, stat_dev, stat_area]
+    [stat_rz, stat_hMax, stat_unif, stat_devLine, stat_devCand, stat_area]
 
 update_zigzag(array<float> zzPrice, array<int> zzBar, array<bool> zzIsHigh, array<line> zzLines, float pivotPrice, int pivBar, bool isHigh, float devThreshold, color lineClr) =>
     int n = zzPrice.size()
@@ -285,7 +391,7 @@ if extLast and updateUI and zzPrice.size() > 0
     float curPrice  = lastIsHigh ? low : high
     extLine := line.new(zzBar.get(zzBar.size() - 1), zzPrice.get(zzPrice.size() - 1), bar_index, curPrice, color = lineClr, width = 2, style = line.style_dashed)
 
-draw_segment_labels(int endSeg, int segCount, array<int> zzBar, array<float> zzPrice, bool showRZ, bool showH, bool showDev, bool showArea, array<label> segLabels) =>
+draw_segment_labels(int endSeg, int segCount, array<int> zzBar, array<float> zzPrice, array<line> zzLines, array<label> segLabels) =>
     if endSeg == 0
         log.warning("No zigzag segments found to process. Try reducing Deviation (%) or Depth.")
     else
@@ -313,29 +419,68 @@ draw_segment_labels(int endSeg, int segCount, array<int> zzBar, array<float> zzP
 
             log.warning("Segment {0,number,#}: startBar={1,number,#} endBar={2,number,#} startPrc={3} endPrc={4}", k, sBar, eBar, sPrc, ePrc)
 
-            [stat_rz, stat_hMax, stat_dev, stat_area] = calc_all_stats(sBar, sPrc, eBar, ePrc, showRZ, showH, showDev, showArea)
+            bool doCalcRZ   = showRZ or (impulseMode and impUseRZ)
+            bool doCalcH    = showH or (impulseMode and impUseH)
+            bool doCalcUnif = showUnif or (impulseMode and impUseUnif)
+            bool doCalcDevL = showDevLine or (impulseMode and impUseDevL)
+            bool doCalcDevC = showDevCand or (impulseMode and impUseDevC)
+            bool doCalcArea = showArea or (impulseMode and impUseArea)
 
-            log.warning("Stats computed for segment {0,number,#} - rz: {1}, hMax: {2}, dev: {3}, area: {4}", k, stat_rz, stat_hMax, stat_dev, stat_area)
+            [stat_rz, stat_hMax, stat_unif, stat_devLine, stat_devCand, stat_area] = calc_all_stats(sBar, sPrc, eBar, ePrc, doCalcRZ, doCalcH, doCalcUnif, doCalcDevL, doCalcDevC, doCalcArea)
 
-            array<string> lines = array.new<string>()
-            if showRZ
-                array.push(lines, "rz: " + str.tostring(int(stat_rz * 100)))
-            if showH
-                array.push(lines, "h: " + str.tostring(int(stat_hMax * 100)))
-            if showDev
-                array.push(lines, "dev: " + str.tostring(int(stat_dev * 100)))
-            if showArea
-                array.push(lines, "area: " + str.tostring(int(stat_area * 100)))
+            bool isImpulse = true
+            if impulseMode
+                if barDiff < impMinBars
+                    isImpulse := false
+                if impUseRZ and (stat_rz * 100 >= impThreshRZ)
+                    isImpulse := false
+                if impUseH and (stat_hMax * 100 >= impThreshH)
+                    isImpulse := false
+                if impUseUnif and (stat_unif * 100 >= impThreshUnif)
+                    isImpulse := false
+                if impUseDevL and (stat_devLine * 100 >= impThreshDevL)
+                    isImpulse := false
+                if impUseDevC and (stat_devCand * 100 >= impThreshDevC)
+                    isImpulse := false
+                if impUseArea and (stat_area * 100 >= impThreshArea)
+                    isImpulse := false
 
-            string txt = array.join(lines, "\n")
-            
-            if txt != ""
-                string lblStyle = ePrc > sPrc ? label.style_label_down : label.style_label_up
-                label lb = label.new(
-                     eBar, ePrc, txt,
-                     xloc = xloc.bar_index, style = lblStyle,
-                     color = color.new(color.blue, 30), textcolor = color.white, size = size.normal)
-                segLabels.push(lb)
+            if array.size(zzLines) > lineIdx
+                if impulseMode
+                    if isImpulse
+                        line.set_color(array.get(zzLines, lineIdx), lineClr)
+                        line.set_width(array.get(zzLines, lineIdx), 3)
+                    else
+                        line.set_color(array.get(zzLines, lineIdx), color.new(lineClr, 80))
+                        line.set_width(array.get(zzLines, lineIdx), 1)
+                else
+                    line.set_color(array.get(zzLines, lineIdx), lineClr)
+                    line.set_width(array.get(zzLines, lineIdx), 2)
+
+            if not impulseMode or isImpulse
+                array<string> lines = array.new<string>()
+                if showRZ
+                    array.push(lines, "rz: " + str.tostring(int(stat_rz * 100)))
+                if showH
+                    array.push(lines, "h: " + str.tostring(int(stat_hMax * 100)))
+                if showUnif
+                    array.push(lines, "unif: " + str.tostring(int(stat_unif * 100)))
+                if showDevLine
+                    array.push(lines, "devL: " + str.tostring(int(stat_devLine * 100)))
+                if showDevCand
+                    array.push(lines, "devC: " + str.tostring(int(stat_devCand * 100)))
+                if showArea
+                    array.push(lines, "area: " + str.tostring(int(stat_area * 100)))
+    
+                string txt = array.join(lines, "\n")
+                
+                if txt != ""
+                    string lblStyle = ePrc > sPrc ? label.style_label_down : label.style_label_up
+                    label lb = label.new(
+                         eBar, ePrc, txt,
+                         xloc = xloc.bar_index, style = lblStyle,
+                         color = color.new(color.blue, 30), textcolor = color.white, size = size.normal)
+                    segLabels.push(lb)
 
 // ═══════════════════════════════════════════════════════════════
 // Segment Labeling
@@ -353,4 +498,4 @@ if updateUI
     int segCount = zzLines.size()
     int endSeg = segCount < maxSegsShow ? segCount : maxSegsShow
     
-    draw_segment_labels(endSeg, segCount, zzBar, zzPrice, showRZ, showH, showDev, showArea, segLabels)
+    draw_segment_labels(endSeg, segCount, zzBar, zzPrice, zzLines, segLabels)

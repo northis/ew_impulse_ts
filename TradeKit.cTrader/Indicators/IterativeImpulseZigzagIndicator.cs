@@ -72,7 +72,7 @@ public class IterativeImpulseZigzagIndicator : Indicator
         int maxDistance = maxDev.ToPercent();
         int avgDistance = avgDev.ToPercent();
 
-        double rz = MovementStatistic.GetRatioZigZag(segStart, segEnd, m_BarProvider);
+        double rz = MovementStatistic.GetUniformityScore(segStart, segEnd, m_BarProvider);
         int rzValue = rz.ToPercent();
 
         //if (area > 35)

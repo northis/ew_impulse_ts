@@ -688,6 +688,33 @@ namespace TradeKit.Core.AlgoBase
             BarPoint start, BarPoint end, IBarsProvider barsProvider,
             out double maxDeviation, out double avgDeviation)
         {
+            GetDeviationScore(start, end, barsProvider, false, out maxDeviation, out avgDeviation);
+        }
+
+        /// <summary>
+        /// Gets the deviation scores of candle extrema either from the straight line connecting start and end points,
+        /// or from the nearest movement candle extremum.
+        /// </summary>
+        /// <param name="start">The start point of the segment.</param>
+        /// <param name="end">The end point of the segment.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="useNearestMovementCandle">
+        /// If set to <c>true</c>, the deviation is measured to the nearest candle extremum in the movement direction
+        /// (highs for upward movement, lows for downward movement). Otherwise, the deviation is measured to the straight line.
+        /// </param>
+        /// <param name="maxDeviation">The maximum normalized deviation from the selected reference (0 to 1).</param>
+        /// <param name="avgDeviation">The average normalized deviation from the selected reference (0 to 1).</param>
+        public static void GetDeviationScore(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider, bool useNearestMovementCandle,
+            out double maxDeviation, out double avgDeviation)
+        {
+            GetDeviationScoreCore(start, end, barsProvider, useNearestMovementCandle, out maxDeviation, out avgDeviation);
+        }
+
+        private static void GetDeviationScoreCore(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider, bool useNearestMovementCandle,
+            out double maxDeviation, out double avgDeviation)
+        {
             maxDeviation = 0;
             avgDeviation = 0;
 
@@ -699,21 +726,45 @@ namespace TradeKit.Core.AlgoBase
             if (barCount <= 0)
                 return;
 
+            bool isUp = end > start;
+            List<double> movementExtrema = new List<double>();
+            if (useNearestMovementCandle)
+            {
+                for (int i = start.BarIndex; i <= end.BarIndex; i++)
+                {
+                    double movementExtremum = isUp
+                        ? barsProvider.GetHighPrice(i)
+                        : barsProvider.GetLowPrice(i);
+                    movementExtrema.Add(movementExtremum);
+                }
+            }
+
             double maxDistance = 0;
             double sumDistance = 0;
             int count = 0;
 
             for (int i = start.BarIndex + 1; i < end.BarIndex; i++)
             {
-                double t = (double)(i - start.BarIndex) / barCount;
-                double lineValue = start.Value + (end.Value - start.Value) * t;
+                double dist;
+                if (useNearestMovementCandle)
+                {
+                    double candleExtremum = isUp
+                        ? barsProvider.GetLowPrice(i)
+                        : barsProvider.GetHighPrice(i);
+                    dist = movementExtrema.Min(a => Math.Abs(a - candleExtremum));
+                }
+                else
+                {
+                    double t = (double)(i - start.BarIndex) / barCount;
+                    double lineValue = start.Value + (end.Value - start.Value) * t;
 
-                double high = barsProvider.GetHighPrice(i);
-                double low = barsProvider.GetLowPrice(i);
+                    double high = barsProvider.GetHighPrice(i);
+                    double low = barsProvider.GetLowPrice(i);
 
-                double distHigh = Math.Abs(high - lineValue);
-                double distLow = Math.Abs(low - lineValue);
-                double dist = Math.Max(distHigh, distLow);
+                    double distHigh = Math.Abs(high - lineValue);
+                    double distLow = Math.Abs(low - lineValue);
+                    dist = Math.Max(distHigh, distLow);
+                }
 
                 sumDistance += dist;
                 count++;
@@ -841,6 +892,43 @@ namespace TradeKit.Core.AlgoBase
 
             GetProfile(candles, isUp, out _, out _, out bool hasGap);
             return hasGap;
+        }
+
+        /// <summary>
+        /// Gets the uniformity score of the movement profile.
+        /// Returns a value from 0 to 1, where 0 means perfectly uniform (all sections have the same number of candles),
+        /// and closer to 1 means the maximum overlap strongly deviates from the average overlap.
+        /// </summary>
+        /// <param name="start">The start point of the segment.</param>
+        /// <param name="end">The end point of the segment.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <returns>A value between 0 and 1 indicating how far the maximum candle count deviates from the average.</returns>
+        public static double GetUniformityScore(BarPoint start, BarPoint end, IBarsProvider barsProvider)
+        {
+            bool isUp = end > start;
+            List<ICandle> candles = new();
+            for (int i = start.BarIndex; i <= end.BarIndex; i++)
+            {
+                Candle cdl = Candle.FromIndex(barsProvider, i);
+                if (cdl != null)
+                    candles.Add(cdl);
+            }
+
+            if (candles.Count < 2)
+                return 0;
+
+            var profile = GetProfile(candles, isUp, out _, out _, out _);
+
+            if (profile.Count == 0)
+                return 0;
+
+            double n = profile.Values.Average();
+            double m = profile.Values.Max();
+
+            if (m <= 0)
+                return 0;
+
+            return 1.0 - (n / m);
         }
     }
 }
