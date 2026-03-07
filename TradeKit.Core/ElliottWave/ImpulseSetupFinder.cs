@@ -231,19 +231,20 @@ namespace TradeKit.Core.ElliottWave
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
 
-            //var rz = MovementStatistic.GetRatioZigZag(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
+            var rz = MovementStatistic.GetRatioZigZag(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
             var uni = MovementStatistic.GetUniformityScore(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
             //ElliottModelType? prediction = m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
-            MovementStatistic.GetDeviationScore(
-                checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider,
-                out double maxDev, out double avgDev);
+            //MovementStatistic.GetDeviationScore(
+            //    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider,
+            //    out double maxDev, out double avgDev);
             if (!checkSignalArgs.HasInCache &&
                 (stats.CandlesCount < m_ImpulseParams.BarsCount ||
                  stats.Size < m_ImpulseParams.MinSizePercent / 100 ||
-                 uni > 0.45 ||
-                 stats.Area > 0.25 ||
+                 rz > 0.15 ||
+                 uni > 0.55 ||
+                 stats.Area > 0.25 /*||
                  maxDev > 0.25
-                    /*rz > 0.25 ||
+                    rz > 0.15 ||
                     stats.HeterogeneityMax > 0.1 ||
                     maxDev > 0.25 ||
                     stats.Area > 0.25 (prediction != ElliottModelType.SIMPLE_IMPULSE)*/))
