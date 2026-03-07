@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;

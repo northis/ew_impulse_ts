@@ -7,14 +7,16 @@ if barstate.isfirst
 // ═══════════════════════════════════════════════════════════════
 // Zigzag Settings
 // ═══════════════════════════════════════════════════════════════
-float devInput   = input.float(1.0, "Deviation (%)", minval = 0.00001, maxval = 100.0, step = 0.1, group = "Zigzag")
+float devStart   = input.float(0.1, "Deviation Start (%)", minval = 0.00001, maxval = 100.0, step = 0.1, group = "Zigzag")
+float devEnd     = input.float(0.5, "Deviation End (%)", minval = 0.00001, maxval = 100.0, step = 0.1, group = "Zigzag")
+float devStep    = input.float(0.1, "Deviation Step (%)", minval = 0.00001, maxval = 100.0, step = 0.1, group = "Zigzag")
 int   depthInput = input.int(10, "Depth", minval = 2, group = "Zigzag")
 color lineClr    = input.color(#2962FF, "Line color", group = "Zigzag")
 bool  extLast    = input.bool(true, "Extend to last bar", group = "Zigzag")
-int   maxSegsShow= input.int(300, "Max segments to process", minval = 1, maxval = 2000, group = "Display")
-int   maxSegBars = input.int(400, "Max bars per segment (timeout limit)", minval = 10, group = "Display")
+int   maxSegBars = input.int(2000, "Max bars per segment (timeout limit)", minval = 10, group = "Display")
 
 bool  showRZ     = input.bool(true, "Show Ratio Zigzag (rz)", group = "Metrics")
+bool  showZD     = input.bool(true, "Show Zigzag Depth (zd)", group = "Metrics")
 bool  showH      = input.bool(true, "Show Heterogeneity (h)", group = "Metrics")
 bool  showUnif   = input.bool(true, "Show Uniformity (unif)", group = "Metrics")
 bool  showDevLine= input.bool(true, "Show Dev Line (devL)", group = "Metrics")
@@ -29,6 +31,9 @@ int   impMinBars    = input.int(10, "Min bars in segment", minval = 1, maxval = 
 
 bool  impUseRZ      = input.bool(true, "Filter by RZ <", group = "Impulse Mode", inline = "irz")
 int   impThreshRZ   = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "irz")
+
+bool  impUseZD      = input.bool(true, "Filter by ZD <", group = "Impulse Mode", inline = "izd")
+int   impThreshZD   = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "izd")
 
 bool  impUseH       = input.bool(true, "Filter by H <", group = "Impulse Mode", inline = "ih")
 int   impThreshH    = input.int(30, "", minval = 0, maxval = 100, group = "Impulse Mode", inline = "ih")
@@ -230,7 +235,27 @@ calc_uniformity(int startIndex, int duration) =>
             
     stat_unif
 
-calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, bool calcRZ, bool calcH, bool calcUnif, bool calcDevLine, bool calcDevCand, bool calcArea) =>
+calc_zd_metric(array<float> L, array<float> H, int duration, float totalRange) =>
+    float stat_zd = 0.0
+    if duration > 0 and totalRange > 1e-10
+        float max_depth = 0.0
+        for i = 0 to duration
+            float h_i = array.get(H, i)
+            float local_max_depth = 0.0
+            if i < duration
+                for j = i + 1 to duration
+                    float l_j = array.get(L, j)
+                    if h_i < l_j
+                        break
+                    float depth = h_i - l_j
+                    if depth > local_max_depth
+                        local_max_depth := depth
+            if local_max_depth > max_depth
+                max_depth := local_max_depth
+        stat_zd := max_depth / totalRange
+    stat_zd
+
+calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, bool calcRZ, bool calcH, bool calcUnif, bool calcDevLine, bool calcDevCand, bool calcArea, bool calcZD) =>
     bool isUp = endPrice > startPrice
     int duration = endIndex - startIndex
     
@@ -240,6 +265,7 @@ calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, b
     float stat_devLine = na
     float stat_devCand = na
     float stat_area = na
+    float stat_zd = na
 
     if duration > 0
         float minP = math.min(startPrice, endPrice)
@@ -248,8 +274,8 @@ calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, b
         float maxDistanceLine = 0.0
         float maxDistanceCand = 0.0
 
-        array<float> L = calcRZ ? array.new<float>(duration + 1) : na
-        array<float> H = calcRZ ? array.new<float>(duration + 1) : na
+        array<float> L = (calcRZ or calcZD) ? array.new<float>(duration + 1) : na
+        array<float> H = (calcRZ or calcZD) ? array.new<float>(duration + 1) : na
         
         array<float> movementExtrema = calcDevCand ? array.new<float>(duration + 1) : na
         array<float> devCLs = calcDevCand ? array.new<float>(duration + 1) : na
@@ -269,7 +295,7 @@ calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, b
             minP := math.min(minP, cL)
             maxP := math.max(maxP, cH)
 
-            if calcRZ
+            if calcRZ or calcZD
                 float rzL = cL
                 float rzH = cH
                 if not isUp
@@ -334,168 +360,199 @@ calc_all_stats(int startIndex, float startPrice, int endIndex, float endPrice, b
         if calcRZ
             stat_rz := calc_rz_metric(L, H, duration)
 
-    [stat_rz, stat_hMax, stat_unif, stat_devLine, stat_devCand, stat_area]
+        if calcZD
+            stat_zd := calc_zd_metric(L, H, duration, totalRange)
 
-update_zigzag(array<float> zzPrice, array<int> zzBar, array<bool> zzIsHigh, array<line> zzLines, float pivotPrice, int pivBar, bool isHigh, float devThreshold, color lineClr) =>
-    int n = zzPrice.size()
-    if n == 0
-        zzPrice.push(pivotPrice)
-        zzBar.push(pivBar)
-        zzIsHigh.push(isHigh)
+    [stat_rz, stat_hMax, stat_unif, stat_devLine, stat_devCand, stat_area, stat_zd]
+
+// ═══════════════════════════════════════════════════════════════
+// ZigZag Type & Methods
+// ═══════════════════════════════════════════════════════════════
+type ZigZag
+    float dev
+    color clr
+    array<float> price
+    array<int> bar
+    array<bool> isHigh
+    array<line> lines
+    array<label> labels
+    label liveLabel
+    line extLine
+
+method draw_segment_label(ZigZag zz, int sBar, float sPrc, int eBar, float ePrc, line ln, int barDiff, bool isLive) =>
+    bool doCalcRZ   = showRZ or (impulseMode and impUseRZ)
+    bool doCalcZD   = showZD or (impulseMode and impUseZD)
+    bool doCalcH    = showH or (impulseMode and impUseH)
+    bool doCalcUnif = showUnif or (impulseMode and impUseUnif)
+    bool doCalcDevL = showDevLine or (impulseMode and impUseDevL)
+    bool doCalcDevC = showDevCand or (impulseMode and impUseDevC)
+    bool doCalcArea = showArea or (impulseMode and impUseArea)
+
+    [stat_rz, stat_hMax, stat_unif, stat_devLine, stat_devCand, stat_area, stat_zd] = calc_all_stats(sBar, sPrc, eBar, ePrc, doCalcRZ, doCalcH, doCalcUnif, doCalcDevL, doCalcDevC, doCalcArea, doCalcZD)
+
+    bool isImpulse = true
+    if impulseMode
+        if barDiff < impMinBars
+            isImpulse := false
+        if impUseRZ and (stat_rz * 100 >= impThreshRZ)
+            isImpulse := false
+        if impUseZD and (stat_zd * 100 >= impThreshZD)
+            isImpulse := false
+        if impUseH and (stat_hMax * 100 >= impThreshH)
+            isImpulse := false
+        if impUseUnif and (stat_unif * 100 >= impThreshUnif)
+            isImpulse := false
+        if impUseDevL and (stat_devLine * 100 >= impThreshDevL)
+            isImpulse := false
+        if impUseDevC and (stat_devCand * 100 >= impThreshDevC)
+            isImpulse := false
+        if impUseArea and (stat_area * 100 >= impThreshArea)
+            isImpulse := false
+
+    if impulseMode
+        if isImpulse
+            line.set_color(ln, zz.clr)
+            line.set_width(ln, 3)
+        else
+            line.set_color(ln, color.new(zz.clr, 80))
+            line.set_width(ln, 1)
     else
-        bool lastIsHigh = zzIsHigh.get(n - 1)
-        float lastPrice = zzPrice.get(n - 1)
+        line.set_color(ln, zz.clr)
+        line.set_width(ln, 2)
+
+    label lb = na
+    if not impulseMode or isImpulse
+        array<string> lines = array.new<string>()
+        array.push(lines, "[" + str.tostring(math.round(zz.dev, 2)) + "%]")
+        if showRZ
+            array.push(lines, "rz: " + str.tostring(int(stat_rz * 100)))
+        if showZD
+            array.push(lines, "zd: " + str.tostring(int(stat_zd * 100)))
+        if showH
+            array.push(lines, "h: " + str.tostring(int(stat_hMax * 100)))
+        if showUnif
+            array.push(lines, "unif: " + str.tostring(int(stat_unif * 100)))
+        if showDevLine
+            array.push(lines, "devL: " + str.tostring(int(stat_devLine * 100)))
+        if showDevCand
+            array.push(lines, "devC: " + str.tostring(int(stat_devCand * 100)))
+        if showArea
+            array.push(lines, "area: " + str.tostring(int(stat_area * 100)))
+
+        string txt = array.join(lines, "\n")
+        
+        if txt != ""
+            string lblStyle = ePrc > sPrc ? label.style_label_down : label.style_label_up
+            lb := label.new(eBar, ePrc, txt, xloc = xloc.bar_index, style = lblStyle, color = color.new(color.blue, 30), textcolor = color.white, size = size.normal)
+            if not isLive
+                zz.labels.push(lb)
+    lb
+
+method process_unfinalized_segment(ZigZag zz) =>
+    int _dummy = 0
+    int n = zz.price.size()
+    if n >= 2
+        int sBar = zz.bar.get(n - 2)
+        int eBar = zz.bar.get(n - 1)
+        float sPrc = zz.price.get(n - 2)
+        float ePrc = zz.price.get(n - 1)
+        line ln = zz.lines.get(n - 2)
+        
+        if not na(zz.liveLabel)
+            label.delete(zz.liveLabel)
+            zz.liveLabel := na
+            
+        int age = bar_index - sBar
+        int barDiff = math.abs(eBar - sBar)
+        if age <= 4500 and barDiff <= maxSegBars
+            zz.liveLabel := zz.draw_segment_label(sBar, sPrc, eBar, ePrc, ln, barDiff, true)
+        _dummy := 1
+
+method finalize_segment(ZigZag zz) =>
+    int _dummy = 0
+    int n = zz.price.size()
+    if n >= 2
+        int sBar = zz.bar.get(n - 2)
+        int eBar = zz.bar.get(n - 1)
+        float sPrc = zz.price.get(n - 2)
+        float ePrc = zz.price.get(n - 1)
+        line ln = zz.lines.get(n - 2)
+        
+        if not na(zz.liveLabel)
+            label.delete(zz.liveLabel)
+            zz.liveLabel := na
+            
+        int age = bar_index - sBar
+        int barDiff = math.abs(eBar - sBar)
+        if age <= 4500 and barDiff <= maxSegBars
+            zz.draw_segment_label(sBar, sPrc, eBar, ePrc, ln, barDiff, false)
+        _dummy := 1
+
+method update_zigzag(ZigZag zz, float pivotPrice, int pivBar, bool isHigh) =>
+    int _dummy = 0
+    int n = zz.price.size()
+    if n == 0
+        zz.price.push(pivotPrice)
+        zz.bar.push(pivBar)
+        zz.isHigh.push(isHigh)
+        _dummy := 1
+    else
+        bool lastIsHigh = zz.isHigh.get(n - 1)
+        float lastPrice = zz.price.get(n - 1)
 
         if lastIsHigh == isHigh
             if (isHigh and pivotPrice > lastPrice) or (not isHigh and pivotPrice < lastPrice)
-                zzPrice.set(n - 1, pivotPrice)
-                zzBar.set(n - 1, pivBar)
-                if zzLines.size() > 0
-                    zzLines.get(zzLines.size() - 1).set_xy2(pivBar, pivotPrice)
+                zz.price.set(n - 1, pivotPrice)
+                zz.bar.set(n - 1, pivBar)
+                if zz.lines.size() > 0
+                    zz.lines.get(zz.lines.size() - 1).set_xy2(pivBar, pivotPrice)
+                zz.process_unfinalized_segment()
+            _dummy := 2
         else
             float dev = 100.0 * (pivotPrice - lastPrice) / math.abs(lastPrice)
-            bool validDev = isHigh ? (dev >= devThreshold) : (dev <= -devThreshold)
+            bool validDev = isHigh ? (dev >= zz.dev) : (dev <= -zz.dev)
             if validDev
-                zzPrice.push(pivotPrice)
-                zzBar.push(pivBar)
-                zzIsHigh.push(isHigh)
-                line ln = line.new(zzBar.get(n - 1), zzPrice.get(n - 1), pivBar, pivotPrice, color = lineClr, width = 2)
-                zzLines.push(ln)
+                zz.finalize_segment()
+                zz.price.push(pivotPrice)
+                zz.bar.push(pivBar)
+                zz.isHigh.push(isHigh)
+                line ln = line.new(zz.bar.get(zz.bar.size() - 2), zz.price.get(zz.price.size() - 2), pivBar, pivotPrice, color = zz.clr, width = 2)
+                zz.lines.push(ln)
+                zz.process_unfinalized_segment()
+            _dummy := 3
 
 // ═══════════════════════════════════════════════════════════════
-// Zigzag Calculation 
+// Zigzag Execution
 // ═══════════════════════════════════════════════════════════════
+var array<ZigZag> zigzags = array.new<ZigZag>()
+if barstate.isfirst
+    float d = devStart
+    float step = devStep > 0 ? devStep : 0.1
+    int count = 0
+    while d <= devEnd + 0.00001 and count < 20
+        zigzags.push(ZigZag.new(d, lineClr, array.new<float>(), array.new<int>(), array.new<bool>(), array.new<line>(), array.new<label>(), na, na))
+        d += step
+        count += 1
+
 int depth = depthInput < 4 ? 2 : int(depthInput / 2)
 
 float ph = ta.pivothigh(high, depth, depth)
 float pl = ta.pivotlow(low, depth, depth)
 
-var array<float> zzPrice  = array.new<float>()
-var array<int>   zzBar    = array.new<int>()
-var array<bool>  zzIsHigh = array.new<bool>()
-var array<line>  zzLines  = array.new<line>()
-
 if not na(ph)
-    update_zigzag(zzPrice, zzBar, zzIsHigh, zzLines, ph, bar_index - depth, true, devInput, lineClr)
+    for zz in zigzags
+        zz.update_zigzag(ph, bar_index - depth, true)
 
 if not na(pl)
-    update_zigzag(zzPrice, zzBar, zzIsHigh, zzLines, pl, bar_index - depth, false, devInput, lineClr)
+    for zz in zigzags
+        zz.update_zigzag(pl, bar_index - depth, false)
 
-bool updateUI = barstate.islastconfirmedhistory or (barstate.islast and barstate.isconfirmed)
-
-var line extLine = na
-if extLast and updateUI and zzPrice.size() > 0
-    if not na(extLine)
-        extLine.delete()
-    bool lastIsHigh = zzIsHigh.get(zzIsHigh.size() - 1)
-    float curPrice  = lastIsHigh ? low : high
-    extLine := line.new(zzBar.get(zzBar.size() - 1), zzPrice.get(zzPrice.size() - 1), bar_index, curPrice, color = lineClr, width = 2, style = line.style_dashed)
-
-draw_segment_labels(int endSeg, int segCount, array<int> zzBar, array<float> zzPrice, array<line> zzLines, array<label> segLabels) =>
-    if endSeg == 0
-        log.warning("No zigzag segments found to process. Try reducing Deviation (%) or Depth.")
-    else
-        log.warning("Processing {0,number,#} zigzag segments.", endSeg)
-        for k = 1 to endSeg
-            int lineIdx       = segCount - k
-            int startPivotIdx = lineIdx
-            int endPivotIdx   = lineIdx + 1
-
-            int sBar   = zzBar.get(startPivotIdx)
-            int eBar   = zzBar.get(endPivotIdx)
-            float sPrc = zzPrice.get(startPivotIdx)
-            float ePrc = zzPrice.get(endPivotIdx)
-
-            int barDiff = math.abs(eBar - sBar)
-            int age = bar_index - sBar
-
-            if age > 4500
-                log.error("Segment {0,number,#} starts {1,number,#} bars ago (max 4500 allowed). Skipping.", k, age)
-                continue
-
-            if barDiff > maxSegBars
-                log.warning("Segment {0,number,#}: startBar={1,number,#} endBar={2,number,#} length={3,number,#} exceeds maxSegBars. Skipping.", k, sBar, eBar, barDiff)
-                continue
-
-            log.warning("Segment {0,number,#}: startBar={1,number,#} endBar={2,number,#} startPrc={3} endPrc={4}", k, sBar, eBar, sPrc, ePrc)
-
-            bool doCalcRZ   = showRZ or (impulseMode and impUseRZ)
-            bool doCalcH    = showH or (impulseMode and impUseH)
-            bool doCalcUnif = showUnif or (impulseMode and impUseUnif)
-            bool doCalcDevL = showDevLine or (impulseMode and impUseDevL)
-            bool doCalcDevC = showDevCand or (impulseMode and impUseDevC)
-            bool doCalcArea = showArea or (impulseMode and impUseArea)
-
-            [stat_rz, stat_hMax, stat_unif, stat_devLine, stat_devCand, stat_area] = calc_all_stats(sBar, sPrc, eBar, ePrc, doCalcRZ, doCalcH, doCalcUnif, doCalcDevL, doCalcDevC, doCalcArea)
-
-            bool isImpulse = true
-            if impulseMode
-                if barDiff < impMinBars
-                    isImpulse := false
-                if impUseRZ and (stat_rz * 100 >= impThreshRZ)
-                    isImpulse := false
-                if impUseH and (stat_hMax * 100 >= impThreshH)
-                    isImpulse := false
-                if impUseUnif and (stat_unif * 100 >= impThreshUnif)
-                    isImpulse := false
-                if impUseDevL and (stat_devLine * 100 >= impThreshDevL)
-                    isImpulse := false
-                if impUseDevC and (stat_devCand * 100 >= impThreshDevC)
-                    isImpulse := false
-                if impUseArea and (stat_area * 100 >= impThreshArea)
-                    isImpulse := false
-
-            if array.size(zzLines) > lineIdx
-                if impulseMode
-                    if isImpulse
-                        line.set_color(array.get(zzLines, lineIdx), lineClr)
-                        line.set_width(array.get(zzLines, lineIdx), 3)
-                    else
-                        line.set_color(array.get(zzLines, lineIdx), color.new(lineClr, 80))
-                        line.set_width(array.get(zzLines, lineIdx), 1)
-                else
-                    line.set_color(array.get(zzLines, lineIdx), lineClr)
-                    line.set_width(array.get(zzLines, lineIdx), 2)
-
-            if not impulseMode or isImpulse
-                array<string> lines = array.new<string>()
-                if showRZ
-                    array.push(lines, "rz: " + str.tostring(int(stat_rz * 100)))
-                if showH
-                    array.push(lines, "h: " + str.tostring(int(stat_hMax * 100)))
-                if showUnif
-                    array.push(lines, "unif: " + str.tostring(int(stat_unif * 100)))
-                if showDevLine
-                    array.push(lines, "devL: " + str.tostring(int(stat_devLine * 100)))
-                if showDevCand
-                    array.push(lines, "devC: " + str.tostring(int(stat_devCand * 100)))
-                if showArea
-                    array.push(lines, "area: " + str.tostring(int(stat_area * 100)))
-    
-                string txt = array.join(lines, "\n")
-                
-                if txt != ""
-                    string lblStyle = ePrc > sPrc ? label.style_label_down : label.style_label_up
-                    label lb = label.new(
-                         eBar, ePrc, txt,
-                         xloc = xloc.bar_index, style = lblStyle,
-                         color = color.new(color.blue, 30), textcolor = color.white, size = size.normal)
-                    segLabels.push(lb)
-
-// ═══════════════════════════════════════════════════════════════
-// Segment Labeling
-// ═══════════════════════════════════════════════════════════════
-var array<label> segLabels = array.new<label>()
-
-if updateUI
-    log.warning("Bar_index: {0,number,#}, Total pivots: {1,number,#}, Total lines: {2,number,#}", bar_index, zzBar.size(), zzLines.size())
-
-    if segLabels.size() > 0
-        for i = 0 to segLabels.size() - 1
-            label.delete(segLabels.get(i))
-        segLabels.clear()
-
-    int segCount = zzLines.size()
-    int endSeg = segCount < maxSegsShow ? segCount : maxSegsShow
-    
-    draw_segment_labels(endSeg, segCount, zzBar, zzPrice, zzLines, segLabels)
+if extLast and barstate.islast
+    for zz in zigzags
+        int n = zz.price.size()
+        if n > 0
+            if not na(zz.extLine)
+                line.delete(zz.extLine)
+            bool lastIsHigh = zz.isHigh.get(n - 1)
+            float curPrice  = lastIsHigh ? low : high
+            zz.extLine := line.new(zz.bar.get(n - 1), zz.price.get(n - 1), bar_index, curPrice, color = zz.clr, width = 2, style = line.style_dashed)

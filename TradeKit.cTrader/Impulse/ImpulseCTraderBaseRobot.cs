@@ -17,11 +17,18 @@ namespace TradeKit.CTrader.Impulse
         {
             return new ImpulseParams(
                 Period, EnterRatio, TakeRatio, BreakEvenRatio, MaxZigzagPercent, MaxOverlapseLengthPercent,
+                MaxDistancePercent,
                 HeterogeneityMaxPercent, MinSizePercent, AreaPercent, BarsCount);
         }
 
         #region Input parameters
-
+        
+        /// <summary>
+        /// Gets or sets the maximum percentage of the zigzag pullback length.
+        /// </summary>
+        [Parameter(nameof(MaxDistancePercent), DefaultValue = 20, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxDistancePercent { get; set; }
+        
         /// <summary>
         /// Gets or sets the minimum size of the impulse in percent.
         /// </summary>

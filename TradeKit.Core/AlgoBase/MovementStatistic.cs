@@ -26,9 +26,15 @@ namespace TradeKit.Core.AlgoBase
             double? rateZigzagMaxLimit = null,
             double? rateHeterogeneityMaxLimit = null)
         {
-            var (overlapseMaxDepth, distance, rz, _) = GetMaxOverlapseScore(start, end, barsProvider,
+            
+            double rz = GetRatioZigZag(start, end, barsProvider);
+            double uni = GetUniformityScore(start, end, barsProvider);
+            //ElliottModelType? prediction = m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
+            GetDeviationScore(start, end, barsProvider, out double maxDev, out double avgDev);
+
+            var (overlapseMaxDepth, _, _, _) = GetMaxOverlapseScore(start, end, barsProvider,
                 overlapseMaxDepthMaxLimit, rateZigzagMaxLimit);
-            double heterogeneityMax = 1;
+            //double heterogeneityMax = 1;
             //if (rateZigzag < 1)
             //{
             //var (heterogeneity, heterogeneityMaxLoc) = GetHeterogeneity(start, end, barsProvider, rateHeterogeneityMaxLimit);
@@ -37,28 +43,28 @@ namespace TradeKit.Core.AlgoBase
 
             //double pullback = GetPullbackScore(start, end, barsProvider);
             
-            SortedDictionary<double, int> profiles = GetOverlapseStatistic(start, end, barsProvider).Item1;
-            int decCount = profiles.Count / 10;
+            //SortedDictionary<double, int> profiles = GetOverlapseStatistic(start, end, barsProvider).Item1;
+            //int decCount = profiles.Count / 10;
 
-            double middlePart = 1;
-            double diffPart = 1;
-            //double diffDec = 1;
-            double firstDecPart = 1;
-            if (decCount >= 1)
-            {
-                var exactThird = Convert.ToInt32(decCount * 3.33);
-                int firstThird = profiles.Take(exactThird).Sum(a => a.Value);
-                int secondThird = profiles.Skip(exactThird).Take(exactThird).Sum(a => a.Value);
-                int lastThird = profiles.Skip(exactThird * 2).Sum(a => a.Value);
-                int whole = profiles.Sum(a => a.Value);
-                middlePart = (double)secondThird / whole;
-                diffPart = Math.Abs((double)firstThird - lastThird) / whole;
+            //double middlePart = 1;
+            //double diffPart = 1;
+            ////double diffDec = 1;
+            //double firstDecPart = 1;
+            //if (decCount >= 1)
+            //{
+            //    var exactThird = Convert.ToInt32(decCount * 3.33);
+            //    int firstThird = profiles.Take(exactThird).Sum(a => a.Value);
+            //    int secondThird = profiles.Skip(exactThird).Take(exactThird).Sum(a => a.Value);
+            //    int lastThird = profiles.Skip(exactThird * 2).Sum(a => a.Value);
+            //    int whole = profiles.Sum(a => a.Value);
+            //    middlePart = (double)secondThird / whole;
+            //    diffPart = Math.Abs((double)firstThird - lastThird) / whole;
                 
-                int firstDec = profiles.Take(decCount).Sum(a => a.Value);
-                int lastDec = profiles.Skip(decCount * 9).Sum(a => a.Value);
-                //diffDec = Math.Abs((double)firstDec - lastDec) / whole;
-                firstDecPart = (double)firstDec / whole;
-            }
+            //    int firstDec = profiles.Take(decCount).Sum(a => a.Value);
+            //    int lastDec = profiles.Skip(decCount * 9).Sum(a => a.Value);
+            //    //diffDec = Math.Abs((double)firstDec - lastDec) / whole;
+            //    firstDecPart = (double)firstDec / whole;
+            //}
 
             //double entropy = GetEntropy(profileVals);
 
@@ -76,7 +82,7 @@ namespace TradeKit.Core.AlgoBase
             //double priceCorrection = end > start ? start.Value : end.Value;
             //double profileArea = profiles.Sum(a => a.Value * Math.Abs(a.Key - priceCorrection))
             //                     / (10 * count * Math.Abs(start - end));
-            return new ImpulseResult(rz, count, size, middlePart, diffPart, area, distance);
+            return new ImpulseResult(overlapseMaxDepth, count, size, rz, uni, area, maxDev);
         }
 
         public static double GetEntropy(List<double> values)

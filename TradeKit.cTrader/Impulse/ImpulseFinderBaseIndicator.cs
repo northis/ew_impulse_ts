@@ -41,7 +41,7 @@ namespace TradeKit.CTrader.Impulse
         {
             return new ImpulseParams(
                 Period, EnterRatio, TakeRatio, 0, MaxZigzagPercent,
-                MaxOverlapseLengthPercent,
+                MaxOverlapseLengthPercent, MaxDistancePercent,
                 HeterogeneityMaxPercent, MinSizePercent, AreaPercent, BarsCount);
         }
 
@@ -85,6 +85,12 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         [Parameter(nameof(MaxZigzagPercent), DefaultValue = Helper.MAX_ZIGZAG_DEGREE_PERCENT, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxZigzagPercent { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the maximum percentage of the zigzag pullback length.
+        /// </summary>
+        [Parameter(nameof(MaxDistancePercent), DefaultValue = 20, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxDistancePercent { get; set; }
 
         /// <summary>
         /// Gets or sets the max value of not-smooth of the impulse.

@@ -10,6 +10,7 @@
         double BreakEvenRatio,
         double MaxZigzagPercent,
         double MaxOverlapseLengthPercent,
+        double MaxDistance,
         double HeterogeneityMax,
         double MinSizePercent,
         double AreaPercent,

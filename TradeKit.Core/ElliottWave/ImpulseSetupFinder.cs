@@ -71,14 +71,12 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool res = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
-                        stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 &&
+            bool res = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 &&
                        stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
                        stats.Size >= m_ImpulseParams.MinSizePercent / 100 &&
-                       //stats.CandlesCount < 90 &&
+                       stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
+                       stats.MaxDistance <= m_ImpulseParams.MaxDistance / 100 &&
                        stats.Area <= m_ImpulseParams.AreaPercent / 100;
-
-            //stats.OverlapseDegree / stats.OverlapseMaxDepth > 0.5;
             return res;
         }
         
@@ -230,24 +228,8 @@ namespace TradeKit.Core.ElliottWave
                ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime]
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
-
-            var rz = MovementStatistic.GetRatioZigZag(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
-            var uni = MovementStatistic.GetUniformityScore(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
-            //ElliottModelType? prediction = m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
-            //MovementStatistic.GetDeviationScore(
-            //    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider,
-            //    out double maxDev, out double avgDev);
             if (!checkSignalArgs.HasInCache &&
-                (stats.CandlesCount < m_ImpulseParams.BarsCount ||
-                 stats.Size < m_ImpulseParams.MinSizePercent / 100 ||
-                 rz > 0.15 ||
-                 uni > 0.55 ||
-                 stats.Area > 0.25 /*||
-                 maxDev > 0.25
-                    rz > 0.15 ||
-                    stats.HeterogeneityMax > 0.1 ||
-                    maxDev > 0.25 ||
-                    stats.Area > 0.25 (prediction != ElliottModelType.SIMPLE_IMPULSE)*/))
+                (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");
