@@ -58,7 +58,7 @@ namespace TradeKit.Core.ElliottWave
             m_ImpulseParams = impulseParams;
             m_OnnxModelClassifier = new OnnxModelClassifier();
             
-            for (int i = impulseParams.Period; i <= impulseParams.Period * 10; i += 10)
+            for (int i = 5; i <= 100; i += 10)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
@@ -229,7 +229,7 @@ namespace TradeKit.Core.ElliottWave
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
             if (!checkSignalArgs.HasInCache &&
-                (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
+                (stats.CandlesCount < m_ImpulseParams.BarsCount || IsSmoothImpulse(stats)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");
@@ -285,7 +285,7 @@ namespace TradeKit.Core.ElliottWave
                     useLimit = true;
                 else
                 {
-                    //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not at the level yet");
+                    Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not at the level yet");
                     return false;
                 }
             }
@@ -412,8 +412,8 @@ namespace TradeKit.Core.ElliottWave
                 new BarPoint(
                     signalArgs.UseLimit ? signalArgs.TriggerLevel : realPrice,
                     signalArgs.Index, BarsProvider),
-                tpArg,
                 slArg,
+                tpArg,
                 outExtrema,
                 viewDateTime,
                 CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1

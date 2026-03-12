@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
+using cAlgo.API.Internals;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 
@@ -212,8 +213,8 @@ namespace TradeKit.CTrader.Core
         /// <param name="symbol">The symbol.</param>
         /// <param name="volume">The volume.</param>
         /// <param name="botName">Name of the bot.</param>
-        /// <param name="stopInPips">The stop in pips.</param>
-        /// <param name="takeInPips">The take in pips.</param>
+        /// <param name="stopLossPrice">The absolute stop loss price.</param>
+        /// <param name="takeProfitPrice">The absolute take profit price.</param>
         /// <param name="positionId">The position identifier.</param>
         /// <param name="limitPrice">The limit price for pending orders</param>
         public OrderResult OpenOrder(
@@ -221,27 +222,49 @@ namespace TradeKit.CTrader.Core
             ISymbol symbol, 
             double volume, 
             string botName, 
-            double stopInPips, 
-            double takeInPips,
+            double? stopLossPrice, 
+            double? takeProfitPrice,
             string positionId,
             double? limitPrice)
         {
-            double normalizedVolume = GetCTraderSymbol(symbol.Name).NormalizeVolumeInUnits(volume);
+            Symbol sym = GetCTraderSymbol(symbol.Name);
+            double normalizedVolume = sym.NormalizeVolumeInUnits(volume);
+
+            double stopInPips = 0;
+            if (stopLossPrice.HasValue)
+            {
+                double entryPriceForSl = limitPrice ?? (isLong ? sym.Ask : sym.Bid);
+                double slLen = Math.Abs(entryPriceForSl - stopLossPrice.Value);
+                stopInPips = Math.Round(slLen / sym.PipSize);
+            }
+
+            double takeInPips = 0;
+            if (takeProfitPrice.HasValue)
+            {
+                double entryPriceForTp = limitPrice ?? (isLong ? sym.Ask : sym.Bid);
+                double tpLen = Math.Abs(entryPriceForTp - takeProfitPrice.Value);
+                takeInPips = Math.Round(tpLen / sym.PipSize);
+            }
 
             TradeResult order;
             IPosition pos;
             TradeType tradeType = isLong ? TradeType.Buy : TradeType.Sell;
             if (limitPrice.HasValue)
             {
-                order = m_Robot.PlaceLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value, botName,
-                    stopInPips, takeInPips, null, positionId);
+                var isStopLimit = sym.Bid < limitPrice.Value == isLong;
+
+                order = isStopLimit
+                    ? m_Robot.PlaceStopLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value,
+                        stopInPips, botName, stopLossPrice, takeProfitPrice, null, positionId)
+                    : m_Robot.PlaceLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value, botName,
+                        stopLossPrice, takeProfitPrice, null, positionId);
 
                 pos = ToIPosition(order.PendingOrder);//problem
             }
             else
             {
-                order = m_Robot.ExecuteMarketOrder(tradeType, symbol.Name, normalizedVolume, botName, stopInPips,
-                    takeInPips, positionId);
+                order = m_Robot.ExecuteMarketOrder(tradeType, symbol.Name, normalizedVolume, botName, stopLossPrice,
+                    takeProfitPrice, positionId);
                 pos = ToIPosition(order.Position);
             }
 

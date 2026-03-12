@@ -764,13 +764,11 @@ namespace TradeKit.Core.Common
                 {
                     // Split volume into two positions: one with original TP, one with TP = BreakEvenPrice
                     double halfVolume = volume / 2;
-                    double breakEvenTpLen = Math.Abs(priceNow - e.BreakEvenPrice);
-                    double breakEvenTpP = Math.Round(breakEvenTpLen / sf.Symbol.PipSize);
 
                     // First position: half volume with original TP
                     string stringPositionId1 = Helper.GetPositionId(sf.Id, e.Level, e.Comment + TAKE_PROFIT_SUFFIX);
                     OrderResult order1 = TradeManager.OpenOrder(
-                        isLong, sf.Symbol, halfVolume, GetBotName(), slP, tpP, stringPositionId1,
+                        isLong, sf.Symbol, halfVolume, GetBotName(), sl, tp, stringPositionId1,
                         e.IsLimit ? e.Level.Value : null);
 
                     if (order1?.IsSuccessful == true)
@@ -787,7 +785,7 @@ namespace TradeKit.Core.Common
                     // Second position: half volume with TP = BreakEvenPrice
                     string stringPositionId2 = Helper.GetPositionId(sf.Id, e.Level, e.Comment + BREAKEVEN_SUFFIX);
                     OrderResult order2 = TradeManager.OpenOrder(
-                        isLong, sf.Symbol, halfVolume, GetBotName(), slP, breakEvenTpP, stringPositionId2,
+                        isLong, sf.Symbol, halfVolume, GetBotName(), sl, e.BreakEvenPrice, stringPositionId2,
                         e.IsLimit ? e.Level.Value : null);
 
                     if (order2?.IsSuccessful == true)
@@ -806,7 +804,7 @@ namespace TradeKit.Core.Common
                     // Single position with original TP
                     string stringPositionId = Helper.GetPositionId(sf.Id, e.Level, e.Comment);
                     OrderResult order = TradeManager.OpenOrder(
-                        isLong, sf.Symbol, volume, GetBotName(), slP, tpP, stringPositionId,
+                        isLong, sf.Symbol, volume, GetBotName(), sl, tp, stringPositionId,
                         e.IsLimit ? e.Level.Value : null);
 
                     if (order?.IsSuccessful == true)

@@ -43,8 +43,8 @@ namespace TradeKit.Core.Common
         /// <param name="symbol">The symbol.</param>
         /// <param name="volume">The volume.</param>
         /// <param name="botName">Name of the bot.</param>
-        /// <param name="stopInPips">The stop in pips.</param>
-        /// <param name="takeInPips">The take in pips.</param>
+        /// <param name="stopLossPrice">The absolute stop loss price.</param>
+        /// <param name="takeProfitPrice">The absolute take profit price.</param>
         /// <param name="positionId">The position identifier.</param>
         /// <param name="limitPrice">The limit price for pending orders</param>
         /// <returns>Result of the operation</returns>
@@ -53,8 +53,8 @@ namespace TradeKit.Core.Common
             ISymbol symbol,
             double volume,
             string botName,
-            double stopInPips,
-            double takeInPips,
+            double? stopLossPrice,
+            double? takeProfitPrice,
             string positionId,
             double? limitPrice);
 
