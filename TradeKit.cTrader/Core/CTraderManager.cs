@@ -238,14 +238,6 @@ namespace TradeKit.CTrader.Core
                 stopInPips = Math.Round(slLen / sym.PipSize);
             }
 
-            double takeInPips = 0;
-            if (takeProfitPrice.HasValue)
-            {
-                double entryPriceForTp = limitPrice ?? (isLong ? sym.Ask : sym.Bid);
-                double tpLen = Math.Abs(entryPriceForTp - takeProfitPrice.Value);
-                takeInPips = Math.Round(tpLen / sym.PipSize);
-            }
-
             TradeResult order;
             IPosition pos;
             TradeType tradeType = isLong ? TradeType.Buy : TradeType.Sell;
@@ -255,9 +247,9 @@ namespace TradeKit.CTrader.Core
 
                 order = isStopLimit
                     ? m_Robot.PlaceStopLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value,
-                        stopInPips, botName, stopLossPrice, takeProfitPrice, null, positionId)
+                        stopInPips, botName, stopLossPrice, takeProfitPrice, null, null, positionId)
                     : m_Robot.PlaceLimitOrder(tradeType, symbol.Name, normalizedVolume, limitPrice.Value, botName,
-                        stopLossPrice, takeProfitPrice, null, positionId);
+                        stopLossPrice, takeProfitPrice, null, null, positionId);
 
                 pos = ToIPosition(order.PendingOrder);//problem
             }

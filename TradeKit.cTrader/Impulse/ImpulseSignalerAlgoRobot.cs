@@ -12,6 +12,14 @@ namespace TradeKit.CTrader.Impulse
         private readonly CTraderManager m_TradeManager;
         private readonly ImpulseParams m_ImpulseParams;
 
+        /// <summary>
+        /// Gets the provider responsible for managing and retrieving bar data.
+        /// </summary>
+        /// <value>
+        /// An implementation of the <see cref="IBarsProvider"/> interface, which isolates 
+        /// the logic for obtaining bar data from the main algorithm.
+        /// </value>
+        public IBarsProvider BarsProvider { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSignalerAlgoRobot"/> class.
@@ -35,7 +43,9 @@ namespace TradeKit.CTrader.Impulse
 
         protected override IBarsProvider CreateBarsProvider(ITimeFrame timeFrame, ISymbol symbolEntity)
         {
-            return CTraderBarsProvider.Create(timeFrame, symbolEntity, m_HostRobot.MarketData, m_TradeManager);
+            BarsProvider = CTraderBarsProvider.Create(timeFrame, symbolEntity, m_HostRobot.MarketData, m_TradeManager);
+
+            return BarsProvider;
         }
 
         /// <summary>

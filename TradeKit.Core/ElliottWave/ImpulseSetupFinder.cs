@@ -24,8 +24,8 @@ namespace TradeKit.Core.ElliottWave
         
         private const double LIMIT_RATIO = 0.8;
 
-        private const int IMPULSE_END_NUMBER = 2;
-        private const int IMPULSE_START_NUMBER = 3;
+        private const int IMPULSE_END_NUMBER = 1;
+        private const int IMPULSE_START_NUMBER = 2;
         // We want to collect at least this number of extrema
         // 1. Extremum of a correction.
         // 2. End of the impulse
@@ -57,10 +57,10 @@ namespace TradeKit.Core.ElliottWave
             m_TradeViewManager = tradeViewManager;
             m_ImpulseParams = impulseParams;
             m_OnnxModelClassifier = new OnnxModelClassifier();
-            
-            for (int i = 5; i <= 100; i += 10)
+
+            foreach (int p in new List<int> { impulseParams.Period })
             {
-                var localFinder = new DeviationExtremumFinder(i, BarsProvider);
+                var localFinder = new DeviationExtremumFinder(p, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());
                 m_ExtremumFinders.Add(localFinder);
             }
@@ -71,12 +71,15 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool res = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 &&
-                       stats.HeterogeneityMax <= m_ImpulseParams.HeterogeneityMax / 100 &&
-                       stats.Size >= m_ImpulseParams.MinSizePercent / 100 &&
-                       stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100 &&
-                       stats.MaxDistance <= m_ImpulseParams.MaxDistance / 100 &&
-                       stats.Area <= m_ImpulseParams.AreaPercent / 100;
+            bool rzz = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100;
+            bool hm = stats.HeterogeneityMax <= m_ImpulseParams.MaxZigzagPercent / 100;
+            bool om = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
+            bool md = stats.MaxDistance <= m_ImpulseParams.MaxDistance / 100;
+            bool a = stats.Area <= m_ImpulseParams.AreaPercent / 100;
+            bool s = stats.Size >= m_ImpulseParams.MinSizePercent / 100;
+
+
+            bool res = s && (rzz && hm && om && md && a /*|| stats.RatioZigzag<0.2 && stats.OverlapseMaxDepth < 0.2*/);
             return res;
         }
         
@@ -229,7 +232,7 @@ namespace TradeKit.Core.ElliottWave
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
             if (!checkSignalArgs.HasInCache &&
-                (stats.CandlesCount < m_ImpulseParams.BarsCount || IsSmoothImpulse(stats)))
+                (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");
@@ -412,8 +415,8 @@ namespace TradeKit.Core.ElliottWave
                 new BarPoint(
                     signalArgs.UseLimit ? signalArgs.TriggerLevel : realPrice,
                     signalArgs.Index, BarsProvider),
-                slArg,
                 tpArg,
+                slArg,
                 outExtrema,
                 viewDateTime,
                 CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1

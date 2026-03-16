@@ -68,20 +68,13 @@ public class IterativeImpulseZigzagIndicator : Indicator
         ImpulseResult stat = MovementStatistic.GetMovementStatistic(segStart, segEnd, m_BarProvider);
         int area = stat.Area.ToPercent();
         int h = stat.HeterogeneityMax.ToPercent();
-        MovementStatistic.GetDeviationScore(segStart, segEnd, m_BarProvider, out double maxDev, out double avgDev);
-        int maxDistance = maxDev.ToPercent();
-        int avgDistance = avgDev.ToPercent();
+        int o = stat.OverlapseMaxDepth.ToPercent();
+        double rz = stat.RatioZigzag.ToPercent();
+        //MovementStatistic.GetDeviationScore(segStart, segEnd, m_BarProvider, out double maxDev, out double avgDev);
+        //int maxDistance = maxDev.ToPercent();
+        //int avgDistance = avgDev.ToPercent();
 
-        double rz = MovementStatistic.GetUniformityScore(segStart, segEnd, m_BarProvider);
-        int rzValue = rz.ToPercent();
-
-        //if (area > 35)
-        //{
-        //    return;
-        //}
-
-
-        int monocolor = Convert.ToInt32(255 - rz * 200);
+        int monocolor = Convert.ToInt32(255);
         var alfa = 200;
         Color color = Color.FromArgb(alfa, monocolor, monocolor, monocolor);
 
@@ -91,7 +84,7 @@ public class IterativeImpulseZigzagIndicator : Indicator
             color, 2);
 
         string textId = $"T_{segStart.BarIndex}";
-        ChartText text = Chart.DrawText(textId, $"{rzValue}/{area}/{maxDistance}/{avgDistance}/{h}", segEnd.OpenTime,
+        ChartText text = Chart.DrawText(textId, $"{rz}/{o}/{h}", segEnd.OpenTime,
             segEnd.Value, color);
         if (segEnd > segStart)
             text.VerticalAlignment = VerticalAlignment.Top;

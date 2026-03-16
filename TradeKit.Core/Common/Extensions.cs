@@ -559,7 +559,8 @@ namespace TradeKit.Core.Common
 
             using var writer = new StreamWriter(pathToSave);
             writer.WriteLine($"Time{Helper.CSV_SEPARATOR}Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close");
-        
+
+            provider.LoadBars(start);
             int startIndex = provider.GetIndexByTime(start);
             int endIndex = provider.GetIndexByTime(end);
                 

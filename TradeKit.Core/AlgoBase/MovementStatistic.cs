@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
+using TradeKit.Core.Indicators;
 using static Microsoft.FSharp.Core.ByRefKinds;
 
 namespace TradeKit.Core.AlgoBase
@@ -26,7 +27,9 @@ namespace TradeKit.Core.AlgoBase
             double? rateZigzagMaxLimit = null,
             double? rateHeterogeneityMaxLimit = null)
         {
-            
+            int count = end.BarIndex - start.BarIndex;
+            //return new ImpulseResult(0, count, 0, 0, 0, 0, 0);
+
             double rz = GetRatioZigZag(start, end, barsProvider);
             double uni = GetUniformityScore(start, end, barsProvider);
             //ElliottModelType? prediction = m_OnnxModelClassifier.Predict(checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider);
@@ -78,7 +81,6 @@ namespace TradeKit.Core.AlgoBase
 
             double area = GetEnvelopeAreaScore(start, end, barsProvider);
 
-            int count = end.BarIndex - start.BarIndex;
             //double priceCorrection = end > start ? start.Value : end.Value;
             //double profileArea = profiles.Sum(a => a.Value * Math.Abs(a.Key - priceCorrection))
             //                     / (10 * count * Math.Abs(start - end));
@@ -911,6 +913,8 @@ namespace TradeKit.Core.AlgoBase
         /// <returns>A value between 0 and 1 indicating how far the maximum candle count deviates from the average.</returns>
         public static double GetUniformityScore(BarPoint start, BarPoint end, IBarsProvider barsProvider)
         {
+            //SortedDictionary<double, int> profile = GetProfileByZigzag(start, end, barsProvider, out _, out _);
+
             bool isUp = end > start;
             List<ICandle> candles = new();
             for (int i = start.BarIndex; i <= end.BarIndex; i++)
@@ -935,6 +939,47 @@ namespace TradeKit.Core.AlgoBase
                 return 0;
 
             return 1.0 - (n / m);
+        }
+
+        /// <summary>
+        /// Gets the profile for a price segment using zigzag extrema as levels instead of individual candle H/L.
+        /// Uses the minimum zigzag deviation to produce the most detailed extrema set.
+        /// Each zigzag swing (consecutive extrema pair) acts as a single level entry.
+        /// </summary>
+        /// <param name="start">The start point of the segment.</param>
+        /// <param name="end">The end point of the segment.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <param name="overlapseIndex">The overlapse degree.</param>
+        /// <param name="singleCandle">The single candle degree.</param>
+        /// <returns>price-zigzag swings count dict.</returns>
+        public static SortedDictionary<double, int> GetProfileByZigzag(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider, out double overlapseIndex, out double singleCandle)
+        {
+            const double minDeviation = 0.005;
+            bool isUp = end > start;
+
+            SimpleExtremumFinder finder = new SimpleExtremumFinder(minDeviation, barsProvider, !isUp);
+            finder.Calculate(start.BarIndex, end.BarIndex);
+            List<BarPoint> extrema = finder.ToExtremaList()
+                .Where(e => e.BarIndex >= start.BarIndex && e.BarIndex <= end.BarIndex)
+                .ToList();
+
+            if (extrema.Count < 2)
+            {
+                overlapseIndex = 0;
+                singleCandle = 0;
+                return new SortedDictionary<double, int>();
+            }
+
+            List<ICandle> swings = new();
+            for (int i = 0; i < extrema.Count - 1; i++)
+            {
+                double high = Math.Max(extrema[i].Value, extrema[i + 1].Value);
+                double low = Math.Min(extrema[i].Value, extrema[i + 1].Value);
+                swings.Add(new Candle(low, high, low, high));
+            }
+
+            return GetProfile(swings, isUp, out overlapseIndex, out singleCandle);
         }
     }
 }
