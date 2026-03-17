@@ -3,7 +3,6 @@ using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
-using TradeKit.Core.ML;
 
 namespace TradeKit.Core.ElliottWave
 {
@@ -15,7 +14,6 @@ namespace TradeKit.Core.ElliottWave
     {
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly ImpulseParams m_ImpulseParams;
-        private readonly OnnxModelClassifier m_OnnxModelClassifier;
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly double m_MaxZigzagRatio;
         private readonly double m_MaxOverlapseLengthRatio;
@@ -56,7 +54,6 @@ namespace TradeKit.Core.ElliottWave
         {
             m_TradeViewManager = tradeViewManager;
             m_ImpulseParams = impulseParams;
-            m_OnnxModelClassifier = new OnnxModelClassifier();
 
             foreach (int p in new List<int> { impulseParams.Period })
             {
