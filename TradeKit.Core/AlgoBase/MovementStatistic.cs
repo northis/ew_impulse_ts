@@ -12,6 +12,7 @@ namespace TradeKit.Core.AlgoBase
     /// </summary>
     public static class MovementStatistic
     {
+        private const double MIN_DEVIATION = 0.005;
         /// <summary>
         /// Gets the statistic data for the movement (from start to the end).
         /// </summary>
@@ -955,7 +956,7 @@ namespace TradeKit.Core.AlgoBase
         public static SortedDictionary<double, int> GetProfileByZigzag(
             BarPoint start, BarPoint end, IBarsProvider barsProvider, out double overlapseIndex, out double singleCandle)
         {
-            const double minDeviation = 0.005;
+            const double minDeviation = MIN_DEVIATION;
             bool isUp = end > start;
 
             SimpleExtremumFinder finder = new SimpleExtremumFinder(minDeviation, barsProvider, !isUp);
@@ -980,6 +981,62 @@ namespace TradeKit.Core.AlgoBase
             }
 
             return GetProfile(swings, isUp, out overlapseIndex, out singleCandle);
+        }
+        /// <summary>
+        /// Computes the seniority ranks of inner extrema within the segment by iteratively halving
+        /// the zigzag deviation from the segment's own size down to <see cref="MIN_DEVIATION"/>.
+        /// A rank is assigned to a bar-index the first time it appears in the inner extrema set;
+        /// the rank counter increments only when the set actually changes between two consecutive halvings.
+        /// </summary>
+        /// <param name="start">The segment start point (excluded from results).</param>
+        /// <param name="end">The segment end point (excluded from results).</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <returns>
+        /// Dictionary mapping each inner bar index to its <see cref="BarPoint"/> and seniority rank.
+        /// Rank 1 = appeared earliest (coarsest deviation); higher rank = finer deviation.
+        /// </returns>
+        public static Dictionary<int, (BarPoint Point, int Rank)> GetSubExtremumRanks(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider)
+        {
+            var ranks = new Dictionary<int, (BarPoint Point, int Rank)>();
+
+            if (end.BarIndex - start.BarIndex < 3)
+                return ranks;
+
+            bool isUp = end.Value > start.Value;
+            double segmentPercent = Math.Abs(end.Value - start.Value)
+                                    / Math.Min(start.Value, end.Value) * 100.0;
+            double currentDeviation = Math.Max(segmentPercent, MIN_DEVIATION);
+            int step = 1;
+            HashSet<int> prevIndices = new HashSet<int>();
+
+            while (currentDeviation >= MIN_DEVIATION)
+            {
+                SimpleExtremumFinder finder = new SimpleExtremumFinder(currentDeviation, barsProvider, !isUp);
+                finder.Calculate(start.BarIndex, end.BarIndex);
+
+                List<BarPoint> innerExtrema = finder.ToExtremaList()
+                    .Where(ep => ep.BarIndex > start.BarIndex && ep.BarIndex < end.BarIndex)
+                    .ToList();
+
+                HashSet<int> currentIndices = new HashSet<int>(innerExtrema.Select(ep => ep.BarIndex));
+
+                if (!currentIndices.SetEquals(prevIndices))
+                {
+                    foreach (BarPoint point in innerExtrema)
+                    {
+                        if (!ranks.ContainsKey(point.BarIndex))
+                            ranks[point.BarIndex] = (point, step);
+                    }
+
+                    step++;
+                    prevIndices = currentIndices;
+                }
+
+                currentDeviation /= 2;
+            }
+
+            return ranks;
         }
     }
 }

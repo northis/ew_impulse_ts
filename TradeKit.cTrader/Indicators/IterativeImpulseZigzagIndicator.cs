@@ -12,7 +12,7 @@ namespace TradeKit.CTrader.Indicators;
 /// Zigzag indicator that evaluates whether each segment is an impulse 
 /// using the IterativeZigzagImpulseClassifier.
 /// </summary>
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeImpulseZigzagIndicator : Indicator
 {
     /// <summary>
