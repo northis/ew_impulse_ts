@@ -15,7 +15,7 @@ namespace TradeKit.CTrader.Indicators;
 /// Rank 1 = appeared earliest (coarsest deviation) = highest seniority.
 /// A step increments only when the inner extrema set actually changes.
 /// </summary>
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeZigzagSeniorityIndicator : Indicator
 {
     /// <summary>
