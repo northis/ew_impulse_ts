@@ -42,7 +42,7 @@ namespace TradeKit.Core.AlgoBase
 
         private readonly Dictionary<string, MarkupResult> m_Cache = new();
 
-        public List<MarkupResult> ParseSegment(BarPoint start, BarPoint end, Dictionary<int, (BarPoint Point, int Rank)> ranksDict)
+        public List<MarkupResult> ParseSegment(BarPoint start, BarPoint end, Dictionary<int, (BarPoint Point, int Rank)> ranksDict, int maxDepth = 3)
         {
             m_Cache.Clear();
             var innerPoints = ranksDict.Values.OrderBy(x => x.Point.BarIndex).ToList();
@@ -66,7 +66,7 @@ namespace TradeKit.Core.AlgoBase
             double bestScore = -1;
 
             // 1. Main only
-            var mainRes = FindBestModel(start, end, isUp, innerPoints, allowedMainModels, 0, "", 0);
+            var mainRes = FindBestModel(start, end, isUp, innerPoints, allowedMainModels, 0, maxDepth, "MAIN", 0);
             if (mainRes != null && mainRes.Score > bestScore)
             {
                 bestScore = mainRes.Score;
@@ -103,7 +103,7 @@ namespace TradeKit.Core.AlgoBase
                         double tailScore = GetFiboWeight(MAP_EX_FLAT_WAVE_C_TO_A, wC / wB); 
 
                         var remainingPoints = innerPoints.Where(p => p.Point.BarIndex > p2.Point.BarIndex).ToList();
-                        var mainAfterTail = FindBestModel(p2.Point, end, isUp, remainingPoints, allowedMainModels, 0, "", 0);
+                        var mainAfterTail = FindBestModel(p2.Point, end, isUp, remainingPoints, allowedMainModels, 0, maxDepth, "", 0);
 
                         if (mainAfterTail != null)
                         {
@@ -176,7 +176,7 @@ namespace TradeKit.Core.AlgoBase
                                                    GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, wE / wD);
 
                                 var remainingPoints = innerPoints.Where(p => p.Point.BarIndex > p4.Point.BarIndex).ToList();
-                                var mainAfterTail = FindBestModel(p4.Point, end, isUp, remainingPoints, allowedMainModels, 0, "", 0);
+                                var mainAfterTail = FindBestModel(p4.Point, end, isUp, remainingPoints, allowedMainModels, 0, maxDepth, "", 0);
 
                                 if (mainAfterTail != null)
                                 {
@@ -220,7 +220,7 @@ namespace TradeKit.Core.AlgoBase
 
         private MarkupResult FindBestModel(BarPoint start, BarPoint end, bool isUp,
             List<(BarPoint Point, int Rank)> innerPoints,
-            List<ElliottModelType> allowedModels, int depth, string nodeName, byte level)
+            List<ElliottModelType> allowedModels, int depth, int maxDepth, string nodeName, byte level)
         {
             string cacheKey = $"{start.BarIndex}_{end.BarIndex}_{string.Join(",", allowedModels.Select(m => (int)m))}";
             if (m_Cache.TryGetValue(cacheKey, out var cached))
@@ -228,15 +228,21 @@ namespace TradeKit.Core.AlgoBase
 
             var validInner = innerPoints.Where(p => p.Point.BarIndex > start.BarIndex && p.Point.BarIndex < end.BarIndex).ToList();
 
-            if (depth >= 6 || validInner.Count < 2)
+            if (depth >= maxDepth || validInner.Count < 2)
             {
                 MarkupResult simpleRes = null;
+                double penalty = 1.0;
+                if (validInner.Count > 0)
+                {
+                    penalty = Math.Pow(0.5, validInner.Count);
+                }
+
                 if (allowedModels.Contains(ElliottModelType.SIMPLE_IMPULSE))
-                    simpleRes = new MarkupResult { ModelType = ElliottModelType.SIMPLE_IMPULSE, Score = 1.0, Start = start, End = end, IsUp = isUp, NodeName = nodeName, Level = level };
+                    simpleRes = new MarkupResult { ModelType = ElliottModelType.SIMPLE_IMPULSE, Score = 1.0 * penalty, Start = start, End = end, IsUp = isUp, NodeName = nodeName, Level = level };
                 else if (allowedModels.Contains(ElliottModelType.IMPULSE))
-                    simpleRes = new MarkupResult { ModelType = ElliottModelType.IMPULSE, Score = 0.1, Start = start, End = end, IsUp = isUp, NodeName = nodeName, Level = level };
+                    simpleRes = new MarkupResult { ModelType = ElliottModelType.IMPULSE, Score = 0.1 * penalty, Start = start, End = end, IsUp = isUp, NodeName = nodeName, Level = level };
                 else if (allowedModels.Contains(ElliottModelType.ZIGZAG))
-                    simpleRes = new MarkupResult { ModelType = ElliottModelType.ZIGZAG, Score = 0.05, Start = start, End = end, IsUp = isUp, NodeName = nodeName, Level = level };
+                    simpleRes = new MarkupResult { ModelType = ElliottModelType.ZIGZAG, Score = 0.05 * penalty, Start = start, End = end, IsUp = isUp, NodeName = nodeName, Level = level };
                 
                 if (simpleRes != null) m_Cache[cacheKey] = simpleRes;
                 return simpleRes;
@@ -247,7 +253,12 @@ namespace TradeKit.Core.AlgoBase
 
             if (allowedModels.Contains(ElliottModelType.SIMPLE_IMPULSE))
             {
-                double score = ElliottWavePatternHelper.ModelRules[ElliottModelType.SIMPLE_IMPULSE].ProbabilityCoefficient;
+                double score = 1.0; // Base score for simple impulse when validInner.Count >= 2
+                if (validInner.Count > 0)
+                {
+                    score *= Math.Pow(0.5, validInner.Count); // Heavy penalty for ignoring inner extrema
+                }
+                
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -284,7 +295,7 @@ namespace TradeKit.Core.AlgoBase
                             double score = Evaluate3WaveModel(model, start, end, isUp, minRank, p1, p2);
                             if (score > 0)
                             {
-                                var result = CreateResult(model, start, end, isUp, new[] { p1, p2 }, validInner, score, depth, nodeName, level);
+                                var result = CreateResult(model, start, end, isUp, new[] { p1, p2 }, validInner, score, depth, maxDepth, nodeName, level);
                                 if (result != null && result.Score > bestScore)
                                 {
                                     bestScore = result.Score;
@@ -332,7 +343,7 @@ namespace TradeKit.Core.AlgoBase
                                     double score = Evaluate5WaveModel(model, start, end, isUp, minRank, p1, p2, p3, p4);
                                     if (score > 0)
                                     {
-                                        var result = CreateResult(model, start, end, isUp, new[] { p1, p2, p3, p4 }, validInner, score, depth, nodeName, level);
+                                        var result = CreateResult(model, start, end, isUp, new[] { p1, p2, p3, p4 }, validInner, score, depth, maxDepth, nodeName, level);
                                         if (result != null && result.Score > bestScore)
                                         {
                                             bestScore = result.Score;
@@ -394,6 +405,7 @@ namespace TradeKit.Core.AlgoBase
                 if (!isUp && end.Value >= p1.Point.Value) return 0;
 
                 fiboScore *= GetFiboWeight(MAP_EX_FLAT_WAVE_C_TO_A, wC / wA);
+                fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, wB / wA), GetFiboWeight(MAP_SHALLOW_CORRECTION, wB / wA));
             }
             else if (model == ElliottModelType.FLAT_RUNNING)
             {
@@ -403,9 +415,14 @@ namespace TradeKit.Core.AlgoBase
                 if (!isUp && end.Value < p1.Point.Value) return 0;
 
                 fiboScore *= GetFiboWeight(MAP_RUNNING_FLAT_WAVE_C_TO_A, wC / wA);
+                fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, wB / wA), GetFiboWeight(MAP_SHALLOW_CORRECTION, wB / wA));
             }
 
-            double rankPenalty = Math.Pow(0.8, p1.Rank - minRank) * Math.Pow(0.8, p2.Rank - minRank);
+            fiboScore = Math.Pow(fiboScore, 1.0 / 2.0); // Geometric mean of 2 relations
+            
+            double rankAvg = ((p1.Rank - minRank) + (p2.Rank - minRank)) / 2.0;
+            double rankPenalty = Math.Pow(0.8, rankAvg);
+
             return fiboScore * rankPenalty * ElliottWavePatternHelper.ModelRules[model].ProbabilityCoefficient;
         }
 
@@ -434,6 +451,8 @@ namespace TradeKit.Core.AlgoBase
                 fiboScore *= GetFiboWeight(IMPULSE_5_TO_1, w5 / w1);
                 fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w2 / w1), GetFiboWeight(MAP_SHALLOW_CORRECTION, w2 / w1));
                 fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w4 / w3), GetFiboWeight(MAP_SHALLOW_CORRECTION, w4 / w3));
+                
+                fiboScore = Math.Pow(fiboScore, 1.0 / 4.0); // Geometric mean of 4 relations
             }
             else if (model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL || model == ElliottModelType.DIAGONAL_CONTRACTING_ENDING)
             {
@@ -444,6 +463,10 @@ namespace TradeKit.Core.AlgoBase
                 if (w3 >= w1 || w5 >= w3) return 0;
 
                 fiboScore *= GetFiboWeight(CONTRACTING_DIAGONAL_3_TO_1, w3 / w1);
+                fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w2 / w1), GetFiboWeight(MAP_SHALLOW_CORRECTION, w2 / w1));
+                fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w4 / w3), GetFiboWeight(MAP_SHALLOW_CORRECTION, w4 / w3));
+                
+                fiboScore = Math.Pow(fiboScore, 1.0 / 3.0); // Geometric mean of 3 relations
             }
             else if (model == ElliottModelType.TRIANGLE_CONTRACTING)
             {
@@ -454,6 +477,8 @@ namespace TradeKit.Core.AlgoBase
                 fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w3 / w2);
                 fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w4 / w3);
                 fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w5 / w4);
+                
+                fiboScore = Math.Pow(fiboScore, 1.0 / 4.0); // Geometric mean of 4 relations
             }
             else if (model == ElliottModelType.TRIANGLE_RUNNING)
             {
@@ -463,14 +488,22 @@ namespace TradeKit.Core.AlgoBase
                 fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w3 / w2);
                 fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w4 / w3);
                 fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w5 / w4);
+                
+                fiboScore = Math.Pow(fiboScore, 1.0 / 3.0); // Geometric mean of 3 relations
             }
 
-            double rankPenalty = Math.Pow(0.8, p1.Rank - minRank) * Math.Pow(0.8, p2.Rank - minRank) * Math.Pow(0.8, p3.Rank - minRank) * Math.Pow(0.8, p4.Rank - minRank);
-            return fiboScore * rankPenalty * ElliottWavePatternHelper.ModelRules[model].ProbabilityCoefficient;
+            double rankAvg = ((p1.Rank - minRank) + (p2.Rank - minRank) + (p3.Rank - minRank) + (p4.Rank - minRank)) / 4.0;
+            double rankPenalty = Math.Pow(0.8, rankAvg);
+
+            double pc = ElliottWavePatternHelper.ModelRules[model].ProbabilityCoefficient;
+            // Override IMPULSE's low default probability so it can compete with ZIGZAG during markup
+            if (model == ElliottModelType.IMPULSE) pc = 2.5;
+
+            return fiboScore * rankPenalty * pc;
         }
 
         private MarkupResult CreateResult(ElliottModelType model, BarPoint start, BarPoint end, bool isUp, 
-            (BarPoint Point, int Rank)[] pts, List<(BarPoint Point, int Rank)> innerPoints, double baseScore, int depth, string nodeName, byte level)
+            (BarPoint Point, int Rank)[] pts, List<(BarPoint Point, int Rank)> innerPoints, double baseScore, int depth, int maxDepth, string nodeName, byte level)
         {
             var rules = ElliottWavePatternHelper.ModelRules[model].Models;
             string[] keys = rules.Keys.ToArray();
@@ -487,6 +520,7 @@ namespace TradeKit.Core.AlgoBase
             };
 
             BarPoint currentStart = start;
+            bool currentIsUp = isUp;
             for (int i = 0; i <= pts.Length; i++)
             {
                 BarPoint currentEnd = i < pts.Length ? pts[i].Point : end;
@@ -502,18 +536,28 @@ namespace TradeKit.Core.AlgoBase
                     m == ElliottModelType.FLAT_REGULAR ||
                     m == ElliottModelType.COMBINATION);
                     
-                if (allowedModels.Contains(ElliottModelType.IMPULSE))
+                if (!allowedModels.Contains(ElliottModelType.SIMPLE_IMPULSE))
                     allowedModels.Add(ElliottModelType.SIMPLE_IMPULSE);
 
-                var subResult = FindBestModel(currentStart, currentEnd, !isUp, innerPoints, allowedModels, depth + 1, keys[i], (byte)(level + 1));
+                var subResult = FindBestModel(currentStart, currentEnd, currentIsUp, innerPoints, allowedModels, depth + 1, maxDepth, keys[i], (byte)(level + 1));
                 
                 if (subResult == null) return null; // Invalid sub-wave
                 
                 result.SubWaves.Add(subResult);
-                result.Score *= subResult.Score;
                 
                 currentStart = currentEnd;
-                isUp = !isUp;
+                currentIsUp = !currentIsUp;
+            }
+
+            // Geometric mean of subwave scores to avoid penalizing complex models
+            if (result.SubWaves.Count > 0)
+            {
+                double totalSubScore = 1.0;
+                foreach (var sub in result.SubWaves)
+                {
+                    totalSubScore *= sub.Score;
+                }
+                result.Score *= Math.Pow(totalSubScore, 1.0 / result.SubWaves.Count);
             }
 
             return result;

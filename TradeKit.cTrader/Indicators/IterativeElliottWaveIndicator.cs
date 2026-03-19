@@ -24,6 +24,12 @@ public class IterativeElliottWaveIndicator : Indicator
     [Parameter(nameof(DeviationPercent), DefaultValue = 0.3, MinValue = 0.01, Group = Helper.TRADE_SETTINGS_NAME)]
     public double DeviationPercent { get; set; }
 
+    /// <summary>
+    /// Gets or sets the maximum depth for Elliott Wave sub-structure analysis.
+    /// </summary>
+    [Parameter(nameof(MaxDepth), DefaultValue = 3, MinValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+    public int MaxDepth { get; set; }
+
     private IBarsProvider m_BarProvider;
     private SimpleExtremumFinder m_ExtremumFinder;
     private ElliottWaveMarkup m_Markup;
@@ -105,9 +111,10 @@ public class IterativeElliottWaveIndicator : Indicator
     {
         Dictionary<int, (BarPoint Point, int Rank)> ranks = MovementStatistic.GetSubExtremumRanks(segStart, segEnd, m_BarProvider);
         
-        MarkupResult result = m_Markup.ParseSegment(segStart, segEnd, ranks);
-        if (result == null) return;
+        List<MarkupResult> results = m_Markup.ParseSegment(segStart, segEnd, ranks, MaxDepth);
+        if (results.Count == 0) return;
 
+        MarkupResult result = results.FirstOrDefault();
         var allNodes = result.Flatten().ToList();
 
         foreach (var node in allNodes)
