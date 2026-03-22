@@ -15,7 +15,7 @@ namespace TradeKit.CTrader.Indicators;
 /// Zigzag indicator that shows Elliott Wave sub-structures within each confirmed segment.
 /// Uses inner extrema rankings to map to the best fitting Elliott Wave model recursively.
 /// </summary>
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeElliottWaveIndicator : Indicator
 {
     /// <summary>
