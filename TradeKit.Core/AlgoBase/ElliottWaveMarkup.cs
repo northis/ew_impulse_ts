@@ -3,31 +3,6 @@ using TradeKit.Core.ElliottWave;
 
 namespace TradeKit.Core.AlgoBase
 {
-    public class MarkupResult
-    {
-        public ElliottModelType ModelType { get; set; }
-        public List<BarPoint> Boundaries { get; set; } = new List<BarPoint>();
-        public List<MarkupResult> SubWaves { get; set; } = new List<MarkupResult>();
-        public double Score { get; set; }
-        public BarPoint Start { get; set; }
-        public BarPoint End { get; set; }
-        public bool IsUp { get; set; }
-        public string NodeName { get; set; }
-        public byte Level { get; set; }
-
-        public IEnumerable<MarkupResult> Flatten()
-        {
-            yield return this;
-            foreach (var child in SubWaves.SelectMany(w => w.Flatten()))
-            {
-                yield return child;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Implements Elliott Wave markup generation inside zigzag segments based on ranking.
-    /// </summary>
     public class ElliottWaveMarkup
     {
         private static readonly (byte weight, double ratio)[] ZIGZAG_C_TO_A = { (0, 0), (5, 0.618), (25, 0.786), (35, 0.786), (75, 1), (85, 1.618), (90, 2.618), (95, 3.618) };

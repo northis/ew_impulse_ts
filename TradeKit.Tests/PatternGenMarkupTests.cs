@@ -56,7 +56,7 @@ namespace TradeKit.Tests
 
             for (int i = 0; i < totalTests; i++)
             {
-                (DateTime start, DateTime end) = Helper.GetDateRange(100, TIME_FRAME);
+                (DateTime start, DateTime end) = Helper.GetDateRange(200, TIME_FRAME);
                 PatternArgsItem paramArgs = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
                 ModelPattern model = m_PatternGenerator.GetPattern(paramArgs, ElliottModelType.IMPULSE, false);
 
@@ -74,7 +74,7 @@ namespace TradeKit.Tests
 
                 bool isUp = endNode.Value > startCandle.O;
                 double startVal = isUp ? model.Candles.Take(mainWaves[0].Index).Min(x => x.L) : model.Candles.Take(mainWaves[0].Index).Max(x => x.H);
-                int startIndex = model.Candles.FindIndex(x => x.L == startVal || x.H == startVal);
+                int startIndex = model.Candles.FindIndex(x => Math.Abs(x.L - startVal) < double.Epsilon || Math.Abs(x.H - startVal) < double.Epsilon);
                 if (startIndex == -1) startIndex = 0;
 
                 var startPoint = new BarPoint(startVal, model.Candles[startIndex].OpenDate, barsProvider);
@@ -103,7 +103,7 @@ namespace TradeKit.Tests
                 var results = markup.ParseSegment(startPoint, endPoint, ranks, 3);
                 var bestResult = results.FirstOrDefault();
 
-                if (bestResult != null && bestResult.ModelType == ElliottModelType.IMPULSE)
+                if (bestResult is { ModelType: ElliottModelType.IMPULSE })
                 {
                     matchedTests++;
                 }

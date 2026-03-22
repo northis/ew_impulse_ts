@@ -54,36 +54,43 @@ namespace TradeKit.Tests
 
             for (int i = 0; i < totalTests; i++)
             {
-                (DateTime start, DateTime end) = Helper.GetDateRange(100, TIME_FRAME);
+                (DateTime start, DateTime end) = Helper.GetDateRange(200, TIME_FRAME);
                 PatternArgsItem paramArgs = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
                 ModelPattern model = m_PatternGenerator.GetPattern(paramArgs, ElliottModelType.IMPULSE, false);
 
-                var barsProvider = new TestBarsProvider(model.Candles);
-                var markup = new ElliottWaveExactMarkup();
+                TestBarsProvider barsProvider = new TestBarsProvider(model.Candles);
+                ElliottWaveExactMarkup markup = new ElliottWaveExactMarkup();
 
-                var keyPoints = model.PatternKeyPoints.SelectMany(x => x.Value).OrderBy(x => x.Index).ToList();
-                if (keyPoints.Count < 2) continue;
+                List<PatternKeyPoint> keyPoints = model.PatternKeyPoints.SelectMany(x => x.Value).OrderBy(x => x.Index).ToList();
+                if (keyPoints.Count < 2)
+                {
+                    continue;
+                }
 
-                var points = new List<BarPoint>();
-                var mainWaves = model.PatternKeyPoints.SelectMany(x => x.Value).Where(x => x.Notation.Level == model.Level).OrderBy(x => x.Index).ToList();
-                var startCandle = model.Candles[0];
-                var endNode = mainWaves.Last();
+                List<BarPoint> points = new List<BarPoint>();
+                List<PatternKeyPoint> mainWaves = model.PatternKeyPoints.SelectMany(x => x.Value).Where(x => x.Notation.Level == model.Level).OrderBy(x => x.Index).ToList();
+                JsonCandleExport? startCandle = model.Candles[0];
+                PatternKeyPoint endNode = mainWaves.Last();
                 bool isUp = endNode.Value > startCandle.O;
                 double startVal = isUp ? model.Candles.Take(mainWaves[0].Index).Min(x => x.L) : model.Candles.Take(mainWaves[0].Index).Max(x => x.H);
-                int startIndex = model.Candles.FindIndex(x => x.L == startVal || x.H == startVal);
-                if (startIndex == -1) startIndex = 0;
+                int startIndex = model.Candles.FindIndex(x => Math.Abs(x.L - startVal) < double.Epsilon || Math.Abs(x.H - startVal) < double.Epsilon);
+                if (startIndex == -1)
+                {
+                    startIndex = 0;
+                }
+
                 points.Add(new BarPoint(startVal, model.Candles[startIndex].OpenDate, barsProvider));
 
-                var distinctPoints = keyPoints.Where(x => x.Index > startIndex && x.Index <= endNode.Index)
+                List<PatternKeyPoint> distinctPoints = keyPoints.Where(x => x.Index > startIndex && x.Index <= endNode.Index)
                     .GroupBy(x => x.Index).Select(g => g.OrderByDescending(x => x.Notation.Level).First()).OrderBy(x => x.Index).ToList();
                 
-                foreach (var kp in distinctPoints)
+                foreach (PatternKeyPoint kp in distinctPoints)
                 {
                     points.Add(new BarPoint(kp.Value, model.Candles[kp.Index].OpenDate, barsProvider));
                 }
 
-                var results = markup.Parse(points);
-                var bestResult = results.FirstOrDefault();
+                List<ExactParsedNode>? results = markup.Parse(points);
+                ExactParsedNode? bestResult = results.FirstOrDefault();
 
                 if (bestResult != null && bestResult.ModelType == ElliottModelType.IMPULSE && bestResult.WaveCount == bestResult.ExpectedWaves)
                 {

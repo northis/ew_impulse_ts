@@ -3,58 +3,16 @@ using TradeKit.Core.ElliottWave;
 
 namespace TradeKit.Core.AlgoBase
 {
-    public class ExactParsedNode
-    {
-        public ElliottModelType ModelType { get; set; }
-        public int WaveCount { get; set; }
-        public int ExpectedWaves { get; set; }
-        
-        public int StartIndex { get; set; }
-        public int EndIndex { get; set; }
-        
-        public BarPoint StartPoint { get; set; }
-        public BarPoint EndPoint { get; set; }
-        
-        public bool IsUp { get; set; }
-        public double Score { get; set; }
-        
-        public ExactParsedNode[] SubWaves { get; set; }
-        
-        public double Length => Math.Abs(EndPoint.Value - StartPoint.Value);
-        
-        public MarkupResult ToMarkupResult()
-        {
-            MarkupResult res = new MarkupResult
-            {
-                ModelType = ModelType,
-                Start = StartPoint,
-                End = EndPoint,
-                IsUp = IsUp,
-                Score = Score,
-                Boundaries = new List<BarPoint>(),
-                SubWaves = new List<MarkupResult>(),
-                Level = 0,
-                NodeName = ""
-            };
-            
-            for (int i = 0; i < WaveCount; i++)
-            {
-                if (SubWaves[i] != null)
-                {
-                    if (i < WaveCount - 1)
-                        res.Boundaries.Add(SubWaves[i].EndPoint);
-                    
-                    MarkupResult sub = SubWaves[i].ToMarkupResult();
-                    sub.NodeName = ElliottWaveExactMarkup.GetWaveKey(ModelType, i + 1);
-                    res.SubWaves.Add(sub);
-                }
-            }
-            return res;
-        }
-    }
-
+    /// <summary>
+    /// Implements exact Elliott Wave markup algorithm using dynamic programming bottom-up parsing.
+    /// </summary>
     public partial class ElliottWaveExactMarkup
     {
+        private const int MaxHypothesesPerNode = 500;
+
+        /// <summary>
+        /// Defines the target wave models that the algorithm attempts to identify.
+        /// </summary>
         public static readonly ElliottModelType[] TargetModels = {
             ElliottModelType.IMPULSE,
             ElliottModelType.ZIGZAG,
@@ -67,6 +25,9 @@ namespace TradeKit.Core.AlgoBase
             ElliottModelType.DIAGONAL_CONTRACTING_ENDING
         };
 
+        /// <summary>
+        /// Gets the string key representation for a specific sub-wave number within a parent model type.
+        /// </summary>
         public static string GetWaveKey(ElliottModelType type, int waveNum)
         {
             if (type == ElliottModelType.IMPULSE || type == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL || type == ElliottModelType.DIAGONAL_CONTRACTING_ENDING)
@@ -80,6 +41,9 @@ namespace TradeKit.Core.AlgoBase
             return "";
         }
 
+        /// <summary>
+        /// Gets the expected total number of sub-waves for a given Elliott wave model type.
+        /// </summary>
         public static int GetExpectedWaves(ElliottModelType type)
         {
             if (type == ElliottModelType.IMPULSE || type == ElliottModelType.TRIANGLE_CONTRACTING || 
@@ -106,6 +70,11 @@ namespace TradeKit.Core.AlgoBase
             return false;
         }
 
+        /// <summary>
+        /// Calculates Fibonacci price projections for missing sub-waves in an incomplete wave node.
+        /// </summary>
+        /// <param name='node'>The incomplete parsed wave node.</param>
+        /// <returns>A list of tuples containing projected price values, future bar indices, and projection names.</returns>
         public List<(double Value, int BarIndex, string Name)> GetProjections(ExactParsedNode node)
         {
             var projections = new List<(double Value, int BarIndex, string Name)>();
@@ -181,6 +150,11 @@ namespace TradeKit.Core.AlgoBase
             return projections;
         }
 
+        /// <summary>
+        /// Parses a sequence of extremum points to find the most probable Elliott Wave structures.
+        /// </summary>
+        /// <param name='points'>The sequence of extremum price points.</param>
+        /// <returns>A list of the most probable completed wave structures, ordered by score descending.</returns>
         public List<ExactParsedNode> Parse(List<BarPoint> points)
         {
             int n = points.Count - 1;
@@ -248,7 +222,7 @@ namespace TradeKit.Core.AlgoBase
                                 if (!CheckWaveConstraints(p, c, nextWaveNum)) continue;
                                 
                                 double predictedScore = CalculateScore(p, c);
-                                if (dp[i, j].Count >= 500 && predictedScore <= minScore[i, j]) continue;
+                                if (dp[i, j].Count >= MaxHypothesesPerNode && predictedScore <= minScore[i, j]) continue;
 
                                 if (nextWaveNum == p.ExpectedWaves && !CheckFinalConstraints(p, c)) continue;
 
@@ -262,16 +236,16 @@ namespace TradeKit.Core.AlgoBase
                                     Promote(nextP, dp[i, j], minScore, i, j);
                                 }
                                 
-                                if (dp[i, j].Count > 1000)
+                                if (dp[i, j].Count > MaxHypothesesPerNode * 2)
                                 {
-                                    Prune(dp[i, j], 500);
-                                    if (dp[i, j].Count == 500) minScore[i, j] = dp[i, j][499].Score;
+                                    Prune(dp[i, j], MaxHypothesesPerNode);
+                                    if (dp[i, j].Count == MaxHypothesesPerNode) minScore[i, j] = dp[i, j][MaxHypothesesPerNode - 1].Score;
                                 }
                             }
                         }
                     }
                     
-                    Prune(dp[i, j], 500);
+                    Prune(dp[i, j], MaxHypothesesPerNode);
                 }
             }
             
@@ -331,7 +305,7 @@ namespace TradeKit.Core.AlgoBase
                     partial.SubWaves[0] = completeNode;
                     double pScore = CalculateScore(partial);
                     
-                    if (minScore != null && targetList.Count >= 500 && pScore <= minScore[i, j])
+                    if (minScore != null && targetList.Count >= MaxHypothesesPerNode && pScore <= minScore[i, j])
                     {
                         continue;
                     }
