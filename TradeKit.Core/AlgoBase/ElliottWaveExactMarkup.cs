@@ -8,7 +8,7 @@ namespace TradeKit.Core.AlgoBase
     /// </summary>
     public partial class ElliottWaveExactMarkup
     {
-        private const int MaxHypothesesPerNode = 500;
+        public int MaxHypothesesPerNode { get; set; } = 5000;
 
         /// <summary>
         /// Defines the target wave models that the algorithm attempts to identify.
@@ -196,7 +196,7 @@ namespace TradeKit.Core.AlgoBase
             // DP over lengths
             for (int l = 2; l <= n; l++)
             {
-                for (int i = 0; i <= n - l; i++)
+                System.Threading.Tasks.Parallel.For(0, n - l + 1, i =>
                 {
                     int j = i + l - 1;
                     
@@ -246,7 +246,7 @@ namespace TradeKit.Core.AlgoBase
                     }
                     
                     Prune(dp[i, j], MaxHypothesesPerNode);
-                }
+                });
             }
             
             List<ExactParsedNode> results = new List<ExactParsedNode>();

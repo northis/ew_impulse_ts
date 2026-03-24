@@ -86,5 +86,63 @@ namespace TradeKit.Tests
                     $"tp={signal.TakeProfit.Value} sl={signal.StopLoss.Value}");
             }
         }
-    }
+    
+        
+        [Test]
+        public void ExactMarkup_XauusdM1_ParsesSuccessfully()
+        {
+            string csvPath = Path.Combine(
+                TestContext.CurrentContext.TestDirectory,
+                "TestData",
+                "XAUUSD_m1_2025-08-01T00-30-00_2025-08-01T05-30-00.csv");
+            
+            m_BarsProvider.LoadCandles(csvPath);
+
+            var extremumFinder = new TradeKit.Core.Indicators.SimpleExtremumFinder(0.01, m_BarsProvider);
+            for (int i = 0; i < m_BarsProvider.Count; i++)
+            {
+                extremumFinder.Calculate(m_BarsProvider.GetOpenTime(i));
+            }
+
+            List<BarPoint> allPoints = extremumFinder.Extrema.Values.ToList();
+            TestContext.WriteLine($"Extremum points found: {allPoints.Count}");
+
+            if (allPoints.Count < 2) return;
+
+            var markup = new TradeKit.Core.AlgoBase.ElliottWaveExactMarkup();
+            
+            BarPoint start = allPoints[0];
+            BarPoint end = allPoints[^1];
+            bool isUp = end.Value > start.Value;
+            
+            var innerFinder = new TradeKit.Core.Indicators.SimpleExtremumFinder(0.01, m_BarsProvider, !isUp);
+            innerFinder.Calculate(start.BarIndex, end.BarIndex);
+                
+            List<BarPoint> innerPoints = innerFinder.ToExtremaList()
+                .Where(p => p.BarIndex >= start.BarIndex && p.BarIndex <= end.BarIndex)
+                .ToList();
+                
+            if (innerPoints.All(p => p.BarIndex != start.BarIndex))
+            {
+                innerPoints.Insert(0, start);
+            }
+
+            if (innerPoints.All(p => p.BarIndex != end.BarIndex))
+            {
+                innerPoints.Add(end);
+            }
+
+            var results = markup.Parse(innerPoints);
+
+            TestContext.WriteLine($"Found {results.Count} possible markups.");
+
+            if (results.Count > 0)
+            {
+                var best = results[0];
+                TestContext.WriteLine($"Best Model: {best.ModelType}, Score: {best.Score}, StartIndex: {best.StartIndex}, EndIndex: {best.EndIndex}");
+                Assert.That(best.Score, Is.GreaterThan(0));
+            }
+        }
+
+}
 }

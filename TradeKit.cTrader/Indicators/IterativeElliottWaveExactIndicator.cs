@@ -4,6 +4,7 @@ using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
+using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
 using TradeKit.CTrader.Core;
 
@@ -12,10 +13,10 @@ namespace TradeKit.CTrader.Indicators;
 [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeElliottWaveExactIndicator : Indicator
 {
-    [Parameter(nameof(DeviationPercent), DefaultValue = 0.3, MinValue = 0.01, Group = Helper.TRADE_SETTINGS_NAME)]
+    [Parameter(nameof(DeviationPercent), DefaultValue = 0.1, MinValue = 0.01, Group = Helper.TRADE_SETTINGS_NAME)]
     public double DeviationPercent { get; set; }
 
-    [Parameter(nameof(MaxDepth), DefaultValue = 3, MinValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+    [Parameter(nameof(MaxDepth), DefaultValue = 2, MinValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
     public int MaxDepth { get; set; }
 
     private IBarsProvider m_BarProvider;
@@ -53,7 +54,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
             BarPoint end = mainPoints[i + 1];
 
             bool isUp = end.Value > start.Value;
-            SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(0.005, m_BarProvider, !isUp);
+            SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(0.01, m_BarProvider, !isUp);
             innerFinder.Calculate(start.BarIndex, end.BarIndex);
                 
             List<BarPoint> innerPoints = innerFinder.ToExtremaList()
