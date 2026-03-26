@@ -274,18 +274,19 @@ namespace TradeKit.Core.PatternGeneration
 
             switch (m_Random.NextDouble())
             {
-                case <= 0.45:
+                case <= 0.4:
                     is2NdDeep = true;
                     break;
 
-                case > 0.45 and <= 0.9:
+                case > 0.4 and <= 0.75:
                     is4ThDeep = true;
                     break;
 
-                case > 0.5 and <= 0.95:
+                case > 0.75 and <= 0.9:
                     is2NdDeep = true;
                     is4ThDeep = true;
                     break;
+                // else: both shallow (~10 %)
             }
 
             double the2NdRatio = SelectRandomly(is2NdDeep
@@ -1272,6 +1273,12 @@ namespace TradeKit.Core.PatternGeneration
                 (wave2Len + wave3Minus2 * MAIN_ALLOWANCE_MAX_RATIO_INVERT) / wave2Len);
 
             double wave4 = wave3 - arg.IsUpK * wave4Len;
+
+            // Expanding diagonal rule: wave5 must be longer than wave3
+            double wave5Len = Math.Abs(wave5 - wave4);
+            if (wave5Len <= wave3Len)
+                throw new ApplicationException("Expanding diagonal: wave 5 is not longer than wave 3");
+
             int[] bars4Gen = PatternGenKit.SplitNumber(
                 arg.BarsCount, new[]
                 {
@@ -1289,8 +1296,6 @@ namespace TradeKit.Core.PatternGeneration
 
             if (!m_GenerateExtraInfo)
                 return modelPattern;
-
-            double wave5Len = Math.Abs(wave5 - wave4);
             modelPattern.LengthRatios.AddRange(
                 new[]
                 {
@@ -1432,37 +1437,44 @@ namespace TradeKit.Core.PatternGeneration
             SortedDictionary<byte, double> ZIGZAG_X_Z_TO_W =
                 new() { { 0, 0 }, { 5, 1 }, { 25, 1.618 }, { 50, 2.618 }, { 80, 3.618 }, { 90, 4.236 } };
 
+        // No duplicate 0.786: second entry merged into the first (weight 25+35=60 kept as 60)
         private static readonly
             SortedDictionary<byte, double> ZIGZAG_C_TO_A =
-                new() {{0, 0}, {5, 0.618}, {25, 0.786}, {35, 0.786}, {75, 1}, {85, 1.618}, {90, 2.618}, {95, 3.618}};
+                new() {{0, 0}, {5, 0.618}, {60, 0.786}, {75, 1}, {85, 1.618}, {90, 2.618}, {95, 3.618}};
 
         private static readonly
             SortedDictionary<byte, double> CONTRACTING_DIAGONAL_3_TO_1 =
                 new() { { 0, 0 }, { 5, 0.5 }, { 15, 0.618 }, { 20, 0.786 } };
 
+        // Peak at 1.618-2.618 per Prechter; 3.618/4.236 remain possible but rare
         private static readonly
             SortedDictionary<byte, double> IMPULSE_3_TO_1 =
-                new() {{0, 0}, {5, 0.618}, {10, 0.786}, {15, 1}, {25, 1.618}, {60, 2.618}, {75, 3.618}, {90, 4.236}};
+                new() {{0, 0}, {5, 0.618}, {10, 0.786}, {15, 1}, {80, 1.618}, {90, 2.618}, {97, 3.618}, {99, 4.236}};
 
+        // When wave 3 extended, waves 1 and 5 tend to equality (~1.0);
+        // 1.618 remains the most common non-equality ratio
         private static readonly
             SortedDictionary<byte, double> IMPULSE_5_TO_1 =
-                new() { { 0, 0 }, { 5, 0.382 }, { 10, 0.618 }, { 20, 0.786 }, { 25, 1 }, { 75, 1.618 }, { 85, 2.618 }, { 95, 3.618 }, { 99, 4.236 }};
+                new() { { 0, 0 }, { 5, 0.382 }, { 15, 0.618 }, { 25, 0.786 }, { 70, 1 }, { 90, 1.618 }, { 97, 2.618 }, { 99, 3.618 } };
 
+        // Peak at 0.618/0.786 per Prechter; 0.95 kept as rare tail
         private static readonly
             SortedDictionary<byte, double> MAP_DEEP_CORRECTION =
-                new() { { 0, 0 }, { 5, 0.5 }, { 25, 0.618 }, { 70, 0.786 }, { 99, 0.95 } };
+                new() { { 0, 0 }, { 5, 0.5 }, { 55, 0.618 }, { 85, 0.786 }, { 99, 0.95 } };
 
         private static readonly
             SortedDictionary<byte, double> MAP_SHALLOW_CORRECTION =
                 new() { { 0, 0 }, { 5, 0.236 }, { 35, 0.382 }, { 85, 0.5 } };
 
+        // Per Prechter: 1.618 most common for extended flat C, larger ratios are rare
         private static readonly
             SortedDictionary<byte, double> MAP_EX_FLAT_WAVE_C_TO_A =
-                new() { { 0, 0 }, { 20, 1.618 }, { 80, 2.618 }, { 95, 3.618 } };
+                new() { { 0, 0 }, { 75, 1.618 }, { 90, 2.618 }, { 99, 3.618 } };
 
+        // Regular flat C ≈ A; 1.0-1.272 are the typical range
         private static readonly
             SortedDictionary<byte, double> MAP_REG_FLAT_WAVE_C_TO_A =
-                new() { { 0, 0 }, { 5, 1 }, { 80, 1.272 }, { 95, 1.618 } };
+                new() { { 0, 0 }, { 70, 1 }, { 90, 1.272 }, { 99, 1.618 } };
         
 
         private static readonly

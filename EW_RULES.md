@@ -54,18 +54,18 @@ model picks sub-wave models. Higher value = more likely to be chosen.
 | `SIMPLE_IMPULSE` | 0.25 | Same sub-wave rules as IMPULSE; generated as a simplified random set |
 | `DIAGONAL_CONTRACTING_INITIAL` | 0.03 | Leading diagonal |
 | `DIAGONAL_CONTRACTING_ENDING` | **1.0** | Ending diagonal; truncation allowed |
-| `DIAGONAL_EXPANDING_INITIAL` | 0.01 | |
-| `DIAGONAL_EXPANDING_ENDING` | 0.0001 | Extremely rare |
+| `DIAGONAL_EXPANDING_INITIAL` | 0.005 | |
+| `DIAGONAL_EXPANDING_ENDING` | 0.01 | |
 | `ZIGZAG` | **1.0** | |
 | `DOUBLE_ZIGZAG` | **1.0** | |
-| `TRIPLE_ZIGZAG` | 0.001 | Very rare |
-| `FLAT_REGULAR` | 0.0005 | Very rare |
+| `TRIPLE_ZIGZAG` | 0.01 | Rare |
+| `FLAT_REGULAR` | 0.05 | Rare |
 | `FLAT_EXTENDED` | **1.0** | |
 | `FLAT_RUNNING` | **1.0** | |
 | `COMBINATION` | **1.0** | |
 | `TRIANGLE_CONTRACTING` | **1.0** | |
 | `TRIANGLE_RUNNING` | 0.1 | |
-| `TRIANGLE_EXPANDING` | 0.001 | Very rare |
+| `TRIANGLE_EXPANDING` | 0.02 | Rare |
 
 ---
 
@@ -121,47 +121,52 @@ Sum = 125
 
 | Ratio | Weight | Probability (no constraint) |
 |---|---|---|
-| 0.500 | 5 | 2.5 % |
-| 0.618 | 25 | 12.6 % |
-| 0.786 | 70 | 35.2 % |
-| 0.950 | 99 | **49.7 %** |
+| 0.500 | 5 | 3.4 % |
+| 0.618 | 55 | **37.7 %** |
+| 0.786 | 85 | 58.2 % (cumulative) |
+| 0.950 | 99 | **67.8 %** (cumulative with 0.786) |
 
-Sum = 199
+Actual per-entry probabilities: 0.500 → 3.4 %, 0.618 → **37.7 %**, 0.786 → **29.5 %**, 0.950 → **29.5 %**
+
+Sum = 244
 
 ---
 
 ### 4.3 Impulse — Wave 3 / Wave 1 Length Ratio — `IMPULSE_3_TO_1`
 
 Wave 3 is never the shortest (enforced by min constraint in the generator).
+Peak at 1.618–2.618 per Prechter & Frost; 3.618/4.236 exist as rare fat tails.
 
 | Ratio | Weight | Probability (no constraint) |
 |---|---|---|
-| 0.618 | 5  | 1.8 % |
-| 0.786 | 10 | 3.6 % |
-| 1.000 | 15 | 5.4 % |
-| 1.618 | 25 | 8.9 % |
-| 2.618 | 60 | 21.4 % |
-| 3.618 | 75 | 26.8 % |
-| 4.236 | 90 | **32.1 %** |
+| 0.618 | 5  | 2.0 % |
+| 0.786 | 10 | 4.0 % |
+| 1.000 | 15 | 6.1 % |
+| 1.618 | 80 | **32.3 %** |
+| 2.618 | 90 | 36.4 % |
+| 3.618 | 97 | 7.1 % |
+| 4.236 | 99 | **2.0 %** (rare tail) |
 
-Sum = 280
+Sum = 396
 
 ---
 
 ### 4.4 Impulse — Wave 5 / Wave 1 Length Ratio — `IMPULSE_5_TO_1`
 
+When wave 3 is extended, waves 1 and 5 tend toward equality (1.0).
+1.618 is the most common non-equal ratio. Ratios above 2.618 are genuine tails.
+
 | Ratio | Weight | Probability (no constraint) |
 |---|---|---|
-| 0.382 | 5  | 1.2 % |
-| 0.618 | 10 | 2.4 % |
-| 0.786 | 20 | 4.8 % |
-| 1.000 | 25 | 6.0 % |
-| 1.618 | 75 | 18.1 % |
-| 2.618 | 85 | 20.5 % |
-| 3.618 | 95 | 22.9 % |
-| 4.236 | 99 | **23.9 %** |
+| 0.382 | 5  | 1.5 % |
+| 0.618 | 15 | 4.5 % |
+| 0.786 | 25 | 7.5 % |
+| 1.000 | 70 | **21.0 %** |
+| 1.618 | 90 | 27.0 % |
+| 2.618 | 97 | 6.6 % |
+| 3.618 | 99 | **2.4 %** (rare tail) |
 
-Sum = 414
+Sum = 401
 
 ---
 
@@ -180,16 +185,16 @@ Sum = 40
 ### 4.6 Zigzag — Wave C / Wave A — `ZIGZAG_C_TO_A`
 
 Also used for DOUBLE_ZIGZAG Y/W ratio.
+Duplicate 0.786 entry merged: combined weight 60.
 
 | Ratio | Weight | Probability (no constraint) |
 |---|---|---|
 | 0.618 | 5  | 1.2 % |
-| 0.786 | 25 | 6.1 % |
-| 0.786 | 35 | 8.5 % (second entry, combined 14.6 %) |
-| 1.000 | 75 | 18.3 % |
-| 1.618 | 85 | 20.7 % |
-| 2.618 | 90 | 22.0 % |
-| 3.618 | 95 | **23.2 %** |
+| 0.786 | 60 | **14.7 %** |
+| 1.000 | 75 | 18.4 % |
+| 1.618 | 85 | 20.8 % |
+| 2.618 | 90 | 22.1 % |
+| 3.618 | 95 | **23.3 %** |
 
 Sum = 410
 
@@ -211,25 +216,31 @@ Sum = 250
 
 ### 4.8 Extended Flat — Wave C / Wave A — `MAP_EX_FLAT_WAVE_C_TO_A`
 
+Per Prechter, C = 1.618 × A is the most typical; C = 2.618 × A and above are tails.
+
 | Ratio | Weight | Probability |
 |---|---|---|
-| 1.618 | 20 | 10.3 % |
-| 2.618 | 80 | 41.0 % |
-| 3.618 | 95 | **48.7 %** |
+| 1.618 | 75 | **45.2 %** |
+| 2.618 | 90 | 27.1 % |
+| 3.618 | 99 | **29.9 %** (cumulative; per-entry ~6 %) |
 
-Sum = 195
+Actual per-entry: 1.618 → **45.2 %**, 2.618 → **27.1 %**, 3.618 → **6.1 %**
+
+Sum = 264
 
 ---
 
 ### 4.9 Regular Flat — Wave C / Wave A — `MAP_REG_FLAT_WAVE_C_TO_A`
 
+Regular flat: C ≈ A. Peak at 1.0; 1.272 and 1.618 are uncommon extensions.
+
 | Ratio | Weight | Probability |
 |---|---|---|
-| 1.000 | 5  | 2.8 % |
-| 1.272 | 80 | **44.4 %** |
-| 1.618 | 95 | 52.8 % |
+| 1.000 | 70 | **43.5 %** |
+| 1.272 | 90 | 24.8 % |
+| 1.618 | 99 | 6.8 % (rare tail) |
 
-Sum = 180
+Sum = 259
 
 ---
 
@@ -285,9 +296,9 @@ Sum = 210
 | Wave | Allowed models |
 |---|---|
 | 1 | `IMPULSE`, `DIAGONAL_CONTRACTING_INITIAL`, `DIAGONAL_EXPANDING_INITIAL` |
-| 2 | `ZIGZAG`, `DOUBLE_ZIGZAG`, `FLAT_EXTENDED`, `FLAT_RUNNING` |
+| 2 | `ZIGZAG`, `DOUBLE_ZIGZAG`, `FLAT_EXTENDED`, `FLAT_RUNNING`, `FLAT_REGULAR` |
 | 3 | `IMPULSE` only |
-| 4 | `ZIGZAG`, `DOUBLE_ZIGZAG`, `FLAT_EXTENDED`, `FLAT_RUNNING`, `TRIANGLE_CONTRACTING`, `TRIANGLE_RUNNING` |
+| 4 | `ZIGZAG`, `DOUBLE_ZIGZAG`, `FLAT_EXTENDED`, `FLAT_RUNNING`, `FLAT_REGULAR`, `TRIANGLE_CONTRACTING`, `TRIANGLE_RUNNING` |
 | 5 | `IMPULSE`, `DIAGONAL_CONTRACTING_ENDING`, `DIAGONAL_EXPANDING_ENDING` |
 
 ### Price rules
@@ -295,9 +306,10 @@ Sum = 210
 1. **Wave 1 length** as a fraction of the total impulse range:
    - Generator draws from a normal distribution: min 5%, max 75%, mean **25%**.
 2. **Wave 2 retracement of Wave 1**:
-   - ~45 % chance Wave 2 is a **deep** correction → uses `MAP_DEEP_CORRECTION` (50–95 %)
-   - ~45 % chance Wave 2 is a **shallow** correction → uses `MAP_SHALLOW_CORRECTION` (23.6–50 %)
-   - ~5–10 % chance both Wave 2 and Wave 4 are deep simultaneously
+   - ~40 % chance Wave 2 is a **deep** correction → uses `MAP_DEEP_CORRECTION` (50–95 %)
+   - ~35 % chance Wave 2 is a **shallow** correction and Wave 4 is deep
+   - ~15 % chance both Wave 2 and Wave 4 are **deep** simultaneously
+   - ~10 % chance both Wave 2 and Wave 4 are **shallow**
 3. **Wave 3 is never the shortest** wave — enforced hard constraint.
    - Wave 3 / Wave 1 ratio: see `IMPULSE_3_TO_1` (§ 4.3)
 4. **Wave 5 / Wave 1** ratio: see `IMPULSE_5_TO_1` (§ 4.4)
@@ -374,14 +386,15 @@ Sub-wave models are the same as the contracting equivalent.
 4. **Wave 4 / Wave 2**: same expanding ratios.
 5. Each wave must be **longer** than the previous same-direction wave
    (channels diverge / expand).
-6. Bar duration: later waves get higher weights — 0.10 / 0.15 / 0.15 / 0.25 / 0.35.
+6. **Wave 5 must be longer than Wave 3** — enforced hard constraint.
+7. Bar duration: later waves get higher weights — 0.10 / 0.15 / 0.15 / 0.25 / 0.35.
 
 ### Probability coefficients
 
 | Model | Coefficient |
 |---|---|
-| `DIAGONAL_EXPANDING_INITIAL` | 0.01 |
-| `DIAGONAL_EXPANDING_ENDING` | 0.0001 |
+| `DIAGONAL_EXPANDING_INITIAL` | 0.005 |
+| `DIAGONAL_EXPANDING_ENDING` | 0.01 |
 
 ---
 
@@ -435,13 +448,7 @@ Sub-wave models are the same as the contracting equivalent.
 
 **Structure:** 5 waves — W · X · Y · XX · Z
 
-**Probability coefficient**: 0.001
-
-### Allowed sub-wave models
-
-| Wave | Allowed models |
-|---|---|
-| W | `ZIGZAG` |
+**Probability coefficient**: 0.01
 | X | `ZIGZAG`, `DOUBLE_ZIGZAG`, `TRIPLE_ZIGZAG`, `FLAT_EXTENDED`, `FLAT_RUNNING`, `FLAT_REGULAR` |
 | Y | `ZIGZAG` |
 | XX | `ZIGZAG`, `DOUBLE_ZIGZAG`, `TRIPLE_ZIGZAG`, `FLAT_EXTENDED`, `FLAT_RUNNING`, `FLAT_REGULAR`, `TRIANGLE_CONTRACTING`, `TRIANGLE_RUNNING`, `TRIANGLE_EXPANDING` |
@@ -484,12 +491,12 @@ Sub-wave models are the same as the contracting equivalent.
 
 Same sub-wave models and structure as `FLAT_EXTENDED`.
 
-**Probability coefficient**: 0.0005
+**Probability coefficient**: 0.0005 → **0.05**
 
 ### Price rules (differences from FLAT_EXTENDED)
 
 1. **Wave B** retraces 90–100 % of Wave A (nearly reaches the origin, does not exceed it).
-2. **C / A** ratio: `MAP_REG_FLAT_WAVE_C_TO_A` (§ 4.9): 1.0–1.618; minimum = B/A ratio.
+2. **C / A** ratio: `MAP_REG_FLAT_WAVE_C_TO_A` (§ 4.9): 1.0 most likely, up to 1.618; minimum = B/A ratio.
 
 ---
 
@@ -561,7 +568,7 @@ Structurally identical to `TRIANGLE_CONTRACTING`, with one additional constraint
 
 ## 17. TRIANGLE_EXPANDING
 
-**Probability coefficient**: 0.001
+**Probability coefficient**: 0.02
 
 Sub-wave models: same as `TRIANGLE_CONTRACTING`.
 

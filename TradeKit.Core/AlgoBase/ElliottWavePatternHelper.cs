@@ -83,7 +83,8 @@ namespace TradeKit.Core.AlgoBase
                                     ElliottModelType.ZIGZAG,
                                     ElliottModelType.DOUBLE_ZIGZAG,
                                     ElliottModelType.FLAT_EXTENDED,
-                                    ElliottModelType.FLAT_RUNNING
+                                    ElliottModelType.FLAT_RUNNING,
+                                    ElliottModelType.FLAT_REGULAR
                                 }
                             },
                             {
@@ -96,6 +97,7 @@ namespace TradeKit.Core.AlgoBase
                                     ElliottModelType.DOUBLE_ZIGZAG,
                                     ElliottModelType.FLAT_EXTENDED,
                                     ElliottModelType.FLAT_RUNNING,
+                                    ElliottModelType.FLAT_REGULAR,
                                     ElliottModelType.TRIANGLE_CONTRACTING,
                                     ElliottModelType.TRIANGLE_RUNNING
                                 }
@@ -427,24 +429,33 @@ namespace TradeKit.Core.AlgoBase
                 ModelRules[ElliottModelType.IMPULSE] with
                 { ProbabilityCoefficient = 0.25 };
 
+            // Regular flat is rare but present on real markets
             ModelRules[ElliottModelType.FLAT_REGULAR] =
                 ModelRules[ElliottModelType.FLAT_EXTENDED] with
-                { ProbabilityCoefficient = 0.0005 };
+                { ProbabilityCoefficient = 0.05 };
 
             ModelRules[ElliottModelType.FLAT_RUNNING] =
                 ModelRules[ElliottModelType.FLAT_EXTENDED];
 
+            // Expanding triangles occur in ~1-2% of corrections
             ModelRules[ElliottModelType.TRIANGLE_EXPANDING] =
                 ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
-                { ProbabilityCoefficient = 0.001 };
+                { ProbabilityCoefficient = 0.02 };
 
+            // Expanding initial diagonal: distinctly rarer than contracting
             ModelRules[ElliottModelType.DIAGONAL_EXPANDING_INITIAL] =
                 ModelRules[ElliottModelType.DIAGONAL_CONTRACTING_INITIAL] with
-                { ProbabilityCoefficient = 0.01 };
+                { ProbabilityCoefficient = 0.005 };
 
+            // Expanding ending diagonal: very rare, but not 0.0001 rare
             ModelRules[ElliottModelType.DIAGONAL_EXPANDING_ENDING] =
                 ModelRules[ElliottModelType.DIAGONAL_CONTRACTING_ENDING] with
-                { ProbabilityCoefficient = 0.0001 };
+                { ProbabilityCoefficient = 0.01 };
+
+            // Triple zigzag: genuinely rare; 0.01 is reasonable
+            ModelRules[ElliottModelType.TRIPLE_ZIGZAG] =
+                ModelRules[ElliottModelType.TRIPLE_ZIGZAG] with
+                { ProbabilityCoefficient = 0.01 };
 
             ModelRules[ElliottModelType.TRIANGLE_RUNNING] =
                 ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
