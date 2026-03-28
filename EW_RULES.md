@@ -29,7 +29,8 @@ classical Elliott Wave literature.
 17. [TRIANGLE_EXPANDING](#17-triangle_expanding)
 18. [COMBINATION](#18-combination)
 19. [Duration (Bar) Distributions](#19-duration-bar-distributions)
-20. [Shared Generator Behaviour](#20-shared-generator-behaviour)
+20. [Wave Duration Proportionality Rules (Markup / Scoring)](#20-wave-duration-proportionality-rules-markup--scoring)
+21. [Shared Generator Behaviour](#21-shared-generator-behaviour)
 
 ---
 
@@ -668,7 +669,97 @@ Wave 1 takes the dominant share, drawn from a normal distribution:
 
 ---
 
-## 20. Shared Generator Behaviour
+## 20. Wave Duration Proportionality Rules (Markup / Scoring)
+
+These rules apply during **markup detection** (not generation). Violations reduce the
+scoring probability of a candidate model but do not necessarily disqualify it unless
+stated as a hard constraint.
+
+---
+
+### 20.1 IMPULSE — Corrective Wave Duration
+
+> **Rationale:** Waves 2 and 4 are both corrections of the same degree; their durations
+> tend to be comparable. The alternation rule (price pattern differs) does **not** imply
+> dramatic time asymmetry.
+
+| Rule | Type | Description |
+|---|---|---|
+| Wave 4 ≤ 1.5 × Wave 2 duration | Soft | Wave 4 allowed to be up to 1.5× longer than wave 2 |
+| Wave 2 ≤ 1.1 × Wave 4 duration | Soft | Wave 2 can be at most 1.1× longer than wave 4 |
+| Waves 1, 3, 5 duration | Unconstrained | Any duration that satisfies price rules |
+| Motive < corrective (impulse sub-waves) | Scoring bonus | Waves 1/3/5 as impulses are typically shorter than waves 2/4 |
+| Motive ≈ corrective (diagonal sub-waves) | Scoring neutral | Diagonal sub-waves tend to be longer; no penalty |
+
+**Scoring penalty** for duration imbalance (applies per violated soft rule):
+- `imbalanceRatio = max(w4/w2, w2/w4) / limit`  (where limit is 1.5 or 1.1)
+- `durationPenalty = Clamp(1 − (imbalanceRatio − 1.0) × 0.5, 0.1, 1.0)`
+
+---
+
+### 20.2 TRIANGLE_CONTRACTING — Geometry Scoring
+
+A contracting triangle is geometrically defined by two converging trendlines:
+- **Line 0–B**: from the triangle origin (start of wave A) through the end of wave B.
+  Wave D should be close to this line.
+- **Line A–C**: from the end of wave A through the end of wave C.
+  Wave E should be close to (or slightly above) this line.
+
+| Criterion | Scoring weight | Notes |
+|---|---|---|
+| Wave D endpoint distance from line 0–B | **High** | Closer → higher score |
+| Wave E endpoint distance from line A–C | Medium | Closer → higher score; E allowed to not reach A–C more than D diverging from 0–B |
+| All price rules satisfied | Hard constraint | Non-negotiable |
+| Converging channel visually valid | Soft | If any wave "blows out" the channel, reduce score |
+
+**Distance penalty**: `geoScore = Exp(−k × distance / rangeOfTriangle)` where `k ≈ 3`
+applied for each geometry check, multiplied together.
+
+---
+
+### 20.3 TRIANGLE_EXPANDING — Geometry Scoring
+
+Mirror of §20.2 — trendlines diverge:
+- **Line 0–B**: Wave D should remain close to this line (now diverging outward).
+- **Line A–C**: Wave E should remain close to this line.
+
+Same formula as §20.2; `geoScore` rewards endpoints near the expanding trendlines.
+
+---
+
+### 20.4 DIAGONAL_CONTRACTING — Geometry Scoring
+
+Two converging trendlines define the diagonal:
+- **Line 1–3** (motive trendline): connects the ends of waves 1 and 3 (in the
+  direction of trend).
+- **Line 2–4** (corrective trendline): connects the ends of waves 2 and 4.
+
+| Criterion | Scoring weight | Notes |
+|---|---|---|
+| Wave 5 ends on or just before line 1–3 | **Maximum score** | Perfect ending diagonal |
+| Wave 5 exceeds line 1–3 ("throw-over") | Allowed by rules | Reduces score proportionally to overshoot distance |
+| Wave 5 does not reach line 1–3 | Allowed | Moderate score penalty |
+| Sub-waves of wave 3 have fewer crossings of line 2–4 | **Scoring bonus** | Each additional crossing reduces score |
+| Wave 2 / Wave 4 duration proportionality | Same as §20.1 | 1.5× / 1.1× limits |
+
+**Overshoot penalty**: `overshotPenalty = Exp(−k × overshoot / wave5Length)` where `k ≈ 4`
+
+---
+
+### 20.5 DIAGONAL_EXPANDING — Geometry Scoring
+
+- **Line 1–3**: connects the ends of waves 1 and 3 (diverging outward).
+- **Line 2–4**: connects the ends of waves 2 and 4.
+
+| Criterion | Scoring weight | Notes |
+|---|---|---|
+| Wave 5 ends on line 1–3 | **Maximum score** | |
+| Sub-waves of wave 3 have fewer crossings of lines 1–3 and 2–4 | **Scoring bonus** | |
+| Wave 2 / Wave 4 duration proportionality | Same as §20.1 | |
+
+---
+
+## 21. Shared Generator Behaviour
 
 ### Fallback rules
 
