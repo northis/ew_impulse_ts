@@ -217,35 +217,95 @@ assert correctionDepth ∈ [0.10, 0.950]   // для TRIANGLE_RUNNING нижня
 Если модель занимает только первые `K` из `S` сегментов, остаток (`tail`) может
 аннулировать найденную модель или снизить её Score.
 
-### Правила отмены по хвосту
+**Ключевой принцип:** хвост проверяется на **противоречие** найденной модели.
+Если хвост структурно несовместим с тем, что обычно следует за данной моделью —
+модель считается невалидной в данных границах и отбрасывается целиком. Если
+противоречия нет, но хвост «неудобен» — снижаем Score.
 
-| Модель | Свойство хвоста, отменяющее модель |
-|---|---|
-| TRIANGLE_CONTRACTING | Первый сегмент хвоста должен двигаться в направлении «thrust» (выброса из треугольника). Если он идёт против ожидаемого thrust-а, модель ОТМЕНЯЕТСЯ. |
-| TRIANGLE_RUNNING | То же, что для TRIANGLE_CONTRACTING. |
-| IMPULSE | Первый сегмент хвоста не должен уходить глубже старта W4 (иначе структура нарушена). |
-| DIAGONAL_CONTRACTING_ENDING | Первый сегмент хвоста должен развернуться мощно и быстро (sharp reversal). Медленный хвост снижает Score. |
-| ZIGZAG / FLAT | Хвост не отменяет модель, только снижает Score (нет завершённого следующего движения). |
+### 5.1 Правила отмены по хвосту
 
-### Реализация правил хвоста в C# — предложение
+| Модель | Условие отмены (HARD) | Условие снижения Score (SOFT) |
+|---|---|---|
+| TRIANGLE_CONTRACTING | Первый сегмент хвоста идёт **против** ожидаемого thrust-а (выброс из треугольника всегда в сторону волны, противоположной E) | Хвост слишком короткий для thrust — слабый выброс |
+| TRIANGLE_RUNNING | То же | То же |
+| IMPULSE (восходящий) | Первый сегмент хвоста уходит **ниже** конца волны 4 — это означает, что «волна 5» импульса ещё не завершена; либо вся структура неверна | Хвост глубже конца волны 2, но не ниже волны 4 — умеренный штраф |
+| IMPULSE (нисходящий) | Первый сегмент хвоста уходит **выше** конца волны 4 | Аналогично |
+| DIAGONAL_CONTRACTING_ENDING | Первый сегмент хвоста идёт против направления диагонали (нет sharp reversal) | Sharp reversal есть, но слабый — штраф |
+| ZIGZAG / FLAT | Нет условий отмены | Отсутствие завершённого следующего движения снижает Score |
 
-Задать правила как лямбды/делегаты в словаре вида:
+### 5.2 Усечённая волна 5 (truncation)
+
+По правилам EW_RULES.md §20 усечение допустимо с вероятностью 5% для
+`IMPULSE` и `DIAGONAL_CONTRACTING_ENDING`.
+
+**Ситуация:** в «хвосте» после основного экстремума (конца предполагаемой W3/W4)
+находится сегмент, который может быть усечённой волной 5.
+
+**Алгоритм обнаружения усечённой W5:**
+
+1. У найденного кандидата `K-1` волна = конец W4, `K` волна не найдена
+   (хвост начинается сразу после W4).
+2. Проверяем: первый сегмент хвоста идёт **в направлении тренда** (W5 = та же
+   сторона, что W1 и W3).
+3. Длина этого сегмента < конца W3 по абсолютному значению (главное условие
+   усечения: W5 не превышает W3).
+4. Длина хвостового сегмента ≥ 0.1 × W1 (не слишком карликовая волна).
+5. Если всё выполнено — создаём дополнительный кандидат `ParsedModel` с
+   `ParseStrategy.TruncatedWave5`, в котором хвостовой сегмент включается
+   как W5, а Score умножается на коэффициент усечения `0.05` (базовая
+   вероятность усечения из правил).
+
+**Для `DIAGONAL_CONTRACTING_ENDING`** логика аналогична, но:
+- W5 диагонали может быть усечена (не должна превышать конец W3).
+- Дополнительно проверяем сходимость: конец усечённой W5 должен быть
+  **ближе к каналу 1–3**, чем конец W4 к каналу 2–4.
+
+```
+// Псевдокод обнаружения truncation
+if (tail.Count >= 1)
+{
+    Segment candidate = tail[0];
+    bool inTrendDirection = (candidate.IsUp == modelIsUp);
+    bool shorterThanW3 = candidate.Length < waves[2].Length;
+    bool notTooSmall = candidate.Length >= waves[0].Length * 0.1;
+
+    if (inTrendDirection && shorterThanW3 && notTooSmall)
+    {
+        yield return CloneWithTruncatedW5(model, candidate,
+                         scoreMultiplier: 0.05);
+    }
+}
+```
+
+### 5.3 Реализация правил хвоста в C#
 
 ```csharp
-static readonly Dictionary<ElliottModelType, Func<Segment[], int, TailRuleResult>> TailRules =
+static readonly Dictionary<ElliottModelType, Func<WaveSpan[], Segment[], TailRuleResult>> TailRules =
 new()
 {
-    [ElliottModelType.TRIANGLE_CONTRACTING] = (segs, modelEnd) =>
+    [ElliottModelType.TRIANGLE_CONTRACTING] = (waves, tail) =>
     {
-        var thrust = segs[modelEnd];
-        bool correctDirection = IsThrust(segs, modelEnd, expectedUp: segs[modelEnd - 1].IsUp);
-        return correctDirection ? TailRuleResult.Valid : TailRuleResult.Rejected;
+        if (tail.Length == 0) return TailRuleResult.Valid;
+        // Ожидаемый thrust = против направления волны E (последней)
+        bool expectedThrustUp = !waves[4].IsUp;
+        bool actualUp = tail[0].IsUp;
+        return actualUp == expectedThrustUp
+            ? TailRuleResult.Valid
+            : TailRuleResult.Rejected;   // противоречит модели
+    },
+    [ElliottModelType.IMPULSE] = (waves, tail) =>
+    {
+        if (tail.Length == 0) return TailRuleResult.Valid;
+        bool isUp = waves[0].IsUp;
+        double w4End = waves[3].EndValue;
+        double tailEnd = tail[0].EndValue;
+        // Хвост уходит за конец W4 в сторону против тренда — модель невалидна
+        bool violated = isUp ? tailEnd < w4End : tailEnd > w4End;
+        return violated ? TailRuleResult.Rejected : TailRuleResult.Valid;
     },
     // ...
 };
 ```
-
-Это позволяет легко добавлять/менять правила для каждой модели изолированно.
 
 ---
 
@@ -361,8 +421,9 @@ Score дочернего узла умножается на Score родител
 /// <summary>Источник интерпретации — для трассировки и v2.</summary>
 enum ParseStrategy
 {
-    PrimaryRank,     // разбиение по основному рангу Rk
-    AnchorShifted,   // альтернативная позиция опорного экстремума (b of B и т.п.)
+    PrimaryRank,      // разбиение по основному рангу Rk
+    AnchorShifted,    // альтернативная позиция опорного экстремума (b of B и т.п.)
+    TruncatedWave5,   // хвостовой сегмент включён как усечённая W5 (5% базовая вероятность)
 }
 
 // Один результат разметки
