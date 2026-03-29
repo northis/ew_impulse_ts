@@ -507,14 +507,12 @@ Same sub-wave models as `FLAT_EXTENDED`.
 
 ### Price rules
 
-1. **Wave A** extends beyond the pattern's starting point in the correction
-   direction — i.e. Wave A ends *above* the pattern origin (in a bullish running flat)
-   or *below* it (in a bearish running flat). Wave A overshoots the origin while still
-   moving in the primary correction direction; Wave B then retraces Wave A back toward
-   the origin (without necessarily reaching it).
+1. **Wave B** retraces Wave A completely and then **extends beyond the origin**
+   (same running condition for markup purposes as in `FLAT_EXTENDED`).
 2. **C / A** ratio: `MAP_RUNNING_FLAT_WAVE_C_TO_A` (§ 4.10): 0.5–1.618.
-3. Wave A length determined by normal distribution: mean ≈ range + 20 % of the
-   available "running" space.
+3. The distinction from `FLAT_EXTENDED` is primarily the expected size of Wave C:
+   in a running flat, Wave C is typically shorter and may terminate well before the
+   end of Wave A.
 4. Falls back to `ZIGZAG` if running conditions cannot be satisfied.
 5. Classified as a **shallow** correction.
 
