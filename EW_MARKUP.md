@@ -552,4 +552,75 @@ static int CountTrendlineCrossings(BarPoint[] subWaveEnds, BarPoint lineA, BarPo
 
 ---
 
-*Версия алгоритма: 1.1 (29.03.2026)*
+---
+
+## 10. Стратегия тестирования
+
+### 10.1 Общий подход
+
+Тесты используют `PatternGenerator` для синтетической генерации паттернов и
+`ElliottWaveExactMarkup.Parse` для их разметки. Сгенерированные ключевые точки
+(`PatternKeyPoints` с уровнем `model.Level`) подаются напрямую в `Parse` как
+«идеальные» экстремумы. Это позволяет проверить корректность оценки и выбора
+наилучшей модели в контролируемых условиях.
+
+### 10.2 Требования к генерации
+
+- **Минимум 200 баров** на паттерн. При `BarsCount < SIMPLE_BARS_THRESHOLD (100)`
+  генератор подставляет плоские `SIMPLE_IMPULSE`-подволны вместо реальных субволн.
+  При 200 барах генерируются полноценные рекурсивные субструктуры. Для треугольников и
+  диагоналей (5 подволн) рекомендуется ≥ 300 баров, чтобы каждая подволна получала
+  достаточно места.
+
+- **Повторные прогоны** (по умолчанию 20 итераций на тип модели). Каждая итерация
+  независима: случайный seed `PatternGenerator` создаёт разные паттерны, что устойчиво
+  проверяет алгоритм. Порог успеха: ≥ 60 % итераций правильно идентифицируют тип.
+
+### 10.3 Построение входных точек для `Parse`
+
+1. Берём `model.PatternKeyPoints` — словарь `DateTime → List<PatternKeyPoint>`.
+2. Отбираем точки с `Notation.Level == model.Level` — только главные подволны.
+3. Находим первый экстремум паттерна как точку до индекса первой ключевой точки.
+4. Добавляем начальную точку `(startVal, startDate, barsProvider)`.
+5. Добавляем все ключевые точки уровня `model.Level` в `List<BarPoint>` по индексу.
+6. Дедуплицируем по `BarIndex` (сохраняем точку с максимальным `Level`).
+
+### 10.4 Критерии прохождения теста
+
+| Условие | Смысл |
+|---|---|
+| `bestResult.ModelType == expectedModelType` | Разметчик поставил верный тип |
+| `bestResult.WaveCount == bestResult.ExpectedWaves` | Паттерн полный (без хвоста) |
+| `matchedTests / totalTests >= 0.6` | Минимальный порог точности (60 %) |
+
+### 10.5 Покрытие моделей
+
+Тесты охватывают все типы из `ElliottWaveExactMarkup.TargetModels`:
+
+| Тест | Тип модели | Ожидаемые волны |
+|---|---|---|
+| `ImpulseExactMarkupTest` | `IMPULSE` | 5 |
+| `DiagonalInitialExactMarkupTest` | `DIAGONAL_CONTRACTING_INITIAL` | 5 |
+| `DiagonalEndingExactMarkupTest` | `DIAGONAL_CONTRACTING_ENDING` | 5 |
+| `ZigzagExactMarkupTest` | `ZIGZAG` | 3 |
+| `DoubleZigzagExactMarkupTest` | `DOUBLE_ZIGZAG` | 3 |
+| `FlatExtendedExactMarkupTest` | `FLAT_EXTENDED` | 3 |
+| `FlatRunningExactMarkupTest` | `FLAT_RUNNING` | 3 |
+| `TriangleContractingExactMarkupTest` | `TRIANGLE_CONTRACTING` | 5 |
+| `TriangleRunningExactMarkupTest` | `TRIANGLE_RUNNING` | 5 |
+
+### 10.6 Вспомогательная инфраструктура
+
+```csharp
+// Вынесено в приватный метод RunMarkupTest(ElliottModelType, int totalTests, double threshold)
+// чтобы избежать дублирования.
+// Возвращает количество успешных итераций (matchedTests >= totalTests * threshold).
+```
+
+Для каждого теста используется единый вспомогательный метод `RunMarkupTest`, принимающий:
+- `modelType` — тип модели для генерации и проверки,
+- `totalTests` — число итераций (по умолчанию 20),
+- `minBars` — минимальное число баров (по умолчанию 200, для 5-волновых ≥ 300),
+- `threshold` — доля успешных прогонов (по умолчанию 0.6).
+
+*Версия алгоритма: 1.2 (30.03.2026)*
