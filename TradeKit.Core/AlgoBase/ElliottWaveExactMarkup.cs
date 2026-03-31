@@ -1,19 +1,25 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 
 namespace TradeKit.Core.AlgoBase
 {
     /// <summary>
-    /// Implements exact Elliott Wave markup algorithm using dynamic programming bottom-up parsing.
+    /// Implements segment-based Elliott Wave markup algorithm (v1).
+    /// Each sub-wave = one segment between consecutive extremum points.
     /// </summary>
     public partial class ElliottWaveExactMarkup
     {
-        public int MaxHypothesesPerNode { get; set; } = 5000;
+        private const double FULL_FIT_BONUS = 1.2;
+        private const double TRUNCATION_SCORE_MULT = 0.05;
 
         /// <summary>
         /// Defines the target wave models that the algorithm attempts to identify.
         /// </summary>
-        public static readonly ElliottModelType[] TargetModels = {
+        public static readonly ElliottModelType[] TargetModels =
+        {
             ElliottModelType.IMPULSE,
             ElliottModelType.ZIGZAG,
             ElliottModelType.DOUBLE_ZIGZAG,
@@ -30,13 +36,18 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         public static string GetWaveKey(ElliottModelType type, int waveNum)
         {
-            if (type == ElliottModelType.IMPULSE || type == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL || type == ElliottModelType.DIAGONAL_CONTRACTING_ENDING)
+            if (type == ElliottModelType.IMPULSE ||
+                type == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL ||
+                type == ElliottModelType.DIAGONAL_CONTRACTING_ENDING)
                 return waveNum.ToString();
-            if (type == ElliottModelType.ZIGZAG || type == ElliottModelType.FLAT_EXTENDED || type == ElliottModelType.FLAT_RUNNING)
+            if (type == ElliottModelType.ZIGZAG ||
+                type == ElliottModelType.FLAT_EXTENDED ||
+                type == ElliottModelType.FLAT_RUNNING)
                 return waveNum == 1 ? "a" : (waveNum == 2 ? "b" : "c");
             if (type == ElliottModelType.DOUBLE_ZIGZAG)
                 return waveNum == 1 ? "w" : (waveNum == 2 ? "x" : "y");
-            if (type == ElliottModelType.TRIANGLE_CONTRACTING || type == ElliottModelType.TRIANGLE_RUNNING)
+            if (type == ElliottModelType.TRIANGLE_CONTRACTING ||
+                type == ElliottModelType.TRIANGLE_RUNNING)
                 return ((char)('a' + waveNum - 1)).ToString();
             return "";
         }
@@ -46,102 +57,589 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         public static int GetExpectedWaves(ElliottModelType type)
         {
-            if (type == ElliottModelType.IMPULSE || type == ElliottModelType.TRIANGLE_CONTRACTING || 
-                type == ElliottModelType.TRIANGLE_RUNNING || type == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL || 
+            if (type == ElliottModelType.IMPULSE ||
+                type == ElliottModelType.TRIANGLE_CONTRACTING ||
+                type == ElliottModelType.TRIANGLE_RUNNING ||
+                type == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL ||
                 type == ElliottModelType.DIAGONAL_CONTRACTING_ENDING) return 5;
             if (type == ElliottModelType.SIMPLE_IMPULSE) return 1;
             return 3;
         }
 
-        private bool IsAllowed(ElliottModelType parentType, int waveNum, ElliottModelType childType)
+        /// <summary>
+        /// Represents a single price segment between two consecutive extremum points.
+        /// </summary>
+        private struct Segment
         {
-            if (childType == ElliottModelType.SIMPLE_IMPULSE) return true;
-            
-            string key = GetWaveKey(parentType, waveNum);
-            if (string.IsNullOrEmpty(key)) return false;
-            
-            if (ElliottWavePatternHelper.ModelRules.TryGetValue(parentType, out ModelRules rules))
+            public BarPoint Start;
+            public BarPoint End;
+            public bool IsUp => End.Value > Start.Value;
+            public double Length => Math.Abs(End.Value - Start.Value);
+        }
+
+        /// <summary>
+        /// Reduces a list of points to a strictly alternating (zigzag) sequence.
+        /// Consecutive same-direction moves are collapsed to keep only the most extreme point.
+        /// </summary>
+        private static List<BarPoint> ReduceToAlternating(List<BarPoint> points)
+        {
+            var result = new List<BarPoint> { points[0] };
+            for (int i = 1; i < points.Count; i++)
             {
-                if (rules.Models.TryGetValue(key, out ElliottModelType[] allowed))
+                BarPoint prev = result[result.Count - 1];
+                BarPoint cur = points[i];
+                if (Math.Abs(cur.Value - prev.Value) < double.Epsilon)
+                    continue;
+                if (result.Count == 1)
                 {
-                    return allowed.Contains(childType);
+                    result.Add(cur);
+                    continue;
+                }
+                BarPoint prevPrev = result[result.Count - 2];
+                bool prevUp = prev.Value > prevPrev.Value;
+                bool curUp = cur.Value > prev.Value;
+                if (curUp == prevUp)
+                {
+                    result[result.Count - 1] = curUp
+                        ? (cur.Value > prev.Value ? cur : prev)
+                        : (cur.Value < prev.Value ? cur : prev);
+                }
+                else
+                {
+                    result.Add(cur);
                 }
             }
-            return false;
+            return result;
+        }
+
+        /// <summary>
+        /// Parses a sequence of extremum points to find the most probable Elliott Wave structures.
+        /// Input points may contain multiple levels of sub-wave extrema (all collapsed to a
+        /// strictly alternating sequence). For each model type the algorithm tries all combinations
+        /// of intermediate alternating points between the fixed first and last input points,
+        /// effectively searching for the best-scoring K-segment fit that spans the full input range.
+        /// </summary>
+        public List<ExactParsedNode> Parse(List<BarPoint> points)
+        {
+            if (points == null || points.Count < 2)
+                return new List<ExactParsedNode>();
+
+            // Collapse multi-level input to strictly alternating extrema
+            List<BarPoint> altPoints = ReduceToAlternating(points);
+            int n = altPoints.Count;
+            if (n < 2)
+                return new List<ExactParsedNode>();
+
+            var results = new List<ExactParsedNode>();
+
+            // The correct Elliott Wave pattern always spans from altPoints[0] to altPoints[n-1].
+            // For each model with K waves we need to pick K-1 intermediate points from
+            // altPoints[1..n-2] such that the resulting K segments pass hard rules.
+            // Additionally, we allow trying sub-spans (offset>0) with a reduced score bonus.
+
+            foreach (ElliottModelType model in TargetModels)
+            {
+                int k = GetExpectedWaves(model);
+                if (n - 1 < k) continue; // need at least k segments
+
+                // --- Full-span search: fix start=0, end=n-1, pick K-1 intermediates ---
+                if (n - 2 >= k - 1) // at least k-1 inner points available
+                {
+                    TryCombinations(model, altPoints, 0, n - 1, k, results, fullSpan: true);
+                }
+
+                // --- Fallback: try all contiguous k-segment windows (for edge cases) ---
+                int s = n - 1; // total segments
+                for (int offset = 0; offset <= s - k; offset++)
+                {
+                    // Only try windows not already covered by full-span search
+                    if (offset == 0 && offset + k == s) continue; // full-span already done
+                    if (offset == 0 && offset + k == n - 1) continue;
+
+                    Segment[] waves = new Segment[k];
+                    bool valid = true;
+                    for (int i = 0; i < k; i++)
+                    {
+                        int pi = offset + i;
+                        if (pi + 1 >= n) { valid = false; break; }
+                        waves[i] = new Segment { Start = altPoints[pi], End = altPoints[pi + 1] };
+                    }
+                    if (!valid) continue;
+
+                    if (!CheckAlternation(waves)) continue;
+                    if (!CheckHardRules(model, waves)) continue;
+
+                    double fiboScore = CalculateFiboScore(model, waves);
+                    if (fiboScore <= 0) continue;
+
+                    // Penalize windows that don't span the full input
+                    int windowBarSpan = Math.Max(1,
+                        waves[k - 1].End.BarIndex - waves[0].Start.BarIndex);
+                    int totalBarSpan = Math.Max(1,
+                        altPoints[n - 1].BarIndex - altPoints[0].BarIndex);
+                    double barCoverage = (double)windowBarSpan / totalBarSpan;
+                    fiboScore *= barCoverage * barCoverage * barCoverage * barCoverage;
+
+                    results.Add(BuildNode(model, waves, fiboScore, k));
+                }
+            }
+
+            return results.OrderByDescending(x => x.Score).ToList();
+        }
+
+        /// <summary>
+        /// Tries all combinations of K-1 intermediate points from altPoints[innerStart..innerEnd-1]
+        /// with fixed start=altPoints[outerStart] and end=altPoints[outerEnd].
+        /// Adds valid candidates to <paramref name="results"/>.
+        /// </summary>
+        private void TryCombinations(
+            ElliottModelType model,
+            List<BarPoint> altPoints,
+            int outerStart, int outerEnd,
+            int k,
+            List<ExactParsedNode> results,
+            bool fullSpan)
+        {
+            // We need k+1 points: outerStart + (k-1 from inner) + outerEnd
+            // inner range: indices [outerStart+1 .. outerEnd-1]
+            int innerCount = outerEnd - outerStart - 1;
+            if (innerCount < k - 1) return; // not enough inner points
+
+            int[] chosen = new int[k - 1]; // indices into altPoints of the k-1 intermediate points
+            // Initialize: choose first k-1 inner indices
+            for (int i = 0; i < k - 1; i++)
+                chosen[i] = outerStart + 1 + i;
+
+            // Enumerate all C(innerCount, k-1) combinations in order
+            while (true)
+            {
+                // Build k+1 point array: [outerStart, chosen[0], ..., chosen[k-2], outerEnd]
+                BarPoint[] pts = new BarPoint[k + 1];
+                pts[0] = altPoints[outerStart];
+                for (int i = 0; i < k - 1; i++)
+                    pts[i + 1] = altPoints[chosen[i]];
+                pts[k] = altPoints[outerEnd];
+
+                // Build segments and check alternation
+                Segment[] waves = new Segment[k];
+                for (int i = 0; i < k; i++)
+                    waves[i] = new Segment { Start = pts[i], End = pts[i + 1] };
+
+                if (CheckAlternation(waves) && CheckHardRules(model, waves))
+                {
+                    double score = CalculateFiboScore(model, waves);
+                    if (score > 0)
+                    {
+                        if (fullSpan) score *= FULL_FIT_BONUS;
+                        results.Add(BuildNode(model, waves, score, k));
+                    }
+                }
+
+                // Advance to next combination (standard combinatorial next)
+                int pos = k - 2;
+                while (pos >= 0 && chosen[pos] >= outerEnd - 1 - (k - 2 - pos))
+                    pos--;
+                if (pos < 0) break;
+                chosen[pos]++;
+                for (int i = pos + 1; i < k - 1; i++)
+                    chosen[i] = chosen[i - 1] + 1;
+            }
+        }
+
+        private static List<Segment> BuildSegments(List<BarPoint> pts)
+        {
+            var segs = new List<Segment>(pts.Count - 1);
+            for (int i = 0; i < pts.Count - 1; i++)
+                segs.Add(new Segment { Start = pts[i], End = pts[i + 1] });
+            return segs;
+        }
+
+        private ExactParsedNode TryBuildNode(
+            ElliottModelType model, List<Segment> segments, int offset, int count,
+            bool isFullFit, double totalPriceRange, int totalBarSpan)
+        {
+            Segment[] waves = new Segment[count];
+            for (int i = 0; i < count; i++)
+                waves[i] = segments[offset + i];
+
+            if (!CheckAlternation(waves)) return null;
+            if (!CheckHardRules(model, waves)) return null;
+
+            double score = CalculateFiboScore(model, waves);
+            if (score <= 0) return null;
+
+            // Bar-span coverage: fraction of the full input bar span that this window covers.
+            // Cubic scaling strongly rewards windows that span the full input.
+            int windowBarSpan = Math.Max(1, waves[count - 1].End.BarIndex - waves[0].Start.BarIndex);
+            double barCoverage = (double)windowBarSpan / totalBarSpan;
+            score *= barCoverage * barCoverage * barCoverage;
+
+            // Price coverage bonus: also reward by price range fraction
+            double windowPriceRange = Math.Abs(waves[count - 1].End.Value - waves[0].Start.Value);
+            double priceCoverage = totalPriceRange > 0 ? windowPriceRange / totalPriceRange : 1.0;
+            score *= priceCoverage * priceCoverage;
+
+            if (isFullFit) score *= FULL_FIT_BONUS;
+
+            return BuildNode(model, waves, score, count);
+        }
+
+        private ExactParsedNode TryBuildTruncated(
+            ElliottModelType model, List<Segment> segments, int offset, int k,
+            double totalPriceRange, int totalBarSpan)
+        {
+            if (segments.Count < offset + k) return null;
+
+            int kMinus1 = k - 1;
+            Segment[] wavesK1 = new Segment[kMinus1];
+            for (int i = 0; i < kMinus1; i++)
+                wavesK1[i] = segments[offset + i];
+
+            if (!CheckAlternation(wavesK1)) return null;
+            if (!CheckHardRulesPartial(model, wavesK1)) return null;
+
+            Segment candidate = segments[offset + kMinus1];
+            bool modelIsUp = wavesK1[0].IsUp;
+
+            if (candidate.IsUp != modelIsUp) return null;
+            if (candidate.Length >= wavesK1[2].Length) return null;
+            if (candidate.Length < wavesK1[0].Length * 0.1) return null;
+
+            Segment[] allWaves = new Segment[k];
+            Array.Copy(wavesK1, allWaves, kMinus1);
+            allWaves[kMinus1] = candidate;
+
+            if (!CheckHardRules(model, allWaves)) return null;
+
+            double score = CalculateFiboScore(model, allWaves) * TRUNCATION_SCORE_MULT;
+            if (score <= 0) return null;
+
+            int windowBarSpan = Math.Max(1, allWaves[k - 1].End.BarIndex - allWaves[0].Start.BarIndex);
+            double barCoverage = (double)windowBarSpan / totalBarSpan;
+            score *= barCoverage * barCoverage * barCoverage;
+
+            double windowPriceRange = Math.Abs(allWaves[k - 1].End.Value - allWaves[0].Start.Value);
+            double priceCoverage = totalPriceRange > 0 ? windowPriceRange / totalPriceRange : 1.0;
+            score *= priceCoverage * priceCoverage;
+
+            return BuildNode(model, allWaves, score, k);
+        }
+
+        private static bool CheckAlternation(Segment[] waves)
+        {
+            if (waves.Length < 2) return true;
+            for (int i = 0; i < waves.Length - 1; i++)
+                if (waves[i].IsUp == waves[i + 1].IsUp) return false;
+            return true;
+        }
+
+        private static bool CheckHardRules(ElliottModelType model, Segment[] w)
+        {
+            if (w.Length == 0) return false;
+            bool isUp = w[0].IsUp;
+            double start = w[0].Start.Value;
+
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    if (w.Length < 5) return false;
+                    {
+                        double w1End = w[0].End.Value;
+                        double w3End = w[2].End.Value;
+                        double w4End = w[3].End.Value;
+                        double w5End = w[4].End.Value;
+
+                        if (isUp && w[1].End.Value <= start) return false;
+                        if (!isUp && w[1].End.Value >= start) return false;
+
+                        if (isUp && w3End <= w1End) return false;
+                        if (!isUp && w3End >= w1End) return false;
+
+                        if (isUp && w4End <= start) return false;
+                        if (!isUp && w4End >= start) return false;
+                        if (isUp && w4End <= w1End) return false;
+                        if (!isUp && w4End >= w1End) return false;
+
+                        if (w[2].Length < w[0].Length && w[2].Length < w[4].Length) return false;
+
+                        if (isUp && w5End <= w4End) return false;
+                        if (!isUp && w5End >= w4End) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    if (w.Length < 5) return false;
+                    {
+                        double w1End = w[0].End.Value;
+                        double w3End = w[2].End.Value;
+                        double w4End = w[3].End.Value;
+
+                        if (isUp && w[1].End.Value <= start) return false;
+                        if (!isUp && w[1].End.Value >= start) return false;
+
+                        if (isUp && w3End <= w1End) return false;
+                        if (!isUp && w3End >= w1End) return false;
+
+                        // W4 overlaps W1 territory
+                        if (isUp && w4End >= w1End) return false;
+                        if (!isUp && w4End <= w1End) return false;
+
+                        // Contracting: each same-dir wave < previous
+                        if (w[2].Length >= w[0].Length) return false;
+                        if (w[4].Length >= w[2].Length) return false;
+                        if (w[3].Length >= w[1].Length) return false;
+
+                        if (isUp && w[4].End.Value <= w4End) return false;
+                        if (!isUp && w[4].End.Value >= w4End) return false;
+
+                        // Initial diagonal: W5 must exceed W3 end
+                        if (model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL)
+                        {
+                            if (isUp && w[4].End.Value <= w3End) return false;
+                            if (!isUp && w[4].End.Value >= w3End) return false;
+                        }
+                    }
+                    return true;
+
+                case ElliottModelType.ZIGZAG:
+                    if (w.Length < 3) return false;
+                    {
+                        double wALen = w[0].Length;
+                        double wBLen = w[1].Length;
+                        double wCLen = w[2].Length;
+                        double wAEnd = w[0].End.Value;
+
+                        if (wBLen > wALen * 0.95) return false;
+                        if (wCLen < wALen * 0.618) return false;
+
+                        if (isUp && w[1].End.Value <= start) return false;
+                        if (!isUp && w[1].End.Value >= start) return false;
+
+                        if (isUp && w[2].End.Value <= wAEnd) return false;
+                        if (!isUp && w[2].End.Value >= wAEnd) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                    if (w.Length < 3) return false;
+                    {
+                        double wWLen = w[0].Length;
+                        double wXLen = w[1].Length;
+                        double wWEnd = w[0].End.Value;
+
+                        if (wXLen > wWLen * 0.95) return false;
+
+                        if (isUp && w[1].End.Value <= start) return false;
+                        if (!isUp && w[1].End.Value >= start) return false;
+
+                        if (isUp && w[2].End.Value <= wWEnd) return false;
+                        if (!isUp && w[2].End.Value >= wWEnd) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.FLAT_EXTENDED:
+                    if (w.Length < 3) return false;
+                    {
+                        double wALen = w[0].Length;
+                        double wBLen = w[1].Length;
+                        double wCLen = w[2].Length;
+                        double wAEnd = w[0].End.Value;
+
+                        if (wBLen < wALen) return false;
+                        if (wCLen < wALen * 1.618) return false;
+
+                        if (isUp && w[2].End.Value <= wAEnd) return false;
+                        if (!isUp && w[2].End.Value >= wAEnd) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.FLAT_RUNNING:
+                    if (w.Length < 3) return false;
+                    {
+                        double wALen = w[0].Length;
+                        double wBLen = w[1].Length;
+                        double wCLen = w[2].Length;
+                        double wAEnd = w[0].End.Value;
+
+                        if (wBLen < wALen) return false;
+                        if (wCLen > wALen * 1.618) return false;
+
+                        if (isUp && w[2].End.Value >= wAEnd) return false;
+                        if (!isUp && w[2].End.Value <= wAEnd) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                    if (w.Length < 5) return false;
+                    {
+                        for (int i = 1; i < w.Length; i++)
+                            if (w[i].Length >= w[i - 1].Length) return false;
+
+                        double wAEnd = w[0].End.Value;
+                        double eEnd = w[4].End.Value;
+                        if (isUp)
+                        {
+                            if (eEnd <= start || eEnd >= wAEnd) return false;
+                        }
+                        else
+                        {
+                            if (eEnd >= start || eEnd <= wAEnd) return false;
+                        }
+                    }
+                    return true;
+
+                case ElliottModelType.TRIANGLE_RUNNING:
+                    if (w.Length < 5) return false;
+                    {
+                        if (isUp && w[1].End.Value >= start) return false;
+                        if (!isUp && w[1].End.Value <= start) return false;
+
+                        for (int i = 2; i < w.Length; i++)
+                            if (w[i].Length >= w[i - 1].Length) return false;
+
+                        double wAEnd = w[0].End.Value;
+                        double eEnd = w[4].End.Value;
+                        if (isUp)
+                        {
+                            if (eEnd <= start || eEnd >= wAEnd) return false;
+                        }
+                        else
+                        {
+                            if (eEnd >= start || eEnd <= wAEnd) return false;
+                        }
+                    }
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private static bool CheckHardRulesPartial(ElliottModelType model, Segment[] w)
+        {
+            if (w.Length == 0) return false;
+            bool isUp = w[0].IsUp;
+            double start = w[0].Start.Value;
+
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    if (w.Length < 4) return false;
+                    {
+                        double w1End = w[0].End.Value;
+                        double w3End = w[2].End.Value;
+
+                        if (isUp && w[1].End.Value <= start) return false;
+                        if (!isUp && w[1].End.Value >= start) return false;
+
+                        if (isUp && w3End <= w1End) return false;
+                        if (!isUp && w3End >= w1End) return false;
+
+                        if (isUp && w[3].End.Value <= start) return false;
+                        if (!isUp && w[3].End.Value >= start) return false;
+                        if (isUp && w[3].End.Value <= w1End) return false;
+                        if (!isUp && w[3].End.Value >= w1End) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    if (w.Length < 4) return false;
+                    {
+                        double w1End = w[0].End.Value;
+                        double w3End = w[2].End.Value;
+
+                        if (isUp && w[1].End.Value <= start) return false;
+                        if (!isUp && w[1].End.Value >= start) return false;
+
+                        if (isUp && w3End <= w1End) return false;
+                        if (!isUp && w3End >= w1End) return false;
+
+                        if (w[2].Length >= w[0].Length) return false;
+                        if (w[3].Length >= w[1].Length) return false;
+
+                        if (isUp && w[3].End.Value >= w1End) return false;
+                        if (!isUp && w[3].End.Value <= w1End) return false;
+                    }
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private ExactParsedNode BuildNode(
+            ElliottModelType model, Segment[] waves, double score, int waveCount)
+        {
+            int expected = GetExpectedWaves(model);
+            var subWaves = new ExactParsedNode[expected];
+
+            for (int i = 0; i < waveCount; i++)
+            {
+                subWaves[i] = new ExactParsedNode
+                {
+                    ModelType = ElliottModelType.SIMPLE_IMPULSE,
+                    WaveCount = 1,
+                    ExpectedWaves = 1,
+                    StartIndex = waves[i].Start.BarIndex,
+                    EndIndex = waves[i].End.BarIndex,
+                    StartPoint = waves[i].Start,
+                    EndPoint = waves[i].End,
+                    IsUp = waves[i].IsUp,
+                    Score = 1.0,
+                    SubWaves = Array.Empty<ExactParsedNode>()
+                };
+            }
+
+            return new ExactParsedNode
+            {
+                ModelType = model,
+                WaveCount = waveCount,
+                ExpectedWaves = expected,
+                StartIndex = waves[0].Start.BarIndex,
+                EndIndex = waves[waveCount - 1].End.BarIndex,
+                StartPoint = waves[0].Start,
+                EndPoint = waves[waveCount - 1].End,
+                IsUp = waves[0].IsUp,
+                Score = score,
+                SubWaves = subWaves
+            };
         }
 
         /// <summary>
         /// Calculates Fibonacci price projections for missing sub-waves in an incomplete wave node.
         /// </summary>
-        /// <param name='node'>The incomplete parsed wave node.</param>
-        /// <returns>A list of tuples containing projected price values, future bar indices, and projection names.</returns>
         public List<(double Value, int BarIndex, string Name)> GetProjections(ExactParsedNode node)
         {
             var projections = new List<(double Value, int BarIndex, string Name)>();
-            if (node.WaveCount >= node.ExpectedWaves) return projections;
+            if (node == null || node.WaveCount >= node.ExpectedWaves) return projections;
 
-            int currentIndex = node.EndPoint.BarIndex;
-            double currentValue = node.EndPoint.Value;
-            bool isUp = node.SubWaves[node.WaveCount - 1].IsUp;
-            bool nextIsUp = !isUp;
-
-            double[] wavePriceLengths = new double[node.ExpectedWaves];
+            double[] waveLengths = new double[node.ExpectedWaves];
             int[] waveTimeLengths = new int[node.ExpectedWaves];
-            
+
             for (int i = 0; i < node.WaveCount; i++)
             {
-                wavePriceLengths[i] = node.SubWaves[i].Length;
-                waveTimeLengths[i] = Math.Max(1, node.SubWaves[i].EndIndex - node.SubWaves[i].StartIndex);
+                waveLengths[i] = node.SubWaves[i].Length;
+                waveTimeLengths[i] = Math.Max(1,
+                    node.SubWaves[i].EndIndex - node.SubWaves[i].StartIndex);
             }
 
-            int avgTimeLength = (int)waveTimeLengths.Take(node.WaveCount).Average();
+            int avgTimeLen = (int)waveTimeLengths.Take(node.WaveCount).Average();
+            double currentValue = node.EndPoint.Value;
+            int currentIndex = node.EndPoint.BarIndex;
+            bool nextIsUp = !node.SubWaves[node.WaveCount - 1].IsUp;
 
             for (int w = node.WaveCount + 1; w <= node.ExpectedWaves; w++)
             {
-                double projPriceLength = 0;
-                
-                if (node.ModelType == ElliottModelType.IMPULSE)
-                {
-                    if (w == 2) projPriceLength = wavePriceLengths[0] * 0.618;
-                    else if (w == 3) projPriceLength = wavePriceLengths[0] * 1.618;
-                    else if (w == 4) projPriceLength = wavePriceLengths[2] * 0.382;
-                    else if (w == 5) projPriceLength = wavePriceLengths[0] * 1.0;
-                }
-                else if (node.ModelType == ElliottModelType.ZIGZAG || node.ModelType == ElliottModelType.DOUBLE_ZIGZAG)
-                {
-                    if (w == 2) projPriceLength = wavePriceLengths[0] * 0.618;
-                    else if (w == 3) projPriceLength = wavePriceLengths[0] * 1.0;
-                }
-                else if (node.ModelType == ElliottModelType.FLAT_EXTENDED)
-                {
-                    if (w == 2) projPriceLength = wavePriceLengths[0] * 1.272;
-                    else if (w == 3) projPriceLength = wavePriceLengths[0] * 1.618;
-                }
-                else if (node.ModelType == ElliottModelType.FLAT_RUNNING)
-                {
-                    if (w == 2) projPriceLength = wavePriceLengths[0] * 1.272;
-                    else if (w == 3) projPriceLength = wavePriceLengths[0] * 1.0;
-                }
-                else if (node.ModelType == ElliottModelType.TRIANGLE_CONTRACTING)
-                {
-                    if (w >= 2) projPriceLength = wavePriceLengths[w - 2] * 0.618;
-                }
-                else
-                {
-                    if (w >= 2) projPriceLength = wavePriceLengths[0] * 0.618;
-                }
+                double projLen = GetProjectedLength(node.ModelType, w, waveLengths);
+                if (projLen == 0) projLen = waveLengths[0] * 0.5;
 
-                if (projPriceLength == 0) projPriceLength = wavePriceLengths[0] * 0.5;
+                double nextValue = nextIsUp ? currentValue + projLen : currentValue - projLen;
+                int nextIndex = currentIndex + avgTimeLen;
+                string name = GetWaveKey(node.ModelType, w);
 
-                double nextValue = nextIsUp ? currentValue + projPriceLength : currentValue - projPriceLength;
-                int nextIndex = currentIndex + avgTimeLength;
-                string nextName = GetWaveKey(node.ModelType, w);
-
-                projections.Add((nextValue, nextIndex, nextName));
-
-                wavePriceLengths[w - 1] = projPriceLength;
-                waveTimeLengths[w - 1] = avgTimeLength;
-
+                projections.Add((nextValue, nextIndex, name));
+                waveLengths[w - 1] = projLen;
                 currentValue = nextValue;
                 currentIndex = nextIndex;
                 nextIsUp = !nextIsUp;
@@ -150,596 +648,37 @@ namespace TradeKit.Core.AlgoBase
             return projections;
         }
 
-        /// <summary>
-        /// Parses a sequence of extremum points to find the most probable Elliott Wave structures.
-        /// </summary>
-        /// <param name='points'>The sequence of extremum price points.</param>
-        /// <returns>A list of the most probable completed wave structures, ordered by score descending.</returns>
-        public List<ExactParsedNode> Parse(List<BarPoint> points)
+        private static double GetProjectedLength(ElliottModelType model, int w, double[] lengths)
         {
-            int n = points.Count - 1;
-            if (n <= 0) return new List<ExactParsedNode>();
-
-            List<ExactParsedNode>[,] dp = new List<ExactParsedNode>[n, n];
-            double[,] minScore = new double[n, n];
-
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = i; j < n; j++)
-                {
-                    dp[i, j] = new List<ExactParsedNode>();
-                    minScore[i, j] = -1.0;
-                }
-            }
-
-            // Init length 1
-            for (int i = 0; i < n; i++)
-            {
-                ExactParsedNode seg = new ExactParsedNode
-                {
-                    ModelType = ElliottModelType.SIMPLE_IMPULSE,
-                    WaveCount = 1,
-                    ExpectedWaves = 1,
-                    StartIndex = i,
-                    EndIndex = i,
-                    StartPoint = points[i],
-                    EndPoint = points[i + 1],
-                    IsUp = points[i + 1].Value > points[i].Value,
-                    Score = 1.0,
-                    SubWaves = new ExactParsedNode[1]
-                };
-                
-                dp[i, i].Add(seg);
-                Promote(seg, dp[i, i], minScore, i, i);
-            }
-
-            // DP over lengths
-            for (int l = 2; l <= n; l++)
-            {
-                System.Threading.Tasks.Parallel.For(0, n - l + 1, i =>
-                {
-                    int j = i + l - 1;
-                    
-                    for (int m = i; m < j; m++)
-                    {
-                        List<ExactParsedNode> leftNodes = dp[i, m];
-                        List<ExactParsedNode> rightNodes = dp[m + 1, j];
-                        
-                        foreach (ExactParsedNode p in leftNodes)
-                        {
-                            if (p.WaveCount >= p.ExpectedWaves) continue;
-                            
-                            foreach (ExactParsedNode c in rightNodes)
-                            {
-                                if (c.WaveCount < c.ExpectedWaves) continue;
-                                
-                                ExactParsedNode lastWave = p.SubWaves[p.WaveCount - 1];
-                                if (lastWave.IsUp == c.IsUp) continue;
-                                
-                                int nextWaveNum = p.WaveCount + 1;
-                                if (!IsAllowed(p.ModelType, nextWaveNum, c.ModelType)) continue;
-                                
-                                if (!CheckWaveConstraints(p, c, nextWaveNum)) continue;
-                                
-                                double predictedScore = CalculateScore(p, c);
-                                if (dp[i, j].Count >= MaxHypothesesPerNode && predictedScore <= minScore[i, j]) continue;
-
-                                if (nextWaveNum == p.ExpectedWaves && !CheckFinalConstraints(p, c)) continue;
-
-                                ExactParsedNode nextP = CloneAndAppend(p, c);
-                                nextP.Score = predictedScore;
-                                
-                                dp[i, j].Add(nextP);
-                                
-                                if (nextP.WaveCount == nextP.ExpectedWaves)
-                                {
-                                    Promote(nextP, dp[i, j], minScore, i, j);
-                                }
-                                
-                                if (dp[i, j].Count > MaxHypothesesPerNode * 2)
-                                {
-                                    Prune(dp[i, j], MaxHypothesesPerNode);
-                                    if (dp[i, j].Count == MaxHypothesesPerNode) minScore[i, j] = dp[i, j][MaxHypothesesPerNode - 1].Score;
-                                }
-                            }
-                        }
-                    }
-                    
-                    Prune(dp[i, j], MaxHypothesesPerNode);
-                });
-            }
-            
-            List<ExactParsedNode> results = new List<ExactParsedNode>();
-            results.AddRange(dp[0, n - 1]);
-
-            return results.OrderByDescending(x => x.Score).ToList();
-        }
-
-        private ExactParsedNode CloneAndAppend(ExactParsedNode p, ExactParsedNode c)
-        {
-            ExactParsedNode next = new ExactParsedNode
-            {
-                ModelType = p.ModelType,
-                WaveCount = p.WaveCount + 1,
-                ExpectedWaves = p.ExpectedWaves,
-                StartIndex = p.StartIndex,
-                EndIndex = c.EndIndex,
-                StartPoint = p.StartPoint,
-                EndPoint = c.EndPoint,
-                IsUp = p.IsUp,
-                SubWaves = new ExactParsedNode[p.ExpectedWaves]
-            };
-            Array.Copy(p.SubWaves, next.SubWaves, p.WaveCount);
-            next.SubWaves[p.WaveCount] = c;
-            return next;
-        }
-
-        private void Promote(ExactParsedNode completeNode, List<ExactParsedNode> targetList, double[,] minScore = null, int i = 0, int j = 0)
-        {
-            // Enforce that the net movement direction matches the IsUp flag!
-            // This mirrors the extrema-based logic of the old algorithm and prevents
-            // "corrective" waves from having a net movement that extends the trend.
-            if (completeNode.ModelType != ElliottModelType.SIMPLE_IMPULSE)
-            {
-                if (completeNode.IsUp && completeNode.EndPoint.Value <= completeNode.StartPoint.Value) return;
-                if (!completeNode.IsUp && completeNode.EndPoint.Value >= completeNode.StartPoint.Value) return;
-            }
-
-            foreach (ElliottModelType targetModel in TargetModels)
-            {
-                int expected = GetExpectedWaves(targetModel);
-                if (IsAllowed(targetModel, 1, completeNode.ModelType))
-                {
-                    ExactParsedNode partial = new ExactParsedNode
-                    {
-                        ModelType = targetModel,
-                        WaveCount = 1,
-                        ExpectedWaves = expected,
-                        StartIndex = completeNode.StartIndex,
-                        EndIndex = completeNode.EndIndex,
-                        StartPoint = completeNode.StartPoint,
-                        EndPoint = completeNode.EndPoint,
-                        IsUp = completeNode.IsUp,
-                        SubWaves = new ExactParsedNode[expected]
-                    };
-                    partial.SubWaves[0] = completeNode;
-                    double pScore = CalculateScore(partial);
-                    
-                    if (minScore != null && targetList.Count >= MaxHypothesesPerNode && pScore <= minScore[i, j])
-                    {
-                        continue;
-                    }
-                    
-                    partial.Score = pScore;
-                    targetList.Add(partial);
-                }
-            }
-        }
-
-        private void Prune(List<ExactParsedNode> list, int maxItems)
-        {
-            if (list.Count <= maxItems) return;
-            list.Sort((a, b) => b.Score.CompareTo(a.Score));
-            list.RemoveRange(maxItems, list.Count - maxItems);
-        }
-
-        
-        private double GetWaveLength(ExactParsedNode p, ExactParsedNode c, int index)
-        {
-            if (index < p.WaveCount) return p.SubWaves[index].Length;
-            return c.Length;
-        }
-
-        private ElliottModelType GetWaveModelType(ExactParsedNode p, ExactParsedNode c, int index)
-        {
-            if (index < p.WaveCount) return p.SubWaves[index].ModelType;
-            return c.ModelType;
-        }
-
-        private double GetWaveScore(ExactParsedNode p, ExactParsedNode c, int index)
-        {
-            if (index < p.WaveCount) return p.SubWaves[index].Score;
-            return c.Score;
-        }
-
-private double CalculateScore(ExactParsedNode p, ExactParsedNode c = null)
-        {
-            double pc = 1.0;
-            if (ElliottWavePatternHelper.ModelRules.TryGetValue(p.ModelType, out ModelRules rules))
-            {
-                pc = rules.ProbabilityCoefficient;
-            }
-            if (p.ModelType == ElliottModelType.IMPULSE) pc *= 5.0; // Significant bump to prefer clean impulses over nested corrections
-
-            double subwavesScore = 1.0;
-            int totalWaveCount = p.WaveCount + (c != null ? 1 : 0);
-            for (int i = 0; i < totalWaveCount; i++)
-            {
-                if (true)
-                    subwavesScore *= GetWaveScore(p, c, i);
-            }
-            double avgSubwaveScore = totalWaveCount > 0 ? Math.Pow(subwavesScore, 1.0 / totalWaveCount) : 1.0;
-
-            double fiboScore = 1.0;
-            int fiboCount = 0;
-
-            if (p.ModelType == ElliottModelType.IMPULSE)
-            {
-                if (totalWaveCount >= 2)
-                {
-                    double w1 = GetWaveLength(p, c, 0);
-                    double w2 = GetWaveLength(p, c, 1);
-                    if (w1 > 0)
-                    {
-                        fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w2 / w1), GetFiboWeight(MAP_SHALLOW_CORRECTION, w2 / w1));
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 3)
-                {
-                    double w1 = GetWaveLength(p, c, 0);
-                    double w3 = GetWaveLength(p, c, 2);
-                    if (w1 > 0)
-                    {
-                        fiboScore *= GetFiboWeight(IMPULSE_3_TO_1, w3 / w1);
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 4)
-                {
-                    double w3 = GetWaveLength(p, c, 2);
-                    double w4 = GetWaveLength(p, c, 3);
-                    if (w3 > 0)
-                    {
-                        fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w4 / w3), GetFiboWeight(MAP_SHALLOW_CORRECTION, w4 / w3));
-                        fiboCount++;
-                    }
-                    
-                    ElliottModelType t2 = GetWaveModelType(p, c, 1);
-                    ElliottModelType t4 = GetWaveModelType(p, c, 3);
-                    bool isW2Deep = ElliottWavePatternHelper.DeepCorrections.Contains(t2);
-                    bool isW4Deep = ElliottWavePatternHelper.DeepCorrections.Contains(t4);
-                    if (isW2Deep != isW4Deep)
-                    {
-                        pc *= 1.2;
-                    }
-                }
-                if (totalWaveCount >= 5)
-                {
-                    double w1 = GetWaveLength(p, c, 0);
-                    double w5 = GetWaveLength(p, c, 4);
-                    if (w1 > 0)
-                    {
-                        fiboScore *= GetFiboWeight(IMPULSE_5_TO_1, w5 / w1);
-                        fiboCount++;
-                    }
-                }
-            }
-            else if (p.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL || p.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_ENDING)
-            {
-                if (totalWaveCount >= 2)
-                {
-                    double w1 = GetWaveLength(p, c, 0);
-                    double w2 = GetWaveLength(p, c, 1);
-                    if (w1 > 0)
-                    {
-                        fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w2 / w1), GetFiboWeight(MAP_SHALLOW_CORRECTION, w2 / w1));
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 3)
-                {
-                    double w1 = GetWaveLength(p, c, 0);
-                    double w3 = GetWaveLength(p, c, 2);
-                    if (w1 > 0)
-                    {
-                        fiboScore *= GetFiboWeight(CONTRACTING_DIAGONAL_3_TO_1, w3 / w1);
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 4)
-                {
-                    double w3 = GetWaveLength(p, c, 2);
-                    double w4 = GetWaveLength(p, c, 3);
-                    if (w3 > 0)
-                    {
-                        fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, w4 / w3), GetFiboWeight(MAP_SHALLOW_CORRECTION, w4 / w3));
-                        fiboCount++;
-                    }
-                }
-            }
-            else if (p.ModelType == ElliottModelType.ZIGZAG || p.ModelType == ElliottModelType.DOUBLE_ZIGZAG)
-            {
-                if (totalWaveCount >= 2)
-                {
-                    double wA = GetWaveLength(p, c, 0);
-                    double wB = GetWaveLength(p, c, 1);
-                    if (wA > 0)
-                    {
-                        fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, wB / wA), GetFiboWeight(MAP_SHALLOW_CORRECTION, wB / wA));
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 3 && p.ModelType == ElliottModelType.ZIGZAG)
-                {
-                    double wA = GetWaveLength(p, c, 0);
-                    double wC = GetWaveLength(p, c, 2);
-                    if (wA > 0)
-                    {
-                        fiboScore *= GetFiboWeight(ZIGZAG_C_TO_A, wC / wA);
-                        fiboCount++;
-                    }
-                }
-            }
-            else if (p.ModelType == ElliottModelType.FLAT_EXTENDED)
-            {
-                if (totalWaveCount >= 2)
-                {
-                    double wA = GetWaveLength(p, c, 0);
-                    double wB = GetWaveLength(p, c, 1);
-                    if (wA > 0)
-                    {
-                        fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, wB / wA), GetFiboWeight(MAP_SHALLOW_CORRECTION, wB / wA));
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 3)
-                {
-                    double wA = GetWaveLength(p, c, 0);
-                    double wC = GetWaveLength(p, c, 2);
-                    if (wA > 0)
-                    {
-                        fiboScore *= GetFiboWeight(MAP_EX_FLAT_WAVE_C_TO_A, wC / wA);
-                        fiboCount++;
-                    }
-                }
-            }
-            else if (p.ModelType == ElliottModelType.FLAT_RUNNING)
-            {
-                if (totalWaveCount >= 2)
-                {
-                    double wA = GetWaveLength(p, c, 0);
-                    double wB = GetWaveLength(p, c, 1);
-                    if (wA > 0)
-                    {
-                        fiboScore *= Math.Max(GetFiboWeight(MAP_DEEP_CORRECTION, wB / wA), GetFiboWeight(MAP_SHALLOW_CORRECTION, wB / wA));
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 3)
-                {
-                    double wA = GetWaveLength(p, c, 0);
-                    double wC = GetWaveLength(p, c, 2);
-                    if (wA > 0)
-                    {
-                        fiboScore *= GetFiboWeight(MAP_RUNNING_FLAT_WAVE_C_TO_A, wC / wA);
-                        fiboCount++;
-                    }
-                }
-            }
-            else if (p.ModelType == ElliottModelType.TRIANGLE_CONTRACTING || p.ModelType == ElliottModelType.TRIANGLE_RUNNING)
-            {
-                if (totalWaveCount >= 2)
-                {
-                    double w1 = GetWaveLength(p, c, 0);
-                    double w2 = GetWaveLength(p, c, 1);
-                    if (w1 > 0)
-                    {
-                        fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w2 / w1);
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 3)
-                {
-                    double w2 = GetWaveLength(p, c, 1);
-                    double w3 = GetWaveLength(p, c, 2);
-                    if (w2 > 0)
-                    {
-                        fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w3 / w2);
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 4)
-                {
-                    double w3 = GetWaveLength(p, c, 2);
-                    double w4 = GetWaveLength(p, c, 3);
-                    if (w3 > 0)
-                    {
-                        fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w4 / w3);
-                        fiboCount++;
-                    }
-                }
-                if (totalWaveCount >= 5)
-                {
-                    double w4 = GetWaveLength(p, c, 3);
-                    double w5 = GetWaveLength(p, c, 4);
-                    if (w4 > 0)
-                    {
-                        fiboScore *= GetFiboWeight(MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV, w5 / w4);
-                        fiboCount++;
-                    }
-                }
-            }
-
-            int expectedFiboCount = 0;
-            if (p.ModelType == ElliottModelType.IMPULSE) expectedFiboCount = 4;
-            else if (p.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL || p.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_ENDING) expectedFiboCount = 3;
-            else if (p.ModelType == ElliottModelType.ZIGZAG || p.ModelType == ElliottModelType.DOUBLE_ZIGZAG) expectedFiboCount = 2;
-            else if (p.ModelType == ElliottModelType.FLAT_EXTENDED || p.ModelType == ElliottModelType.FLAT_RUNNING) expectedFiboCount = 2;
-            else if (p.ModelType == ElliottModelType.TRIANGLE_CONTRACTING || p.ModelType == ElliottModelType.TRIANGLE_RUNNING) expectedFiboCount = 4;
-
-            double paddedFiboScore = 1.0;
-            if (expectedFiboCount > 0)
-            {
-                int missingFibos = expectedFiboCount - fiboCount;
-                // Treat missing fibos as relatively low probability so complete patterns win
-                double totalFibo = fiboScore * Math.Pow(0.1, missingFibos);
-                paddedFiboScore = Math.Pow(totalFibo, 1.0 / expectedFiboCount);
-            }
-
-            double score = pc * avgSubwaveScore * paddedFiboScore;
-
-            if (totalWaveCount < p.ExpectedWaves)
-            {
-                score *= Math.Pow(0.6, p.ExpectedWaves - totalWaveCount);
-            }
-
-            return score;
-        }
-        private double GetRatioScore(double ratio)
-        {
-            double[] fibs = { 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618, 2.618 };
-            double bestDiff = 1000;
-            foreach (double f in fibs)
-            {
-                bestDiff = Math.Min(bestDiff, Math.Abs(ratio - f));
-            }
-            if (bestDiff < 0.05) return 1.2;
-            if (bestDiff < 0.1) return 1.1;
-            return 1.0;
-        }
-
-        private bool CheckWaveConstraints(ExactParsedNode p, ExactParsedNode c, int waveNum)
-        {
-            double start = p.StartPoint.Value;
-            double end1 = p.SubWaves[0].EndPoint.Value;
-            bool isUp = p.IsUp;
-            
-            switch (p.ModelType)
+            switch (model)
             {
                 case ElliottModelType.IMPULSE:
-                    if (waveNum == 2)
-                    {
-                        if (isUp && c.EndPoint.Value <= start) return false;
-                        if (!isUp && c.EndPoint.Value >= start) return false;
-                    }
-                    else if (waveNum == 3)
-                    {
-                        if (isUp && c.EndPoint.Value <= end1) return false;
-                        if (!isUp && c.EndPoint.Value >= end1) return false;
-                    }
-                    else if (waveNum == 4)
-                    {
-                        if (isUp && c.EndPoint.Value <= end1) return false;
-                        if (!isUp && c.EndPoint.Value >= end1) return false;
-                    }
+                    if (w == 2) return lengths[0] * 0.618;
+                    if (w == 3) return lengths[0] * 1.618;
+                    if (w == 4) return lengths[2] * 0.382;
+                    if (w == 5) return lengths[0] * 1.0;
                     break;
-                    
-                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
-                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
-                    if (waveNum == 2)
-                    {
-                        if (isUp && c.EndPoint.Value <= start) return false;
-                        if (!isUp && c.EndPoint.Value >= start) return false;
-                    }
-                    else if (waveNum == 3)
-                    {
-                        if (c.Length >= p.SubWaves[0].Length) return false;
-                        if (isUp && c.EndPoint.Value <= end1) return false;
-                        if (!isUp && c.EndPoint.Value >= end1) return false;
-                    }
-                    else if (waveNum == 4)
-                    {
-                        if (c.Length >= p.SubWaves[1].Length) return false;
-                        if (isUp && c.EndPoint.Value > end1) return false;
-                        if (!isUp && c.EndPoint.Value < end1) return false;
-                    }
-                    else if (waveNum == 5)
-                    {
-                        if (c.Length >= p.SubWaves[2].Length) return false;
-                        double end3 = p.SubWaves[2].EndPoint.Value;
-                        if (p.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL)
-                        {
-                            if (isUp && c.EndPoint.Value <= end3) return false;
-                            if (!isUp && c.EndPoint.Value >= end3) return false;
-                        }
-                    }
-                    break;
-                    
                 case ElliottModelType.ZIGZAG:
-                    if (waveNum == 2)
-                    {
-                        if (isUp && c.EndPoint.Value <= start) return false;
-                        if (!isUp && c.EndPoint.Value >= start) return false;
-                    }
-                    else if (waveNum == 3)
-                    {
-                        if (isUp && c.EndPoint.Value <= end1) return false;
-                        if (!isUp && c.EndPoint.Value >= end1) return false;
-                    }
-                    break;
-                    
                 case ElliottModelType.DOUBLE_ZIGZAG:
-                    if (waveNum == 2)
-                    {
-                        if (isUp && c.EndPoint.Value <= start) return false;
-                        if (!isUp && c.EndPoint.Value >= start) return false;
-                    }
-                    else if (waveNum == 3)
-                    {
-                        if (isUp && c.EndPoint.Value <= end1) return false;
-                        if (!isUp && c.EndPoint.Value >= end1) return false;
-                    }
+                    if (w == 2) return lengths[0] * 0.618;
+                    if (w == 3) return lengths[0] * 1.0;
                     break;
-                    
                 case ElliottModelType.FLAT_EXTENDED:
-                    if (waveNum == 2)
-                    {
-                        if (c.Length < p.SubWaves[0].Length * 0.5) return false;
-                    }
-                    else if (waveNum == 3)
-                    {
-                        if (isUp && c.EndPoint.Value <= end1) return false;
-                        if (!isUp && c.EndPoint.Value >= end1) return false;
-                    }
+                    if (w == 2) return lengths[0] * 1.272;
+                    if (w == 3) return lengths[0] * 1.618;
                     break;
-                    
                 case ElliottModelType.FLAT_RUNNING:
-                    if (waveNum == 2)
-                    {
-                        if (isUp && c.EndPoint.Value >= start) return false;
-                        if (!isUp && c.EndPoint.Value <= start) return false;
-                    }
-                    else if (waveNum == 3)
-                    {
-                        if (isUp && c.EndPoint.Value >= end1) return false;
-                        if (!isUp && c.EndPoint.Value <= end1) return false;
-                    }
+                    if (w == 2) return lengths[0] * 1.272;
+                    if (w == 3) return lengths[0] * 1.0;
                     break;
-                    
                 case ElliottModelType.TRIANGLE_CONTRACTING:
-                    if (waveNum >= 2)
-                    {
-                        if (c.Length >= p.SubWaves[waveNum - 2].Length) return false;
-                    }
+                    if (w >= 2) return lengths[w - 2] * 0.618;
                     break;
-                    
-                case ElliottModelType.TRIANGLE_RUNNING:
-                    if (waveNum == 2)
-                    {
-                        if (isUp && c.EndPoint.Value >= start) return false;
-                        if (!isUp && c.EndPoint.Value <= start) return false;
-                    }
-                    else if (waveNum >= 3)
-                    {
-                        if (c.Length >= p.SubWaves[waveNum - 2].Length) return false;
-                    }
+                default:
+                    if (w >= 2) return lengths[0] * 0.618;
                     break;
             }
-            
-            return true;
-        }
-
-        private bool CheckFinalConstraints(ExactParsedNode p, ExactParsedNode c = null)
-        {
-            if (p.ModelType == ElliottModelType.IMPULSE)
-            {
-                double len1 = GetWaveLength(p, c, 0);
-                double len3 = GetWaveLength(p, c, 2);
-                double len5 = GetWaveLength(p, c, 4);
-                if (len3 < len1 && len3 < len5) return false;
-            }
-            return true;
+            return 0;
         }
     }
 }
