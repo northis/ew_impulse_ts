@@ -441,14 +441,16 @@ namespace TradeKit.Core.AlgoBase
                 case ElliottModelType.FLAT_EXTENDED:
                     if (w.Length < 3) return false;
                     {
-                        double wALen = w[0].Length;
-                        double wBLen = w[1].Length;
-                        double wCLen = w[2].Length;
                         double wAEnd = w[0].End.Value;
 
-                        if (wBLen < wALen) return false;
-                        if (wCLen < wALen * 1.618) return false;
+                        // B must overshoot the pattern origin (opposite side from A's start).
+                        // For up A: A goes up, B retraces and goes BELOW start.
+                        // For down A: A goes down, B retraces and goes ABOVE start.
+                        // This is exactly opposite to ZIGZAG's B rule (ZIGZAG B stays within start).
+                        if (isUp && w[1].End.Value >= start) return false;
+                        if (!isUp && w[1].End.Value <= start) return false;
 
+                        // C extends beyond A's price territory (the defining feature of "extended").
                         if (isUp && w[2].End.Value <= wAEnd) return false;
                         if (!isUp && w[2].End.Value >= wAEnd) return false;
                     }
@@ -457,14 +459,13 @@ namespace TradeKit.Core.AlgoBase
                 case ElliottModelType.FLAT_RUNNING:
                     if (w.Length < 3) return false;
                     {
-                        double wALen = w[0].Length;
-                        double wBLen = w[1].Length;
-                        double wCLen = w[2].Length;
                         double wAEnd = w[0].End.Value;
 
-                        if (wBLen < wALen) return false;
-                        if (wCLen > wALen * 1.618) return false;
+                        // B must overshoot the pattern origin, same as extended flat.
+                        if (isUp && w[1].End.Value >= start) return false;
+                        if (!isUp && w[1].End.Value <= start) return false;
 
+                        // C does NOT reach A's end territory (short of A — the "running" property).
                         if (isUp && w[2].End.Value >= wAEnd) return false;
                         if (!isUp && w[2].End.Value <= wAEnd) return false;
                     }
@@ -476,38 +477,30 @@ namespace TradeKit.Core.AlgoBase
                         for (int i = 1; i < w.Length; i++)
                             if (w[i].Length >= w[i - 1].Length) return false;
 
-                        double wAEnd = w[0].End.Value;
+                        // E must remain on the triangle side of the start (not break out the wrong way).
+                        // The eEnd >= wAEnd constraint is removed: the wave-length contracting rule
+                        // (each step shorter) already enforces convergence; a price-level upper/lower
+                        // bound relative to A's end is a Fibonacci preference, not a structural rule.
                         double eEnd = w[4].End.Value;
-                        if (isUp)
-                        {
-                            if (eEnd <= start || eEnd >= wAEnd) return false;
-                        }
-                        else
-                        {
-                            if (eEnd >= start || eEnd <= wAEnd) return false;
-                        }
+                        if (isUp && eEnd <= start) return false;
+                        if (!isUp && eEnd >= start) return false;
                     }
                     return true;
 
                 case ElliottModelType.TRIANGLE_RUNNING:
                     if (w.Length < 5) return false;
                     {
+                        // B overshoots the triangle origin (the "running" property).
                         if (isUp && w[1].End.Value >= start) return false;
                         if (!isUp && w[1].End.Value <= start) return false;
 
                         for (int i = 2; i < w.Length; i++)
                             if (w[i].Length >= w[i - 1].Length) return false;
 
-                        double wAEnd = w[0].End.Value;
+                        // Same E constraint as contracting: just stay on triangle side of start.
                         double eEnd = w[4].End.Value;
-                        if (isUp)
-                        {
-                            if (eEnd <= start || eEnd >= wAEnd) return false;
-                        }
-                        else
-                        {
-                            if (eEnd >= start || eEnd <= wAEnd) return false;
-                        }
+                        if (isUp && eEnd <= start) return false;
+                        if (!isUp && eEnd >= start) return false;
                     }
                     return true;
 
