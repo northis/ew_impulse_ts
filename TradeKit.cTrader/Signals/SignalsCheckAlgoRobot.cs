@@ -5,6 +5,7 @@ using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.Signals;
 using TradeKit.CTrader.Core;
+using File = System.IO.File;
 
 namespace TradeKit.CTrader.Signals
 {

@@ -80,7 +80,7 @@ namespace TradeKit.Core.ElliottWave
             
             for (int i = 0; i < WaveCount; i++)
             {
-                if (SubWaves[i] != null)
+                if (SubWaves != null && i < SubWaves.Length && SubWaves[i] != null)
                 {
                     if (i < WaveCount - 1)
                         res.Boundaries.Add(SubWaves[i].EndPoint);
