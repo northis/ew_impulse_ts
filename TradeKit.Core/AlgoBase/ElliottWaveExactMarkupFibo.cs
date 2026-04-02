@@ -244,7 +244,12 @@ namespace TradeKit.Core.AlgoBase
             // Using sqrt(numRatios) as the bonus so IMPULSE(4)=×2 vs ZIGZAG(2)=×1.41.
             double complexityBonus = Math.Sqrt(numRatios);
 
-            return modelCoeff * geometricMean * complexityBonus;
+            // Bar-count bonus for corrective waves: prefer candidates where corrective
+            // sub-waves (e.g. B in a zigzag, waves 2/4 in an impulse) consume more bars.
+            // A triangle lasting many bars as wave B is preferred over a quick zigzag.
+            double barCountBonus = CalculateCorrectiveBarCountBonus(model, w);
+
+            return modelCoeff * geometricMean * complexityBonus * barCountBonus;
         }
 
         private static double GetModelCoeff(ElliottModelType model)
@@ -252,6 +257,58 @@ namespace TradeKit.Core.AlgoBase
             if (ElliottWavePatternHelper.ModelRules.TryGetValue(model, out ModelRules rules))
                 return rules.ProbabilityCoefficient;
             return 0.25;
+        }
+
+        /// <summary>
+        /// Returns the wave indices (0-based) that represent corrective sub-waves for
+        /// the given model.  These are the positions where a longer bar count is preferred
+        /// — e.g. wave B in a zigzag, waves 2 and 4 in an impulse, wave X in a double-zigzag.
+        /// </summary>
+        private static int[] GetCorrectiveWaveIndices(ElliottModelType model) => model switch
+        {
+            ElliottModelType.IMPULSE
+                or ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+                or ElliottModelType.DIAGONAL_CONTRACTING_ENDING => new[] { 1, 3 },
+            ElliottModelType.ZIGZAG
+                or ElliottModelType.FLAT_EXTENDED
+                or ElliottModelType.FLAT_RUNNING => new[] { 1 },
+            ElliottModelType.DOUBLE_ZIGZAG => new[] { 1 },
+            ElliottModelType.TRIANGLE_CONTRACTING
+                or ElliottModelType.TRIANGLE_RUNNING => new[] { 1, 2, 3, 4 },
+            _ => Array.Empty<int>()
+        };
+
+        /// <summary>
+        /// Computes a score multiplier ≥ 1.0 that rewards candidates where corrective
+        /// sub-waves occupy a larger fraction of the total pattern's bar span.
+        /// Range: [1.0, 1.3].  Kept small so it acts as a tie-breaker only and does
+        /// not override Fibonacci quality or hard-rule decisions.
+        /// </summary>
+        private static double CalculateCorrectiveBarCountBonus(
+            ElliottModelType model, Segment[] w)
+        {
+            int[] indices = GetCorrectiveWaveIndices(model);
+            if (indices.Length == 0) return 1.0;
+
+            int totalBars = Math.Max(1,
+                w[w.Length - 1].End.BarIndex - w[0].Start.BarIndex);
+
+            double sumFraction = 0.0;
+            int count = 0;
+
+            foreach (int idx in indices)
+            {
+                if (idx >= w.Length) continue;
+                int wBars = Math.Max(1, w[idx].End.BarIndex - w[idx].Start.BarIndex);
+                sumFraction += (double)wBars / totalBars;
+                count++;
+            }
+
+            if (count == 0) return 1.0;
+
+            double avgFraction = sumFraction / count;
+            // Bonus range: 1.0 (corrective wave 0 % of time) → 1.3 (100 % of time)
+            return 1.0 + 0.3 * avgFraction;
         }
     }
 }

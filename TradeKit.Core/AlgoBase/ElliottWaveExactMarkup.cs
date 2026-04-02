@@ -15,6 +15,26 @@ namespace TradeKit.Core.AlgoBase
         private const double FULL_FIT_BONUS = 1.2;
         private const double TRUNCATION_SCORE_MULT = 0.05;
 
+        // Optional bars provider used to enforce the direction hard rule:
+        // a downward wave must end at the LOW of its end bar (not the HIGH),
+        // and an upward wave must end at the HIGH of its end bar.
+        private readonly IBarsProvider m_BarsProvider;
+
+        /// <summary>
+        /// Initialises the markup engine.
+        /// </summary>
+        /// <param name="barsProvider">
+        /// Optional.  When supplied every wave endpoint is validated against the
+        /// actual High/Low price of the corresponding bar (hard rule §4.1):
+        /// descending waves must finish at the bar LOW, ascending waves at the bar HIGH.
+        /// Pass <c>null</c> (default) to skip this check — useful in unit tests that
+        /// work with synthetic price points.
+        /// </param>
+        public ElliottWaveExactMarkup(IBarsProvider barsProvider = null)
+        {
+            m_BarsProvider = barsProvider;
+        }
+
         /// <summary>
         /// Defines the target wave models that the algorithm attempts to identify.
         /// </summary>
@@ -168,6 +188,7 @@ namespace TradeKit.Core.AlgoBase
 
                     if (!CheckAlternation(waves)) continue;
                     if (!CheckHardRules(model, waves)) continue;
+                    if (!CheckDirectionEndpoints(waves)) continue;
 
                     double fiboScore = CalculateFiboScore(model, waves);
                     if (fiboScore <= 0) continue;
@@ -225,7 +246,8 @@ namespace TradeKit.Core.AlgoBase
                 for (int i = 0; i < k; i++)
                     waves[i] = new Segment { Start = pts[i], End = pts[i + 1] };
 
-                if (CheckAlternation(waves) && CheckHardRules(model, waves))
+                if (CheckAlternation(waves) && CheckHardRules(model, waves)
+                    && CheckDirectionEndpoints(waves))
                 {
                     double score = CalculateFiboScore(model, waves);
                     if (score > 0)
@@ -323,6 +345,36 @@ namespace TradeKit.Core.AlgoBase
             score *= priceCoverage * priceCoverage;
 
             return BuildNode(model, allWaves, score, k);
+        }
+
+        /// <summary>
+        /// Hard rule §4.1 — direction endpoint validation.
+        /// For a descending wave the endpoint must be the LOW of its bar;
+        /// for an ascending wave it must be the HIGH.
+        /// Returns <c>true</c> when no <see cref="IBarsProvider"/> was supplied
+        /// (check is skipped) or when every wave endpoint passes the validation.
+        /// </summary>
+        private bool CheckDirectionEndpoints(Segment[] waves)
+        {
+            if (m_BarsProvider == null) return true;
+            foreach (Segment w in waves)
+            {
+                int idx = w.End.BarIndex;
+                if (idx < 0 || idx >= m_BarsProvider.Count) continue;
+                if (w.IsUp)
+                {
+                    // Ascending wave — end must be the bar HIGH
+                    double barHigh = m_BarsProvider.GetHighPrice(idx);
+                    if (Math.Abs(w.End.Value - barHigh) > 1e-9) return false;
+                }
+                else
+                {
+                    // Descending wave — end must be the bar LOW
+                    double barLow = m_BarsProvider.GetLowPrice(idx);
+                    if (Math.Abs(w.End.Value - barLow) > 1e-9) return false;
+                }
+            }
+            return true;
         }
 
         private static bool CheckAlternation(Segment[] waves)

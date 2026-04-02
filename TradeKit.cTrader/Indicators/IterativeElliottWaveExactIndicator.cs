@@ -22,7 +22,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_Markup = new ElliottWaveExactMarkup();
+        m_Markup = new ElliottWaveExactMarkup(m_BarProvider);
     }
 
     public override void Calculate(int index)
@@ -83,25 +83,20 @@ public class IterativeElliottWaveExactIndicator : Indicator
             innerPoints.Add(endPoint);
 
         List<ExactParsedNode> parsed = m_Markup.Parse(innerPoints);
-        ExactParsedNode best = parsed.FirstOrDefault();
+        ExactParsedNode best = parsed.Count > 0 ? parsed[0] : null;
+        ExactParsedNode second = parsed.Count > 1 ? parsed[1] : null;
 
         if (best == null)
             return;
 
         Chart.RemoveAllObjects();
 
-        List<MarkupResult> flat = best.ToMarkupResult().Flatten().ToList();
-        foreach (MarkupResult res in flat)
-        {
-            if (string.IsNullOrEmpty(res.NodeName))
-                continue;
+        // Draw best result in yellow
+        DrawMarkup(best, Color.Yellow, "EW_");
 
-            string name = $"EW_{res.Start.BarIndex}_{res.End.BarIndex}_{res.Level}_{res.NodeName}";
-            double yOffset = res.IsUp ? Symbol.PipSize * 10 : -Symbol.PipSize * 10;
-
-            Chart.DrawText(name, res.NodeName, res.End.BarIndex, res.End.Value + yOffset, Color.Yellow);
-            Chart.DrawTrendLine(name + "_line", res.Start.BarIndex, res.Start.Value, res.End.BarIndex, res.End.Value, Color.Yellow, 1, LineStyle.Lines);
-        }
+        // Draw second-best result in gray (alternative markup)
+        if (second != null)
+            DrawMarkup(second, Color.Gray, "EW2_");
 
         var projections = m_Markup.GetProjections(best);
         if (projections.Count <= 0)
@@ -120,6 +115,23 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
             lastIndex = proj.BarIndex;
             lastValue = proj.Value;
+        }
+    }
+
+    private void DrawMarkup(ExactParsedNode node, Color color, string prefix)
+    {
+        List<MarkupResult> flat = node.ToMarkupResult().Flatten().ToList();
+        foreach (MarkupResult res in flat)
+        {
+            if (string.IsNullOrEmpty(res.NodeName))
+                continue;
+
+            string name = $"{prefix}{res.Start.BarIndex}_{res.End.BarIndex}_{res.Level}_{res.NodeName}";
+            double yOffset = res.IsUp ? Symbol.PipSize * 10 : -Symbol.PipSize * 10;
+
+            Chart.DrawText(name, res.NodeName, res.End.BarIndex, res.End.Value + yOffset, color);
+            Chart.DrawTrendLine(name + "_line", res.Start.BarIndex, res.Start.Value,
+                res.End.BarIndex, res.End.Value, color, 1, LineStyle.Lines);
         }
     }
 }
