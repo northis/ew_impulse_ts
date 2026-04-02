@@ -110,7 +110,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
             Chart.DrawTrendLine(pName + "_line", lastIndex, lastValue, proj.BarIndex, proj.Value, Color.Gray, 1, LineStyle.LinesDots);
 
-            double pyOffset = lastValue < proj.Value ? Symbol.PipSize * 10 : -Symbol.PipSize * 10;
+            double pyOffset = lastValue < proj.Value ? Symbol.PipSize * 2 : -Symbol.PipSize * 2;
             Chart.DrawText(pName, $"({proj.Name})", proj.BarIndex, proj.Value + pyOffset, Color.Gray);
 
             lastIndex = proj.BarIndex;
@@ -127,7 +127,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
                 continue;
 
             string name = $"{prefix}{res.Start.BarIndex}_{res.End.BarIndex}_{res.Level}_{res.NodeName}";
-            double yOffset = res.IsUp ? Symbol.PipSize * 10 : -Symbol.PipSize * 10;
+            double yOffset = res.IsUp ? Symbol.PipSize * 2 : -Symbol.PipSize * 2;
 
             Chart.DrawText(name, res.NodeName, res.End.BarIndex, res.End.Value + yOffset, color);
             Chart.DrawTrendLine(name + "_line", res.Start.BarIndex, res.Start.Value,

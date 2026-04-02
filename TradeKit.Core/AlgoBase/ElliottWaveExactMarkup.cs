@@ -189,6 +189,7 @@ namespace TradeKit.Core.AlgoBase
                     if (!CheckAlternation(waves)) continue;
                     if (!CheckHardRules(model, waves)) continue;
                     if (!CheckDirectionEndpoints(waves)) continue;
+                    if (!CheckCandleBreachRules(model, waves)) continue;
 
                     double fiboScore = CalculateFiboScore(model, waves);
                     if (fiboScore <= 0) continue;
@@ -247,7 +248,8 @@ namespace TradeKit.Core.AlgoBase
                     waves[i] = new Segment { Start = pts[i], End = pts[i + 1] };
 
                 if (CheckAlternation(waves) && CheckHardRules(model, waves)
-                    && CheckDirectionEndpoints(waves))
+                    && CheckDirectionEndpoints(waves)
+                    && CheckCandleBreachRules(model, waves))
                 {
                     double score = CalculateFiboScore(model, waves);
                     if (score > 0)
@@ -286,6 +288,7 @@ namespace TradeKit.Core.AlgoBase
 
             if (!CheckAlternation(waves)) return null;
             if (!CheckHardRules(model, waves)) return null;
+            if (!CheckCandleBreachRules(model, waves)) return null;
 
             double score = CalculateFiboScore(model, waves);
             if (score <= 0) return null;
@@ -372,6 +375,59 @@ namespace TradeKit.Core.AlgoBase
                     // Descending wave — end must be the bar LOW
                     double barLow = m_BarsProvider.GetLowPrice(idx);
                     if (Math.Abs(w.End.Value - barLow) > 1e-9) return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Hard rule §4.1 — candle-level breach check.
+        /// Within the following patterns no individual candle bar may pierce the pattern
+        /// start price:
+        /// <list type="bullet">
+        /// <item>IMPULSE: no candle in any of waves 1–5 goes below the impulse start
+        ///       (upward) or above it (downward).</item>
+        /// <item>DIAGONAL (contracting): same constraint for all five waves.</item>
+        /// <item>Deep corrections — ZIGZAG, DOUBLE_ZIGZAG: same — no candle in any
+        ///       wave breaches the pattern start price.</item>
+        /// </list>
+        /// Skipped when no <see cref="IBarsProvider"/> was supplied.
+        /// </summary>
+        private bool CheckCandleBreachRules(ElliottModelType model, Segment[] waves)
+        {
+            if (m_BarsProvider == null) return true;
+            if (waves.Length == 0) return true;
+
+            bool appliesToModel =
+                model == ElliottModelType.IMPULSE
+                || model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+                || model == ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+                || model == ElliottModelType.ZIGZAG
+                || model == ElliottModelType.DOUBLE_ZIGZAG;
+
+            if (!appliesToModel) return true;
+
+            bool isUp = waves[0].IsUp;   // upward pattern: higher high at end
+            double startPrice = waves[0].Start.Value;
+
+            foreach (Segment wave in waves)
+            {
+                int from = Math.Min(wave.Start.BarIndex, wave.End.BarIndex);
+                int to   = Math.Max(wave.Start.BarIndex, wave.End.BarIndex);
+
+                for (int i = from; i <= to; i++)
+                {
+                    if (i < 0 || i >= m_BarsProvider.Count) continue;
+                    if (isUp)
+                    {
+                        // Upward pattern — no candle LOW should fall below the start price
+                        if (m_BarsProvider.GetLowPrice(i) < startPrice) return false;
+                    }
+                    else
+                    {
+                        // Downward pattern — no candle HIGH should rise above the start price
+                        if (m_BarsProvider.GetHighPrice(i) > startPrice) return false;
+                    }
                 }
             }
             return true;
