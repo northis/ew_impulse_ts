@@ -14,7 +14,7 @@
 5. [Правила «хвоста»](#5-правила-хвоста)
 6. [Скоринг](#6-скоринг)
 7. [Контекст родительской волны](#7-контекст-родительской-волны)
-8. [Рекурсивное расширение (v2, не реализовано)](#8-рекурсивное-расширение-v2-не-реализовано)
+8. [Рекурсивное расширение (реализовано в v1, глубина 2)](#8-рекурсивное-расширение-реализовано-в-v1-глубина-2)
 9. [Предложения по реализации в C](#9-предложения-по-реализации-в-c)
 
 ---
@@ -84,13 +84,27 @@
 
 ## 3. Главный метод разметки
 
+Публичная точка входа:
+
 ```
 Parse(
-    segments         : List<Segment>,
-    targetModel      : ElliottModelType?,     // null → перебор всех возможных
-    parentContext    : WaveContext?            // null → нет ограничений сверху
-) → List<ParsedModel>                         // отсортировано по убыванию Score
+    points           : List<BarPoint>          // экстремумы участка
+) → List<ExactParsedNode>                     // отсортировано по убыванию Score
 ```
+
+Внутренняя рекурсивная реализация:
+
+```
+ParseInternal(
+    points           : List<BarPoint>,
+    allowedModels    : ElliottModelType[]?,    // null → все TargetModels
+    depth            : int                     // 0 = верхний уровень
+) → List<ExactParsedNode>                     // отсортировано по убыванию Score
+```
+
+`Parse(points)` вызывает `ParseInternal(points, null, 0)`. После нахождения
+наилучших кандидатов (если `depth + 1 < MAX_MARKUP_DEPTH`) каждый кандидат
+передаётся в `FillSubWaveModels` для рекурсивной идентификации подволн (§4.6).
 
 ### Логика перебора
 
@@ -149,9 +163,10 @@ Parse(
 
 ### 4.2 Допустимые sub-модели
 
-Каждая подволна в v1 — `SIMPLE_IMPULSE` (один сегмент).
-В рамках v1 считаем `SIMPLE_IMPULSE` универсальной sub-моделью, разрешённой
-в любой позиции.
+Каждая подволна в v1 изначально представлена одним сегментом основного ранга.
+После базовой разметки алгоритм рекурсивно идентифицирует под-модель каждой
+подволны (см. §4.6). Допустимые под-модели для каждой позиции определяются
+правилом `ElliottWavePatternHelper.ModelRules[parentModel].Models[waveKey]`.
 
 ### 4.3 Идентификация «расширенной» волны / ведущей волны
 
@@ -186,7 +201,41 @@ overshootPenalty = Exp(-3 × overshoot)   // мультипликативный 
 Где `innerExtremum` — самый дальний экстремум верификационного ранга внутри данного
 сегмента, выходящий за его границы.
 
-### 4.5 Light-валидация для флетов и треугольников
+### 4.5 Рекурсивная идентификация подволн
+
+После построения кандидата верхнего уровня алгоритм рекурсивно обходит каждую
+подволну и пытается определить её модель (`FillSubWaveModels`).
+
+**Константа глубины:** `MAX_MARKUP_DEPTH = 2`.
+- Глубина 0 — верхний уровень (сам паттерн).
+- Глубина 1 — подволны паттерна (первый вложенный уровень).
+- На глубине `MAX_MARKUP_DEPTH` рекурсия останавливается; подволны остаются
+  как `SIMPLE_IMPULSE`.
+
+**Допустимые под-модели** для каждой позиции берутся из
+`ElliottWavePatternHelper.ModelRules[parentModel].Models[waveKey]`
+(метод `GetValidSubModelsForWave`).
+
+**Пример для ZIGZAG:**
+
+| Волна | Допустимые под-модели |
+|---|---|
+| A | IMPULSE, DIAGONAL_CONTRACTING_INITIAL, DIAGONAL_EXPANDING_INITIAL |
+| B | ZIGZAG, DOUBLE_ZIGZAG, TRIPLE_ZIGZAG, FLAT_EXTENDED, FLAT_RUNNING, FLAT_REGULAR, TRIANGLE_CONTRACTING, TRIANGLE_RUNNING, TRIANGLE_EXPANDING |
+| C | IMPULSE, DIAGONAL_CONTRACTING_ENDING, DIAGONAL_EXPANDING_ENDING |
+
+**Алгоритм `FillSubWaveModels`:**
+1. Для каждой подволны `i` в `node.SubWaves`:
+   - Определить `waveKey = GetWaveKey(parentModel, i+1)`.
+   - Получить `validModels = GetValidSubModelsForWave(parentModel, waveKey)`.
+   - Собрать все точки из входного списка в диапазоне `[fromBar, toBar]` сегмента;
+     убедиться, что концевые точки сегмента присутствуют.
+   - Вызвать `ParseInternal(subPoints, validModels, depth)`.
+   - Заменить `node.SubWaves[i]` лучшим результатом с `WaveCount == ExpectedWaves`.
+
+---
+
+### 4.6 Light-валидация для флетов и треугольников
 
 Для паттернов со структурным «вылетом» (flat B, triangle running B) применяется
 дополнительная проверка через верификационный ранг:
@@ -425,20 +474,25 @@ record WaveContext(
 
 ---
 
-## 8. Рекурсивное расширение (v2, не реализовано)
+## 8. Рекурсивное расширение (реализовано в v1, глубина 2)
 
-В v2 вместо `SIMPLE_IMPULSE` для каждой подволны будет вызываться рекурсивный
-`Parse(subSegments, allowedModels, context)`.
+`MAX_MARKUP_DEPTH = 2` определяет два уровня идентификации:
+- **Уровень 0** — главная модель по всему диапазону.
+- **Уровень 1** — под-модели каждой подволны главной модели.
 
-Параметры для рекурсивного вызова:
-- `segments` — сегменты, относящиеся к данной подволне.
-- `targetModel` — может быть `null` (искать лучшую) или ограничен `allowedModels` из
-  `ModelRules`.
-- `parentContext` — строится из позиции подволны в текущей модели.
+Алгоритм описан в §4.5. Точка входа — `Parse(points)`, которая вызывает
+`ParseInternal(points, null, 0)`. После успешного нахождения кандидата
+`FillSubWaveModels` рекурсивно запускает `ParseInternal` для каждой подволны
+с ограниченным набором `allowedModels`, взятым из `ElliottWavePatternHelper.ModelRules`.
 
-Score дочернего узла умножается на Score родителя.
+**Отображение в индикаторе** использует нотацию двух уровней:
+- Уровень 0 (Minuette, `case 4`): `(i) (ii) (iii) (iv) (v)` / `(a) (b) (c)`
+- Уровень 1 (Subminuette, `case 3`): `i ii iii iv v` / `a b c`
 
-Глубина рекурсии ограничена `MAX_DEEP_LEVEL = 10`.
+Метод `DrawMarkupNode(node, color, prefix, notationLevel)` рекурсивно обходит
+дерево `ExactParsedNode` и рисует метку и линию для каждой подволны. При
+`notationLevel > 0` и под-модели, отличной от `SIMPLE_IMPULSE`, выполняется
+рекурсивный вызов для отображения вложенных подволн.
 
 ---
 
@@ -629,4 +683,4 @@ static int CountTrendlineCrossings(BarPoint[] subWaveEnds, BarPoint lineA, BarPo
 - `minBars` — минимальное число баров (по умолчанию 200, для 5-волновых ≥ 300),
 - `threshold` — доля успешных прогонов (по умолчанию 0.6).
 
-*Версия алгоритма: 1.2 (30.03.2026)*
+*Версия алгоритма: 1.3 (03.04.2026)*

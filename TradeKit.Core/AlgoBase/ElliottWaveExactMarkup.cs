@@ -15,6 +15,14 @@ namespace TradeKit.Core.AlgoBase
         private const double FULL_FIT_BONUS = 1.2;
         private const double TRUNCATION_SCORE_MULT = 0.05;
 
+        /// <summary>
+        /// Maximum recursion depth for sub-wave model identification.
+        /// Depth 0 = top-level pattern; depth 1 = first-level sub-waves.
+        /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
+        /// level are left as SIMPLE_IMPULSE segments.
+        /// </summary>
+        public const int MAX_MARKUP_DEPTH = 2;
+
         // Optional bars provider used to enforce the direction hard rule:
         // a downward wave must end at the LOW of its end bar (not the HIGH),
         // and an upward wave must end at the HIGH of its end bar.
@@ -138,8 +146,22 @@ namespace TradeKit.Core.AlgoBase
         /// strictly alternating sequence). For each model type the algorithm tries all combinations
         /// of intermediate alternating points between the fixed first and last input points,
         /// effectively searching for the best-scoring K-segment fit that spans the full input range.
+        /// After identifying the top-level model, sub-waves are recursively analysed up to
+        /// <see cref="MAX_MARKUP_DEPTH"/> levels deep.
         /// </summary>
         public List<ExactParsedNode> Parse(List<BarPoint> points)
+            => ParseInternal(points, null, 0);
+
+        /// <summary>
+        /// Internal recursive parse entry point.
+        /// </summary>
+        /// <param name="points">Original (possibly multi-level) extremum points.</param>
+        /// <param name="allowedModels">Subset of models to try, or null to use <see cref="TargetModels"/>.</param>
+        /// <param name="depth">Current recursion depth (0 = top level).</param>
+        private List<ExactParsedNode> ParseInternal(
+            List<BarPoint> points,
+            ElliottModelType[] allowedModels,
+            int depth)
         {
             if (points == null || points.Count < 2)
                 return new List<ExactParsedNode>();
@@ -151,13 +173,14 @@ namespace TradeKit.Core.AlgoBase
                 return new List<ExactParsedNode>();
 
             var results = new List<ExactParsedNode>();
+            ElliottModelType[] modelsToSearch = allowedModels ?? TargetModels;
 
             // The correct Elliott Wave pattern always spans from altPoints[0] to altPoints[n-1].
             // For each model with K waves we need to pick K-1 intermediate points from
             // altPoints[1..n-2] such that the resulting K segments pass hard rules.
             // Additionally, we allow trying sub-spans (offset>0) with a reduced score bonus.
 
-            foreach (ElliottModelType model in TargetModels)
+            foreach (ElliottModelType model in modelsToSearch)
             {
                 int k = GetExpectedWaves(model);
                 if (n - 1 < k) continue; // need at least k segments
@@ -206,7 +229,84 @@ namespace TradeKit.Core.AlgoBase
                 }
             }
 
-            return results.OrderByDescending(x => x.Score).ToList();
+            results = results.OrderByDescending(x => x.Score).ToList();
+
+            // Recursive sub-wave analysis: identify what sub-model fills each segment.
+            // Only recurse when we have not yet reached the depth limit.
+            if (depth + 1 < MAX_MARKUP_DEPTH)
+            {
+                foreach (ExactParsedNode node in results)
+                    FillSubWaveModels(node, points, depth + 1);
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// For each sub-wave segment in <paramref name="node"/>, collects the original
+        /// input points that fall within the segment's bar range and recursively identifies
+        /// the best matching sub-model.  Replaces the placeholder
+        /// <see cref="ElliottModelType.SIMPLE_IMPULSE"/> node with the actual parsed result
+        /// when a complete matching is found.
+        /// </summary>
+        private void FillSubWaveModels(
+            ExactParsedNode node, List<BarPoint> originalPoints, int depth)
+        {
+            if (node?.SubWaves == null) return;
+
+            for (int i = 0; i < node.WaveCount; i++)
+            {
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw == null) continue;
+
+                string waveKey = GetWaveKey(node.ModelType, i + 1);
+                ElliottModelType[] validModels =
+                    GetValidSubModelsForWave(node.ModelType, waveKey)
+                    .Intersect(TargetModels)
+                    .ToArray();
+
+                if (validModels.Length == 0) continue;
+
+                int fromBar = sw.StartPoint.BarIndex;
+                int toBar   = sw.EndPoint.BarIndex;
+
+                // Collect original extremum points within this sub-wave's bar range
+                var subPoints = new List<BarPoint>();
+                foreach (BarPoint p in originalPoints)
+                    if (p.BarIndex >= fromBar && p.BarIndex <= toBar)
+                        subPoints.Add(p);
+
+                // Ensure the exact segment endpoints are present
+                if (subPoints.Count == 0 || subPoints[0].BarIndex != fromBar)
+                    subPoints.Insert(0, sw.StartPoint);
+                if (subPoints[subPoints.Count - 1].BarIndex != toBar)
+                    subPoints.Add(sw.EndPoint);
+
+                if (subPoints.Count < 2) continue;
+
+                List<ExactParsedNode> subResults =
+                    ParseInternal(subPoints, validModels, depth);
+
+                // Prefer a complete (fully-matched) result
+                ExactParsedNode best =
+                    subResults.FirstOrDefault(r => r.WaveCount == r.ExpectedWaves);
+                if (best != null)
+                    node.SubWaves[i] = best;
+            }
+        }
+
+        /// <summary>
+        /// Returns the allowed sub-model types for a specific wave position within a parent model,
+        /// as defined in <see cref="ElliottWavePatternHelper.ModelRules"/>.
+        /// Returns an empty array when the parent model or wave key is not found.
+        /// </summary>
+        private static ElliottModelType[] GetValidSubModelsForWave(
+            ElliottModelType parentModel, string waveKey)
+        {
+            if (ElliottWavePatternHelper.ModelRules.TryGetValue(parentModel, out ModelRules rules)
+                && rules.Models.TryGetValue(waveKey, out ElliottModelType[] models))
+                return models;
+            return Array.Empty<ElliottModelType>();
         }
 
         /// <summary>

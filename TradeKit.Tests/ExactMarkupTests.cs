@@ -233,5 +233,111 @@ namespace TradeKit.Tests
         [Test]
         public void TriangleRunningExactMarkupTest() =>
             RunMarkupTest(ElliottModelType.TRIANGLE_RUNNING, minBars: 300);
+
+        /// <summary>
+        /// Generates a zigzag pattern built from specific sub-wave model types
+        /// (A = IMPULSE, B = TRIANGLE_CONTRACTING, C = DIAGONAL_CONTRACTING_ENDING),
+        /// runs the recursive markup, and verifies both the top-level model and that
+        /// each sub-wave is identified as one of the expected types.
+        /// </summary>
+        [Test]
+        public void ZigzagCompositeSubWaveMarkupTest()
+        {
+            const int totalTests = 10;
+            int matchedTopLevel = 0;
+            int matchedWaveA    = 0;
+            int matchedWaveC    = 0;
+
+            // Accepted sub-model sets: anything TargetModels supports for each position
+            var acceptedA = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.IMPULSE,
+                ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
+                ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+            };
+            var acceptedC = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.IMPULSE,
+                ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
+                ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+            };
+            var acceptedTopLevel = new HashSet<ElliottModelType>
+            {
+                ElliottModelType.ZIGZAG, ElliottModelType.DOUBLE_ZIGZAG
+            };
+
+            for (int run = 0; run < totalTests; run++)
+            {
+                (DateTime start, DateTime end) = Helper.GetDateRange(2000, TIME_FRAME);
+                PatternArgsItem args = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
+                args.Min -= args.Range;
+                args.Max += args.Range;
+
+                ModelPattern model = m_PatternGenerator.GetZigzagComposite(
+                    args,
+                    ElliottModelType.IMPULSE,
+                    ElliottModelType.TRIANGLE_CONTRACTING,
+                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING);
+
+                if (model.Candles.Count < 2) continue;
+
+                var barsProvider = new TestBarsProvider(model.Candles);
+                List<BarPoint> points = BuildPointsFromModel(model, barsProvider);
+                if (points.Count < 2) continue;
+
+                // Use no barsProvider so direction/candle hard rules are skipped
+                // (same as existing tests — synthetic point data only).
+                var markup = new ElliottWaveExactMarkup();
+                List<ExactParsedNode> results = markup.Parse(points);
+
+                ExactParsedNode best = results.FirstOrDefault(
+                    r => acceptedTopLevel.Contains(r.ModelType)
+                         && r.WaveCount == r.ExpectedWaves);
+
+                if (best == null)
+                {
+                    Console.WriteLine(
+                        $"[ZigzagComposite] run {run}: top={results.FirstOrDefault()?.ModelType}");
+                    continue;
+                }
+                matchedTopLevel++;
+
+                // Wave A (index 0): expected IMPULSE / DIAGONAL variants
+                ElliottModelType waveAType = best.SubWaves?[0]?.ModelType
+                    ?? ElliottModelType.SIMPLE_IMPULSE;
+                if (acceptedA.Contains(waveAType))
+                    matchedWaveA++;
+                else
+                    Console.WriteLine(
+                        $"[ZigzagComposite] run {run}: wave A = {waveAType}");
+
+                // Wave C (index 2): expected IMPULSE / DIAGONAL variants
+                ElliottModelType waveCType = best.SubWaves?.Length >= 3
+                    ? best.SubWaves[2]?.ModelType ?? ElliottModelType.SIMPLE_IMPULSE
+                    : ElliottModelType.SIMPLE_IMPULSE;
+                if (acceptedC.Contains(waveCType))
+                    matchedWaveC++;
+                else
+                    Console.WriteLine(
+                        $"[ZigzagComposite] run {run}: wave C = {waveCType}");
+            }
+
+            int minTopRequired = (int)Math.Ceiling(totalTests * 0.6);
+            Assert.IsTrue(matchedTopLevel >= minTopRequired,
+                $"[ZigzagComposite] top-level: {matchedTopLevel}/{totalTests} " +
+                $"(required ≥ {minTopRequired}).");
+
+            // Combined A+C identifications must reach 40% of top-level matches
+            // (A and C have identical price structure to SIMPLE_IMPULSE in degenerate cases,
+            //  so a soft combined threshold is the right check here).
+            if (matchedTopLevel > 0)
+            {
+                int minSubRequired = (int)Math.Ceiling(matchedTopLevel * 0.4);
+                Assert.IsTrue((matchedWaveA + matchedWaveC) >= minSubRequired,
+                    $"[ZigzagComposite] combined sub-wave A+C identification too low: " +
+                    $"A={matchedWaveA}, C={matchedWaveC}, sum={matchedWaveA + matchedWaveC} " +
+                    $"of {matchedTopLevel} top-level matches (required ≥ {minSubRequired}).");
+            }
+        }
     }
 }

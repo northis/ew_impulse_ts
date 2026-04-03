@@ -60,7 +60,7 @@ namespace TradeKit.Core.PatternGeneration
                 {ElliottModelType.TRIANGLE_CONTRACTING, GetContractingTriangle},
                 {ElliottModelType.TRIANGLE_EXPANDING, GetExpandingTriangle},
                 {ElliottModelType.TRIANGLE_RUNNING, GetRunningTriangle},
-                {ElliottModelType.ZIGZAG, GetZigzag},
+                {ElliottModelType.ZIGZAG, arg => GetZigzag(arg)},
                 {ElliottModelType.DOUBLE_ZIGZAG, GetDoubleZigzag},
                 {ElliottModelType.TRIPLE_ZIGZAG, GetTripleZigzag},
                 {ElliottModelType.FLAT_REGULAR, GetRegularFlat},
@@ -849,7 +849,24 @@ namespace TradeKit.Core.PatternGeneration
             return modelPattern;
         }
 
-        private ModelPattern GetZigzag(PatternArgsItem arg)
+        /// <summary>
+        /// Generates a zigzag pattern composed of specific user-defined sub-wave model types.
+        /// Useful for integration testing of the sub-wave identification algorithm.
+        /// </summary>
+        /// <param name="arg">Pattern arguments (price range, bar count, etc.).</param>
+        /// <param name="waveAModel">Sub-model for wave A (must be an impulsive type).</param>
+        /// <param name="waveBModel">Sub-model for wave B (must be a corrective type).</param>
+        /// <param name="waveCModel">Sub-model for wave C (must be an impulsive type).</param>
+        public ModelPattern GetZigzagComposite(
+            PatternArgsItem arg,
+            ElliottModelType waveAModel,
+            ElliottModelType waveBModel,
+            ElliottModelType waveCModel)
+            => GetZigzag(arg, new[] { waveAModel, waveBModel, waveCModel });
+
+        private ModelPattern GetZigzag(
+            PatternArgsItem arg,
+            ElliottModelType[] forcedSubModels = null)
         {
             var modelPattern = new ModelPattern(
                 ElliottModelType.ZIGZAG, arg.Candles);
@@ -862,8 +879,8 @@ namespace TradeKit.Core.PatternGeneration
 
             Dictionary<string, ElliottModelType[]> models 
                 = ModelRules[modelPattern.Model].Models;
-            ElliottModelType theModelB = WeightedRandomlySelectModel(
-                models[HelperEw.CORRECTION_B]);
+            ElliottModelType theModelB = forcedSubModels?[1]
+                ?? WeightedRandomlySelectModel(models[HelperEw.CORRECTION_B]);
 
             double cToA = SelectRandomly(ZIGZAG_C_TO_A);
 
@@ -881,23 +898,30 @@ namespace TradeKit.Core.PatternGeneration
             
             int[] bars4Gen = SplitByTree(arg.BarsCount);
 
-            ElliottModelType theAModel =
-                WeightedRandomlySelectModel(models[HelperEw.CORRECTION_A]);
+            ElliottModelType theAModel = forcedSubModels?[0]
+                ?? WeightedRandomlySelectModel(models[HelperEw.CORRECTION_A]);
 
-            ElliottModelType[] modelsForC;
-            if (m_Random.NextDouble() > 0.2)// impulse/diagonal change in 80% cases
+            ElliottModelType theCModel;
+            if (forcedSubModels != null)
             {
-                modelsForC = (theAModel == ElliottModelType.IMPULSE
-                        ? models[HelperEw.CORRECTION_C].Except(m_ImpulseOnly)
-                        : m_ImpulseOnly)
-                    .ToArray();
+                theCModel = forcedSubModels[2];
             }
             else
             {
-                modelsForC = models[HelperEw.CORRECTION_C];
+                ElliottModelType[] modelsForC;
+                if (m_Random.NextDouble() > 0.2)// impulse/diagonal change in 80% cases
+                {
+                    modelsForC = (theAModel == ElliottModelType.IMPULSE
+                            ? models[HelperEw.CORRECTION_C].Except(m_ImpulseOnly)
+                            : m_ImpulseOnly)
+                        .ToArray();
+                }
+                else
+                {
+                    modelsForC = models[HelperEw.CORRECTION_C];
+                }
+                theCModel = WeightedRandomlySelectModel(modelsForC);
             }
-
-            ElliottModelType theCModel = WeightedRandomlySelectModel(modelsForC);
 
             ElliottModelType[] definedModels = {theAModel, theModelB, theCModel};
             FillPattern(arg, modelPattern, bars4Gen,

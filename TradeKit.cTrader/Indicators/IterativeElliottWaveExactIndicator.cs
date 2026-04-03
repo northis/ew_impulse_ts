@@ -6,6 +6,7 @@ using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.PatternGeneration;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
@@ -13,6 +14,13 @@ namespace TradeKit.CTrader.Indicators;
 [Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeElliottWaveExactIndicator : Indicator
 {
+    /// <summary>
+    /// Notation level used for the main (top-level) wave labels.
+    /// case 4 = Minuette: impulse waves → (i) (ii) (iii) (iv) (v);
+    ///                    corrective waves → (a) (b) (c) etc.
+    /// </summary>
+    private const byte MAIN_NOTATION_LEVEL = 4;
+
     [Parameter(nameof(BarsCount), DefaultValue = 100, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
     public int BarsCount { get; set; }
 
@@ -84,19 +92,14 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
         List<ExactParsedNode> parsed = m_Markup.Parse(innerPoints);
         ExactParsedNode best = parsed.Count > 0 ? parsed[0] : null;
-        ExactParsedNode second = parsed.Count > 1 ? parsed[1] : null;
 
         if (best == null)
             return;
 
         Chart.RemoveAllObjects();
 
-        // Draw best result in yellow
-        DrawMarkup(best, Color.Yellow, "EW_");
-
-        // Draw second-best result in gray (alternative markup)
-        if (second != null)
-            DrawMarkup(second, Color.Gray, "EW2_");
+        // Draw best result in yellow with Minuette (and sub-wave Subminuette) notation
+        DrawMarkupNode(best, Color.Yellow, "EW_", MAIN_NOTATION_LEVEL);
 
         var projections = m_Markup.GetProjections(best);
         if (projections.Count <= 0)
@@ -118,20 +121,52 @@ public class IterativeElliottWaveExactIndicator : Indicator
         }
     }
 
-    private void DrawMarkup(ExactParsedNode node, Color color, string prefix)
+    /// <summary>
+    /// Recursively draws the sub-wave labels and trend lines for <paramref name="node"/>
+    /// using Elliott Wave notation at <paramref name="notationLevel"/>.<br/>
+    /// Main level (level 4 = Minuette): impulse waves → <c>(i)</c>, <c>(ii)</c> …;
+    ///   corrective waves → <c>(a)</c>, <c>(b)</c>, <c>(c)</c>.<br/>
+    /// Sub-level (level 3 = Subminuette): impulse waves → <c>i</c>, <c>ii</c> …
+    /// </summary>
+    private void DrawMarkupNode(
+        ExactParsedNode node, Color color, string prefix, byte notationLevel)
     {
-        List<MarkupResult> flat = node.ToMarkupResult().Flatten().ToList();
-        foreach (MarkupResult res in flat)
+        if (node == null || node.WaveCount == 0) return;
+
+        NotationItem[] notation = TryGetNotation(node.ModelType, notationLevel);
+
+        for (int i = 0; i < node.WaveCount; i++)
         {
-            if (string.IsNullOrEmpty(res.NodeName))
-                continue;
+            ExactParsedNode sw = node.SubWaves?[i];
+            if (sw == null) continue;
 
-            string name = $"{prefix}{res.Start.BarIndex}_{res.End.BarIndex}_{res.Level}_{res.NodeName}";
-            double yOffset = res.IsUp ? Symbol.PipSize * 2 : -Symbol.PipSize * 2;
+            string labelText = (notation != null && i < notation.Length)
+                ? notation[i].NotationKey
+                : ElliottWaveExactMarkup.GetWaveKey(node.ModelType, i + 1);
 
-            Chart.DrawText(name, res.NodeName, res.End.BarIndex, res.End.Value + yOffset, color);
-            Chart.DrawTrendLine(name + "_line", res.Start.BarIndex, res.Start.Value,
-                res.End.BarIndex, res.End.Value, color, 1, LineStyle.Lines);
+            string name = $"{prefix}{sw.StartPoint.BarIndex}_{sw.EndPoint.BarIndex}_{labelText}";
+            double yOffset = sw.IsUp ? Symbol.PipSize * 2 : -Symbol.PipSize * 2;
+
+            Chart.DrawText(name + "_t", labelText,
+                sw.EndPoint.BarIndex, sw.EndPoint.Value + yOffset, color);
+            Chart.DrawTrendLine(name + "_l",
+                sw.StartPoint.BarIndex, sw.StartPoint.Value,
+                sw.EndPoint.BarIndex, sw.EndPoint.Value,
+                color, 1, LineStyle.Lines);
+
+            // Recurse one level deeper when the sub-wave has been identified as a real model
+            if (notationLevel > 0 && sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
+                DrawMarkupNode(sw, color, prefix + "s_", (byte)(notationLevel - 1));
         }
+    }
+
+    /// <summary>
+    /// Returns the notation items for the given model at the specified wave-degree level,
+    /// or <c>null</c> when the model is not registered in <see cref="NotationHelper"/>.
+    /// </summary>
+    private static NotationItem[] TryGetNotation(ElliottModelType model, byte level)
+    {
+        try { return NotationHelper.GetNotation(model, level); }
+        catch { return null; }
     }
 }
