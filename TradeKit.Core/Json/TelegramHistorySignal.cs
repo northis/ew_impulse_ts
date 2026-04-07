@@ -22,7 +22,7 @@ namespace TradeKit.Core.Json
         /// <summary>
         /// Gets or sets the reply identifier.
         /// </summary>
-        [JsonProperty("reply_to_message_id")]
+        [JsonProperty("reply_to_msg_id")]
         public long? ReplyId { get; set; }
 
         /// <summary>

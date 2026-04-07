@@ -35,7 +35,9 @@ namespace TradeKit.Tests.Mocks
         /// Loads and processes OHLC candles from the specified .csv file.
         /// </summary>
         /// <param name="pathToFile">The path to the file containing the data to load.</param>
-        public void LoadCandles(string pathToFile)
+        /// <param name="from">Optional UTC start time filter (inclusive).</param>
+        /// <param name="to">Optional UTC end time filter (inclusive).</param>
+        public void LoadCandles(string pathToFile, DateTime? from = null, DateTime? to = null)
         {
             if (string.IsNullOrEmpty(pathToFile))
                 throw new ArgumentNullException(nameof(pathToFile));
@@ -55,18 +57,16 @@ namespace TradeKit.Tests.Mocks
             int index = 0;
             if (!hasHeader)
             {
-                ProcessCandleLine(line, index); // Process the first line if it's not a header
-                index++;
+                ProcessCandleLine(line, index, from, to, ref index);
             }
 
             while ((line = reader.ReadLine()) != null)
             {
-                ProcessCandleLine(line,index);
-                index++;
+                ProcessCandleLine(line, index, from, to, ref index);
             }
         }
         
-        private void ProcessCandleLine(string line, int index)
+        private void ProcessCandleLine(string line, int currentIndex, DateTime? from, DateTime? to, ref int addedIndex)
         {
             string[] parts = line.Split(Helper.CSV_SEPARATOR);
             if (parts.Length < 5)
@@ -74,6 +74,9 @@ namespace TradeKit.Tests.Mocks
         
             if (!DateTime.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime openTime))
                 return;
+
+            if (from.HasValue && openTime < from.Value) return;
+            if (to.HasValue && openTime > to.Value) return;
                 
             if (!double.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double open))
                 return;
@@ -87,8 +90,9 @@ namespace TradeKit.Tests.Mocks
             if (!double.TryParse(parts[4], NumberStyles.Any, CultureInfo.InvariantCulture, out double close))
                 return;
 
-            Candle candle = new Candle(open, high, low, close, null, index);
+            Candle candle = new Candle(open, high, low, close, null, addedIndex);
             AddCandle(candle, openTime);
+            addedIndex++;
         }
 
         /// <summary>
@@ -145,7 +149,7 @@ namespace TradeKit.Tests.Mocks
 
         public DateTime GetOpenTime(int index)
         {
-            return m_OpenTimes[index];
+            return m_OpenTimes.TryGetValue(index, out DateTime dt) ? dt : DateTime.MinValue;
         }
 
         public int GetIndexByTime(DateTime time)

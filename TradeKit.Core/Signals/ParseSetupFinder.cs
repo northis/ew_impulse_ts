@@ -13,7 +13,7 @@ namespace TradeKit.Core.Signals
         private readonly string m_SignalHistoryFilePath;
         private readonly double m_MaxStopRatio = 0.05;
         private const string SIGNAL_REGEX = @"(buy|sell)(.*)\s(\d+(?:[.,]\d{0,5})?)";
-        private const string BREAKEVEN_REGEX = @"(running in profit|entry point|breakeven|to the entry)";
+        private const string BREAKEVEN_REGEX = @"(running in profit|entry point|breakeven|to the entry|b\.e|be\s|move sl to entry)";
         private const string EXTRA_REGEX = @"(extra)";
         private const string TP_HIT_REGEX = @"(TP hit|🎯)";
         private const string SL_HIT_REGEX = @"(SL hit)";
@@ -23,7 +23,7 @@ namespace TradeKit.Core.Signals
         private const string STRIKETHROUGH_REGEX = @"{(\n|\s)*""type"":(\n|\s)*""strikethrough"",(\n|\s)*""text"":(\n|\s)*""(.)*""(\n|\s)*},";
         private const string CLOSE_REGEX = @"(close\s|closed\s)";
         private const string TP_REGEX = @"(tp|take profit)(.*)\s(\d+(?:[.,]\d{0,5})?)";
-        private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{0,9}[.,]\d{0,5})";
+        private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{1,9}(?:[.,]\d{0,5})?)";
 
         private static readonly NumberStyles NUMBER_STYLES = NumberStyles.AllowCurrencySymbol
                                                              | NumberStyles.AllowDecimalPoint
