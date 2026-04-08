@@ -219,7 +219,7 @@ namespace TradeKit.Tests
                 (31L, (long?)30L, tBE, "XAUUSD Activated And running 65+ pips 1:1RR Hit B.E")
             });
 
-            AddMinuteCandles(t0, 5, 1905, 1915, 1895, 1908);
+            AddMinuteCandles(t0, 5, 1905, 1908, 1895, 1906);
 
             Assert.That(m_Entries.Count, Is.GreaterThanOrEqualTo(1), "Entry should fire");
             Assert.That(m_Breakevens.Count, Is.GreaterThanOrEqualTo(1), "Breakeven via 'b.e' should fire");
@@ -383,9 +383,9 @@ namespace TradeKit.Tests
         // ──────────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Scenario: signal #737 (sell @ 1655.50, TP 1651, SL 1659) on 2022-10-18 16:22 UTC
-        /// Reply #741 at 16:56: "Move sl to entry point" → breakeven
-        /// Reply #747 at 17:26: "XAUUSD Tp hit" → TP
+        /// Scenario: signal #737 (sell @ 1655.50, TP 1651, SL 1659) on 2022-10-18 13:22 UTC
+        /// Reply #741 at 16:56 UTC: "Move sl to entry point" → breakeven
+        /// Reply #747 at 17:26 UTC: "XAUUSD Tp hit" → TP
         /// We load only the 2022-10-18 daily slice to keep the test fast.
         /// </summary>
         [Test]
@@ -397,7 +397,7 @@ namespace TradeKit.Tests
             if (!File.Exists(RealSignalsPath))
                 Assert.Ignore("Real signals.json not found; skipping integration test.");
 
-            var from = new DateTime(2022, 10, 18, 15, 0, 0, DateTimeKind.Utc);
+            var from = new DateTime(2022, 10, 18, 13, 0, 0, DateTimeKind.Utc);
             var to   = new DateTime(2022, 10, 18, 23, 59, 0, DateTimeKind.Utc);
 
             var tradeViewManager = new TestTradeViewManager(m_BarsProvider);

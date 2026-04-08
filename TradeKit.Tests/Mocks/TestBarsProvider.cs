@@ -75,6 +75,9 @@ namespace TradeKit.Tests.Mocks
             if (!DateTime.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime openTime))
                 return;
 
+            // Treat CSV timestamps as UTC (no timezone info in file = UTC by convention)
+            openTime = DateTime.SpecifyKind(openTime, DateTimeKind.Utc);
+
             if (from.HasValue && openTime < from.Value) return;
             if (to.HasValue && openTime > to.Value) return;
                 

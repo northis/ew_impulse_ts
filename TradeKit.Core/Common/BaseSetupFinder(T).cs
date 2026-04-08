@@ -195,7 +195,7 @@ namespace TradeKit.Core.Common
         /// <param name="openDateTime">The open datetime of the bar to be checked.</param>
         public virtual void CheckBar(DateTime openDateTime)
         {
-            if (LastBarOpenDateTime > openDateTime) return;
+            if (LastBarOpenDateTime >= openDateTime) return;
             m_LastBarOpenDateTime = openDateTime;
             CheckSetup(openDateTime);
         }

@@ -11,17 +11,17 @@ namespace TradeKit.Core.Signals
     {
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly string m_SignalHistoryFilePath;
-        private readonly double m_MaxStopRatio = 0.05;
+        private readonly double m_MaxStopRatio = 0.20;
         private const string SIGNAL_REGEX = @"(buy|sell)(.*)\s(\d+(?:[.,]\d{0,5})?)";
         private const string BREAKEVEN_REGEX = @"(running in profit|entry point|breakeven|to the entry|b\.e|be\s|move sl to entry)";
         private const string EXTRA_REGEX = @"(extra)";
-        private const string TP_HIT_REGEX = @"(TP hit|🎯)";
-        private const string SL_HIT_REGEX = @"(SL hit)";
+        private const string TP_HIT_REGEX = @"(tp\s*hit|🎯)";
+        private const string SL_HIT_REGEX = @"(sl\s*(was\s*)?hit|stop\s*out)";
         private const string ACTIVATED_REGEX = @"(activated)";
         private const string CANCELED_REGEX = @"(delete|cancel|remove)";
         private const string LIMIT_REGEX = @"(limit)";
         private const string STRIKETHROUGH_REGEX = @"{(\n|\s)*""type"":(\n|\s)*""strikethrough"",(\n|\s)*""text"":(\n|\s)*""(.)*""(\n|\s)*},";
-        private const string CLOSE_REGEX = @"(close\s|closed\s)";
+        private const string CLOSE_REGEX = @"(close[d\s]|close$)";
         private const string TP_REGEX = @"(tp|take profit)(.*)\s(\d+(?:[.,]\d{0,5})?)";
         private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{1,9}(?:[.,]\d{0,5})?)";
 
@@ -33,7 +33,7 @@ namespace TradeKit.Core.Signals
 
         private static readonly Dictionary<string, string> SYMBOL_REGEX_MAP = new()
         {
-            {"XAUUSD", @"(gold|xauusd|one\smore)\s*(\d+(?:[.,]\d{0,5})?)"}
+            {"XAUUSD", @"(gold|xauusd|one\s*more)"}
         };
 
         private static readonly Dictionary<string, double> DEFAULT_TP_PIPS = new()
@@ -93,7 +93,7 @@ namespace TradeKit.Core.Signals
                 }
 
                 var args = new SignalEventArgs(
-                    new BarPoint(signal.Price.GetValueOrDefault(), signal.DateTime, BarsProvider),
+                    new BarPoint(signal.Price.GetValueOrDefault(), LastBarOpenDateTime, BarsProvider),
                     new BarPoint(signal.TakeProfits[0], LastBarOpenDateTime, BarsProvider),
                     new BarPoint(signal.StopLoss, LastBarOpenDateTime, BarsProvider));
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
@@ -107,11 +107,14 @@ namespace TradeKit.Core.Signals
                 return;
             }
 
-            SignalEventArgs refSignal = m_MessageSignalArgsMap[replyId.Value];
+            if (!m_MessageSignalArgsMap.TryGetValue(replyId.Value, out SignalEventArgs refSignal))
+            {
+                return;
+            }
             if ((res & SignalAction.EXTRA) == SignalAction.EXTRA)
             {
                 var args = new SignalEventArgs(
-                    new BarPoint(refSignal.Level.Value, signal.DateTime, BarsProvider),
+                    new BarPoint(refSignal.Level.Value, LastBarOpenDateTime, BarsProvider),
                     refSignal.TakeProfit,
                     refSignal.StopLoss, comment: refSignal.Comment);
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
@@ -119,7 +122,15 @@ namespace TradeKit.Core.Signals
                 return;
             }
 
-            if ((res & SignalAction.SET_SL) == SignalAction.SET_SL ||
+            if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN && !refSignal.HasBreakeven)
+            {
+                var newSl = new BarPoint(refSignal.Level.Value, LastBarOpenDateTime, BarsProvider);
+                refSignal.HasBreakeven = true;
+                OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, true));
+                refSignal.StopLoss = newSl;
+                // Keep in map so price-movement TP/SL checks and further reply messages still work
+            }
+            else if ((res & SignalAction.SET_SL) == SignalAction.SET_SL ||
                 (res & SignalAction.SET_TP) == SignalAction.SET_TP)
             {
                 double? price = signal.Price ?? signal.StopLoss;
@@ -141,14 +152,6 @@ namespace TradeKit.Core.Signals
                 }
 
                 OnEditInvoke(refSignal);
-            }
-            else if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN && !refSignal.HasBreakeven)
-            {
-                var newSl = new BarPoint(refSignal.Level.Value, LastBarOpenDateTime, BarsProvider);
-                refSignal.HasBreakeven = true;
-                OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, true));
-                refSignal.StopLoss = newSl;
-                m_MessageSignalArgsMap.Remove(replyId.Value);
             }
             else if ((res & SignalAction.CLOSE) == SignalAction.CLOSE)
             {
@@ -183,8 +186,11 @@ namespace TradeKit.Core.Signals
         /// </summary>
         private void ProcessSetup()
         {
-            DateTime prevBarDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 2).ToUniversalTime();
-            DateTime barDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 1).ToUniversalTime();
+            // Do not call ToUniversalTime() here: cTrader returns Unspecified-UTC bar times,
+            // and ToUniversalTime() on Unspecified is treated as machine-local which is wrong
+            // on non-UTC servers. DateTime comparisons ignore Kind (compare ticks only).
+            DateTime prevBarDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 2);
+            DateTime barDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 1);
 
             if (prevBarDateTime == DateTime.MinValue || barDateTime == DateTime.MinValue)
             {
@@ -440,9 +446,13 @@ namespace TradeKit.Core.Signals
 
             foreach (TelegramHistoryMessage historyItem in history)
             {
-                historyItem.Date = historyItem.Date.ToUniversalTime();
+                // Normalize to Unspecified kind with UTC ticks.
+                // cTrader bar open times are also Unspecified-UTC, so comparisons
+                // will work correctly on any machine timezone.
+                historyItem.Date = DateTime.SpecifyKind(
+                    historyItem.Date.ToUniversalTime(), DateTimeKind.Unspecified);
                 m_Messages[historyItem.Id] = historyItem;
-                m_MessagesDate[historyItem.Date.ToUniversalTime()] = historyItem;
+                m_MessagesDate[historyItem.Date] = historyItem;
                 //ProcessMessage(historyItem);
             }
         }
