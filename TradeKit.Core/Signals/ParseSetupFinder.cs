@@ -12,10 +12,10 @@ namespace TradeKit.Core.Signals
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly string m_SignalHistoryFilePath;
         private readonly double m_MaxStopRatio = 0.20;
-        private const string SIGNAL_REGEX = @"(buy|sell)(.*)\s(\d+(?:[.,]\d{0,5})?)";
-        private const string BREAKEVEN_REGEX = @"(running in profit|entry point|breakeven|to the entry|b\.e|be\s|move sl to entry)";
-        private const string EXTRA_REGEX = @"(extra)";
-        private const string TP_HIT_REGEX = @"(tp\s*hit|🎯)";
+        private const string SIGNAL_REGEX = @"(buy|sell)([^\n]*?(?:\n[^\d\n@\-]*)?)[@\-]\s*(\d+(?:[.,]\d{0,5})?)";
+        private const string BREAKEVEN_REGEX = @"(running in profit|entry point|break\s*-?\s*even|to the entry|b\.e|move sl to entry|sl\s+move\s+to\s+(?:the\s+)?entry)";
+        private const string EXTRA_REGEX = @"\b(extra)\b";
+        private const string TP_HIT_REGEX = @"(tp\s*\d*\s*hit|target\s+hit|🎯)";
         private const string SL_HIT_REGEX = @"(sl\s*(was\s*)?hit|stop\s*out)";
         private const string ACTIVATED_REGEX = @"(activated)";
         private const string CANCELED_REGEX = @"(delete|cancel|remove)";
@@ -130,6 +130,16 @@ namespace TradeKit.Core.Signals
                 refSignal.StopLoss = newSl;
                 // Keep in map so price-movement TP/SL checks and further reply messages still work
             }
+            else if ((res & SignalAction.HIT_TP) == SignalAction.HIT_TP)
+            {
+                OnTakeProfitInvoke(new LevelEventArgs(refSignal.TakeProfit, refSignal.Level, true));
+                m_MessageSignalArgsMap.Remove(replyId.Value);
+            }
+            else if ((res & SignalAction.HIT_SL) == SignalAction.HIT_SL)
+            {
+                OnStopLossInvoke(new LevelEventArgs(refSignal.StopLoss, refSignal.Level, true));
+                m_MessageSignalArgsMap.Remove(replyId.Value);
+            }
             else if ((res & SignalAction.SET_SL) == SignalAction.SET_SL ||
                 (res & SignalAction.SET_TP) == SignalAction.SET_TP)
             {
@@ -163,16 +173,6 @@ namespace TradeKit.Core.Signals
                 refSignal.IsActive = true;
                 OnActivatedInvoke(new LevelEventArgs(refSignal.Level, refSignal.Level, true));
             }
-            else if ((res & SignalAction.HIT_TP) == SignalAction.HIT_TP)
-            {
-                OnTakeProfitInvoke(new LevelEventArgs(refSignal.TakeProfit, refSignal.Level, true));
-                m_MessageSignalArgsMap.Remove(replyId.Value);
-            }
-            else if ((res & SignalAction.HIT_SL) == SignalAction.HIT_SL)
-            {
-                OnStopLossInvoke(new LevelEventArgs(refSignal.StopLoss, refSignal.Level, true));
-                m_MessageSignalArgsMap.Remove(replyId.Value);
-            }
             else if ((res & SignalAction.CANCELLED) == SignalAction.CANCELLED && refSignal.IsLimit &&
                      !refSignal.IsActive)
             {
@@ -186,13 +186,20 @@ namespace TradeKit.Core.Signals
         /// </summary>
         private void ProcessSetup()
         {
-            // Do not call ToUniversalTime() here: cTrader returns Unspecified-UTC bar times,
-            // and ToUniversalTime() on Unspecified is treated as machine-local which is wrong
-            // on non-UTC servers. DateTime comparisons ignore Kind (compare ticks only).
-            DateTime prevBarDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 2);
-            DateTime barDateTime = BarsProvider.GetOpenTime(BarsProvider.Count - 1);
+            // Use LastBarOpenDateTime (set by CheckBar) instead of Count-1.
+            // In an indicator all bars are already loaded, so Count is always the total bars
+            // count. Using Count-1 would always process the last bar instead of walking
+            // through history bar by bar. GetIndexByTime gives the correct sequential index.
+            DateTime barDateTime = LastBarOpenDateTime;
+            if (barDateTime == DateTime.MinValue)
+                return;
 
-            if (prevBarDateTime == DateTime.MinValue || barDateTime == DateTime.MinValue)
+            int barIndex = BarsProvider.GetIndexByTime(barDateTime);
+            if (barIndex < 1)
+                return;
+
+            DateTime prevBarDateTime = BarsProvider.GetOpenTime(barIndex - 1);
+            if (prevBarDateTime == DateTime.MinValue)
             {
                 return;
             }

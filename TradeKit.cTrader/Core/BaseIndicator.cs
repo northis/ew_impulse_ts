@@ -98,10 +98,14 @@ namespace TradeKit.CTrader.Core
         /// </summary>
         protected override void OnDestroy()
         {
-            m_SetupFinder.OnEnter -= OnEnter;
-            m_SetupFinder.OnStopLoss -= OnStopLoss;
-            m_SetupFinder.OnTakeProfit -= OnTakeProfit;
-            m_SetupFinder.OnTakeProfit -= OnBreakeven;
+            if (m_SetupFinder != null)
+            {
+                m_SetupFinder.OnEnter -= OnEnter;
+                m_SetupFinder.OnStopLoss -= OnStopLoss;
+                m_SetupFinder.OnTakeProfit -= OnTakeProfit;
+                m_SetupFinder.OnTakeProfit -= OnBreakeven;
+            }
+            
             base.OnDestroy();
         }
 

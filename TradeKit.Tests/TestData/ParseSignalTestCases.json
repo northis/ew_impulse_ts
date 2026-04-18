@@ -1,0 +1,764 @@
+[
+  {
+    "id": 602,
+    "date": "2022-10-13T12:46:33+00:00",
+    "replyTo": null,
+    "text": "XAUUSD buy now @ 1649\nTp @ 1667\nTp2 @ 1690\n\nSl @ 1640",
+    "category": "valid_market"
+  },
+  {
+    "id": 711,
+    "date": "2022-10-18T06:50:12+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now @ 1655\ntp @ 1651\ntp2 @ 1647\n\nSL @ 1660",
+    "category": "valid_market"
+  },
+  {
+    "id": 737,
+    "date": "2022-10-18T13:22:00+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now @ 1655.50\nTp @ 1651\nTp2 @ 1644\n\nSl @ 1659",
+    "category": "valid_market"
+  },
+  {
+    "id": 765,
+    "date": "2022-10-19T06:33:39+00:00",
+    "replyTo": null,
+    "text": "XAUUSD buy now @ 1642.50\ntp @ 1652\ntp2 @ 1667\n\nSL @ 1638.50",
+    "category": "valid_market"
+  },
+  {
+    "id": 359,
+    "date": "2022-09-28T07:58:16+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell Now @ 1622\nother limit @1624.30\ntp @ 1615 \ntp 2 @ 1604 \n\nsl @ 1629",
+    "category": "limit_order"
+  },
+  {
+    "id": 382,
+    "date": "2022-09-29T13:03:13+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now @ 1650.50\nOther limit @ 1653.50\nTp @ 1644\nTp2 @ 1637 \n\nSl @ 1659\n\nHold this also",
+    "category": "limit_order"
+  },
+  {
+    "id": 774,
+    "date": "2022-10-19T07:42:21+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now @ 1645",
+    "category": "incomplete"
+  },
+  {
+    "id": 1182,
+    "date": "2022-11-09T14:04:42+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now - 1712",
+    "category": "incomplete"
+  },
+  {
+    "id": 386,
+    "date": "2022-09-29T13:47:59+00:00",
+    "replyTo": null,
+    "text": "XAUUSD smashed just triggered and spiked 70+ pips near to tp1✅✅✅✅✅✅",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 388,
+    "date": "2022-09-29T14:29:05+00:00",
+    "replyTo": null,
+    "text": "XAUUSD tp1 hit 95+ pips boom boom enjoy free sniper entry with @Pro4ex team✅✅✅✅✅",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 336,
+    "date": "2022-09-27T07:40:42+00:00",
+    "replyTo": null,
+    "text": "XAUUSD (GOLD) sell limit @ 1642.50\nother limit @ 1646\ntp @ 1633\ntp 2 @ 1622\n\nsl @ 1649",
+    "category": "noise"
+  },
+  {
+    "id": 344,
+    "date": "2022-09-27T12:55:15+00:00",
+    "replyTo": 336,
+    "text": "XAUUSD Limit Activated Running 55+ Pips Now Close half lot Sl move to entry point ✅✅✅✅✅✅✅✅",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD (GOLD) sell limit @ 1642.50\nother limit @ 1646\ntp @ 1633\ntp 2 @ 1622\n\nsl @ 1649"
+  },
+  {
+    "id": 360,
+    "date": "2022-09-28T08:48:55+00:00",
+    "replyTo": 359,
+    "text": "XAUUSD both limits Activated Running 78+ Pips close half lot Move sl to entry ✅🤑🔥",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD sell Now @ 1622\nother limit @1624.30\ntp @ 1615 \ntp 2 @ 1604 \n\nsl @ 1629"
+  },
+  {
+    "id": 373,
+    "date": "2022-09-29T07:59:12+00:00",
+    "replyTo": 370,
+    "text": "XAUUSD LIMIT ACTIVATED Running 1:1RR Close half lot Move Sl to entry point ✅🤑🔥",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD buy limit @ 1643\ntp @ 1648.50\ntp 2 @ 1655\n\nsl @ 1641"
+  },
+  {
+    "id": 379,
+    "date": "2022-09-29T10:44:09+00:00",
+    "replyTo": 370,
+    "text": "XAUUSD Tp hit Perfect Scalp Short Running 85+ Pips Now ✅✅✅\nZero Drawdown 1:3RR ✅✅✅",
+    "category": "reply_tp_hit",
+    "refText": "XAUUSD buy limit @ 1643\ntp @ 1648.50\ntp 2 @ 1655\n\nsl @ 1641"
+  },
+  {
+    "id": 447,
+    "date": "2022-10-05T07:52:01+00:00",
+    "replyTo": 443,
+    "text": "XAUUSD another target boom tp 1 hit ✅✅✅✅✅\n\nthats way we known as king of gold✅✅✅✅✅✅",
+    "category": "reply_tp_hit",
+    "refText": "HOLD PREVIOUS ENTRY \n\nXAUUSD sell now @ 1725.70\nother limit @ 1727.50\ntp @ 1719\ntp 2 @ 1709\n\nSl @ 1735"
+  },
+  {
+    "id": 358,
+    "date": "2022-09-28T07:25:31+00:00",
+    "replyTo": 357,
+    "text": "XAUUSD sl was hit before i updated \nIf anyone hold yet hold it ✅",
+    "category": "reply_sl_hit",
+    "refText": "XAUUSD sl edit to 1616"
+  },
+  {
+    "id": 1660,
+    "date": "2022-12-13T15:39:13+00:00",
+    "replyTo": 1629,
+    "text": "278+ Pips Move Huge Gain ✅✅✅✅\nOur 1 Sl hit Of Gold 85--\nBut we gain Total Almost 500+ Pips 😍😍😍",
+    "category": "reply_sl_hit",
+    "refText": "USDJPY sell limit - 137.45\n\ntp - 136.00\ntp - 134.43\n\nsl - 137.95"
+  },
+  {
+    "id": 455,
+    "date": "2022-10-05T10:59:29+00:00",
+    "replyTo": 436,
+    "text": "XAUUSD buy trade active close it now in 40+ pips if anyone have this trade🔥✅",
+    "category": "reply_close",
+    "refText": "RECOVERY TRADE \n\nXAUUSD buy limit @ 1708.50\nother buy @ 1702\ntp @ 1720\ntp2 @ 1732\n\nSL @ 1700"
+  },
+  {
+    "id": 529,
+    "date": "2022-10-10T13:18:06+00:00",
+    "replyTo": 520,
+    "text": "XAUUSD entry missed by few pips And trade Running in 105+ pips . \nWe missed it by few pips \n\nAnyone have entry then close in profit otherwise delete pending limit ✅✅✅✅",
+    "category": "reply_close",
+    "refText": "SCALPING CALL \n\nXAUUSD sell limit @ 1686 \ntp @ 1679\ntp 2 @ 1670\n\nSl @ 1690"
+  },
+  {
+    "id": 377,
+    "date": "2022-09-29T08:08:39+00:00",
+    "replyTo": 373,
+    "text": "XAUUSD Running 45+ Pips ✅✅✅✅✅✅",
+    "category": "reply_noise",
+    "refText": "XAUUSD LIMIT ACTIVATED Running 1:1RR Close half lot Move Sl to entry point ✅🤑🔥"
+  },
+  {
+    "id": 367,
+    "date": "2022-09-28T16:51:31+00:00",
+    "replyTo": 366,
+    "text": "XAUUSD 50- sl hunt ❌",
+    "category": "reply_other",
+    "refText": "XAUUSD sell limit @ 1641.20\ntp @ 1631\ntp2 @ 1617\n\nSL @ 1644.50"
+  },
+  {
+    "id": 1843,
+    "date": "2023-01-03T14:38:51+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now - 1847\ntp - 1835\ntp - 1820\n\nSL - 1851\n\nUSE SMALL LOT ONLY👆",
+    "category": "valid_market"
+  },
+  {
+    "id": 1890,
+    "date": "2023-01-05T15:22:16+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now - 1831 \n\ntp - 1824 \ntp - 1815\n\nSl - 1839",
+    "category": "valid_market"
+  },
+  {
+    "id": 1925,
+    "date": "2023-01-06T13:30:28+00:00",
+    "replyTo": null,
+    "text": "XAUUSD sell now - 1842\n\ntp - 1826\ntp - 1812\n\nSL - 1852 (for all)\n\nProper Money Management\nBig Sl",
+    "category": "valid_market"
+  },
+  {
+    "id": 1962,
+    "date": "2023-01-10T11:21:02+00:00",
+    "replyTo": null,
+    "text": "XAUUSD buy now - 1874.50\nother buy - 1870\n\ntp - 1880\ntp - 1894\n\nSL - 1865\n\nUse Small lot Only",
+    "category": "valid_market"
+  },
+  {
+    "id": 1835,
+    "date": "2023-01-03T07:44:16+00:00",
+    "replyTo": null,
+    "text": "LONG TERM TRADE\n\nXAUUSD sell limit - 1851\nother sell - 1854\ntp - 1840\ntp - 1820\n\nSL - 1861\n\nTake 1% Risk Per Trade\nAvoid Over Trading",
+    "category": "limit_order"
+  },
+  {
+    "id": 1984,
+    "date": "2023-01-11T14:43:21+00:00",
+    "replyTo": null,
+    "text": "XAUUSD buy now - 1873.50\nOther limit - 1870 \n\nTp - 1881\nTp - 1894\n\nSl - 1867",
+    "category": "limit_order"
+  },
+  {
+    "id": 1857,
+    "date": "2023-01-04T09:51:50+00:00",
+    "replyTo": null,
+    "text": "XAUUSD buy now - 1860.50",
+    "category": "incomplete"
+  },
+  {
+    "id": 1875,
+    "date": "2023-01-05T08:09:56+00:00",
+    "replyTo": null,
+    "text": "XAUUSD buy now - 1846\nSl - 1843\nTp - posting soon",
+    "category": "incomplete"
+  },
+  {
+    "id": 2081,
+    "date": "2023-01-18T13:56:18+00:00",
+    "replyTo": null,
+    "text": "XAUUSD look at the accuracy just triggered and now running in 65+ pips boom boom . 100% accurate move as we mentioned \n\nPRO4EX is the best✅✅\nPRO4EX is the KING",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 2143,
+    "date": "2023-01-22T16:57:51+00:00",
+    "replyTo": null,
+    "text": "XAUUSD NEXT MOVE ANALYSIS\nFOR MORE ANALYSIS AND FREE SIGNALS 👇👇\n\nJOIN FAST   👈",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 1853,
+    "date": "2023-01-04T08:16:21+00:00",
+    "replyTo": null,
+    "text": "XAUUSD don't enter in sell Market manipulate 👍\nStill waiting for Confirmation👑\nKeep Patience ✅",
+    "category": "noise"
+  },
+  {
+    "id": 1989,
+    "date": "2023-01-11T16:52:45+00:00",
+    "replyTo": 1984,
+    "text": "XAUUSD both limits Running Now in 55+ Pipe now Close half lot Sl shift at entry point ✅✅✅✅✅",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD buy now - 1873.50\nOther limit - 1870 \n\nTp - 1881\nTp - 1894\n\nSl - 1867"
+  },
+  {
+    "id": 2059,
+    "date": "2023-01-18T07:07:19+00:00",
+    "replyTo": 2055,
+    "text": "XAUUSD boom Boom now Running in 40+ Pips perfect Head short Close half Lot now Sl shift at entry point ✅✅✅✅✅",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD buy Now - 1901\nother buy limit - 1898\n\ntp - 1908\ntp - 1921\n\nSL - 1889"
+  },
+  {
+    "id": 2122,
+    "date": "2023-01-20T06:44:06+00:00",
+    "replyTo": 2121,
+    "text": "XAUUSD both limits massive drop 85+ pips move✅✅\nStill running in profit😜",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD ANALYSIS ✅\nHope For Good Move Good Fall Now 👍"
+  },
+  {
+    "id": 2022,
+    "date": "2023-01-13T11:50:31+00:00",
+    "replyTo": 2010,
+    "text": "XAUUSD tp hitted 55+ pips smashed enjoy✅✅✅✅\nAlways Remember 👇\n\n#WeArePro4ex",
+    "category": "reply_tp_hit",
+    "refText": "XAUUSD sell now - 1907\n\ntp - 1902\n\nsl - 1913"
+  },
+  {
+    "id": 2026,
+    "date": "2023-01-15T12:02:43+00:00",
+    "replyTo": 1960,
+    "text": "GUY'S DIDN'T YOU REMEMBER OUR ANALYSIS✅✅\nWE ANALYZE STARTING OF THE WEEK✅✅\nNOW XAUUSD INFRONT OF YOU✅✅\nOUT FIRST TARGET HIT SUCESSFULLY ✅✅\nALWAYS REMEMBER 👇\n\n#WeArePro4ex",
+    "category": "reply_tp_hit",
+    "refText": "XAUUSD TECHNICAL ANALYSIS\nTIME FRAME : WEEKLY"
+  },
+  {
+    "id": 2259,
+    "date": "2023-01-31T08:16:24+00:00",
+    "replyTo": 2258,
+    "text": "XAUUSD stop out before last trade \nSo invalid 👍❌\n\nWe will recover soon✅",
+    "category": "reply_sl_hit",
+    "refText": "XAUUSD add more buy - 1909\n\nTp - 1915\nTp - 1921\n\nSl - 1906 both trades"
+  },
+  {
+    "id": 1846,
+    "date": "2023-01-03T15:19:31+00:00",
+    "replyTo": 1844,
+    "text": "XAUUSD both trades running in 170+ pips Perfect head shot ... close half of Your profit and enjoy free trades Today ✅✅✅✅\n\n#Enjoy it\n#Free Money\n#WeArePro4ex",
+    "category": "reply_close",
+    "refText": "XAUUSD sl extend just 20 pips set 1853\n\nAdd more sell - 1849"
+  },
+  {
+    "id": 1847,
+    "date": "2023-01-03T15:49:42+00:00",
+    "replyTo": 1843,
+    "text": "XAUUSD 1st trade close full in 180+ pips ✅✅\nXAUUSD 2nd trade in 190+ pips✅✅\nWhat aa shots ... You all guys Swimming in Profits 💰💰💰💰\n\n💰💰💰💰💰💰💰💰💰💰",
+    "category": "reply_close",
+    "refText": "XAUUSD sell now - 1847\ntp - 1835\ntp - 1820\n\nSL - 1851\n\nUSE SMALL LOT ONLY👆"
+  },
+  {
+    "id": 1842,
+    "date": "2023-01-03T11:10:47+00:00",
+    "replyTo": 1838,
+    "text": "UPDATE✅\nXAUUSD (GOLD) BOOOM 130+ Pips Running Now... 0% DRAW DOWN 👆👆\nWaterfall 💦💰💰\n\nSignal was posted in Both Channels",
+    "category": "reply_noise",
+    "refText": "BOOOOOM BOOOM🔥🔥 tp1 Smashed 98+ pips Booked Sucessfully🔥🔥 What aa Head Shot ✅✅✅\n\n#Free Money \n#Enjoy it\n#SMC_KING_PRO4EX\n#WeArePro4ex"
+  },
+  {
+    "id": 1858,
+    "date": "2023-01-04T09:59:58+00:00",
+    "replyTo": 1857,
+    "text": "XAUUSD buy now - 1860.50 \nother limit - 1858.50\n\ntp - 1865\ntp - 1870.50\n\nsl - 1855",
+    "category": "reply_other",
+    "refText": "XAUUSD buy now - 1860.50"
+  },
+  {
+    "id": 5420,
+    "date": "2024-01-02T08:14:40+00:00",
+    "replyTo": null,
+    "text": "XAUUSD SELL NOW\n @ 2074 - 2077\n\nTP : 2068\nTP : 258\n\nSl : 2080",
+    "category": "valid_market"
+  },
+  {
+    "id": 5436,
+    "date": "2024-01-03T12:20:38+00:00",
+    "replyTo": null,
+    "text": "XAUUSD BUY NOW \n @ 2045.50 - 2042\n\nTP : 2056\nTP : 2074\n\nSL : 2037",
+    "category": "valid_market"
+  },
+  {
+    "id": 5448,
+    "date": "2024-01-04T13:23:32+00:00",
+    "replyTo": null,
+    "text": "XAUUSD BUY NOW\n @ 2042 - 2043\n\nTP : 2050\nTP : 2058\n\nSL : 2038",
+    "category": "valid_market"
+  },
+  {
+    "id": 5451,
+    "date": "2024-01-04T13:47:30+00:00",
+    "replyTo": null,
+    "text": "XAUUSD BUY NOW \n @ 2039 - 2035\n\nTP : 2047\nTP : 2064\n\nSL : 2030 2034",
+    "category": "valid_market"
+  },
+  {
+    "id": 6269,
+    "date": "2024-03-28T11:34:18+00:00",
+    "replyTo": null,
+    "text": "GOLD MORE SELL\n @ 2212\nOTHER LIMIT : 2216\n\nTP :  2205 / 2200\nSL : 2221",
+    "category": "limit_order"
+  },
+  {
+    "id": 6369,
+    "date": "2024-04-10T05:23:34+00:00",
+    "replyTo": null,
+    "text": "GOLD SELL NOW\n@ 2359.5\nOTHER LIMIT @ 2363.6\n\nTP : 2352 / 2335\nSL : 2367.6",
+    "category": "limit_order"
+  },
+  {
+    "id": 5419,
+    "date": "2024-01-02T08:10:51+00:00",
+    "replyTo": null,
+    "text": "XAUUSD SELL NOW\n@ 2074",
+    "category": "incomplete"
+  },
+  {
+    "id": 5432,
+    "date": "2024-01-03T10:01:08+00:00",
+    "replyTo": null,
+    "text": "XAUUSD BUY NOW\n @ 2056",
+    "category": "incomplete"
+  },
+  {
+    "id": 5418,
+    "date": "2024-01-01T18:28:11+00:00",
+    "replyTo": null,
+    "text": "👆These all up Analysis are Just Next Move of Different Pairs not Confirm Signals.\n\n🟣If We Found any Confirmation in Any Pairs On the Rule of ( SMC & ICT ) this Week Will Post in Our Premium Channel.\n\n      👇👇👇👇👇👇👇\n🥇 VIP GOLD SIGNALS 🥇\n       👆👆👆👆👆👆👆\n\n▶️ SIGNALS : GOLD / CURRENCIES / COMMODITIES / INDICES\n\n▶️ DAILY 3 - 5 SIGNALS\n▶️ GOLD EXPERT 🥇\n▶️ SMC & ICT CHART SETUP\n▶️ FANTASTIC R:R\n▶️ PIPS/WEEKLY : 1200/1500 PIPS\n\nTO SUBSCRIBE,\nCONTACT THE ADMIN\n▶️ @Pro4ex",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 5422,
+    "date": "2024-01-02T08:34:39+00:00",
+    "replyTo": null,
+    "text": "XAUUSD UPDATE 🚀🚀\n\n30+ pips running in Profit🤑\nBooked Some Profit and SL set at Entry (B.E)🚀🔥🤑\nRisk Free Thrill🔥\n\nJOIN NOW 👉 t.me/Forextrade",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 5417,
+    "date": "2024-01-01T16:32:58+00:00",
+    "replyTo": null,
+    "text": "#XAUUSD_30M\nTechnical Analysis🚀\nExpected Move 📈📉\nAll HTF is still bullish but in LTF we have a CHOCH  we are still waiting for the major time frame Breakout then will enter in sell order from our Extreme OB\n\nFree Siganls 👉 t.me/Forextrade",
+    "category": "noise"
+  },
+  {
+    "id": 5449,
+    "date": "2024-01-04T13:28:25+00:00",
+    "replyTo": 5448,
+    "text": "XAUUSD UPDATE 🚀🚀\n\nBoth trades 50+ pips running in Profit🤑\nClose Half of that profit and SL set at Entry (B.E)🚀🔥🤑\nRisk Free Thrill🔥\n\nJOIN NOW 👉 t.me/Forextrade",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD BUY NOW\n @ 2042 - 2043\n\nTP : 2050\nTP : 2058\n\nSL : 2038"
+  },
+  {
+    "id": 5470,
+    "date": "2024-01-05T16:04:18+00:00",
+    "replyTo": 5469,
+    "text": "XAUUSD UPDATE 🚀🚀\nSuper Sharp Entry 🤑🤑\nAgain and again No Stopped Profit Guys !! Alhumdulliah ❤️❤️\n\nJust Triggered and Start falling\n80+ pips running in Profit🤑 Zero Drawdown Boom🔥🔥\nClose Half of that profit and SL set at Entry (B.E)🚀🔥🤑\nRisk Free Thrill🔥\n\nJOIN NOW 👉 t.me/Forextrade",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD SELL NOW\n @ 2062\n\nTP : 2045\n\nSL : 2065.5"
+  },
+  {
+    "id": 5503,
+    "date": "2024-01-10T13:07:35+00:00",
+    "replyTo": 5502,
+    "text": "XAUUSD UPDATE 🚀🚀\n#Perfect_Call 💯💯\n\n65+ pips Smashing now 🤑\nClose Half of that profit and SL set at Entry (B.E)🚀🔥🤑Boooom!!\nRisk Free Thrill🔥\n\nJOIN NOW 👉 t.me/Forextrade",
+    "category": "reply_breakeven",
+    "refText": "XAUUSD UPDATE 🚀🚀\n\n50+ pips running in Profit🤑\nClose Half of that profit and SL set at Entry (B.E)🚀🔥🤑\nRisk Free Thrill🔥\n\nJOIN NOW 👉 t.me/Forextrade"
+  },
+  {
+    "id": 5496,
+    "date": "2024-01-09T13:44:09+00:00",
+    "replyTo": 5489,
+    "text": "XAUUSD SELL TRADE ZERO PIPS FLOAT💯💯\nTHIS CAN BE ONLY DONE BY GOLD TRADER PRO4EX🔥\n\nRunning 80+ Pips Close Half of that Profit SL set at Entry 🚀\nRisk Free Thrill 😜🎯\n\nFree Siganls 👉 t.me/Forextrade",
+    "category": "reply_tp_hit",
+    "refText": "📊XAU/USD SELL LIMIT\n📌Text Me @Pro4ex\n\n✔️ Entry @ 2041.5\n💵Tp - 2034\n💵Tp - 2024\n🔠 Sl - 2048\n\n🔖 t.me/Forextrade\n🔔Use above link to Support Us 👆"
+  },
+  {
+    "id": 5566,
+    "date": "2024-01-16T09:52:46+00:00",
+    "replyTo": 5565,
+    "text": "After we Sell together🚀\n\nIt is true that trading is about waiting game bro, you can see price to reach my target zone🤫\n\n#Congrates_Patience_Pay_off\n\nTo the Ground / All Entries Now 280+ Pips Running 💰🎯\nClose ALL GOLD SELL TRADES & ENJOY ✔️🚀💰",
+    "category": "reply_tp_hit",
+    "refText": "XAUUSD UPDATES 💰\nFully target smashed as we predict!!\nGold over all 210+ Pips running !! Yeah 👍\n\nThere are no secrets to success. It is the result of preparation, hard work, and learning 📊"
+  },
+  {
+    "id": 5557,
+    "date": "2024-01-15T14:36:55+00:00",
+    "replyTo": 5556,
+    "text": "Close gold -10 \nMovement very slow",
+    "category": "reply_close",
+    "refText": "XAUUSD BUY NOW\n @ 2053 - 2052\n\nTP : 2058\nTP : 2066\n\nSL : 2048"
+  },
+  {
+    "id": 5650,
+    "date": "2024-01-24T17:49:37+00:00",
+    "replyTo": 5648,
+    "text": "XAUUSD UPDATE ✅✅\n\nboth trade now running 90+ pips close 50% and set Target 2025\nNext will see in morning",
+    "category": "reply_close",
+    "refText": "XAUUSD BUY NOW\n 2015 _ 2011\n\nTP : 2020\nTP : 2040\n\nSL : 2007"
+  },
+  {
+    "id": 5521,
+    "date": "2024-01-11T16:47:09+00:00",
+    "replyTo": 5517,
+    "text": "XAUUSD UPDATES 💰\nFully smashed as we predict!!\n180+ Pips in one setup!! Yeah 👍\n\nThere are no secrets to success. It is the result of preparation, hard work, and learning 📊\n\nFree Community 👉 t.me/Forextrade",
+    "category": "reply_noise",
+    "refText": "📊XAU/USD SELL NOW\n📌Text Me @Pro4ex\n\n✔️ Entry @ 2032.5 - 2034.5\n💵Tp - 2025\n💵Tp - 2010\n🔠 Sl - 2037\n\n🔖 t.me/Forextrade\n🔔Use above link to Support Us 👆"
+  },
+  {
+    "id": 5590,
+    "date": "2024-01-19T13:24:00+00:00",
+    "replyTo": 5589,
+    "text": "🔔#XAUUSD (GOLD / U.S. Dollar)\n\nAs i told you if if break if will go up Just see 75+ pips Up Like Pro ✔️\nPost in Just For Education Purpose☝️\n\n#Learn_Here , #Earn_Everywhere💵💵",
+    "category": "reply_other",
+    "refText": "📌IMPORTANT UPDATE : Friends, focus on the heavy drop scenario, the price should balance below $2030, it is the main important range of supply and decides the trend! If the Price attempt to break this range , it might try and grow up to $2049 to fill the past liquidity void ! So consider the important Condition of satisfying the both scenario for the trades!\n\nThis Post is Only for Educational purposes Not aa Signal✔️"
+  },
+  {
+    "id": 8834,
+    "date": "2025-01-02T10:26:47+00:00",
+    "replyTo": null,
+    "text": "GOLD SELL NOW\n@ 2645.5\nMORE SELL @ 2648.5\n\nTP : 2638 / 2632 / 2625\nSL : 2654",
+    "category": "valid_market"
+  },
+  {
+    "id": 8840,
+    "date": "2025-01-03T09:14:37+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW\n @ 2654\n\nTP : 2660 / 2775\nSL : 2645",
+    "category": "valid_market"
+  },
+  {
+    "id": 8852,
+    "date": "2025-01-06T09:10:16+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW \n@ 2626\nMORE BUY @ 2622\n\nTP : 2632 / 2645\nSL : 2618",
+    "category": "valid_market"
+  },
+  {
+    "id": 8869,
+    "date": "2025-01-09T15:05:03+00:00",
+    "replyTo": null,
+    "text": "GOLD SELL NOW \n@ 2675\n\nTP : 2667 / 2660\nSL : 2680",
+    "category": "valid_market"
+  },
+  {
+    "id": 8862,
+    "date": "2025-01-07T15:17:52+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY LIMIT\n@ 2643\nMORE BUY @ 2639\n\nTP : 2649 / 2654 / 2660\nSL : 2636",
+    "category": "limit_order"
+  },
+  {
+    "id": 8865,
+    "date": "2025-01-08T13:05:29+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY LIMIT\n@ 2649\nMORE BUY @ 2646\n\nTP : 2654.5 / 2663.5\nSL : 2643",
+    "category": "limit_order"
+  },
+  {
+    "id": 9007,
+    "date": "2025-01-22T13:41:47+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW \n @ 2752\n\nTP & SL POSTED SOON!",
+    "category": "incomplete"
+  },
+  {
+    "id": 10047,
+    "date": "2025-06-11T12:31:59+00:00",
+    "replyTo": null,
+    "text": "GOLD SELL NOW\n@ 3349\n\nSL : 3355",
+    "category": "incomplete"
+  },
+  {
+    "id": 8854,
+    "date": "2025-01-06T11:24:33+00:00",
+    "replyTo": null,
+    "text": "\"CRUSHED GOLD HUGE PROFITS! ⛏\n\nGOLD Both trades running now 290+ pips profit. Timely Secure Profits Stay Safe & Keep Winning With Us Consistently! ☄️\n\n#Reality #Consistency #Accucary #Speaks\nThere are no secrets to success. It is the result of preparation, hard work, and learning 🔥",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 8858,
+    "date": "2025-01-07T14:08:53+00:00",
+    "replyTo": null,
+    "text": "🟠GOLD UPDATE...!! 💰\n\nOUR TRADE IS RUNNING 50+ PIPS | CLOSE FIRST TRADE | HOLD THE LAST ENTRY WITH BE+ OKAY ♥️\nSETUP IS BIT RISKY!",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 8833,
+    "date": "2025-01-02T10:24:39+00:00",
+    "replyTo": null,
+    "text": "✅️ GOLD SELL NOW\n\n✅️Recommend Broker : Click Here !",
+    "category": "noise"
+  },
+  {
+    "id": 8835,
+    "date": "2025-01-02T10:37:52+00:00",
+    "replyTo": 8834,
+    "text": "GOLD start running in profits...!!\nUse Risk Management, Market Is Very Risky Yet!👌",
+    "category": "reply_breakeven",
+    "refText": "GOLD SELL NOW\n@ 2645.5\nMORE SELL @ 2648.5\n\nTP : 2638 / 2632 / 2625\nSL : 2654"
+  },
+  {
+    "id": 8863,
+    "date": "2025-01-07T15:18:33+00:00",
+    "replyTo": 8862,
+    "text": "GOLD UPDATE...!!💰\n\nGOLD Trade Triggered Running In Profits Arround 90+ Pips Zero D:D Target Hit Again 🎯\nInterested Can Booked 80% Profits SL Move @ Entry...!!🔥\n\n\"SIGNAL WAS POSTED IN VIP\"☝️",
+    "category": "reply_breakeven",
+    "refText": "GOLD BUY LIMIT\n@ 2643\nMORE BUY @ 2639\n\nTP : 2649 / 2654 / 2660\nSL : 2636"
+  },
+  {
+    "id": 8866,
+    "date": "2025-01-08T13:06:40+00:00",
+    "replyTo": 8865,
+    "text": "🟠GOLD UPDATE...!! 💰\n\nBoth Trades Active, Zero Draw Down 190+ Pips Running | Target Smacked | Booked 80% Profit Here & SL Move @ Entry Level Now (B.E+)...!!✅\nRisk Free Now...!!\n\n\"SIGNAL WAS POSTED IN VIP CHANNEL",
+    "category": "reply_breakeven",
+    "refText": "GOLD BUY LIMIT\n@ 2649\nMORE BUY @ 2646\n\nTP : 2654.5 / 2663.5\nSL : 2643"
+  },
+  {
+    "id": 8853,
+    "date": "2025-01-06T09:10:39+00:00",
+    "replyTo": 8852,
+    "text": "GOLD UPDATE...!!☄️\nSniper_Trade🚀🚀\n\n💪 Mastering the Market with Price Action & SMC!💰\nFirst Setup Of The Week Move Perfect 90+ Pips Running Target Hit Zero D:D!🎯\n\nUnbelievable Performance, Boom Boom! 💥\n\nTrade Smart - Trade Like Pro!✨",
+    "category": "reply_tp_hit",
+    "refText": "GOLD BUY NOW \n@ 2626\nMORE BUY @ 2622\n\nTP : 2632 / 2645\nSL : 2618"
+  },
+  {
+    "id": 9263,
+    "date": "2025-02-11T14:12:39+00:00",
+    "replyTo": 9250,
+    "text": "🟠GOLD VIP UPDATE...!! ✅\n\nCrazy Entries Wahhhuuuuuu! 😂 \nGOLD Both Trades Hit Our Second Target @2900 Unbeatable Performance Done & Dusted!🙈\n\nOur Today Free Signal Hit Both Target! 🎯\n\nAll Trades Running Very Huge Profits 320+ Pips | Fully Smashed GOLD | Let's Celebrate This Victory 🥂 \n\n💰 Powered By @Pro4ex",
+    "category": "reply_tp_hit",
+    "refText": "GOLD BUY NOW\n@ 2888\nMORE BUY @ 2884\n\nTP : 2895 / 2900 / 2915\nSL : 2882"
+  },
+  {
+    "id": 10977,
+    "date": "2025-10-27T08:55:46+00:00",
+    "replyTo": 10974,
+    "text": "GOLD stop out with big spike after 65 - 70 pips move! \n\nBut our SL is very smaller no worries.",
+    "category": "reply_sl_hit",
+    "refText": "GOLD BUY NOW\n@ 4061\nMORE BUY @ 4056\n\nTP : 4070\nTP : 4077\nTP : 4083\n\nSL : 4052"
+  },
+  {
+    "id": 8874,
+    "date": "2025-01-09T16:08:33+00:00",
+    "replyTo": 8869,
+    "text": "HEHEHEHE BOOOOOOOOM!🔥🔥\n📈Look GOLD Sharp Setup On Point!🔥🔥\n\n90+ Pips running Target Smacked | Huh!💰\nInterested Can Close 80% Profits...!!\nSL MOVE @ ENTRY...!!✅\n\nThere are no secrets to success. It is the result of preparation, hard work, and learning! 🙂",
+    "category": "reply_close",
+    "refText": "GOLD SELL NOW \n@ 2675\n\nTP : 2667 / 2660\nSL : 2680"
+  },
+  {
+    "id": 8918,
+    "date": "2025-01-13T16:33:13+00:00",
+    "replyTo": 8917,
+    "text": "GOLD BOTH ENTRIES ACTIVE 70+ PIPS RUNNING CAN CLOSE & BOOKED PROFITS...!! 💯 \n\nWILL SEE TOMORROW TODAY I DON'T SEE GOOD VOLUME IN MARKET! 😕",
+    "category": "reply_close",
+    "refText": "GOLD BUY NOW\n@ 2666\nMORE BUY @ 2663\n\nTP : 2680 / 2690\nSL : 2658"
+  },
+  {
+    "id": 8843,
+    "date": "2025-01-03T10:09:26+00:00",
+    "replyTo": 8840,
+    "text": "GOLD Flying 30+ Pips Running Profits Zero DrawDown...🚀🔥💰",
+    "category": "reply_noise",
+    "refText": "GOLD BUY NOW\n @ 2654\n\nTP : 2660 / 2775\nSL : 2645"
+  },
+  {
+    "id": 8856,
+    "date": "2025-01-07T13:30:10+00:00",
+    "replyTo": 8855,
+    "text": "GOLD SELL NOW\n@ 2660.5\nMORE SELL @ 2664.5\n\nTP : 2652.5 / 2644.5\nSL : 2667.5",
+    "category": "reply_other",
+    "refText": "GOLD SELL NOW"
+  },
+  {
+    "id": 11255,
+    "date": "2026-01-05T11:25:32+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW\n@ 4426\nMORE BUY @ 4420\n\nTP : 4436\nTP : 4450\n\nSL : 4415",
+    "category": "valid_market"
+  },
+  {
+    "id": 11270,
+    "date": "2026-01-05T12:25:04+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW\n@ 4414\nMORE BUY @ 4408\n\nTP : 4428\nTP : 4440\n\nSL : 4402",
+    "category": "valid_market"
+  },
+  {
+    "id": 11279,
+    "date": "2026-01-05T13:26:36+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW\n@ 4405\nMORE BUY @ 4397\n\nTP : 4420\nTP : 4440\n\nSL : 4395",
+    "category": "valid_market"
+  },
+  {
+    "id": 11311,
+    "date": "2026-01-08T13:06:56+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW\n@ 4420\nMORE BUY @ 4410\n\nTP : 4440\nTP : 4450\n\nSL : 4406",
+    "category": "valid_market"
+  },
+  {
+    "id": 11482,
+    "date": "2026-02-05T14:19:47+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY LIMIT\n@ 4763\nMORE BUY @ 4750\n\nTP : 4789\nTP : 4820\nTP : 4860\n\nSL : 4738",
+    "category": "limit_order"
+  },
+  {
+    "id": 11495,
+    "date": "2026-02-09T10:57:12+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY LIMIT \n@ 4955\nMORE BUY @ 4945\n\nTP : 4990\nTP : 5030\n\nSL : 4935",
+    "category": "limit_order"
+  },
+  {
+    "id": 11689,
+    "date": "2026-03-02T14:27:16+00:00",
+    "replyTo": null,
+    "text": "GOLD BUY NOW \n@ 5315\nMORE BUY @ 5300\n\nSL : 5295",
+    "category": "incomplete"
+  },
+  {
+    "id": 11308,
+    "date": "2026-01-06T13:52:27+00:00",
+    "replyTo": null,
+    "text": "GOLD TOUCH - 4454\n\n+270 pips both entries big move, Booked profits!",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 11337,
+    "date": "2026-01-12T14:44:08+00:00",
+    "replyTo": null,
+    "text": "XAU-USD (GOLD) UPDATE!🔥\n\n📈 Precision at its Finest – 240+ Pips Locked In!\n✅Entry: 4587 → TP Smashed: 4610\n\nNo drawdown, no confusion – just clean execution with SMC + Pure Price Action.\nThis is how consistency looks when strategy meets discipline!🤴🏻",
+    "category": "ad_or_result"
+  },
+  {
+    "id": 11251,
+    "date": "2026-01-05T10:55:01+00:00",
+    "replyTo": null,
+    "text": "GOLD will move up mostly likely it will touch 4450-4455\n\nI'm ready to buy at pullback, waiting for pullback for entry...\n\n✅Wait for proper signal!",
+    "category": "noise"
+  },
+  {
+    "id": 11439,
+    "date": "2026-01-27T11:57:56+00:00",
+    "replyTo": 11437,
+    "text": "GOLD 120+ pips flying!📈\n\"TARGET HIT\"🎯 \n\nMove your SL @ entry (Breakeven) booked 50% of the profits..!!🫵🔥",
+    "category": "reply_breakeven",
+    "refText": "GOLD BUY NOW \n@ 5068\nMORE BUY @ 5062\n\nTP : 5080\nTP : 5095\n\nSL : 5055"
+  },
+  {
+    "id": 11441,
+    "date": "2026-01-27T12:33:43+00:00",
+    "replyTo": 11437,
+    "text": "✅Free Signal: +200 PIPS RUNNING! HERE WE GO GOLD BABY.📈\n\n\"TARGET HIT\" BOOKED 80% PROFITS NOW HOLD 20% SET (BREAKEVEN)..💪🏻💯\n\n\"HOPEFULLY NEW ATH SOON!\"🚀",
+    "category": "reply_breakeven",
+    "refText": "GOLD BUY NOW \n@ 5068\nMORE BUY @ 5062\n\nTP : 5080\nTP : 5095\n\nSL : 5055"
+  },
+  {
+    "id": 11484,
+    "date": "2026-02-05T16:27:30+00:00",
+    "replyTo": 11482,
+    "text": "We have monitored market conditions over the past several hours, and the anticipated entry point for GOLD has not yet been reached. As a result, we have decided to \"Cancel Pending Order\"  at this time.\n\n✅Should another suitable entry opportunity arise, we will notify you again.\n\n📌Discipline, patience, and precise execution remain the foundation of professional trading.",
+    "category": "reply_breakeven",
+    "refText": "GOLD BUY LIMIT\n@ 4763\nMORE BUY @ 4750\n\nTP : 4789\nTP : 4820\nTP : 4860\n\nSL : 4738"
+  },
+  {
+    "id": 11505,
+    "date": "2026-02-09T14:09:20+00:00",
+    "replyTo": 11499,
+    "text": "🟠GOLD UPDATE...!! 💰\n\n✅Free Signal!  working truly impressive, 210++ Pips Running!😑\n\"TARGET HIT\"\n\n🤔Make sure to set your stop-loss at entry to keep it risk-free booked 80% profits...!!✅",
+    "category": "reply_tp_hit",
+    "refText": "GOLD BUY NOW \n@ 5001\nMORE BUY @ 4991\n\nTP : 5015\nTP : 5030\n\nSL : 4980"
+  },
+  {
+    "id": 11632,
+    "date": "2026-02-19T14:52:36+00:00",
+    "replyTo": 11620,
+    "text": "BLESS UP..!!🤴🏻\nNo random BUY or SELL roulette here. I'm in it to catch the real profits, not only just profit! \n\n✅Free GOLD Signal.\nEntry Zone : 4972 - 4965 | Target Hit - 5000 Absolutely Smashed +630 Pips!💀\n\nI didn't arrived here by chance..!!\n~ i built this intentionally, brick by brick..",
+    "category": "reply_tp_hit",
+    "refText": "GOLD BUY NOW\n@ 4972\nMORE BUY @ 4965\n\nTP : 4985\nTP : 5000\n\nSL : 4958"
+  },
+  {
+    "id": 11605,
+    "date": "2026-02-18T18:30:43+00:00",
+    "replyTo": 11603,
+    "text": "GOLD Start amazing profits 150+ pips running, Beautifully!🔥\n\n\n✅If u want to reduce risk can close first entry (4985)\nHold second entry 5000 InshAllah big fal is coming accordingly technicals..!!",
+    "category": "reply_close",
+    "refText": "GOLD SELL NOW\n@ 4985\nMORE SELL @ 5000\n\nTP : 4915\nTP : 4855\n\nSL : 5013"
+  },
+  {
+    "id": 11303,
+    "date": "2026-01-06T13:24:34+00:00",
+    "replyTo": 11299,
+    "text": "✅Free Signal: Both entries +140 PIPS RUNNING! HERE WE GO GOLD BABY.📉\n\nZERO D:D, SL MOVE @ ENTRY BOOKED 50% PROFITS NOW..💪🏻💯\n\n🤴🏻🤴🏻🤴🏻🤴🏻🤴🏻",
+    "category": "reply_noise",
+    "refText": "GOLD SELL NOW\n@ 4464.5\nMORE SELL @ 4470.5\n\nTP : 4450\nTP : 4425\n\nSL : 4476.5"
+  },
+  {
+    "id": 11262,
+    "date": "2026-01-05T11:36:28+00:00",
+    "replyTo": 11261,
+    "text": "GOLD BUY NOW\n@ 4419\nMORE BUY @ 4415\n\nTP : 4427\nTP : 4440\n\nSL : 4412",
+    "category": "reply_other",
+    "refText": "GOLD BUY NOW\n\nRisk management!"
+  }
+]
