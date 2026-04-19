@@ -11,6 +11,7 @@ namespace TradeKit.Core.Signals
     {
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly string m_SignalHistoryFilePath;
+        private readonly bool m_UseLimitOrders;
         private readonly double m_MaxStopRatio = 0.20;
         private const string SIGNAL_REGEX = @"(buy|sell)([^\n]*?(?:\n[^\d\n@\-]*)?)[@\-]\s*(\d+(?:[.,]\d{0,5})?)";
         private const string BREAKEVEN_REGEX = @"(running in profit|entry point|break\s*-?\s*even|to the entry|b\.e|move sl to entry|sl\s+move\s+to\s+(?:the\s+)?entry)";
@@ -52,10 +53,12 @@ namespace TradeKit.Core.Signals
         public ParseSetupFinder(IBarsProvider mainBarsProvider, 
             ISymbol symbol, 
             ITradeViewManager tradeViewManager,
-            string signalHistoryFilePath) 
+            string signalHistoryFilePath,
+            bool useLimitOrders = true) 
             : base(mainBarsProvider, symbol)
         {
             m_TradeViewManager = tradeViewManager;
+            m_UseLimitOrders = useLimitOrders;
             char[] trimChars = { '"', ' ' };
             m_SignalHistoryFilePath = signalHistoryFilePath.TrimStart(trimChars).TrimEnd(trimChars);
             m_MessageSignalArgsMap = new Dictionary<long, SignalEventArgs>();
@@ -88,10 +91,10 @@ namespace TradeKit.Core.Signals
                            (res & SignalAction.ENTER_SELL) == SignalAction.ENTER_SELL;
             if (isEnter && hasSl)
             {
-                bool isLimit = (res & SignalAction.LIMIT) == SignalAction.LIMIT;
-                if (isLimit)
+                bool isKeywordLimit = (res & SignalAction.LIMIT) == SignalAction.LIMIT;
+                if (isKeywordLimit)
                 {
-                    return;// We skip limit orders.
+                    return;// We skip keyword-based limit orders.
                 }
 
                 double tp;
@@ -111,10 +114,23 @@ namespace TradeKit.Core.Signals
                     return; // Cannot open without a TP reference
                 }
 
+                // If the current price is less favorable than the signal entry, use a limit order
+                // so we wait for the market to come back to the intended entry level.
+                // BUY: less favorable when ask > entry (price already moved up past entry)
+                // SELL: less favorable when bid < entry (price already moved down past entry)
+                double currentPrice = signal.IsLong
+                    ? m_TradeViewManager.GetAsk(Symbol)
+                    : m_TradeViewManager.GetBid(Symbol);
+                bool useLimitOrder = m_UseLimitOrders && signal.Price.HasValue &&
+                    (signal.IsLong
+                        ? currentPrice > signal.Price.Value
+                        : currentPrice < signal.Price.Value);
+
                 var args = new SignalEventArgs(
                     new BarPoint(signal.Price.GetValueOrDefault(), LastBarOpenDateTime, BarsProvider),
                     new BarPoint(tp, LastBarOpenDateTime, BarsProvider),
-                    new BarPoint(signal.StopLoss, LastBarOpenDateTime, BarsProvider));
+                    new BarPoint(signal.StopLoss, LastBarOpenDateTime, BarsProvider),
+                    isLimit: useLimitOrder);
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
                 OnEnterInvoke(args);
                 return;
@@ -141,13 +157,24 @@ namespace TradeKit.Core.Signals
                 return;
             }
 
-            if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN && !refSignal.HasBreakeven)
+            if ((res & SignalAction.SET_BREAKEVEN) == SignalAction.SET_BREAKEVEN)
             {
-                var newSl = new BarPoint(refSignal.Level.Value, LastBarOpenDateTime, BarsProvider);
-                refSignal.HasBreakeven = true;
-                OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, hasBreakeven: true, closeHalf: true));
-                refSignal.StopLoss = newSl;
-                // Keep in map so price-movement TP/SL checks and further reply messages still work
+                if (refSignal.IsLimit && !refSignal.IsActive)
+                {
+                    // Cancel the pending limit order when a breakeven signal arrives
+                    OnCanceledInvoke(new LevelEventArgs(refSignal.Level, refSignal.Level));
+                    m_MessageSignalArgsMap.Remove(replyId.Value);
+                    return;
+                }
+
+                if (!refSignal.HasBreakeven)
+                {
+                    var newSl = new BarPoint(refSignal.Level.Value, LastBarOpenDateTime, BarsProvider);
+                    refSignal.HasBreakeven = true;
+                    OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, hasBreakeven: true, closeHalf: true));
+                    refSignal.StopLoss = newSl;
+                    // Keep in map so price-movement TP/SL checks and further reply messages still work
+                }
             }
             else if ((res & SignalAction.HIT_TP) == SignalAction.HIT_TP)
             {
@@ -239,7 +266,33 @@ namespace TradeKit.Core.Signals
             foreach (long messageId in m_MessageSignalArgsMap.Keys)
             {
                 SignalEventArgs value = m_MessageSignalArgsMap[messageId];
-                bool isUp = value.StopLoss < value.TakeProfit;
+                bool isUp = value.StopLoss < value.TakeProfit; // true for BUY, false for SELL
+
+                if (value.IsLimit && !value.IsActive)
+                {
+                    // Pending limit order: check if entry price was touched this bar.
+                    // BUY limit executes when price falls to entry (low <= entry).
+                    // SELL limit executes when price rises to entry (high >= entry).
+                    bool entryHit = isUp
+                        ? low <= value.Level.Value
+                        : high >= value.Level.Value;
+
+                    if (!entryHit)
+                    {
+                        // Entry not yet triggered. If TP was already reached, cancel the order.
+                        bool tpReached = (value.TakeProfit.Value < high && isUp) ||
+                                         (value.TakeProfit.Value > low && !isUp);
+                        if (tpReached)
+                        {
+                            OnCanceledInvoke(new LevelEventArgs(value.TakeProfit, value.Level));
+                            idsToRemove.Add(messageId);
+                        }
+                        continue; // Skip normal TP/SL check until entry is hit
+                    }
+
+                    // Entry was hit — mark position as active and fall through to TP/SL check
+                    value.IsActive = true;
+                }
 
                 if (value.TakeProfit.Value < high && isUp ||
                     value.TakeProfit.Value > low && !isUp)

@@ -14,7 +14,7 @@ namespace TradeKit.CTrader.Signals
         /// </summary>
         protected SignalsParams GetSignalsParams()
         {
-            return new SignalsParams(SignalHistoryFilePath);
+            return new SignalsParams(SignalHistoryFilePath, UseLimitOrders);
         }
 
         #region Input parameters
@@ -24,6 +24,14 @@ namespace TradeKit.CTrader.Signals
         /// </summary>
         [Parameter(nameof(SignalHistoryFilePath), DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
+
+        /// <summary>
+        /// When true, a limit order is placed at the signal entry price when the current price
+        /// is less favorable than the entry. When false, always enters at market.
+        /// </summary>
+        [Parameter("Use Limit Orders", DefaultValue = true)]
+        public bool UseLimitOrders { get; set; }
+
         #endregion
     }
 }
