@@ -31,6 +31,11 @@
         public double StopLoss { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the stop loss was explicitly found in the signal text.
+        /// </summary>
+        public bool HasExplicitSl { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether this signal is BUY (long).
         /// </summary>
         /// <value>

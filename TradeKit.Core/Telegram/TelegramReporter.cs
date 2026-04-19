@@ -20,9 +20,6 @@ namespace TradeKit.Core.Telegram
         private readonly Dictionary<string, int> m_SignalPostIds;
         private readonly Dictionary<string, SignalArgs> m_SignalEventArgsMap;
 
-        private const string TOKEN_NAME = "IMPULSE_FINDER_BOT_TOKEN_NAME";
-        private const string CHAT_ID = "IMPULSE_FINDER_BOT_CHAT_ID";
-
         private readonly Dictionary<string, string> m_SymbolsMap = new()
         {
             //{"XAUUSD", "GOLD"},
@@ -55,15 +52,6 @@ namespace TradeKit.Core.Telegram
             m_StorageManager = storageManager;
             m_ReportClose = reportClose;
             m_SignalPostIds = storageManager.GetSavedState() ?? new Dictionary<string, int>();
-            if (string.IsNullOrEmpty(botToken))
-            {
-                botToken = Environment.GetEnvironmentVariable(TOKEN_NAME);
-            }
-
-            if (string.IsNullOrEmpty(chatId))
-            {
-                chatId = Environment.GetEnvironmentVariable(CHAT_ID);
-            }
 
             if (string.IsNullOrEmpty(botToken) || string.IsNullOrEmpty(chatId))
             {

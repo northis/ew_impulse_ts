@@ -91,6 +91,14 @@ namespace TradeKit.Core.Common
         void SetTakeProfitPrice(IPosition position, double? price);
 
         /// <summary>
+        /// Closes a partial volume of the specified position.
+        /// </summary>
+        /// <param name="position">The position.</param>
+        /// <param name="ratio">The fraction of the volume to close (e.g. 0.5 for half).</param>
+        /// <returns>Result of the operation</returns>
+        OrderResult ClosePartial(IPosition position, double ratio);
+
+        /// <summary>
         /// Closes the specified position.
         /// </summary>
         /// <param name="position">The position.</param>

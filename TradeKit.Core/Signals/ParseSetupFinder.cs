@@ -83,8 +83,10 @@ namespace TradeKit.Core.Signals
             SignalAction res = ProcessMessage(matchedSignal.Value, symbolRegex, out ParsedSignal signal);
 
             bool hasTp = signal.TakeProfits != null && signal.TakeProfits.Any();
-            if (((res & SignalAction.ENTER_BUY) == SignalAction.ENTER_BUY ||
-                 (res & SignalAction.ENTER_SELL) == SignalAction.ENTER_SELL) && hasTp)
+            bool hasSl = signal.HasExplicitSl;
+            bool isEnter = (res & SignalAction.ENTER_BUY) == SignalAction.ENTER_BUY ||
+                           (res & SignalAction.ENTER_SELL) == SignalAction.ENTER_SELL;
+            if (isEnter && hasSl)
             {
                 bool isLimit = (res & SignalAction.LIMIT) == SignalAction.LIMIT;
                 if (isLimit)
@@ -92,9 +94,26 @@ namespace TradeKit.Core.Signals
                     return;// We skip limit orders.
                 }
 
+                double tp;
+                if (hasTp)
+                {
+                    // Use the TP closest to the entry price
+                    double entry = signal.Price.GetValueOrDefault();
+                    tp = signal.TakeProfits.OrderBy(t => Math.Abs(t - entry)).First();
+                }
+                else if (DEFAULT_TP_PIPS.TryGetValue(Symbol.Name, out double defaultTpPips))
+                {
+                    double entry = signal.Price.GetValueOrDefault();
+                    tp = entry + Symbol.PipSize * defaultTpPips * (signal.IsLong ? 1 : -1);
+                }
+                else
+                {
+                    return; // Cannot open without a TP reference
+                }
+
                 var args = new SignalEventArgs(
                     new BarPoint(signal.Price.GetValueOrDefault(), LastBarOpenDateTime, BarsProvider),
-                    new BarPoint(signal.TakeProfits[0], LastBarOpenDateTime, BarsProvider),
+                    new BarPoint(tp, LastBarOpenDateTime, BarsProvider),
                     new BarPoint(signal.StopLoss, LastBarOpenDateTime, BarsProvider));
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
                 OnEnterInvoke(args);
@@ -126,7 +145,7 @@ namespace TradeKit.Core.Signals
             {
                 var newSl = new BarPoint(refSignal.Level.Value, LastBarOpenDateTime, BarsProvider);
                 refSignal.HasBreakeven = true;
-                OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, true));
+                OnBreakEvenInvoke(new LevelEventArgs(newSl, refSignal.Level, hasBreakeven: true, closeHalf: true));
                 refSignal.StopLoss = newSl;
                 // Keep in map so price-movement TP/SL checks and further reply messages still work
             }
@@ -143,22 +162,26 @@ namespace TradeKit.Core.Signals
             else if ((res & SignalAction.SET_SL) == SignalAction.SET_SL ||
                 (res & SignalAction.SET_TP) == SignalAction.SET_TP)
             {
-                double? price = signal.Price ?? signal.StopLoss;
-
-                foreach (SignalEventArgs refSignalToChange in
-                         m_MessageSignalArgsMap.Values.Where(a => a.Comment == refSignal.Comment))
+                if ((res & SignalAction.SET_SL) == SignalAction.SET_SL && signal.StopLoss > 0)
                 {
-                    if (refSignalToChange.HasBreakeven)
-                        continue;
+                    foreach (SignalEventArgs refSignalToChange in
+                             m_MessageSignalArgsMap.Values.Where(a => a.Comment == refSignal.Comment))
+                    {
+                        if (refSignalToChange.HasBreakeven)
+                            continue;
 
-                    refSignalToChange.StopLoss =
-                        new BarPoint(price.Value, LastBarOpenDateTime, BarsProvider);
+                        refSignalToChange.StopLoss =
+                            new BarPoint(signal.StopLoss, LastBarOpenDateTime, BarsProvider);
+                    }
                 }
 
                 if (hasTp)
                 {
+                    // Use the TP closest to the entry price
+                    double entry = refSignal.Level.Value;
+                    double closestTp = signal.TakeProfits.OrderBy(t => Math.Abs(t - entry)).First();
                     refSignal.TakeProfit =
-                        new BarPoint(signal.TakeProfits[0], LastBarOpenDateTime, BarsProvider);
+                        new BarPoint(closestTp, LastBarOpenDateTime, BarsProvider);
                 }
 
                 OnEditInvoke(refSignal);
@@ -316,6 +339,7 @@ namespace TradeKit.Core.Signals
                 if (defSl is > 0 && Math.Abs(slPrice - defSl.Value) / defSl < m_MaxStopRatio)
                 {
                     signalOut.StopLoss = slPrice;
+                    signalOut.HasExplicitSl = true;
                 }
 
                 resultAction |= SignalAction.SET_SL;

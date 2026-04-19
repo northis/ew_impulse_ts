@@ -414,8 +414,9 @@ namespace TradeKit.Core.Common
         /// <param name="setupId">ID of the setup finder.</param>
         /// <param name="posId">Identity args to find the position</param>
         /// <param name="breakEvenPrice">If not null, sets this price as a breakeven</param>
+        /// <param name="closeHalf">If true, close half of the position volume before setting breakeven SL.</param>
         private void ModifySymbolPositions(
-            string setupId, string posId, double? breakEvenPrice = null)
+            string setupId, string posId, double? breakEvenPrice = null, bool closeHalf = false)
         {
             if (!m_FinderPositionMap.TryGetValue(setupId, out List<int> posIds)
                 || posIds == null || posIds.Count == 0)
@@ -429,6 +430,8 @@ namespace TradeKit.Core.Common
             {
                 if (breakEvenPrice.HasValue)
                 {
+                    if (closeHalf)
+                        TradeManager.ClosePartial(position, 0.5);
                     TradeManager.SetBreakeven(position);
                 }
                 else
@@ -594,7 +597,7 @@ namespace TradeKit.Core.Common
             Logger.Write($"Breakeven is set! {positionId}");
 
             string correctedPosId = m_IsTradable ? positionId + TAKE_PROFIT_SUFFIX : positionId;
-            ModifySymbolPositions(setupId, correctedPosId, e.Level.Value);
+            ModifySymbolPositions(setupId, correctedPosId, e.Level.Value, e.CloseHalf);
 
             if (!TelegramReporter.IsReady)
                 return;

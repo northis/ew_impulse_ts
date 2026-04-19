@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
@@ -286,13 +287,24 @@ namespace TradeKit.CTrader.Core
                 : cTraderPosition.EntryPrice;
 
             cTraderPosition.ModifyStopLossPrice(newPrice);
-            //cTraderPosition.ModifyVolume(Convert.ToInt32(cTraderPosition.VolumeInUnits / 2));
+            // double partialVolume = cTraderPosition.Symbol.NormalizeVolumeInUnits(cTraderPosition.VolumeInUnits / 2);
+            // cTraderPosition.ModifyVolume(partialVolume);
         }
 
         public void SetTakeProfitPrice(IPosition position, double? price)
         {
             Position cTraderPosition = ToPosition(position);
             cTraderPosition.ModifyTakeProfitPrice(price);
+        }
+
+        public OrderResult ClosePartial(IPosition position, double ratio)
+        {
+            Position cTraderPosition = ToPosition(position);
+            double partialVolume = cTraderPosition.Symbol.NormalizeVolumeInUnits(
+                cTraderPosition.VolumeInUnits * ratio);
+            Debugger.Launch();
+            TradeResult order = cTraderPosition.ModifyVolume(partialVolume);
+            return new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
         }
 
         public OrderResult Close(IPosition position)
