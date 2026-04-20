@@ -67,7 +67,11 @@ namespace TradeKit.Core.Signals
                 m_Messages = new Dictionary<long, TelegramHistoryMessage>();
                 m_MessagesDate = new SortedDictionary<DateTime, TelegramHistoryMessage>();
                 ParseSignals();
+                // Build a sorted list once for O(1) index-based access in CheckTick.
+                m_MessagesList = new List<KeyValuePair<DateTime, TelegramHistoryMessage>>(m_MessagesDate);
             }
+            // Cache the symbol regex so we never pay a dictionary lookup per tick.
+            SYMBOL_REGEX_MAP.TryGetValue(Symbol.Name, out m_SymbolRegex);
         }
         
         /// <summary>
@@ -87,6 +91,23 @@ namespace TradeKit.Core.Signals
         /// </summary>
         private long m_LastOpenedSignalId = 0;
 
+        /// <summary>
+        /// Sorted list of all messages, built once after parsing.
+        /// Enables O(1) index-based access and O(log N) binary search in <see cref="CheckTick"/>.
+        /// </summary>
+        private List<KeyValuePair<DateTime, TelegramHistoryMessage>> m_MessagesList;
+
+        /// <summary>
+        /// Index into <see cref="m_MessagesList"/> pointing to the next message not yet processed
+        /// by either <see cref="CheckTick"/> or <see cref="ProcessSetup"/>.
+        /// </summary>
+        private int m_NextMessageIndex;
+
+        /// <summary>
+        /// Cached symbol regex for this instance's symbol. Null if the symbol is not in the map.
+        /// </summary>
+        private string m_SymbolRegex;
+
         protected override void CheckSetup(DateTime openDateTime)
         {
             ProcessSetup();
@@ -95,26 +116,20 @@ namespace TradeKit.Core.Signals
         /// <inheritdoc/>
         public override void CheckTick(SymbolTickEventArgs tick)
         {
-            if (m_Messages == null || m_MessagesDate == null)
+            if (m_MessagesList == null || m_SymbolRegex == null)
                 return;
 
-            if (!SYMBOL_REGEX_MAP.TryGetValue(Symbol.Name, out string symbolRegex))
+            // O(1) fast path: no messages left, or next message is not due yet.
+            if (m_NextMessageIndex >= m_MessagesList.Count ||
+                m_MessagesList[m_NextMessageIndex].Key > tick.Time)
                 return;
 
-            // Process every message whose timestamp falls in (m_LastTickProcessedTime, tick.Time].
-            // This lets us react to channel signals in real time without waiting for bar close.
-            List<KeyValuePair<DateTime, TelegramHistoryMessage>> due = m_MessagesDate
-                .SkipWhile(a => a.Key <= m_LastTickProcessedTime)
-                .TakeWhile(a => a.Key <= tick.Time)
-                .ToList();
-
-            if (due.Count == 0)
-                return;
-
-            foreach (KeyValuePair<DateTime, TelegramHistoryMessage> msg in due)
+            while (m_NextMessageIndex < m_MessagesList.Count &&
+                   m_MessagesList[m_NextMessageIndex].Key <= tick.Time)
             {
-                HandleSignalAction(msg, symbolRegex);
-                m_LastTickProcessedTime = msg.Key;
+                HandleSignalAction(m_MessagesList[m_NextMessageIndex], m_SymbolRegex);
+                m_LastTickProcessedTime = m_MessagesList[m_NextMessageIndex].Key;
+                m_NextMessageIndex++;
             }
         }
 
@@ -296,10 +311,10 @@ namespace TradeKit.Core.Signals
             double low = BarsProvider.GetLowPrice(barDateTime);
             double high = BarsProvider.GetHighPrice(barDateTime);
 
-            if (!SYMBOL_REGEX_MAP.TryGetValue(Symbol.Name, out string symbolRegex))
-            {
+            if (m_SymbolRegex == null)
                 return;
-            }
+
+            string symbolRegex = m_SymbolRegex;
             
             var idsToRemove = new List<long>();
             foreach (long messageId in m_MessageSignalArgsMap.Keys)
@@ -354,20 +369,39 @@ namespace TradeKit.Core.Signals
                 m_MessageSignalArgsMap.Remove(idToRemove);
             }
 
-            // Skip messages already dispatched in real time by CheckTick.
-            DateTime skipUntil = m_LastTickProcessedTime > prevBarDateTime
-                ? m_LastTickProcessedTime
-                : prevBarDateTime;
+            // Process messages in (prevBarDateTime, barDateTime] not yet handled by CheckTick.
+            // LowerBoundAfter does a binary search to find the first index > prevBarDateTime;
+            // m_NextMessageIndex skips what CheckTick already processed.
+            // We take the maximum of both to avoid double-processing.
+            int msgStart = Math.Max(
+                LowerBoundAfter(m_MessagesList, prevBarDateTime),
+                m_NextMessageIndex);
 
-            List<KeyValuePair<DateTime, TelegramHistoryMessage>> matchedSignals = m_MessagesDate
-                .SkipWhile(a => a.Key <= skipUntil)
-                .TakeWhile(a => a.Key <= barDateTime)
-                .ToList();
-            
-            foreach (KeyValuePair<DateTime, TelegramHistoryMessage> matchedSignal in matchedSignals)
+            for (int i = msgStart; i < m_MessagesList.Count; i++)
             {
-                HandleSignalAction(matchedSignal, symbolRegex);
+                if (m_MessagesList[i].Key > barDateTime)
+                    break;
+                HandleSignalAction(m_MessagesList[i], symbolRegex);
+                m_LastTickProcessedTime = m_MessagesList[i].Key;
+                m_NextMessageIndex = i + 1;
             }
+        }
+
+        /// <summary>
+        /// Returns the first index in <paramref name="list"/> where the key is strictly greater
+        /// than <paramref name="cutoff"/> (binary search, O(log N)).
+        /// </summary>
+        private static int LowerBoundAfter(
+            List<KeyValuePair<DateTime, TelegramHistoryMessage>> list, DateTime cutoff)
+        {
+            int lo = 0, hi = list.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (list[mid].Key <= cutoff) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
         }
 
         private SignalAction ProcessMessage(
