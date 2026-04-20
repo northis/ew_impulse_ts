@@ -76,7 +76,7 @@ namespace TradeKit.CTrader.Core
             Symbol valueLocal = GetCTraderSymbol(symbolName);
 
             value = valueLocal.ToISymbol();
-            //valueLocal.Tick += OnSymbolTick;
+            valueLocal.Tick += OnSymbolTick;
             m_ISymbolMap[symbolName] = value;
             return value;
         }
@@ -86,7 +86,7 @@ namespace TradeKit.CTrader.Core
             if (!m_ISymbolMap.TryGetValue(obj.SymbolName, out ISymbol value))
                 return;
 
-            OnTick?.Invoke(value, new SymbolTickEventArgs(obj.Bid, obj.Ask, value));
+            OnTick?.Invoke(value, new SymbolTickEventArgs(obj.Bid, obj.Ask, value, m_Algo.Server.TimeInUtc));
         }
 
         /// <summary>

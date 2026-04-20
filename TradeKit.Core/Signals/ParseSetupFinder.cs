@@ -75,9 +75,47 @@ namespace TradeKit.Core.Signals
         /// </summary>
         public BarPoint LastEntry { get; private set; }
 
+        /// <summary>
+        /// The timestamp of the last message processed via <see cref="CheckTick"/>.
+        /// Used to avoid double-processing the same message when <see cref="ProcessSetup"/> runs.
+        /// </summary>
+        private DateTime m_LastTickProcessedTime = DateTime.MinValue;
+
+        /// <summary>
+        /// The ID of the last signal that opened a position (ENTER action).
+        /// Used as fallback when a follow-up message has no explicit ReplyId.
+        /// </summary>
+        private long m_LastOpenedSignalId = 0;
+
         protected override void CheckSetup(DateTime openDateTime)
         {
             ProcessSetup();
+        }
+
+        /// <inheritdoc/>
+        public override void CheckTick(SymbolTickEventArgs tick)
+        {
+            if (m_Messages == null || m_MessagesDate == null)
+                return;
+
+            if (!SYMBOL_REGEX_MAP.TryGetValue(Symbol.Name, out string symbolRegex))
+                return;
+
+            // Process every message whose timestamp falls in (m_LastTickProcessedTime, tick.Time].
+            // This lets us react to channel signals in real time without waiting for bar close.
+            List<KeyValuePair<DateTime, TelegramHistoryMessage>> due = m_MessagesDate
+                .SkipWhile(a => a.Key <= m_LastTickProcessedTime)
+                .TakeWhile(a => a.Key <= tick.Time)
+                .ToList();
+
+            if (due.Count == 0)
+                return;
+
+            foreach (KeyValuePair<DateTime, TelegramHistoryMessage> msg in due)
+            {
+                HandleSignalAction(msg, symbolRegex);
+                m_LastTickProcessedTime = msg.Key;
+            }
         }
 
         private void HandleSignalAction(
@@ -132,11 +170,12 @@ namespace TradeKit.Core.Signals
                     new BarPoint(signal.StopLoss, LastBarOpenDateTime, BarsProvider),
                     isLimit: useLimitOrder);
                 m_MessageSignalArgsMap[matchedSignal.Value.Id] = args;
+                m_LastOpenedSignalId = matchedSignal.Value.Id;
                 OnEnterInvoke(args);
                 return;
             }
 
-            long? replyId = matchedSignal.Value.ReplyId ?? m_MessageSignalArgsMap.LastOrDefault().Key;
+            long? replyId = matchedSignal.Value.ReplyId ?? (m_LastOpenedSignalId > 0 ? m_LastOpenedSignalId : null);
             if (replyId is null or <= 0)
             {
                 return;
@@ -315,8 +354,13 @@ namespace TradeKit.Core.Signals
                 m_MessageSignalArgsMap.Remove(idToRemove);
             }
 
+            // Skip messages already dispatched in real time by CheckTick.
+            DateTime skipUntil = m_LastTickProcessedTime > prevBarDateTime
+                ? m_LastTickProcessedTime
+                : prevBarDateTime;
+
             List<KeyValuePair<DateTime, TelegramHistoryMessage>> matchedSignals = m_MessagesDate
-                .SkipWhile(a => a.Key <= prevBarDateTime)
+                .SkipWhile(a => a.Key <= skipUntil)
                 .TakeWhile(a => a.Key <= barDateTime)
                 .ToList();
             

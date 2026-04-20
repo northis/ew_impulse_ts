@@ -10,11 +10,13 @@ namespace TradeKit.Core.EventArgs
         /// <param name="bid">The bid.</param>
         /// <param name="ask">The ask.</param>
         /// <param name="symbol">The symbol.</param>
-        public SymbolTickEventArgs(double bid, double ask, ISymbol symbol)
+        /// <param name="time">The server time of the tick. Defaults to <see cref="DateTime.UtcNow"/>.</param>
+        public SymbolTickEventArgs(double bid, double ask, ISymbol symbol, DateTime time = default)
         {
             Bid = bid;
             Ask = ask;
             Symbol = symbol;
+            Time = time == default ? DateTime.UtcNow : time;
         }
 
         /// <summary>Gets the bid price.</summary>
@@ -25,5 +27,8 @@ namespace TradeKit.Core.EventArgs
 
         /// <summary>Gets the symbol.</summary>
         public ISymbol Symbol { get; }
+
+        /// <summary>Gets the server UTC time of this tick.</summary>
+        public DateTime Time { get; }
     }
 }
