@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using cAlgo.API;
+﻿using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.Signals;
 using TradeKit.CTrader.Core;

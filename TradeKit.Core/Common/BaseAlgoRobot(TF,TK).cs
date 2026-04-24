@@ -361,8 +361,7 @@ namespace TradeKit.Core.Common
                 sf.OnActivated += OnActivated;
                 sf.OnCanceled += OnCanceled;
 
-                if (!m_IsTradable)
-                    sf.OnBreakeven += OnBreakeven;
+                sf.OnBreakeven += OnBreakeven;
                 
                 sf.OnManualClose += OnManualClose;
                 sf.OnEdit += OnEdit;

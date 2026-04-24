@@ -742,7 +742,7 @@
     "date": "2026-02-18T18:30:43+00:00",
     "replyTo": 11603,
     "text": "GOLD Start amazing profits 150+ pips running, Beautifully!🔥\n\n\n✅If u want to reduce risk can close first entry (4985)\nHold second entry 5000 InshAllah big fal is coming accordingly technicals..!!",
-    "category": "reply_close",
+    "category": "reply_other",
     "refText": "GOLD SELL NOW\n@ 4985\nMORE SELL @ 5000\n\nTP : 4915\nTP : 4855\n\nSL : 5013"
   },
   {
@@ -750,7 +750,7 @@
     "date": "2026-01-06T13:24:34+00:00",
     "replyTo": 11299,
     "text": "✅Free Signal: Both entries +140 PIPS RUNNING! HERE WE GO GOLD BABY.📉\n\nZERO D:D, SL MOVE @ ENTRY BOOKED 50% PROFITS NOW..💪🏻💯\n\n🤴🏻🤴🏻🤴🏻🤴🏻🤴🏻",
-    "category": "reply_noise",
+    "category": "reply_breakeven",
     "refText": "GOLD SELL NOW\n@ 4464.5\nMORE SELL @ 4470.5\n\nTP : 4450\nTP : 4425\n\nSL : 4476.5"
   },
   {
@@ -760,5 +760,68 @@
     "text": "GOLD BUY NOW\n@ 4419\nMORE BUY @ 4415\n\nTP : 4427\nTP : 4440\n\nSL : 4412",
     "category": "reply_other",
     "refText": "GOLD BUY NOW\n\nRisk management!"
+  },
+  {
+    "id": 11540,
+    "date": "2026-02-14T10:00:00+00:00",
+    "replyTo": 11488,
+    "text": "Close First layers hold Uper layers!",
+    "category": "reply_other"
+  },
+  {
+    "id": 6130,
+    "date": "2024-04-10T10:00:00+00:00",
+    "replyTo": 6127,
+    "text": "Close First Entry now 2072.5 near Entry point 👆\nHold Only Best Entries  😉",
+    "category": "reply_other"
+  },
+  {
+    "id": 6461,
+    "date": "2024-05-10T10:00:00+00:00",
+    "replyTo": 6456,
+    "text": "GOLD UPDATE 🔥🔥\nRUNNING ON ITS WAY Sniper Entry👌❤️\n\nBoth Trade Activee 80+ Pips Running in Profit 😉🤑\nClose First Trade in 10+ Pips And Hold Second Entry🫰\n\nSuper Confident trade Only with Gold Trader",
+    "category": "reply_other"
+  },
+  {
+    "id": 6587,
+    "date": "2024-05-18T10:00:00+00:00",
+    "replyTo": 6584,
+    "text": "Close First Entry now Okay!!\nFOLLOW PROPER INSTRUCTIONS!\nHold Second Entry Now and set Breakeven Also👍",
+    "category": "reply_other"
+  },
+  {
+    "id": 11121,
+    "date": "2025-12-01T16:00:15+00:00",
+    "replyTo": 11117,
+    "text": "SL move @ entry for safety!",
+    "category": "reply_breakeven"
+  },
+  {
+    "id": 11137,
+    "date": "2025-12-04T16:23:30+00:00",
+    "replyTo": 11135,
+    "text": "Second entry +70 pips running profits!🔥\n\nCan secure some profits can hold some, But stop-loss move @ entry.",
+    "category": "reply_breakeven"
+  },
+  {
+    "id": 7530,
+    "date": "2024-08-07T17:26:23+00:00",
+    "replyTo": 7526,
+    "text": "Close 50% Profit SL Shift at Entry Point Now 🚀💰",
+    "category": "reply_breakeven"
+  },
+  {
+    "id": 7676,
+    "date": "2024-08-26T15:47:03+00:00",
+    "replyTo": 7675,
+    "text": "Booked Some Profits Here, Don't Forget to Move Your SL @ Entry For Zero Risk!",
+    "category": "reply_breakeven"
+  },
+  {
+    "id": 7810,
+    "date": "2024-09-04T17:40:04+00:00",
+    "replyTo": 7809,
+    "text": "Both Entries 160 ++ Pips running now SL move @ entry booked half of that profits now 🔥🔥",
+    "category": "reply_breakeven"
   }
 ]

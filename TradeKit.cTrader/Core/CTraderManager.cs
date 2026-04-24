@@ -302,7 +302,6 @@ namespace TradeKit.CTrader.Core
             Position cTraderPosition = ToPosition(position);
             double partialVolume = cTraderPosition.Symbol.NormalizeVolumeInUnits(
                 cTraderPosition.VolumeInUnits * ratio);
-            Debugger.Launch();
             TradeResult order = cTraderPosition.ModifyVolume(partialVolume);
             return new OrderResult(order.IsSuccessful, ToIPosition(order.Position));
         }
