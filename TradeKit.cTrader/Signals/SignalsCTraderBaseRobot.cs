@@ -14,7 +14,7 @@ namespace TradeKit.CTrader.Signals
         /// </summary>
         protected SignalsParams GetSignalsParams()
         {
-            return new SignalsParams(SignalHistoryFilePath, UseLimitOrders);
+            return new SignalsParams(SignalHistoryFilePath, UseLimitOrders, BreakevenOnPipsRunning);
         }
 
         #region Input parameters
@@ -31,6 +31,12 @@ namespace TradeKit.CTrader.Signals
         /// </summary>
         [Parameter("Use Limit Orders", DefaultValue = true)]
         public bool UseLimitOrders { get; set; }
+
+        /// <summary>
+        /// When true, a reply containing "+N pips running" is treated as a breakeven signal.
+        /// </summary>
+        [Parameter("Breakeven on +N pips message", DefaultValue = false)]
+        public bool BreakevenOnPipsRunning { get; set; }
 
         #endregion
     }

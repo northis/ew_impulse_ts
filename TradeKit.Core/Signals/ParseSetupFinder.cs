@@ -12,9 +12,11 @@ namespace TradeKit.Core.Signals
         private readonly ITradeViewManager m_TradeViewManager;
         private readonly string m_SignalHistoryFilePath;
         private readonly bool m_UseLimitOrders;
+        private readonly bool m_BreakevenOnPipsRunning;
         private readonly double m_MaxStopRatio = 0.20;
         private const string SIGNAL_REGEX = @"(buy|sell)([^\n]*?(?:\n[^\d\n@\-]*)?)[@\-]\s*(\d+(?:[.,]\d{0,5})?)";
-        private const string BREAKEVEN_REGEX = @"(running in profit|entry point|break\s*-?\s*even|to the entry|b\.e|move sl to entry|sl\s+move\s+to\s+(?:the\s+)?entry|(?:sl|stop.?loss)\s+move\s*(?:@|at)\s*entry|(?:move|bring)\s+(?:your\s+)?sl\s*(?:@|at)\s*entry|sl\s+shift\s+(?:at|@)\s+entry|running\s+profits?|secure\s+(?:some\s+|your\s+)?profits?)";
+        private const string BREAKEVEN_REGEX = @"(running in profit|entry point|break\s*-?\s*even|to the entry|b\.e|move sl to entry|sl\s+move\s+to\s+(?:the\s+)?entry|(?:sl|stop.?loss)\s+move\s*(?:@|at)\s*entry|(?:move|bring)\s+(?:your\s+)?sl\s*(?:@|at)\s*entry|sl\s+shift\s+(?:at|@)\s+entry|running\s+profits?|secure\s+(?:some\s+|your\s+)?profits?|booked\s+(?:some|half)\s+profits?)";        
+        private const string PIPS_RUNNING_REGEX = @"\+\d+\s*pips?\s+running";
         private const string EXTRA_REGEX = @"\b(extra)\b";
         private const string TP_HIT_REGEX = @"(tp\s*\d*\s*hit|target\s+hit|🎯)";
         private const string SL_HIT_REGEX = @"(sl\s*(was\s*)?hit|stop\s*out)";
@@ -54,11 +56,13 @@ namespace TradeKit.Core.Signals
             ISymbol symbol, 
             ITradeViewManager tradeViewManager,
             string signalHistoryFilePath,
-            bool useLimitOrders = true) 
+            bool useLimitOrders = true,
+            bool breakevenOnPipsRunning = false) 
             : base(mainBarsProvider, symbol)
         {
             m_TradeViewManager = tradeViewManager;
             m_UseLimitOrders = useLimitOrders;
+            m_BreakevenOnPipsRunning = breakevenOnPipsRunning;
             char[] trimChars = { '"', ' ' };
             m_SignalHistoryFilePath = signalHistoryFilePath.TrimStart(trimChars).TrimEnd(trimChars);
             m_MessageSignalArgsMap = new Dictionary<long, SignalEventArgs>();
@@ -529,6 +533,11 @@ namespace TradeKit.Core.Signals
 
             Match be = Regex.Match(textAll, BREAKEVEN_REGEX, RegexOptions.IgnoreCase);
             if (be.Success)
+            {
+                resultAction |= SignalAction.SET_BREAKEVEN;
+            }
+            else if (m_BreakevenOnPipsRunning &&
+                     Regex.IsMatch(textAll, PIPS_RUNNING_REGEX, RegexOptions.IgnoreCase))
             {
                 resultAction |= SignalAction.SET_BREAKEVEN;
             }
