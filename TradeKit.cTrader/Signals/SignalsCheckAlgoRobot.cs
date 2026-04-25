@@ -59,7 +59,8 @@ namespace TradeKit.CTrader.Signals
 
             Logger.Write($"Using path {path}");
             var sf = new ParseSetupFinder(barsProvider, symbolEntity, twm, path,
-                m_SignalsParams.UseLimitOrders, m_SignalsParams.BreakevenOnPipsRunning);
+                m_SignalsParams.UseLimitOrders, m_SignalsParams.BreakevenOnPipsRunning,
+                m_SignalsParams.TakeProfitIndex);
             return sf;
 
         }

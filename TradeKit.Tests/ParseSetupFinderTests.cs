@@ -56,7 +56,8 @@ namespace TradeKit.Tests
         /// Writes a fixture JSON with the given messages (SymbolDataExportJson format) and
         /// wires up ParseSetupFinder events. Call BEFORE adding any candles.
         /// </summary>
-        private void InitFinderWithMessages(IEnumerable<(long id, long? replyId, DateTime date, string text)> messages)
+        private void InitFinderWithMessages(IEnumerable<(long id, long? replyId, DateTime date, string text)> messages,
+            int takeProfitIndex = 1)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{\"messages\":[");
@@ -73,7 +74,8 @@ namespace TradeKit.Tests
             File.WriteAllText(m_TempSignalsFile, sb.ToString());
 
             var tradeViewManager = new TestTradeViewManager(m_BarsProvider);
-            m_SetupFinder = new ParseSetupFinder(m_BarsProvider, SYMBOL, tradeViewManager, m_TempSignalsFile);
+            m_SetupFinder = new ParseSetupFinder(m_BarsProvider, SYMBOL, tradeViewManager, m_TempSignalsFile,
+                takeProfitIndex: takeProfitIndex);
             m_SetupFinder.OnEnter += (_, args) => m_Entries.Add(args);
             m_SetupFinder.OnTakeProfit += (_, args) => m_TakeProfits.Add(args);
             m_SetupFinder.OnStopLoss += (_, args) => m_StopLosses.Add(args);
@@ -376,6 +378,56 @@ namespace TradeKit.Tests
             AddMinuteCandles(t0, 8, 1950, 1955, 1930, 1940);
 
             Assert.That(m_Entries.Count, Is.GreaterThanOrEqualTo(2), "Each independent entry signal should fire OnEnter");
+        }
+
+        [Test]
+        public void ParseSignals_TakeProfitIndex1_UsesClosestTp()
+        {
+            // Signal has 3 TPs: 1940 (closest), 1930, 1920 (farthest). Entry sell @ 1950.
+            var t0 = new DateTime(2023, 1, 2, 10, 0, 0, DateTimeKind.Utc);
+            InitFinderWithMessages(new[]
+            {
+                (100L, (long?)null, t0.AddMinutes(1),
+                    "XAUUSD sell now @ 1950\ntp @ 1940\ntp2 @ 1930\ntp3 @ 1920\nsl @ 1960")
+            }, takeProfitIndex: 1);
+            AddMinuteCandles(t0, 3, 1950, 1955, 1945, 1948);
+
+            Assert.That(m_Entries.Count, Is.GreaterThanOrEqualTo(1));
+            Assert.That(m_Entries[0].TakeProfit.Value, Is.EqualTo(1940).Within(0.01),
+                "Index 1 should select the closest TP (1940)");
+        }
+
+        [Test]
+        public void ParseSignals_TakeProfitIndex2_UsesSecondClosestTp()
+        {
+            var t0 = new DateTime(2023, 1, 2, 10, 0, 0, DateTimeKind.Utc);
+            InitFinderWithMessages(new[]
+            {
+                (101L, (long?)null, t0.AddMinutes(1),
+                    "XAUUSD sell now @ 1950\ntp @ 1940\ntp2 @ 1930\ntp3 @ 1920\nsl @ 1960")
+            }, takeProfitIndex: 2);
+            AddMinuteCandles(t0, 3, 1950, 1955, 1945, 1948);
+
+            Assert.That(m_Entries.Count, Is.GreaterThanOrEqualTo(1));
+            Assert.That(m_Entries[0].TakeProfit.Value, Is.EqualTo(1930).Within(0.01),
+                "Index 2 should select the second-closest TP (1930)");
+        }
+
+        [Test]
+        public void ParseSignals_TakeProfitIndexExceedsCount_UsesFarthestTp()
+        {
+            // Only 2 TPs available but index=5 requested → farthest (1920) should be used.
+            var t0 = new DateTime(2023, 1, 2, 10, 0, 0, DateTimeKind.Utc);
+            InitFinderWithMessages(new[]
+            {
+                (102L, (long?)null, t0.AddMinutes(1),
+                    "XAUUSD sell now @ 1950\ntp @ 1940\ntp2 @ 1920\nsl @ 1960")
+            }, takeProfitIndex: 5);
+            AddMinuteCandles(t0, 3, 1950, 1955, 1945, 1948);
+
+            Assert.That(m_Entries.Count, Is.GreaterThanOrEqualTo(1));
+            Assert.That(m_Entries[0].TakeProfit.Value, Is.EqualTo(1920).Within(0.01),
+                "When index exceeds TP count the farthest TP should be used");
         }
 
         // ──────────────────────────────────────────────────────────────────────────

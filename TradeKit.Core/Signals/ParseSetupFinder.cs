@@ -13,8 +13,9 @@ namespace TradeKit.Core.Signals
         private readonly string m_SignalHistoryFilePath;
         private readonly bool m_UseLimitOrders;
         private readonly bool m_BreakevenOnPipsRunning;
+        private readonly int m_TakeProfitIndex;
         private readonly double m_MaxStopRatio = 0.20;
-        private const string SIGNAL_REGEX = @"(buy|sell)([^\n]*?(?:\n[^\d\n@\-]*)?)[@\-]\s*(\d+(?:[.,]\d{0,5})?)";
+        private const string SIGNAL_REGEX = @"(buy|sell)([^\n]*?(?:\n[^\d\n@\-_]*)?)(?:[@\-_]|\baround\b|\s+)\s*(\d+(?:[.,]\d{0,5})?)";
         private const string BREAKEVEN_REGEX = @"(running in profit|entry point|break\s*-?\s*even|to the entry|b\.e|move sl to entry|sl\s+move\s+to\s+(?:the\s+)?entry|(?:sl|stop.?loss)\s+move\s*(?:@|at)\s*entry|(?:move|bring)\s+(?:your\s+)?sl\s*(?:@|at)\s*entry|sl\s+shift\s+(?:at|@)\s+entry|running\s+profits?|secure\s+(?:some\s+|your\s+)?profits?|booked\s+(?:some|half)\s+profits?)";        
         private const string PIPS_RUNNING_REGEX = @"\+\d+\s*pips?\s+running";
         private const string EXTRA_REGEX = @"\b(extra)\b";
@@ -25,7 +26,7 @@ namespace TradeKit.Core.Signals
         private const string LIMIT_REGEX = @"(limit)";
         private const string STRIKETHROUGH_REGEX = @"{(\n|\s)*""type"":(\n|\s)*""strikethrough"",(\n|\s)*""text"":(\n|\s)*""(.)*""(\n|\s)*},";
         private const string CLOSE_REGEX = @"(close[d\s]|close$)";
-        private const string TP_REGEX = @"(tp|take profit)(.*)\s(\d+(?:[.,]\d{0,5})?)";
+        private const string TP_REGEX = @"(tp|take profit)(.*)[ \t_](\d+(?:[.,]\d{0,5})?)";
         private const string SL_REGEX = @"(SL|stop\s?loss)\D*(\d{1,9}(?:[.,]\d{0,5})?)";
 
         private static readonly NumberStyles NUMBER_STYLES = NumberStyles.AllowCurrencySymbol
@@ -57,12 +58,14 @@ namespace TradeKit.Core.Signals
             ITradeViewManager tradeViewManager,
             string signalHistoryFilePath,
             bool useLimitOrders = true,
-            bool breakevenOnPipsRunning = false) 
+            bool breakevenOnPipsRunning = false,
+            int takeProfitIndex = 1) 
             : base(mainBarsProvider, symbol)
         {
             m_TradeViewManager = tradeViewManager;
             m_UseLimitOrders = useLimitOrders;
             m_BreakevenOnPipsRunning = breakevenOnPipsRunning;
+            m_TakeProfitIndex = takeProfitIndex < 1 ? 1 : takeProfitIndex;
             char[] trimChars = { '"', ' ' };
             m_SignalHistoryFilePath = signalHistoryFilePath.TrimStart(trimChars).TrimEnd(trimChars);
             m_MessageSignalArgsMap = new Dictionary<long, SignalEventArgs>();
@@ -131,6 +134,13 @@ namespace TradeKit.Core.Signals
             while (m_NextMessageIndex < m_MessagesList.Count &&
                    m_MessagesList[m_NextMessageIndex].Key <= tick.Time)
             {
+                if (m_MessagesList[m_NextMessageIndex].Key < tick.Time.AddSeconds(-10))
+                {
+                    // Message is more than 10 s stale relative to the current tick — skip it.
+                    m_NextMessageIndex++;
+                    continue;
+                }
+
                 HandleSignalAction(m_MessagesList[m_NextMessageIndex], m_SymbolRegex);
                 m_LastTickProcessedTime = m_MessagesList[m_NextMessageIndex].Key;
                 m_NextMessageIndex++;
@@ -157,9 +167,8 @@ namespace TradeKit.Core.Signals
                 double tp;
                 if (hasTp)
                 {
-                    // Use the TP closest to the entry price
                     double entry = signal.Price.GetValueOrDefault();
-                    tp = signal.TakeProfits.OrderBy(t => Math.Abs(t - entry)).First();
+                    tp = SelectTp(signal.TakeProfits, entry);
                 }
                 else if (DEFAULT_TP_PIPS.TryGetValue(Symbol.Name, out double defaultTpPips))
                 {
@@ -262,11 +271,9 @@ namespace TradeKit.Core.Signals
 
                 if (hasTp)
                 {
-                    // Use the TP closest to the entry price
                     double entry = refSignal.Level.Value;
-                    double closestTp = signal.TakeProfits.OrderBy(t => Math.Abs(t - entry)).First();
                     refSignal.TakeProfit =
-                        new BarPoint(closestTp, LastBarOpenDateTime, BarsProvider);
+                        new BarPoint(SelectTp(signal.TakeProfits, entry), LastBarOpenDateTime, BarsProvider);
                 }
 
                 OnEditInvoke(refSignal);
@@ -389,6 +396,19 @@ namespace TradeKit.Core.Signals
                 m_LastTickProcessedTime = m_MessagesList[i].Key;
                 m_NextMessageIndex = i + 1;
             }
+        }
+
+        /// <summary>
+        /// Selects a take-profit level from <paramref name="takeProfits"/> according to
+        /// <see cref="m_TakeProfitIndex"/> (1 = closest to <paramref name="entry"/>).
+        /// If the index exceeds the number of available levels the farthest (most profitable) level is returned.
+        /// </summary>
+        private double SelectTp(double[] takeProfits, double entry)
+        {
+            // Sort ascending by distance from entry: index 0 = closest, last = farthest.
+            double[] ordered = takeProfits.OrderBy(t => Math.Abs(t - entry)).ToArray();
+            int idx = Math.Min(m_TakeProfitIndex - 1, ordered.Length - 1);
+            return ordered[idx];
         }
 
         /// <summary>

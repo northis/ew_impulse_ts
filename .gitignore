@@ -264,3 +264,5 @@ data/
 logs/
 TradeKit.Tests/TestData/signals.json
 TradeKit.Tests/TestData/XAUUSD_m1_2022-06-01T00-00-00_2026-04-04T00-00-00.csv
+TradeKit.Tests/TestData/historyF.json
+TradeKit.Tests/TestData/historyG.json

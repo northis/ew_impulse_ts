@@ -14,7 +14,7 @@ namespace TradeKit.CTrader.Signals
         /// </summary>
         protected SignalsParams GetSignalsParams()
         {
-            return new SignalsParams(SignalHistoryFilePath, UseLimitOrders, BreakevenOnPipsRunning);
+            return new SignalsParams(SignalHistoryFilePath, UseLimitOrders, BreakevenOnPipsRunning, TakeProfitIndex);
         }
 
         #region Input parameters
@@ -37,6 +37,13 @@ namespace TradeKit.CTrader.Signals
         /// </summary>
         [Parameter("Breakeven on +N pips message", DefaultValue = false)]
         public bool BreakevenOnPipsRunning { get; set; }
+
+        /// <summary>
+        /// 1-based index of the take-profit level to use (1 = closest to entry).
+        /// If the index exceeds the number of TP levels in the signal, the farthest level is used.
+        /// </summary>
+        [Parameter("Take Profit Level Index", DefaultValue = 1, MinValue = 1)]
+        public int TakeProfitIndex { get; set; }
 
         #endregion
     }

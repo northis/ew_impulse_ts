@@ -837,5 +837,80 @@
     "replyTo": 11433,
     "text": "+70 pips running!🔥🫵",
     "category": "reply_noise"
+  },
+
+  {
+    "id": 11,
+    "date": "2021-02-09T09:31:23+00:00",
+    "replyTo": null,
+    "text": "🔴Xauusd sell 1847\n☑️TP 1839\n☑️TP 1836\n☑️TP 1825\n❌SL 1860\n\n👨‍💻Money Managment🔰",
+    "category": "valid_market"
+  },
+  {
+    "id": 21,
+    "date": "2021-02-10T08:45:12+00:00",
+    "replyTo": null,
+    "text": "🔴GOLD SELL_1845\n☑️TP1_1841\n☑️TP2_1836\n❌SL.._1856\n\n👨‍💻Money Managment🔰",
+    "category": "valid_market"
+  },
+  {
+    "id": 23,
+    "date": "2021-02-10T12:04:41+00:00",
+    "replyTo": null,
+    "text": "🔴GOLD BUY 1840\n☑️TP    1843\n☑️TP    1848\n☑️TP   1850\n❌SSL 1830\n\n👨‍💻Money Managment🔰",
+    "category": "valid_market"
+  },
+  {
+    "id": 25,
+    "date": "2021-02-10T14:30:00+00:00",
+    "replyTo": null,
+    "text": "🔴GOLD SELL 1844\n☑️TP    1840\n☑️TP    1837\n☑️TP   1830\n❌SL 1855\n\n👨‍💻Money Managment🔰",
+    "category": "valid_market"
+  },
+  {
+    "id": 4,
+    "date": "2021-02-07T11:21:13+00:00",
+    "replyTo": null,
+    "text": "🔥XAUUSD \n🔥BTCUSD\n🔥GBPUSD \n🔥US30\n🔥AUDUSD\n🔥EURUSD\n🔥GBPUSD\n🔥NAS100\n✨AND ALL OTHER PAIRS VIP FREE SIGNALS PROVIDED FROM MONDAY SO STAY CONNECTED WITH US😊❤️",
+    "category": "noise"
+  },
+  {
+    "id": 14,
+    "date": "2021-02-09T13:18:02+00:00",
+    "replyTo": 11,
+    "text": "TP 1 hit with 70+ Runinimg  pips👍❤️",
+    "category": "reply_tp_hit",
+    "refText": "🔴Xauusd sell 1847\n☑️TP 1839\n☑️TP 1836\n☑️TP 1825\n❌SL 1860"
+  },
+  {
+    "id": 22,
+    "date": "2021-02-10T09:34:58+00:00",
+    "replyTo": 21,
+    "text": "TP HIT 50+ PIPS 👍❤️",
+    "category": "reply_tp_hit",
+    "refText": "🔴GOLD SELL_1845\n☑️TP1_1841\n☑️TP2_1836\n❌SL.._1856"
+  },
+
+  {
+    "id": 3,
+    "date": "2019-06-24T05:42:59+00:00",
+    "replyTo": null,
+    "text": "Buy Gold Around 1402.80 \nTP 1412.00\nSL 1398.80",
+    "category": "valid_market"
+  },
+  {
+    "id": 16,
+    "date": "2019-06-24T08:00:00+00:00",
+    "replyTo": null,
+    "text": "Sell Gold Around 1304.60 \nTP 1294.60 \nSL 1308.60",
+    "category": "valid_market"
+  },
+  {
+    "id": 8,
+    "date": "2019-06-24T22:06:11+00:00",
+    "replyTo": 3,
+    "text": "TP hit ✅✅",
+    "category": "reply_tp_hit",
+    "refText": "Buy Gold Around 1402.80 \nTP 1412.00\nSL 1398.80"
   }
 ]

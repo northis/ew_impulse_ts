@@ -19,8 +19,15 @@ namespace TradeKit.CTrader.Signals
         /// <summary>
         /// Gets or sets the signal history file path.
         /// </summary>
-        [Parameter("Signal history file path", DefaultValue = "")]
+            [Parameter("Signal history file path", DefaultValue = "")]
         public string SignalHistoryFilePath { get; set; }
+
+        /// <summary>
+        /// 1-based index of the take-profit level to use (1 = closest to entry).
+        /// If the index exceeds the number of TP levels in the signal, the farthest level is used.
+        /// </summary>
+        [Parameter("Take Profit Level Index", DefaultValue = 1, MinValue = 1)]
+        public int TakeProfitIndex { get; set; }
 
         private const int LINE_WIDTH = 1;
         private const int SETUP_WIDTH = 3;
@@ -36,7 +43,8 @@ namespace TradeKit.CTrader.Signals
             m_TpColor = Color.FromHex("#5000F000");
             m_BarsProvider = new CTraderBarsProvider(Bars, Symbol);
             var twm = new CTraderViewManager(this);
-            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol.ToISymbol(), twm, SignalHistoryFilePath);
+            m_ParseSetupFinder = new ParseSetupFinder(m_BarsProvider, Symbol.ToISymbol(), twm, SignalHistoryFilePath,
+                takeProfitIndex: TakeProfitIndex);
             Subscribe(m_ParseSetupFinder);
         }
 
