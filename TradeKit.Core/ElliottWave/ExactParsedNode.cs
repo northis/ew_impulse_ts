@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using TradeKit.Core.Common;
 using TradeKit.Core.AlgoBase;
 
@@ -53,7 +52,24 @@ namespace TradeKit.Core.ElliottWave
         /// Gets or sets the array of parsed sub-waves.
         /// </summary>
         public ExactParsedNode[] SubWaves { get; set; }
-        
+
+        /// <summary>
+        /// Calculates the maximum depth of the current wave and its subwaves.
+        /// </summary>
+        /// <remarks>Use this method to determine how deeply nested the current wave is within its
+        /// hierarchy. A wave with no subwaves has a depth of 0.</remarks>
+        /// <returns>The maximum depth of the wave hierarchy. Returns 0 if there are no subwaves.</returns>
+        public int GetDepth()
+        {
+            if (SubWaves == null || SubWaves.Length == 0)
+            {
+                return 0;
+            }
+
+
+            return SubWaves.Min(a => a.GetDepth()) + 1;
+        }
+
         /// <summary>
         /// Gets the absolute price length of the wave.
         /// </summary>

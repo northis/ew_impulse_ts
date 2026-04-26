@@ -38,7 +38,6 @@
     <Compile Include="Gartley\GartleySignalerAlgoRobot.cs" />
     <Compile Include="Impulse\ImpulseCTraderBaseRobot.cs" />
     <Compile Include="Indicators\IterativeElliottWaveExactIndicator.cs" />
-    <Compile Include="Indicators\IterativeElliottWaveIndicator.cs" />
     <Compile Include="Indicators\IterativeImpulseZigzagIndicator.cs" />
     <Compile Include="Indicators\IterativeZigzagSeniorityIndicator.cs" />
     <Compile Include="Indicators\RelativeStrengthIndexIndicator.cs" />

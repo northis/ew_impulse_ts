@@ -91,7 +91,13 @@ public class IterativeElliottWaveExactIndicator : Indicator
             innerPoints.Add(endPoint);
 
         List<ExactParsedNode> parsed = m_Markup.Parse(innerPoints);
-        ExactParsedNode best = parsed.Count > 0 ? parsed[0] : null;
+
+        ExactParsedNode best = parsed.Count > 0
+            ? parsed
+                .OrderByDescending(a => a.GetDepth())
+                .ThenByDescending(a => a.Score)
+                .First()
+            : null;
 
         if (best == null)
             return;

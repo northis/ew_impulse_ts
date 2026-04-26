@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 
@@ -16,12 +13,21 @@ namespace TradeKit.Core.AlgoBase
         private const double TRUNCATION_SCORE_MULT = 0.05;
 
         /// <summary>
+        /// Maximum score multiplier applied to a candidate when all of its sub-waves
+        /// (and their sub-waves, recursively) have been successfully identified.
+        /// A value of 0.5 means a fully-identified markup can earn up to 1.5× its
+        /// raw Fibonacci score, giving it priority over structurally equivalent
+        /// candidates whose sub-waves remain as <see cref="ElliottModelType.SIMPLE_IMPULSE"/>.
+        /// </summary>
+        private const double DEPTH_COVERAGE_BONUS = 0.5;
+
+        /// <summary>
         /// Maximum recursion depth for sub-wave model identification.
         /// Depth 0 = top-level pattern; depth 1 = first-level sub-waves.
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 2;
+        public const int MAX_MARKUP_DEPTH = 4;
 
         // Optional bars provider used to enforce the direction hard rule:
         // a downward wave must end at the LOW of its end bar (not the HIGH),
@@ -237,6 +243,15 @@ namespace TradeKit.Core.AlgoBase
             {
                 foreach (ExactParsedNode node in results)
                     FillSubWaveModels(node, points, depth + 1);
+
+                // Re-sort after sub-wave filling: reward candidates whose sub-waves
+                // were successfully identified deeper (§6.6 — depth coverage bonus).
+                // A candidate where all sub-waves are non-SIMPLE_IMPULSE gets up to
+                // DEPTH_COVERAGE_BONUS additional multiplier on top of its Fibonacci score.
+                foreach (ExactParsedNode node in results)
+                    node.Score *= (1.0 + ComputeDepthCoverage(node) * DEPTH_COVERAGE_BONUS);
+
+                results = results.OrderByDescending(x => x.Score).ToList();
             }
 
             return results;
@@ -293,6 +308,29 @@ namespace TradeKit.Core.AlgoBase
                 if (best != null)
                     node.SubWaves[i] = best;
             }
+        }
+
+        /// <summary>
+        /// Recursively computes the fraction of sub-waves (and their sub-waves) that have
+        /// been identified as a real Elliott Wave model (i.e. not
+        /// <see cref="ElliottModelType.SIMPLE_IMPULSE"/>).
+        /// Returns 1.0 for leaf nodes (no sub-waves) and 0.0 when no sub-wave was identified.
+        /// Used to compute the depth-coverage bonus applied in <see cref="ParseInternal"/>.
+        /// </summary>
+        private static double ComputeDepthCoverage(ExactParsedNode node)
+        {
+            if (node?.SubWaves == null || node.WaveCount == 0)
+                return 1.0; // leaf — nothing left to identify
+
+            double sum = 0.0;
+            for (int i = 0; i < node.WaveCount; i++)
+            {
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw != null && sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
+                    sum += ComputeDepthCoverage(sw);
+                // SIMPLE_IMPULSE sub-waves contribute 0
+            }
+            return sum / node.WaveCount;
         }
 
         /// <summary>
