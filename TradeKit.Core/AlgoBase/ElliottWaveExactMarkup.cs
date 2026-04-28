@@ -181,57 +181,27 @@ namespace TradeKit.Core.AlgoBase
             var results = new List<ExactParsedNode>();
             ElliottModelType[] modelsToSearch = allowedModels ?? TargetModels;
 
-            // The correct Elliott Wave pattern always spans from altPoints[0] to altPoints[n-1].
-            // For each model with K waves we need to pick K-1 intermediate points from
-            // altPoints[1..n-2] such that the resulting K segments pass hard rules.
-            // Additionally, we allow trying sub-spans (offset>0) with a reduced score bonus.
+            // At the last markup level sub-waves are never further decomposed, so
+            // motive/zigzag patterns must satisfy the endpoint-extremum rule (§4.1-endpoint).
+            bool isLastLevel = depth + 1 >= MAX_MARKUP_DEPTH;
+
+            // §4.1-continuity (hard rule): a valid model must span the full input range —
+            // from altPoints[0] to altPoints[n-1] — so that no input extremum is left
+            // unaccounted for at this rank level. Partial-span windows (offset > 0) are
+            // never considered; only the full-span TryCombinations search is used.
 
             foreach (ElliottModelType model in modelsToSearch)
             {
                 int k = GetExpectedWaves(model);
                 if (n - 1 < k) continue; // need at least k segments
 
-                // --- Full-span search: fix start=0, end=n-1, pick K-1 intermediates ---
+                // Full-span search: fix start=0, end=n-1, pick K-1 intermediates from
+                // altPoints[1..n-2]. Every accepted candidate starts at altPoints[0] and
+                // ends at altPoints[n-1], guaranteeing no extremum is silently skipped.
                 if (n - 2 >= k - 1) // at least k-1 inner points available
                 {
-                    TryCombinations(model, altPoints, 0, n - 1, k, results, fullSpan: true);
-                }
-
-                // --- Fallback: try all contiguous k-segment windows (for edge cases) ---
-                int s = n - 1; // total segments
-                for (int offset = 0; offset <= s - k; offset++)
-                {
-                    // Only try windows not already covered by full-span search
-                    if (offset == 0 && offset + k == s) continue; // full-span already done
-                    if (offset == 0 && offset + k == n - 1) continue;
-
-                    Segment[] waves = new Segment[k];
-                    bool valid = true;
-                    for (int i = 0; i < k; i++)
-                    {
-                        int pi = offset + i;
-                        if (pi + 1 >= n) { valid = false; break; }
-                        waves[i] = new Segment { Start = altPoints[pi], End = altPoints[pi + 1] };
-                    }
-                    if (!valid) continue;
-
-                    if (!CheckAlternation(waves)) continue;
-                    if (!CheckHardRules(model, waves)) continue;
-                    if (!CheckDirectionEndpoints(waves)) continue;
-                    if (!CheckCandleBreachRules(model, waves)) continue;
-
-                    double fiboScore = CalculateFiboScore(model, waves);
-                    if (fiboScore <= 0) continue;
-
-                    // Penalize windows that don't span the full input
-                    int windowBarSpan = Math.Max(1,
-                        waves[k - 1].End.BarIndex - waves[0].Start.BarIndex);
-                    int totalBarSpan = Math.Max(1,
-                        altPoints[n - 1].BarIndex - altPoints[0].BarIndex);
-                    double barCoverage = (double)windowBarSpan / totalBarSpan;
-                    fiboScore *= barCoverage * barCoverage * barCoverage * barCoverage;
-
-                    results.Add(BuildNode(model, waves, fiboScore, k));
+                    TryCombinations(model, altPoints, 0, n - 1, k, results, fullSpan: true,
+                        enforceEndpointExtrema: isLastLevel);
                 }
             }
 
@@ -241,13 +211,16 @@ namespace TradeKit.Core.AlgoBase
             // Only recurse when we have not yet reached the depth limit.
             if (depth + 1 < MAX_MARKUP_DEPTH)
             {
-                foreach (ExactParsedNode node in results)
-                    FillSubWaveModels(node, points, depth + 1);
+                // FillSubWaveModels returns false when the node must be discarded:
+                // at the last markup level a sub-wave position whose valid models are
+                // all motive/zigzag must either (a) be identified as one of those models
+                // or (b) pass the endpoint-extremum hard rule (§4.1-endpoint).
+                results = results
+                    .Where(node => FillSubWaveModels(node, points, depth + 1))
+                    .ToList();
 
                 // Re-sort after sub-wave filling: reward candidates whose sub-waves
                 // were successfully identified deeper (§6.6 — depth coverage bonus).
-                // A candidate where all sub-waves are non-SIMPLE_IMPULSE gets up to
-                // DEPTH_COVERAGE_BONUS additional multiplier on top of its Fibonacci score.
                 foreach (ExactParsedNode node in results)
                     node.Score *= (1.0 + ComputeDepthCoverage(node) * DEPTH_COVERAGE_BONUS);
 
@@ -264,10 +237,19 @@ namespace TradeKit.Core.AlgoBase
         /// <see cref="ElliottModelType.SIMPLE_IMPULSE"/> node with the actual parsed result
         /// when a complete matching is found.
         /// </summary>
-        private void FillSubWaveModels(
+        /// <returns>
+        /// <c>true</c> when the node remains structurally valid after sub-wave filling;
+        /// <c>false</c> when the node must be discarded because at the last markup level
+        /// a sub-wave position whose allowed models are all motive/zigzag
+        /// could not be identified AND its segment endpoints fail the extremum check
+        /// (§4.1-endpoint hard rule).
+        /// </returns>
+        private bool FillSubWaveModels(
             ExactParsedNode node, List<BarPoint> originalPoints, int depth)
         {
-            if (node?.SubWaves == null) return;
+            if (node?.SubWaves == null) return true;
+
+            bool isAtLastSubLevel = depth + 1 >= MAX_MARKUP_DEPTH;
 
             for (int i = 0; i < node.WaveCount; i++)
             {
@@ -302,12 +284,33 @@ namespace TradeKit.Core.AlgoBase
                 List<ExactParsedNode> subResults =
                     ParseInternal(subPoints, validModels, depth);
 
-                // Prefer a complete (fully-matched) result
-                ExactParsedNode best =
-                    subResults.FirstOrDefault(r => r.WaveCount == r.ExpectedWaves);
+                // §4.1-continuity (hard rule): the sub-model must span exactly the
+                // sub-wave's bar range [fromBar, toBar] — no leading or trailing bars
+                // may be left unaccounted for within the sub-wave.
+                ExactParsedNode best = subResults.FirstOrDefault(
+                    r => r.WaveCount == r.ExpectedWaves
+                      && r.StartPoint.BarIndex == fromBar
+                      && r.EndPoint.BarIndex == toBar);
                 if (best != null)
+                {
                     node.SubWaves[i] = best;
+                    continue;
+                }
+
+                // Sub-wave could not be identified.
+                // Hard rule §4.1-endpoint (last level, motive/zigzag positions only):
+                // if ALL valid models for this position are motive/zigzag types the
+                // segment endpoints MUST be the absolute price extrema of the segment.
+                // A flat-B or truncation exception theoretically exists but requires
+                // inner decomposition that is impossible at this depth — reject.
+                if (isAtLastSubLevel && validModels.All(AppliesToMotiveOrZigzag))
+                {
+                    var seg = new[] { new Segment { Start = sw.StartPoint, End = sw.EndPoint } };
+                    if (!CheckEndpointExtremum(validModels[0], seg))
+                        return false; // discard parent candidate
+                }
             }
+            return true;
         }
 
         /// <summary>
@@ -331,6 +334,51 @@ namespace TradeKit.Core.AlgoBase
                 // SIMPLE_IMPULSE sub-waves contribute 0
             }
             return sum / node.WaveCount;
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> when <paramref name="model"/> belongs to the set of motive/zigzag
+        /// patterns for which the endpoint-extremum rule (§4.1-endpoint) applies:
+        /// IMPULSE, DIAGONAL_CONTRACTING_INITIAL, DIAGONAL_CONTRACTING_ENDING, ZIGZAG,
+        /// DOUBLE_ZIGZAG.
+        /// </summary>
+        private static bool AppliesToMotiveOrZigzag(ElliottModelType model) =>
+            model == ElliottModelType.IMPULSE
+            || model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+            || model == ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+            || model == ElliottModelType.ZIGZAG
+            || model == ElliottModelType.DOUBLE_ZIGZAG;
+
+        /// <summary>
+        /// Hard rule §4.1-endpoint — at the last markup level, for motive and zigzag patterns
+        /// the endpoint of the full pattern must be the actual price extremum within
+        /// the pattern's bar range.
+        /// <list type="bullet">
+        /// <item>Upward pattern: no bar <c>High</c> within [start…end] may exceed the end price
+        ///       (the end price equals the highest High across all bars).</item>
+        /// <item>Downward pattern: no bar <c>Low</c> within [start…end] may fall below the end price.</item>
+        /// </list>
+        /// The start-side extremum is already enforced by <see cref="CheckCandleBreachRules"/>.
+        /// Returns <c>true</c> when no <see cref="IBarsProvider"/> was supplied
+        /// (check skipped) or when the model is not a motive/zigzag type.
+        /// </summary>
+        private bool CheckEndpointExtremum(ElliottModelType model, Segment[] waves)
+        {
+            if (m_BarsProvider == null) return true;
+            if (!AppliesToMotiveOrZigzag(model)) return true;
+
+            bool isUp     = waves[0].IsUp;
+            double endPrice = waves[waves.Length - 1].End.Value;
+            int from = waves[0].Start.BarIndex;
+            int to   = waves[waves.Length - 1].End.BarIndex;
+
+            for (int i = from; i <= to; i++)
+            {
+                if (i < 0 || i >= m_BarsProvider.Count) continue;
+                if (isUp  && m_BarsProvider.GetHighPrice(i) > endPrice) return false;
+                if (!isUp && m_BarsProvider.GetLowPrice(i)  < endPrice) return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -358,7 +406,8 @@ namespace TradeKit.Core.AlgoBase
             int outerStart, int outerEnd,
             int k,
             List<ExactParsedNode> results,
-            bool fullSpan)
+            bool fullSpan,
+            bool enforceEndpointExtrema = false)
         {
             // We need k+1 points: outerStart + (k-1 from inner) + outerEnd
             // inner range: indices [outerStart+1 .. outerEnd-1]
@@ -387,7 +436,8 @@ namespace TradeKit.Core.AlgoBase
 
                 if (CheckAlternation(waves) && CheckHardRules(model, waves)
                     && CheckDirectionEndpoints(waves)
-                    && CheckCandleBreachRules(model, waves))
+                    && CheckCandleBreachRules(model, waves)
+                    && (!enforceEndpointExtrema || CheckEndpointExtremum(model, waves)))
                 {
                     double score = CalculateFiboScore(model, waves);
                     if (score > 0)

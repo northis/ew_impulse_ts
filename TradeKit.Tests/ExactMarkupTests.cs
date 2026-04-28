@@ -339,5 +339,123 @@ namespace TradeKit.Tests
                     $"of {matchedTopLevel} top-level matches (required ≥ {minSubRequired}).");
             }
         }
+        /// <summary>
+        /// Recursively verifies that all adjacent sub-waves of <paramref name="node"/> are
+        /// continuous: the end bar index of sub-wave i must equal the start bar index of
+        /// sub-wave i+1 (§4.1-continuity hard rule).
+        /// </summary>
+        private static void AssertSubWaveContinuity(ExactParsedNode? node, string context)
+        {
+            if (node?.SubWaves == null || node.WaveCount < 2) return;
+
+            for (int i = 0; i + 1 < node.WaveCount; i++)
+            {
+                ExactParsedNode sw     = node.SubWaves[i];
+                ExactParsedNode swNext = node.SubWaves[i + 1];
+                if (sw == null || swNext == null) continue;
+
+                Assert.AreEqual(
+                    sw.EndPoint.BarIndex,
+                    swNext.StartPoint.BarIndex,
+                    $"[{context}] {node.ModelType}: sub-wave {i + 1} end bar " +
+                    $"({sw.EndPoint.BarIndex}) must equal sub-wave {i + 2} start bar " +
+                    $"({swNext.StartPoint.BarIndex}) — §4.1-continuity.");
+
+                AssertSubWaveContinuity(sw, context);
+            }
+
+            // Recurse into the last sub-wave as well
+            AssertSubWaveContinuity(node.SubWaves[node.WaveCount - 1], context);
+        }
+
+        /// <summary>
+        /// Generates patterns of several types and verifies that every parsed node in the
+        /// result tree satisfies the §4.1-continuity hard rule: adjacent sub-waves at the
+        /// same rank must be continuous (no gap between end of wave i and start of wave i+1).
+        /// </summary>
+        [Test]
+        public void SubWaveContinuityStructuralTest()
+        {
+            var modelsToTest = new[]
+            {
+                ElliottModelType.IMPULSE,
+                ElliottModelType.ZIGZAG,
+                ElliottModelType.FLAT_EXTENDED,
+                ElliottModelType.TRIANGLE_CONTRACTING,
+            };
+
+            foreach (ElliottModelType modelType in modelsToTest)
+            {
+                (DateTime start, DateTime end) = Helper.GetDateRange(400, TIME_FRAME);
+                var args = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
+
+                if (modelType is ElliottModelType.FLAT_EXTENDED
+                              or ElliottModelType.TRIANGLE_CONTRACTING)
+                {
+                    args.Min -= args.Range;
+                    args.Max += args.Range;
+                }
+
+                ModelPattern model = m_PatternGenerator.GetPattern(args, modelType);
+                if (model.Candles.Count < 2) continue;
+
+                var barsProvider = new TestBarsProvider(model.Candles);
+                List<BarPoint> points = BuildPointsFromModel(model, barsProvider);
+                if (points.Count < 2) continue;
+
+                var markup = new ElliottWaveExactMarkup();
+                List<ExactParsedNode> results = markup.Parse(points);
+
+                foreach (ExactParsedNode result in results)
+                    AssertSubWaveContinuity(result, modelType.ToString());
+            }
+        }
+
+        /// <summary>
+        /// Verifies that every result returned by <see cref="ElliottWaveExactMarkup.Parse"/>
+        /// spans the full input point range — from <c>points[0].BarIndex</c> to
+        /// <c>points[^1].BarIndex</c>.  Partial-span candidates that leave leading or
+        /// trailing extrema unaccounted for must not appear in the results
+        /// (§4.1-continuity hard rule).
+        /// </summary>
+        [Test]
+        public void AllResultsSpanFullInputTest()
+        {
+            const int totalRuns = 10;
+
+            for (int run = 0; run < totalRuns; run++)
+            {
+                (DateTime start, DateTime end) = Helper.GetDateRange(300, TIME_FRAME);
+                var args = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
+                ModelPattern model = m_PatternGenerator.GetPattern(args, ElliottModelType.IMPULSE);
+
+                if (model.Candles.Count < 2) continue;
+
+                var barsProvider = new TestBarsProvider(model.Candles);
+                List<BarPoint> points = BuildPointsFromModel(model, barsProvider);
+                if (points.Count < 2) continue;
+
+                int expectedStart = points[0].BarIndex;
+                int expectedEnd   = points[^1].BarIndex;
+
+                var markup = new ElliottWaveExactMarkup();
+                List<ExactParsedNode> results = markup.Parse(points);
+
+                foreach (ExactParsedNode result in results)
+                {
+                    Assert.AreEqual(
+                        expectedStart, result.StartPoint.BarIndex,
+                        $"[AllResultsSpanFull] run {run}: result starts at bar " +
+                        $"{result.StartPoint.BarIndex} instead of {expectedStart} — " +
+                        "partial-span candidate must be rejected (§4.1-continuity).");
+
+                    Assert.AreEqual(
+                        expectedEnd, result.EndPoint.BarIndex,
+                        $"[AllResultsSpanFull] run {run}: result ends at bar " +
+                        $"{result.EndPoint.BarIndex} instead of {expectedEnd} — " +
+                        "partial-span candidate must be rejected (§4.1-continuity).");
+                }
+            }
+        }
     }
 }
