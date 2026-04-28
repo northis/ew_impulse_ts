@@ -768,4 +768,4 @@ static int CountTrendlineCrossings(BarPoint[] subWaveEnds, BarPoint lineA, BarPo
 - `minBars` — минимальное число баров (по умолчанию 200, для 5-волновых ≥ 300),
 - `threshold` — доля успешных прогонов (по умолчанию 0.6).
 
-*Версия алгоритма: 1.3 (03.04.2026)*
+*Версия алгоритма: 1.4 (28.04.2026)*
