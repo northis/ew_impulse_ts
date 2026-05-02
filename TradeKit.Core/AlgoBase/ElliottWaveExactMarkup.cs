@@ -10,7 +10,6 @@ namespace TradeKit.Core.AlgoBase
     public partial class ElliottWaveExactMarkup
     {
         private const double FULL_FIT_BONUS = 1.2;
-        private const double TRUNCATION_SCORE_MULT = 0.05;
 
         /// <summary>
         /// Maximum score multiplier applied to a candidate when all of its sub-waves
@@ -28,6 +27,16 @@ namespace TradeKit.Core.AlgoBase
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
         public const int MAX_MARKUP_DEPTH = 4;
+
+        /// <summary>
+        /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
+        /// top-level result to be returned from <see cref="Parse"/>.
+        /// A value of <c>MAX_MARKUP_DEPTH / 2</c> guarantees that every direct
+        /// sub-wave of the top-level model was itself successfully identified
+        /// (i.e. none of them stayed as a bare SIMPLE_IMPULSE segment after
+        /// the recursive decomposition pass).
+        /// </summary>
+        public const int MIN_RESULT_DEPTH = MAX_MARKUP_DEPTH / 2;
 
         // Optional bars provider used to enforce the direction hard rule:
         // a downward wave must end at the LOW of its end bar (not the HIGH),
@@ -120,7 +129,7 @@ namespace TradeKit.Core.AlgoBase
             var result = new List<BarPoint> { points[0] };
             for (int i = 1; i < points.Count; i++)
             {
-                BarPoint prev = result[result.Count - 1];
+                BarPoint prev = result[^1];
                 BarPoint cur = points[i];
                 if (Math.Abs(cur.Value - prev.Value) < double.Epsilon)
                     continue;
@@ -129,12 +138,12 @@ namespace TradeKit.Core.AlgoBase
                     result.Add(cur);
                     continue;
                 }
-                BarPoint prevPrev = result[result.Count - 2];
+                BarPoint prevPrev = result[^2];
                 bool prevUp = prev.Value > prevPrev.Value;
                 bool curUp = cur.Value > prev.Value;
                 if (curUp == prevUp)
                 {
-                    result[result.Count - 1] = curUp
+                    result[^1] = curUp
                         ? (cur.Value > prev.Value ? cur : prev)
                         : (cur.Value < prev.Value ? cur : prev);
                 }
@@ -154,9 +163,19 @@ namespace TradeKit.Core.AlgoBase
         /// effectively searching for the best-scoring K-segment fit that spans the full input range.
         /// After identifying the top-level model, sub-waves are recursively analysed up to
         /// <see cref="MAX_MARKUP_DEPTH"/> levels deep.
+        /// When an <see cref="IBarsProvider"/> was supplied, results with
+        /// <see cref="ExactParsedNode.GetDepth"/> below
+        /// <see cref="MIN_RESULT_DEPTH"/> are discarded (§3.8-depth-filter).
+        /// Without a provider the filter is skipped (consistent with all other
+        /// OHLC-level checks).
         /// </summary>
         public List<ExactParsedNode> Parse(List<BarPoint> points)
-            => ParseInternal(points, null, 0);
+        {
+            var results = ParseInternal(points, null, 0);
+            if (m_BarsProvider != null)
+                results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
+            return results;
+        }
 
         /// <summary>
         /// Internal recursive parse entry point.
@@ -276,7 +295,7 @@ namespace TradeKit.Core.AlgoBase
                 // Ensure the exact segment endpoints are present
                 if (subPoints.Count == 0 || subPoints[0].BarIndex != fromBar)
                     subPoints.Insert(0, sw.StartPoint);
-                if (subPoints[subPoints.Count - 1].BarIndex != toBar)
+                if (subPoints[^1].BarIndex != toBar)
                     subPoints.Add(sw.EndPoint);
 
                 if (subPoints.Count < 2) continue;
@@ -309,6 +328,12 @@ namespace TradeKit.Core.AlgoBase
                     if (!CheckEndpointExtremum(validModels[0], seg))
                         return false; // discard parent candidate
                 }
+
+                // Hard rule §4.1-simple-impulse (last level, all positions):
+                // an unidentified segment must be a clean directional move —
+                // no candle inside it may breach either the start or end price.
+                if (isAtLastSubLevel && !CheckSimpleImpulseContainment(sw.StartPoint, sw.EndPoint))
+                    return false;
             }
             return true;
         }
@@ -368,15 +393,57 @@ namespace TradeKit.Core.AlgoBase
             if (!AppliesToMotiveOrZigzag(model)) return true;
 
             bool isUp     = waves[0].IsUp;
-            double endPrice = waves[waves.Length - 1].End.Value;
+            double endPrice = waves[^1].End.Value;
             int from = waves[0].Start.BarIndex;
-            int to   = waves[waves.Length - 1].End.BarIndex;
+            int to   = waves[^1].End.BarIndex;
 
             for (int i = from; i <= to; i++)
             {
                 if (i < 0 || i >= m_BarsProvider.Count) continue;
                 if (isUp  && m_BarsProvider.GetHighPrice(i) > endPrice) return false;
                 if (!isUp && m_BarsProvider.GetLowPrice(i)  < endPrice) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Hard rule §4.1-simple-impulse — at the last markup level, a segment that
+        /// remains as SIMPLE_IMPULSE must be a "clean" directional move: every candle
+        /// within the segment's bar range must stay inside the price corridor defined
+        /// by the segment's start and end prices.
+        /// <list type="bullet">
+        /// <item>Upward segment (endPrice &gt; startPrice): no bar High above endPrice,
+        ///       no bar Low below startPrice.</item>
+        /// <item>Downward segment: no bar Low below endPrice, no bar High above startPrice.</item>
+        /// </list>
+        /// A breach indicates hidden sub-structure that contradicts the SIMPLE_IMPULSE
+        /// classification — the parent candidate must be rejected.
+        /// Returns <c>true</c> when no <see cref="IBarsProvider"/> was supplied
+        /// (check is skipped in unit tests without real bar data).
+        /// </summary>
+        private bool CheckSimpleImpulseContainment(BarPoint start, BarPoint end)
+        {
+            if (m_BarsProvider == null) return true;
+
+            bool isUp = end.Value > start.Value;
+            double startPrice = start.Value;
+            double endPrice   = end.Value;
+            int from = Math.Min(start.BarIndex, end.BarIndex);
+            int to   = Math.Max(start.BarIndex, end.BarIndex);
+
+            for (int i = from; i <= to; i++)
+            {
+                if (i < 0 || i >= m_BarsProvider.Count) continue;
+                if (isUp)
+                {
+                    if (m_BarsProvider.GetHighPrice(i) > endPrice)   return false;
+                    if (m_BarsProvider.GetLowPrice(i)  < startPrice) return false;
+                }
+                else
+                {
+                    if (m_BarsProvider.GetLowPrice(i)  < endPrice)   return false;
+                    if (m_BarsProvider.GetHighPrice(i) > startPrice) return false;
+                }
             }
             return true;
         }
@@ -456,86 +523,6 @@ namespace TradeKit.Core.AlgoBase
                 for (int i = pos + 1; i < k - 1; i++)
                     chosen[i] = chosen[i - 1] + 1;
             }
-        }
-
-        private static List<Segment> BuildSegments(List<BarPoint> pts)
-        {
-            var segs = new List<Segment>(pts.Count - 1);
-            for (int i = 0; i < pts.Count - 1; i++)
-                segs.Add(new Segment { Start = pts[i], End = pts[i + 1] });
-            return segs;
-        }
-
-        private ExactParsedNode TryBuildNode(
-            ElliottModelType model, List<Segment> segments, int offset, int count,
-            bool isFullFit, double totalPriceRange, int totalBarSpan)
-        {
-            Segment[] waves = new Segment[count];
-            for (int i = 0; i < count; i++)
-                waves[i] = segments[offset + i];
-
-            if (!CheckAlternation(waves)) return null;
-            if (!CheckHardRules(model, waves)) return null;
-            if (!CheckCandleBreachRules(model, waves)) return null;
-
-            double score = CalculateFiboScore(model, waves);
-            if (score <= 0) return null;
-
-            // Bar-span coverage: fraction of the full input bar span that this window covers.
-            // Cubic scaling strongly rewards windows that span the full input.
-            int windowBarSpan = Math.Max(1, waves[count - 1].End.BarIndex - waves[0].Start.BarIndex);
-            double barCoverage = (double)windowBarSpan / totalBarSpan;
-            score *= barCoverage * barCoverage * barCoverage;
-
-            // Price coverage bonus: also reward by price range fraction
-            double windowPriceRange = Math.Abs(waves[count - 1].End.Value - waves[0].Start.Value);
-            double priceCoverage = totalPriceRange > 0 ? windowPriceRange / totalPriceRange : 1.0;
-            score *= priceCoverage * priceCoverage;
-
-            if (isFullFit) score *= FULL_FIT_BONUS;
-
-            return BuildNode(model, waves, score, count);
-        }
-
-        private ExactParsedNode TryBuildTruncated(
-            ElliottModelType model, List<Segment> segments, int offset, int k,
-            double totalPriceRange, int totalBarSpan)
-        {
-            if (segments.Count < offset + k) return null;
-
-            int kMinus1 = k - 1;
-            Segment[] wavesK1 = new Segment[kMinus1];
-            for (int i = 0; i < kMinus1; i++)
-                wavesK1[i] = segments[offset + i];
-
-            if (!CheckAlternation(wavesK1)) return null;
-            if (!CheckHardRulesPartial(model, wavesK1)) return null;
-
-            Segment candidate = segments[offset + kMinus1];
-            bool modelIsUp = wavesK1[0].IsUp;
-
-            if (candidate.IsUp != modelIsUp) return null;
-            if (candidate.Length >= wavesK1[2].Length) return null;
-            if (candidate.Length < wavesK1[0].Length * 0.1) return null;
-
-            Segment[] allWaves = new Segment[k];
-            Array.Copy(wavesK1, allWaves, kMinus1);
-            allWaves[kMinus1] = candidate;
-
-            if (!CheckHardRules(model, allWaves)) return null;
-
-            double score = CalculateFiboScore(model, allWaves) * TRUNCATION_SCORE_MULT;
-            if (score <= 0) return null;
-
-            int windowBarSpan = Math.Max(1, allWaves[k - 1].End.BarIndex - allWaves[0].Start.BarIndex);
-            double barCoverage = (double)windowBarSpan / totalBarSpan;
-            score *= barCoverage * barCoverage * barCoverage;
-
-            double windowPriceRange = Math.Abs(allWaves[k - 1].End.Value - allWaves[0].Start.Value);
-            double priceCoverage = totalPriceRange > 0 ? windowPriceRange / totalPriceRange : 1.0;
-            score *= priceCoverage * priceCoverage;
-
-            return BuildNode(model, allWaves, score, k);
         }
 
         /// <summary>
@@ -797,58 +784,6 @@ namespace TradeKit.Core.AlgoBase
                         double eEnd = w[4].End.Value;
                         if (isUp && eEnd <= start) return false;
                         if (!isUp && eEnd >= start) return false;
-                    }
-                    return true;
-
-                default:
-                    return false;
-            }
-        }
-
-        private static bool CheckHardRulesPartial(ElliottModelType model, Segment[] w)
-        {
-            if (w.Length == 0) return false;
-            bool isUp = w[0].IsUp;
-            double start = w[0].Start.Value;
-
-            switch (model)
-            {
-                case ElliottModelType.IMPULSE:
-                    if (w.Length < 4) return false;
-                    {
-                        double w1End = w[0].End.Value;
-                        double w3End = w[2].End.Value;
-
-                        if (isUp && w[1].End.Value <= start) return false;
-                        if (!isUp && w[1].End.Value >= start) return false;
-
-                        if (isUp && w3End <= w1End) return false;
-                        if (!isUp && w3End >= w1End) return false;
-
-                        if (isUp && w[3].End.Value <= start) return false;
-                        if (!isUp && w[3].End.Value >= start) return false;
-                        if (isUp && w[3].End.Value <= w1End) return false;
-                        if (!isUp && w[3].End.Value >= w1End) return false;
-                    }
-                    return true;
-
-                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
-                    if (w.Length < 4) return false;
-                    {
-                        double w1End = w[0].End.Value;
-                        double w3End = w[2].End.Value;
-
-                        if (isUp && w[1].End.Value <= start) return false;
-                        if (!isUp && w[1].End.Value >= start) return false;
-
-                        if (isUp && w3End <= w1End) return false;
-                        if (!isUp && w3End >= w1End) return false;
-
-                        if (w[2].Length >= w[0].Length) return false;
-                        if (w[3].Length >= w[1].Length) return false;
-
-                        if (isUp && w[3].End.Value >= w1End) return false;
-                        if (!isUp && w[3].End.Value <= w1End) return false;
                     }
                     return true;
 

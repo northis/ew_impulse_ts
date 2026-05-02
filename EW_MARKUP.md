@@ -146,6 +146,12 @@ ParseInternal(
 7. После завершения `FillSubWaveModels` для всех кандидатов — применяем
    `depthCoverageBonus` (§6.6) к каждому Score и **пересортируем** список.
 
+8. **Фильтр минимальной глубины (§3.8-depth-filter) — hard:** из финального списка
+   удаляем все результаты, у которых `node.GetDepth() < MIN_RESULT_DEPTH`
+   (`MIN_RESULT_DEPTH = MAX_MARKUP_DEPTH / 2 = 2`). Это гарантирует, что
+   каждая непосредственная подволна верхнего уровня была успешно опознана
+   (ни одна не осталась в статусе `SIMPLE_IMPULSE` после рекурсивного прохода).
+
 ---
 
 ## 4. Поиск модели в цепочке сегментов
@@ -186,6 +192,16 @@ ParseInternal(
 > **Нарушение → HARD: родительский кандидат полностью отбрасывается** (`FillSubWaveModels` возвращает `false`).
 > Исключения: усечённые волны 5 (по правилам допустимы) и флет в волнах B/X — маловероятные случаи,
 > требующие внутренней разметки; на последнем уровне они неверифицируемы и отбрасываются.
+> Активна только при наличии реального `IBarsProvider`.
+
+> **Правило §4.1-simple-impulse (`CheckSimpleImpulseContainment`) — hard:** проверяется **только на последнем уровне разметки** (`depth + 1 ≥ MAX_MARKUP_DEPTH`), когда подволна осталась необозначенной (`SIMPLE_IMPULSE`).
+> Применяется ко **всем** позициям подволн (не только к motive/zigzag).
+> Такой участок должен быть «чистым» направленным движением без скрытой подструктуры.
+> Восходящий сегмент (endPrice > startPrice): `High[i] ≤ endPrice` **и** `Low[i] ≥ startPrice` для каждого бара.
+> Нисходящий сегмент: `Low[i] ≥ endPrice` **и** `High[i] ≤ startPrice`.
+> Выброс свечи за любую из двух границ ценового коридора сегмента указывает на скрытую подструктуру,
+> которую SIMPLE_IMPULSE не отражает, — родительский кандидат отбрасывается.
+> **Нарушение → HARD: родительский кандидат полностью отбрасывается** (`FillSubWaveModels` возвращает `false`).
 > Активна только при наличии реального `IBarsProvider`.
 | FLAT_EXTENDED | B ≥ A (выходит за начало); C ≥ 1.618 × A |
 | FLAT_RUNNING | B ≥ A; C ≤ 1.618 × A |
@@ -271,8 +287,10 @@ overshootPenalty = Exp(-3 × overshoot)   // мультипликативный 
    - **Проверка §4.1-endpoint** — **HARD** (only if `depth + 1 ≥ MAX_MARKUP_DEPTH` and all `validModels`
      are motive/zigzag): if the sub-wave is still `SIMPLE_IMPULSE` (no satisfactory sub-model
      found) and the segment violates the endpoint-extremum rule, `FillSubWaveModels` returns
+     `false` — the **entire parent candidate is discarded**.   - **Проверка §4.1-simple-impulse** — **HARD** (only if `depth + 1 ≥ MAX_MARKUP_DEPTH`,
+     all positions): if the sub-wave is still `SIMPLE_IMPULSE` and any candle inside
+     the segment breaches the segment's start or end price, `FillSubWaveModels` returns
      `false` — the **entire parent candidate is discarded**.
-
 ---
 
 ### 4.6 Light-валидация для флетов и треугольников

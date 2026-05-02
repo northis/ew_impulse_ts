@@ -24,8 +24,21 @@ public class IterativeElliottWaveExactIndicator : Indicator
     [Parameter(nameof(BarsCount), DefaultValue = 100, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
     public int BarsCount { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether candle information should be saved to file.
+    /// </summary>
+    [Parameter("Save candles", DefaultValue = false, Group = Helper.DEV_SETTINGS_NAME)]
+    public bool SaveCandles { get; set; }
+
+    /// <summary>
+    /// Gets or sets the date range for saving candles to a .csv file.
+    /// </summary>
+    [Parameter("Dates to save", DefaultValue = Helper.DATE_COLLECTION_PATTERN, Group = Helper.DEV_SETTINGS_NAME)]
+    public string DateRangeToCollect { get; set; }
+
     private IBarsProvider m_BarProvider;
     private ElliottWaveExactMarkup m_Markup;
+    private bool m_CandlesSaved;
 
     protected override void Initialize()
     {
@@ -35,6 +48,16 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
     public override void Calculate(int index)
     {
+        if (SaveCandles && !m_CandlesSaved)
+        {
+            string savedFilePath = m_BarProvider.SaveCandlesForDateRange(DateRangeToCollect);
+            if (!string.IsNullOrEmpty(savedFilePath))
+            {
+                m_CandlesSaved = true;
+                Print($"Candles saved to: {savedFilePath}");
+            }
+        }
+
         if (!IsLastBar)
             return;
 
@@ -94,8 +117,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
         ExactParsedNode best = parsed.Count > 0
             ? parsed
-                .OrderByDescending(a => a.GetDepth())
-                .ThenByDescending(a => a.Score)
+                .OrderByDescending(a => a.Score)
                 .First()
             : null;
 

@@ -369,6 +369,161 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
+        /// Recursively verifies that every <see cref="ElliottModelType.SIMPLE_IMPULSE"/>
+        /// segment at tree level <see cref="ElliottWaveExactMarkup.MAX_MARKUP_DEPTH"/> − 1
+        /// is "contained" — all candles within the segment's bar range stay inside the
+        /// [startPrice, endPrice] corridor (§4.1-simple-impulse).
+        /// Only this specific tree level is guaranteed by the hard rule (it is the level
+        /// at which <c>FillSubWaveModels</c> runs with <c>isAtLastSubLevel = true</c>).
+        /// </summary>
+        private static void AssertSimpleImpulseContainment(
+            ExactParsedNode? node, TestBarsProvider provider, string context, int treeLevel = 0)
+        {
+            if (node?.SubWaves == null) return;
+
+            int subLevel = treeLevel + 1;
+
+            for (int i = 0; i < node.WaveCount; i++)
+            {
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw == null) continue;
+
+                if (sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
+                {
+                    // The §4.1-simple-impulse hard rule fires only in
+                    // FillSubWaveModels(depth = MAX_MARKUP_DEPTH - 1),
+                    // which processes sub-waves at tree level MAX_MARKUP_DEPTH - 1.
+                    if (subLevel != ElliottWaveExactMarkup.MAX_MARKUP_DEPTH - 1)
+                        continue; // shallower or deeper levels are not covered by the rule
+
+                    bool isUp     = sw.EndPoint.Value > sw.StartPoint.Value;
+                    double startP = sw.StartPoint.Value;
+                    double endP   = sw.EndPoint.Value;
+                    int from      = Math.Min(sw.StartPoint.BarIndex, sw.EndPoint.BarIndex);
+                    int to        = Math.Max(sw.StartPoint.BarIndex, sw.EndPoint.BarIndex);
+
+                    for (int bar = from; bar <= to; bar++)
+                    {
+                        if (bar < 0 || bar >= provider.Count) continue;
+
+                        if (isUp)
+                        {
+                            Assert.LessOrEqual(provider.GetHighPrice(bar), endP,
+                                $"[{context}] Upward SIMPLE_IMPULSE bar {bar}: " +
+                                $"High={provider.GetHighPrice(bar):F5} > endPrice={endP:F5}");
+                            Assert.GreaterOrEqual(provider.GetLowPrice(bar), startP,
+                                $"[{context}] Upward SIMPLE_IMPULSE bar {bar}: " +
+                                $"Low={provider.GetLowPrice(bar):F5} < startPrice={startP:F5}");
+                        }
+                        else
+                        {
+                            Assert.GreaterOrEqual(provider.GetLowPrice(bar), endP,
+                                $"[{context}] Downward SIMPLE_IMPULSE bar {bar}: " +
+                                $"Low={provider.GetLowPrice(bar):F5} < endPrice={endP:F5}");
+                            Assert.LessOrEqual(provider.GetHighPrice(bar), startP,
+                                $"[{context}] Downward SIMPLE_IMPULSE bar {bar}: " +
+                                $"High={provider.GetHighPrice(bar):F5} > startPrice={startP:F5}");
+                        }
+                    }
+                }
+                else
+                {
+                    AssertSimpleImpulseContainment(sw, provider, context, subLevel);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generates multi-level composite patterns, runs markup with a real
+        /// <see cref="TestBarsProvider"/> and asserts the §4.1-simple-impulse invariant:
+        /// every <see cref="ElliottModelType.SIMPLE_IMPULSE"/> sub-wave returned in any
+        /// result must have all its candles contained within the segment's price corridor.
+        /// </summary>
+        [Test]
+        public void SimpleImpulseContainmentPropertyTest()
+        {
+            const int totalRuns = 5;
+
+            for (int run = 0; run < totalRuns; run++)
+            {
+                (DateTime start, DateTime end) = Helper.GetDateRange(2000, TIME_FRAME);
+                PatternArgsItem args = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
+                args.Min -= args.Range;
+                args.Max += args.Range;
+
+                ModelPattern model = m_PatternGenerator.GetZigzagComposite(
+                    args,
+                    ElliottModelType.IMPULSE,
+                    ElliottModelType.TRIANGLE_CONTRACTING,
+                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING);
+
+                if (model.Candles.Count < 2) continue;
+
+                var barsProvider = new TestBarsProvider(model.Candles);
+                List<BarPoint> points = BuildPointsFromModel(model, barsProvider);
+                if (points.Count < 2) continue;
+
+                // Run with barsProvider so candle-level rules are enforced.
+                var markup = new ElliottWaveExactMarkup(barsProvider);
+                List<ExactParsedNode> results = markup.Parse(points);
+
+                foreach (ExactParsedNode result in results)
+                    AssertSimpleImpulseContainment(result, barsProvider,
+                        $"run {run} / {result.ModelType}");
+            }
+        }
+
+        /// <summary>
+        /// Verifies the §3.8-depth-filter hard rule: every result returned by
+        /// <see cref="ElliottWaveExactMarkup.Parse"/> must have
+        /// <see cref="ExactParsedNode.GetDepth"/> ≥ <see cref="ElliottWaveExactMarkup.MIN_RESULT_DEPTH"/>.
+        /// </summary>
+        [Test]
+        public void AllResultsMeetMinDepthTest()
+        {
+            var modelsToTest = new[]
+            {
+                ElliottModelType.IMPULSE,
+                ElliottModelType.ZIGZAG,
+                ElliottModelType.FLAT_EXTENDED,
+                ElliottModelType.TRIANGLE_CONTRACTING,
+            };
+
+            foreach (ElliottModelType modelType in modelsToTest)
+            {
+                (DateTime start, DateTime end) = Helper.GetDateRange(400, TIME_FRAME);
+                var args = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
+
+                if (modelType is ElliottModelType.FLAT_EXTENDED
+                              or ElliottModelType.TRIANGLE_CONTRACTING)
+                {
+                    args.Min -= args.Range;
+                    args.Max += args.Range;
+                }
+
+                ModelPattern model = m_PatternGenerator.GetPattern(args, modelType);
+                if (model.Candles.Count < 2) continue;
+
+                var barsProvider = new TestBarsProvider(model.Candles);
+                List<BarPoint> points = BuildPointsFromModel(model, barsProvider);
+                if (points.Count < 2) continue;
+
+                var markup = new ElliottWaveExactMarkup(barsProvider);
+                List<ExactParsedNode> results = markup.Parse(points);
+
+                foreach (ExactParsedNode result in results)
+                {
+                    int depth = result.GetDepth();
+                    Assert.GreaterOrEqual(
+                        depth, ElliottWaveExactMarkup.MIN_RESULT_DEPTH,
+                        $"[{modelType}] result {result.ModelType} has GetDepth()={depth} " +
+                        $"< MIN_RESULT_DEPTH={ElliottWaveExactMarkup.MIN_RESULT_DEPTH} " +
+                        $"— §3.8-depth-filter violated.");
+                }
+            }
+        }
+
+        /// <summary>
         /// Generates patterns of several types and verifies that every parsed node in the
         /// result tree satisfies the §4.1-continuity hard rule: adjacent sub-waves at the
         /// same rank must be continuous (no gap between end of wave i and start of wave i+1).
