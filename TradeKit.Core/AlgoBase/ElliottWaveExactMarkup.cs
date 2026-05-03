@@ -74,6 +74,22 @@ namespace TradeKit.Core.AlgoBase
             ElliottModelType.DIAGONAL_CONTRACTING_ENDING
         };
 
+        // Pre-computed mapping (parentModel, waveKey) → allowed sub-models ∩ TargetModels.
+        // Computed once at class load; avoids repeated LINQ Intersect in FillSubWaveModels.
+        private static readonly Dictionary<(ElliottModelType, string), ElliottModelType[]>
+            VALID_SUB_MODELS_CACHE = BuildValidSubModelsCache();
+
+        private static Dictionary<(ElliottModelType, string), ElliottModelType[]> BuildValidSubModelsCache()
+        {
+            var cache = new Dictionary<(ElliottModelType, string), ElliottModelType[]>();
+            var targetSet = new HashSet<ElliottModelType>(TargetModels);
+            foreach (KeyValuePair<ElliottModelType, ModelRules> kvp in ElliottWavePatternHelper.ModelRules)
+                foreach (KeyValuePair<string, ElliottModelType[]> waveEntry in kvp.Value.Models)
+                    cache[(kvp.Key, waveEntry.Key)] =
+                        waveEntry.Value.Where(m => targetSet.Contains(m)).ToArray();
+            return cache;
+        }
+
         /// <summary>
         /// Gets the string key representation for a specific sub-wave number within a parent model type.
         /// </summary>
@@ -276,21 +292,19 @@ namespace TradeKit.Core.AlgoBase
                 if (sw == null) continue;
 
                 string waveKey = GetWaveKey(node.ModelType, i + 1);
-                ElliottModelType[] validModels =
-                    GetValidSubModelsForWave(node.ModelType, waveKey)
-                    .Intersect(TargetModels)
-                    .ToArray();
+                ElliottModelType[] validModels = GetValidSubModelsForWave(node.ModelType, waveKey);
 
                 if (validModels.Length == 0) continue;
 
                 int fromBar = sw.StartPoint.BarIndex;
                 int toBar   = sw.EndPoint.BarIndex;
 
-                // Collect original extremum points within this sub-wave's bar range
-                var subPoints = new List<BarPoint>();
-                foreach (BarPoint p in originalPoints)
-                    if (p.BarIndex >= fromBar && p.BarIndex <= toBar)
-                        subPoints.Add(p);
+                // Collect original extremum points within this sub-wave's bar range.
+                // originalPoints is sorted by BarIndex (alternating extrema in time order),
+                // so binary search finds the slice in O(log n) instead of O(n).
+                int lo = LowerBound(originalPoints, fromBar);
+                int hi = UpperBound(originalPoints, toBar);
+                var subPoints = originalPoints.GetRange(lo, hi - lo);
 
                 // Ensure the exact segment endpoints are present
                 if (subPoints.Count == 0 || subPoints[0].BarIndex != fromBar)
@@ -456,15 +470,43 @@ namespace TradeKit.Core.AlgoBase
         private static ElliottModelType[] GetValidSubModelsForWave(
             ElliottModelType parentModel, string waveKey)
         {
-            if (ElliottWavePatternHelper.ModelRules.TryGetValue(parentModel, out ModelRules rules)
-                && rules.Models.TryGetValue(waveKey, out ElliottModelType[] models))
-                return models;
-            return Array.Empty<ElliottModelType>();
+            return VALID_SUB_MODELS_CACHE.TryGetValue((parentModel, waveKey), out var models)
+                ? models
+                : Array.Empty<ElliottModelType>();
+        }
+
+        /// <summary>Returns the index of the first element whose BarIndex ≥ <paramref name="barIndex"/>.</summary>
+        private static int LowerBound(List<BarPoint> points, int barIndex)
+        {
+            int lo = 0, hi = points.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (points[mid].BarIndex < barIndex) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
+        }
+
+        /// <summary>Returns the index of the first element whose BarIndex &gt; <paramref name="barIndex"/>.</summary>
+        private static int UpperBound(List<BarPoint> points, int barIndex)
+        {
+            int lo = 0, hi = points.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (points[mid].BarIndex <= barIndex) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
         }
 
         /// <summary>
         /// Tries all combinations of K-1 intermediate points from altPoints[innerStart..innerEnd-1]
         /// with fixed start=altPoints[outerStart] and end=altPoints[outerEnd].
+        /// Waves are built one at a time in <see cref="TryCombinationsRecurse"/>; alternation
+        /// and <see cref="CheckIncrementalHardRules"/> prune invalid branches before all K waves
+        /// are chosen, reducing the effective search space vs the flat C(n,k-1) enumeration.
         /// Adds valid candidates to <paramref name="results"/>.
         /// </summary>
         private void TryCombinations(
@@ -476,52 +518,75 @@ namespace TradeKit.Core.AlgoBase
             bool fullSpan,
             bool enforceEndpointExtrema = false)
         {
-            // We need k+1 points: outerStart + (k-1 from inner) + outerEnd
-            // inner range: indices [outerStart+1 .. outerEnd-1]
-            int innerCount = outerEnd - outerStart - 1;
-            if (innerCount < k - 1) return; // not enough inner points
+            if (outerEnd - outerStart - 1 < k - 1) return; // not enough inner points
 
-            int[] chosen = new int[k - 1]; // indices into altPoints of the k-1 intermediate points
-            // Initialize: choose first k-1 inner indices
-            for (int i = 0; i < k - 1; i++)
-                chosen[i] = outerStart + 1 + i;
+            // Allocate shared arrays once; reused across all recursive branches.
+            BarPoint[] pts   = new BarPoint[k + 1];
+            Segment[]  waves = new Segment[k];
+            pts[0] = altPoints[outerStart];
+            pts[k] = altPoints[outerEnd]; // last point is fixed; pre-set for the base case
 
-            // Enumerate all C(innerCount, k-1) combinations in order
-            while (true)
+            TryCombinationsRecurse(
+                model, altPoints, outerStart, outerEnd, k, 0,
+                pts, waves, results, fullSpan, enforceEndpointExtrema);
+        }
+
+        /// <summary>
+        /// Recursive core of <see cref="TryCombinations"/>.
+        /// Builds wave <paramref name="waveIdx"/> (0-based), then either recurses for the
+        /// next wave or (at the last wave) validates the complete candidate.
+        /// </summary>
+        private void TryCombinationsRecurse(
+            ElliottModelType model,
+            List<BarPoint> altPoints,
+            int prevAltIdx, int outerEnd,
+            int k, int waveIdx,
+            BarPoint[] pts, Segment[] waves,
+            List<ExactParsedNode> results,
+            bool fullSpan, bool enforceEndpointExtrema)
+        {
+            if (waveIdx == k - 1)
             {
-                // Build k+1 point array: [outerStart, chosen[0], ..., chosen[k-2], outerEnd]
-                BarPoint[] pts = new BarPoint[k + 1];
-                pts[0] = altPoints[outerStart];
-                for (int i = 0; i < k - 1; i++)
-                    pts[i + 1] = altPoints[chosen[i]];
-                pts[k] = altPoints[outerEnd];
+                // Last wave always ends at outerEnd (already in pts[k]).
+                waves[waveIdx] = new Segment { Start = pts[waveIdx], End = pts[k] };
 
-                // Build segments and check alternation
-                Segment[] waves = new Segment[k];
-                for (int i = 0; i < k; i++)
-                    waves[i] = new Segment { Start = pts[i], End = pts[i + 1] };
+                // Alternation check for the last wave only (previous pairs checked incrementally).
+                if (waveIdx > 0 && waves[waveIdx].IsUp == waves[waveIdx - 1].IsUp) return;
 
-                if (CheckAlternation(waves) && CheckHardRules(model, waves)
-                    && CheckDirectionEndpoints(waves)
-                    && CheckCandleBreachRules(model, waves)
-                    && (!enforceEndpointExtrema || CheckEndpointExtremum(model, waves)))
+                // Full validation: remaining hard rules, candle checks, score.
+                if (!CheckHardRules(model, waves)) return;
+                if (!CheckDirectionEndpoints(waves)) return;
+                if (!CheckCandleBreachRules(model, waves)) return;
+                if (enforceEndpointExtrema && !CheckEndpointExtremum(model, waves)) return;
+
+                double score = CalculateFiboScore(model, waves);
+                if (score > 0)
                 {
-                    double score = CalculateFiboScore(model, waves);
-                    if (score > 0)
-                    {
-                        if (fullSpan) score *= FULL_FIT_BONUS;
-                        results.Add(BuildNode(model, waves, score, k));
-                    }
+                    if (fullSpan) score *= FULL_FIT_BONUS;
+                    results.Add(BuildNode(model, waves, score, k));
                 }
+                return;
+            }
 
-                // Advance to next combination (standard combinatorial next)
-                int pos = k - 2;
-                while (pos >= 0 && chosen[pos] >= outerEnd - 1 - (k - 2 - pos))
-                    pos--;
-                if (pos < 0) break;
-                chosen[pos]++;
-                for (int i = pos + 1; i < k - 1; i++)
-                    chosen[i] = chosen[i - 1] + 1;
+            // Choose endpoint for wave `waveIdx`; must leave room for remaining waves.
+            int remaining = k - 1 - waveIdx; // waves still to place after this one
+            int hi = outerEnd - remaining;
+
+            for (int j = prevAltIdx + 1; j <= hi; j++)
+            {
+                pts[waveIdx + 1] = altPoints[j];
+                waves[waveIdx]   = new Segment { Start = pts[waveIdx], End = pts[waveIdx + 1] };
+
+                // Early alternation check for the wave just built.
+                if (waveIdx > 0 && waves[waveIdx].IsUp == waves[waveIdx - 1].IsUp) continue;
+
+                // Incremental hard-rule pruning — eliminates branches that already
+                // violate a structural rule before the remaining waves are chosen.
+                if (!CheckIncrementalHardRules(model, waves, waveIdx)) continue;
+
+                TryCombinationsRecurse(
+                    model, altPoints, j, outerEnd, k, waveIdx + 1,
+                    pts, waves, results, fullSpan, enforceEndpointExtrema);
             }
         }
 
@@ -608,12 +673,98 @@ namespace TradeKit.Core.AlgoBase
             return true;
         }
 
-        private static bool CheckAlternation(Segment[] waves)
+        /// <summary>
+        /// Checks hard-rule conditions that involve only the most recently added wave
+        /// (<paramref name="waveIdx"/>, 0-based).  Called incrementally inside
+        /// <see cref="TryCombinationsRecurse"/> so that invalid partial candidates are
+        /// pruned before any remaining waves are chosen.
+        /// Conditions that require the complete wave array (e.g. "wave 3 not shortest")
+        /// are still handled by the final <see cref="CheckHardRules"/> call.
+        /// </summary>
+        private static bool CheckIncrementalHardRules(
+            ElliottModelType model, Segment[] w, int waveIdx)
         {
-            if (waves.Length < 2) return true;
-            for (int i = 0; i < waves.Length - 1; i++)
-                if (waves[i].IsUp == waves[i + 1].IsUp) return false;
-            return true;
+            bool isUp  = w[0].IsUp;
+            double start = w[0].Start.Value;
+
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    switch (waveIdx)
+                    {
+                        case 1: // wave 2 placed
+                            if ( isUp && w[1].End.Value <= start) return false;
+                            if (!isUp && w[1].End.Value >= start) return false;
+                            break;
+                        case 2: // wave 3 placed
+                            if ( isUp && w[2].End.Value <= w[0].End.Value) return false;
+                            if (!isUp && w[2].End.Value >= w[0].End.Value) return false;
+                            break;
+                        case 3: // wave 4 placed
+                            if ( isUp && w[3].End.Value <= start)          return false;
+                            if (!isUp && w[3].End.Value >= start)          return false;
+                            if ( isUp && w[3].End.Value <= w[0].End.Value) return false; // no overlap
+                            if (!isUp && w[3].End.Value >= w[0].End.Value) return false;
+                            break;
+                    }
+                    return true;
+
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    switch (waveIdx)
+                    {
+                        case 1:
+                            if ( isUp && w[1].End.Value <= start) return false;
+                            if (!isUp && w[1].End.Value >= start) return false;
+                            break;
+                        case 2:
+                            if ( isUp && w[2].End.Value <= w[0].End.Value) return false;
+                            if (!isUp && w[2].End.Value >= w[0].End.Value) return false;
+                            if (w[2].Length >= w[0].Length) return false; // contracting
+                            break;
+                        case 3:
+                            if ( isUp && w[3].End.Value >= w[0].End.Value) return false; // overlap
+                            if (!isUp && w[3].End.Value <= w[0].End.Value) return false;
+                            if (w[3].Length >= w[1].Length) return false; // contracting
+                            break;
+                    }
+                    return true;
+
+                case ElliottModelType.ZIGZAG:
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                    if (waveIdx == 1)
+                    {
+                        if ( isUp && w[1].End.Value <= start) return false;
+                        if (!isUp && w[1].End.Value >= start) return false;
+                        if (w[1].Length > w[0].Length * 0.95)  return false;
+                    }
+                    return true;
+
+                case ElliottModelType.FLAT_EXTENDED:
+                case ElliottModelType.FLAT_RUNNING:
+                    if (waveIdx == 1)
+                    {
+                        if ( isUp && w[1].End.Value >= start) return false; // B overshoots below start
+                        if (!isUp && w[1].End.Value <= start) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                    if (waveIdx >= 1 && w[waveIdx].Length >= w[waveIdx - 1].Length) return false;
+                    return true;
+
+                case ElliottModelType.TRIANGLE_RUNNING:
+                    if (waveIdx == 1)
+                    {
+                        if ( isUp && w[1].End.Value >= start) return false;
+                        if (!isUp && w[1].End.Value <= start) return false;
+                    }
+                    if (waveIdx >= 2 && w[waveIdx].Length >= w[waveIdx - 1].Length) return false;
+                    return true;
+
+                default:
+                    return true;
+            }
         }
 
         private static bool CheckHardRules(ElliottModelType model, Segment[] w)
