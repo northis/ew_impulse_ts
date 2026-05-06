@@ -26,7 +26,7 @@ namespace TradeKit.Core.AlgoBase
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 4;
+        public const int MAX_MARKUP_DEPTH = 6;
 
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
@@ -187,9 +187,9 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         public List<ExactParsedNode> Parse(List<BarPoint> points)
         {
-            var results = ParseInternal(points, null, 0);
-            if (m_BarsProvider != null)
-                results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
+            List<ExactParsedNode> results = ParseInternal(points, null, 0);
+            //if (m_BarsProvider != null)
+            //    results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
             return results;
         }
 

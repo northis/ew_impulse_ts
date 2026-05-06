@@ -191,16 +191,18 @@ namespace TradeKit.CTrader.Core
         public void LoadBars(DateTime date)
         {
             m_Bars.BarClosed -= OnBarClosed;
-            if (m_Bars.OpenTimes.Count == 0)
-                m_Bars.LoadMoreHistory();
 
+            // OpenTimes[0] is the oldest available bar.
+            // LoadMoreHistory() prepends older bars.
+            // Keep loading while the oldest bar is still newer than the target date.
             DateTime lastDate;
-            while ((lastDate = m_Bars.OpenTimes[0]) > date)
+            do
             {
+                lastDate = m_Bars.OpenTimes[0];
+                if (lastDate <= date) break;
                 m_Bars.LoadMoreHistory();
-                if (m_Bars.OpenTimes[0] == lastDate)
-                    break;
             }
+            while (m_Bars.OpenTimes[0] < lastDate); // stop when no new bars were prepended
 
             ReloadBars();
             m_Bars.BarClosed += OnBarClosed;

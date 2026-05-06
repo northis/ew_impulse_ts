@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
@@ -36,9 +37,26 @@ public class IterativeElliottWaveExactIndicator : Indicator
     [Parameter("Dates to save", DefaultValue = Helper.DATE_COLLECTION_PATTERN, Group = Helper.DEV_SETTINGS_NAME)]
     public string DateRangeToCollect { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the candles of the currently identified markup
+    /// range should be saved to a .csv file whenever a best result is found.
+    /// </summary>
+    [Parameter("Save markup candles", DefaultValue = false, Group = Helper.DEV_SETTINGS_NAME)]
+    public bool SaveMarkupCandles { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether PNG charts for all markup variants should be
+    /// saved once, immediately after the first successful parse.
+    /// </summary>
+    [Parameter("Save markup charts", DefaultValue = false, Group = Helper.DEV_SETTINGS_NAME)]
+    public bool SaveMarkupCharts { get; set; }
+
     private IBarsProvider m_BarProvider;
     private ElliottWaveExactMarkup m_Markup;
     private bool m_CandlesSaved;
+    private bool m_MarkupCandlesSaved;
+    private bool m_MarkupChartsSaved;
+    private ExactParsedNode m_CachedBest;
 
     protected override void Initialize()
     {
@@ -59,6 +77,10 @@ public class IterativeElliottWaveExactIndicator : Indicator
         }
 
         if (!IsLastBar)
+            return;
+
+        // Skip full recalculation while the price stays within the already-marked range.
+        if (m_CachedBest != null && index <= m_CachedBest.EndPoint.BarIndex)
             return;
 
         int startBarIndex = Math.Max(0, index - BarsCount + 1);
@@ -115,19 +137,59 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
         List<ExactParsedNode> parsed = m_Markup.Parse(innerPoints);
 
+        if (SaveMarkupCharts && !m_MarkupChartsSaved && parsed.Count > 0)
+        {
+            m_MarkupChartsSaved = true;
+            int variantIdx = 0;
+            foreach (ExactParsedNode node in parsed.OrderByDescending(n => n.Score))
+            {
+                string chartFileName = string.Format("{0}_{1}_{2}_{3:D2}",
+                    m_BarProvider.BarSymbol.Name,
+                    m_BarProvider.TimeFrame.ShortName,
+                    node.ModelType,
+                    variantIdx++);
+                string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, chartFileName);
+                string savedPath = ChartGenerator.GenerateMarkupChart(node, m_BarProvider, MAIN_NOTATION_LEVEL, chartFilePath);
+                if (!string.IsNullOrEmpty(savedPath))
+                    Print($"Markup chart saved: {savedPath}");
+            }
+        }
+
         ExactParsedNode best = parsed.Count > 0
             ? parsed
-                .OrderByDescending(a => a.Score)
+                .OrderByDescending(a => a.GetDepth())
+                .ThenByDescending(a => a.Score)
                 .First()
             : null;
 
         if (best == null)
             return;
 
+        m_CachedBest = best;
+
+        if (SaveMarkupCandles && !m_MarkupCandlesSaved)
+        {
+            DateTime markupStart = m_BarProvider.GetOpenTime(best.StartPoint.BarIndex);
+            DateTime markupEnd   = m_BarProvider.GetOpenTime(best.EndPoint.BarIndex);
+            if (markupStart != default && markupEnd != default)
+            {
+                string markupFileName = string.Format(
+                    Helper.CANDLE_FILE_NAME_FORMAT,
+                    m_BarProvider.BarSymbol.Name,
+                    m_BarProvider.TimeFrame.ShortName,
+                    markupStart.ToString(Helper.DATE_COLLECTION_FORMAT).Replace(":", "-"),
+                    markupEnd.ToString(Helper.DATE_COLLECTION_FORMAT).Replace(":", "-"));
+                string markupFilePath = Path.Combine(Helper.DirectoryToSaveResults, markupFileName);
+                m_BarProvider.SaveCandles(markupStart, markupEnd, markupFilePath);
+                m_MarkupCandlesSaved = true;
+                Print($"Markup candles saved to: {markupFilePath}");
+            }
+        }
+
         Chart.RemoveAllObjects();
 
-        // Draw best result in yellow with Minuette (and sub-wave Subminuette) notation
-        DrawMarkupNode(best, Color.Yellow, "EW_", MAIN_NOTATION_LEVEL);
+        // Draw best result with model-type colours and stacked wave labels
+        DrawMarkupNode(best, "EW_", MAIN_NOTATION_LEVEL);
 
         var projections = m_Markup.GetProjections(best);
         if (projections.Count <= 0)
@@ -149,19 +211,46 @@ public class IterativeElliottWaveExactIndicator : Indicator
         }
     }
 
+    /// <summary>Returns the cTrader chart color for an Elliott wave model type.</summary>
+    private static Color GetWaveColor(ElliottModelType modelType) => modelType switch
+    {
+        ElliottModelType.IMPULSE or ElliottModelType.SIMPLE_IMPULSE or
+        ElliottModelType.DIAGONAL_CONTRACTING_INITIAL or ElliottModelType.DIAGONAL_CONTRACTING_ENDING or
+        ElliottModelType.DIAGONAL_EXPANDING_INITIAL  or ElliottModelType.DIAGONAL_EXPANDING_ENDING
+            => Color.FromHex("#3D85C6"),
+        ElliottModelType.ZIGZAG or ElliottModelType.DOUBLE_ZIGZAG or ElliottModelType.TRIPLE_ZIGZAG
+            => Color.FromHex("#FF9800"),
+        ElliottModelType.TRIANGLE_CONTRACTING or ElliottModelType.TRIANGLE_EXPANDING or
+        ElliottModelType.TRIANGLE_RUNNING
+            => Color.FromHex("#787B86"),
+        _ => Color.FromHex("#6AA84F")
+    };
+
+    private record MarkupLabelItem(
+        int BarIndex, double Value, bool IsUp,
+        string Name, string LabelText,
+        byte NotationLevel, Color LabelColor);
+
     /// <summary>
-    /// Recursively draws the sub-wave labels and trend lines for <paramref name="node"/>
-    /// using Elliott Wave notation at <paramref name="notationLevel"/>.<br/>
-    /// Main level (level 4 = Minuette): impulse waves → <c>(i)</c>, <c>(ii)</c> …;
-    ///   corrective waves → <c>(a)</c>, <c>(b)</c>, <c>(c)</c>.<br/>
-    /// Sub-level (level 3 = Subminuette): impulse waves → <c>i</c>, <c>ii</c> …
+    /// Draws all wave lines and stacks labels at shared bar endpoints:
+    /// youngest (innermost sub-wave) closest to the price bar, oldest furthest.
     /// </summary>
-    private void DrawMarkupNode(
-        ExactParsedNode node, Color color, string prefix, byte notationLevel)
+    private void DrawMarkupNode(ExactParsedNode node, string prefix, byte notationLevel)
+    {
+        if (node == null || node.WaveCount == 0) return;
+        var labels = new List<MarkupLabelItem>();
+        DrawMarkupLines(node, prefix, notationLevel, labels);
+        DrawStackedLabels(labels);
+    }
+
+    private void DrawMarkupLines(
+        ExactParsedNode node, string prefix, byte notationLevel,
+        List<MarkupLabelItem> labels)
     {
         if (node == null || node.WaveCount == 0) return;
 
         NotationItem[] notation = TryGetNotation(node.ModelType, notationLevel);
+        Color lineColor = GetWaveColor(node.ModelType);
 
         for (int i = 0; i < node.WaveCount; i++)
         {
@@ -173,18 +262,43 @@ public class IterativeElliottWaveExactIndicator : Indicator
                 : ElliottWaveExactMarkup.GetWaveKey(node.ModelType, i + 1);
 
             string name = $"{prefix}{sw.StartPoint.BarIndex}_{sw.EndPoint.BarIndex}_{labelText}";
-            double yOffset = sw.IsUp ? Symbol.PipSize * 2 : -Symbol.PipSize * 2;
+            Color labelColor = GetWaveColor(
+                sw.ModelType != ElliottModelType.SIMPLE_IMPULSE ? sw.ModelType : node.ModelType);
 
-            Chart.DrawText(name + "_t", labelText,
-                sw.EndPoint.BarIndex, sw.EndPoint.Value + yOffset, color);
             Chart.DrawTrendLine(name + "_l",
                 sw.StartPoint.BarIndex, sw.StartPoint.Value,
-                sw.EndPoint.BarIndex, sw.EndPoint.Value,
-                color, 1, LineStyle.Lines);
+                sw.EndPoint.BarIndex,   sw.EndPoint.Value,
+                lineColor, 1, LineStyle.Lines);
 
-            // Recurse one level deeper when the sub-wave has been identified as a real model
+            labels.Add(new MarkupLabelItem(
+                sw.EndPoint.BarIndex, sw.EndPoint.Value, sw.IsUp,
+                name, labelText, notationLevel, labelColor));
+
             if (notationLevel > 0 && sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
-                DrawMarkupNode(sw, color, prefix + "s_", (byte)(notationLevel - 1));
+                DrawMarkupLines(sw, prefix + "s_", (byte)(notationLevel - 1), labels);
+        }
+    }
+
+    /// <summary>
+    /// Groups collected label items by bar index and draws them vertically stacked,
+    /// with the youngest wave label (lowest notation level) closest to the price bar.
+    /// Each consecutive label is offset by 6 pips further from the bar.
+    /// </summary>
+    private void DrawStackedLabels(List<MarkupLabelItem> labels)
+    {
+        foreach (var grp in labels.GroupBy(x => x.BarIndex))
+        {
+            var sorted = grp.OrderBy(x => x.NotationLevel).ToList();
+            bool isUp  = sorted[0].IsUp;
+            double sign   = isUp ? 1.0 : -1.0;
+            double offset = 2.0;
+            foreach (var item in sorted)
+            {
+                Chart.DrawText(item.Name + "_t", item.LabelText,
+                    item.BarIndex, item.Value + sign * Symbol.PipSize * offset,
+                    item.LabelColor);
+                offset += 6.0;
+            }
         }
     }
 
