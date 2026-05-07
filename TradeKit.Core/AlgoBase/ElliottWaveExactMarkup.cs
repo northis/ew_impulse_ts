@@ -343,10 +343,11 @@ namespace TradeKit.Core.AlgoBase
                         return false; // discard parent candidate
                 }
 
-                // Hard rule §4.1-simple-impulse (last level, all positions):
-                // an unidentified segment must be a clean directional move —
-                // no candle inside it may breach either the start or end price.
-                if (isAtLastSubLevel && !CheckSimpleImpulseContainment(sw.StartPoint, sw.EndPoint))
+                // Hard rule §4.1-simple-impulse (all levels, all positions):
+                // an unidentified segment that stays as SIMPLE_IMPULSE must be a clean
+                // directional move — no candle inside it may breach either the start or
+                // end price, regardless of the current recursion depth.
+                if (!CheckSimpleImpulseContainment(sw.StartPoint, sw.EndPoint))
                     return false;
             }
             return true;
@@ -421,7 +422,7 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Hard rule §4.1-simple-impulse — at the last markup level, a segment that
+        /// Hard rule §4.1-simple-impulse — at <em>any</em> markup level, a segment that
         /// remains as SIMPLE_IMPULSE must be a "clean" directional move: every candle
         /// within the segment's bar range must stay inside the price corridor defined
         /// by the segment's start and end prices.
@@ -431,7 +432,7 @@ namespace TradeKit.Core.AlgoBase
         /// <item>Downward segment: no bar Low below endPrice, no bar High above startPrice.</item>
         /// </list>
         /// A breach indicates hidden sub-structure that contradicts the SIMPLE_IMPULSE
-        /// classification — the parent candidate must be rejected.
+        /// classification — the parent candidate is rejected at any depth.
         /// Returns <c>true</c> when no <see cref="IBarsProvider"/> was supplied
         /// (check is skipped in unit tests without real bar data).
         /// </summary>

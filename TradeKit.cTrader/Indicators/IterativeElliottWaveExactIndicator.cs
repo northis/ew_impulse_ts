@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -140,19 +142,28 @@ public class IterativeElliottWaveExactIndicator : Indicator
         if (SaveMarkupCharts && !m_MarkupChartsSaved && parsed.Count > 0)
         {
             m_MarkupChartsSaved = true;
-            int variantIdx = 0;
-            foreach (ExactParsedNode node in parsed.OrderByDescending(n => n.Score))
+            IBarsProvider provider = m_BarProvider;
+            string symName = m_BarProvider.BarSymbol.Name;
+            string tfName = m_BarProvider.TimeFrame.ShortName;
+            byte level = MAIN_NOTATION_LEVEL;
+
+            ThreadPool.QueueUserWorkItem(markups =>
             {
-                string chartFileName = string.Format("{0}_{1}_{2}_{3:D2}",
-                    m_BarProvider.BarSymbol.Name,
-                    m_BarProvider.TimeFrame.ShortName,
-                    node.ModelType,
-                    variantIdx++);
-                string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, chartFileName);
-                string savedPath = ChartGenerator.GenerateMarkupChart(node, m_BarProvider, MAIN_NOTATION_LEVEL, chartFilePath);
-                if (!string.IsNullOrEmpty(savedPath))
-                    Print($"Markup chart saved: {savedPath}");
-            }
+                ExactParsedNode[] markupArray = (ExactParsedNode[])markups;
+                int variantIdx = 0;
+                if (markupArray != null)
+                {
+                    foreach (ExactParsedNode node in markupArray)
+                    {
+                        string chartFileName = string.Format("{0}_{1}_{2}_{3:D2}",
+                            symName, tfName, node.ModelType, variantIdx++);
+                        string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, chartFileName);
+                        string savedPath = ChartGenerator.GenerateMarkupChart(node, provider, level, chartFilePath);
+                        if (!string.IsNullOrEmpty(savedPath))
+                            Print($"Markup chart saved: {savedPath}");
+                    }
+                }
+            }, parsed.ToArray());
         }
 
         ExactParsedNode best = parsed.Count > 0
