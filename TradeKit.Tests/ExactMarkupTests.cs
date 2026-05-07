@@ -261,14 +261,12 @@ namespace TradeKit.Tests
                 ElliottModelType.DIAGONAL_CONTRACTING_ENDING,
                 ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
             };
-            var acceptedTopLevel = new HashSet<ElliottModelType>
-            {
-                ElliottModelType.ZIGZAG, ElliottModelType.DOUBLE_ZIGZAG
-            };
-
             for (int run = 0; run < totalTests; run++)
             {
-                (DateTime start, DateTime end) = Helper.GetDateRange(2000, TIME_FRAME);
+                // 600 bars: each of 3 ZIGZAG sub-waves gets ~200 bars; their sub-waves
+                // get ~40 bars each (< SIMPLE_BARS_THRESHOLD=100) so recursion stops at
+                // level 2 → ~18 distinct key points total → parse stays fast.
+                (DateTime start, DateTime end) = Helper.GetDateRange(600, TIME_FRAME);
                 PatternArgsItem args = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
                 args.Min -= args.Range;
                 args.Max += args.Range;
@@ -290,14 +288,16 @@ namespace TradeKit.Tests
                 var markup = new ElliottWaveExactMarkup();
                 List<ExactParsedNode> results = markup.Parse(points);
 
+                // Look for ZIGZAG specifically — DOUBLE_ZIGZAG can score higher because its
+                // W/Y sub-waves (ZIGZAG) are easier to identify than IMPULSE/DIAGONAL.
                 ExactParsedNode best = results.FirstOrDefault(
-                    r => acceptedTopLevel.Contains(r.ModelType)
+                    r => r.ModelType == ElliottModelType.ZIGZAG
                          && r.WaveCount == r.ExpectedWaves);
 
                 if (best == null)
                 {
                     Console.WriteLine(
-                        $"[ZigzagComposite] run {run}: top={results.FirstOrDefault()?.ModelType}");
+                        $"[ZigzagComposite] run {run}: no ZIGZAG top={results.FirstOrDefault()?.ModelType}");
                     continue;
                 }
                 matchedTopLevel++;
@@ -370,11 +370,9 @@ namespace TradeKit.Tests
 
         /// <summary>
         /// Recursively verifies that every <see cref="ElliottModelType.SIMPLE_IMPULSE"/>
-        /// segment at tree level <see cref="ElliottWaveExactMarkup.MAX_MARKUP_DEPTH"/> − 1
-        /// is "contained" — all candles within the segment's bar range stay inside the
-        /// [startPrice, endPrice] corridor (§4.1-simple-impulse).
-        /// Only this specific tree level is guaranteed by the hard rule (it is the level
-        /// at which <c>FillSubWaveModels</c> runs with <c>isAtLastSubLevel = true</c>).
+        /// segment at any tree depth is "contained" — all candles within the segment's bar
+        /// range stay inside the [startPrice, endPrice] corridor (§4.1-simple-impulse).
+        /// The hard rule now fires at ALL recursion depths (not just the last level).
         /// </summary>
         private static void AssertSimpleImpulseContainment(
             ExactParsedNode? node, TestBarsProvider provider, string context, int treeLevel = 0)
@@ -390,12 +388,7 @@ namespace TradeKit.Tests
 
                 if (sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
                 {
-                    // The §4.1-simple-impulse hard rule fires only in
-                    // FillSubWaveModels(depth = MAX_MARKUP_DEPTH - 1),
-                    // which processes sub-waves at tree level MAX_MARKUP_DEPTH - 1.
-                    if (subLevel != ElliottWaveExactMarkup.MAX_MARKUP_DEPTH - 1)
-                        continue; // shallower or deeper levels are not covered by the rule
-
+                    // §4.1-simple-impulse fires at ALL depths when a barsProvider is present.
                     bool isUp     = sw.EndPoint.Value > sw.StartPoint.Value;
                     double startP = sw.StartPoint.Value;
                     double endP   = sw.EndPoint.Value;
@@ -446,7 +439,10 @@ namespace TradeKit.Tests
 
             for (int run = 0; run < totalRuns; run++)
             {
-                (DateTime start, DateTime end) = Helper.GetDateRange(2000, TIME_FRAME);
+                // 1000 bars: each sub-wave gets ~330 bars, their sub-waves ~66 bars
+                // (< SIMPLE_BARS_THRESHOLD) → depth=2 key points only → ~18 total points.
+                // With barsProvider, containment pruning keeps parse fast.
+                (DateTime start, DateTime end) = Helper.GetDateRange(1000, TIME_FRAME);
                 PatternArgsItem args = new PatternArgsItem(40, 60, start, end, TIME_FRAME);
                 args.Min -= args.Range;
                 args.Max += args.Range;

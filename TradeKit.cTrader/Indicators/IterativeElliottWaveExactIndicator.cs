@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -166,10 +165,14 @@ public class IterativeElliottWaveExactIndicator : Indicator
             }, parsed.ToArray());
         }
 
+        // Sort by Score only: ParseInternal already boosts scores via the depth-coverage
+        // bonus (fraction of identified sub-waves), so Score captures both Fibonacci fit
+        // and sub-wave depth quality.  A secondary GetDepth() sort was previously used but
+        // it systematically demoted corrective patterns (triangles, flats) whose sub-waves
+        // are harder to identify, even when their Fibonacci structure was excellent.
         ExactParsedNode best = parsed.Count > 0
             ? parsed
-                .OrderByDescending(a => a.GetDepth())
-                .ThenByDescending(a => a.Score)
+                .OrderByDescending(a => a.Score)
                 .First()
             : null;
 

@@ -188,8 +188,8 @@ namespace TradeKit.Core.AlgoBase
         public List<ExactParsedNode> Parse(List<BarPoint> points)
         {
             List<ExactParsedNode> results = ParseInternal(points, null, 0);
-            //if (m_BarsProvider != null)
-            //    results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
+            if (m_BarsProvider != null)
+                results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
             return results;
         }
 
@@ -354,26 +354,32 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Recursively computes the fraction of sub-waves (and their sub-waves) that have
-        /// been identified as a real Elliott Wave model (i.e. not
+        /// Returns the fraction [0.0, 1.0] of immediate sub-waves that have been identified
+        /// as a real Elliott Wave model (anything other than
         /// <see cref="ElliottModelType.SIMPLE_IMPULSE"/>).
-        /// Returns 1.0 for leaf nodes (no sub-waves) and 0.0 when no sub-wave was identified.
+        /// 0.0 = all sub-waves are bare SIMPLE_IMPULSE segments (no sub-structure found).
+        /// 1.0 = every sub-wave was successfully identified as a named model.
         /// Used to compute the depth-coverage bonus applied in <see cref="ParseInternal"/>.
+        /// <para>
+        /// NOTE: A recursive formulation was tried but always returned 0 because every
+        /// branch eventually bottoms out at SIMPLE_IMPULSE leaves (which contribute 0).
+        /// The non-recursive direct-fraction approach gives meaningful [0,1] scores and
+        /// correctly rewards models whose immediate sub-waves are all identified, regardless
+        /// of how deeply the recursion went.
+        /// </para>
         /// </summary>
         private static double ComputeDepthCoverage(ExactParsedNode node)
         {
-            if (node?.SubWaves == null || node.WaveCount == 0)
-                return 1.0; // leaf — nothing left to identify
-
-            double sum = 0.0;
-            for (int i = 0; i < node.WaveCount; i++)
+            if (node?.SubWaves == null || node.WaveCount == 0 || node.SubWaves.Length == 0)
+                return 0.0;
+            int identified = 0;
+            for (int i = 0; i < node.WaveCount && i < node.SubWaves.Length; i++)
             {
                 ExactParsedNode sw = node.SubWaves[i];
                 if (sw != null && sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
-                    sum += ComputeDepthCoverage(sw);
-                // SIMPLE_IMPULSE sub-waves contribute 0
+                    identified++;
             }
-            return sum / node.WaveCount;
+            return (double)identified / node.WaveCount;
         }
 
         /// <summary>

@@ -393,7 +393,7 @@ namespace TradeKit.Core.AlgoBase
                                     ElliottModelType.DOUBLE_ZIGZAG
                                 }
                             }
-                        })
+                        }, 1.5)  // Contracting triangle is a common corrective pattern
                 },
                 {
                     ElliottModelType.FLAT_EXTENDED, new ModelRules(
@@ -459,7 +459,7 @@ namespace TradeKit.Core.AlgoBase
 
             ModelRules[ElliottModelType.TRIANGLE_RUNNING] =
                 ModelRules[ElliottModelType.TRIANGLE_CONTRACTING] with
-                { ProbabilityCoefficient = 0.1 };
+                { ProbabilityCoefficient = 0.3 };
         }
     }
 }

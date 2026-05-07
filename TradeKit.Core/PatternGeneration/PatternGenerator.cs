@@ -1207,7 +1207,7 @@ namespace TradeKit.Core.PatternGeneration
             double diffOneTree = Math.Abs(wave1 - wave3)
                                  * MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS;
 
-            double wave4Len = RandomWithinRange(diffOneTree, wave3Len - restTree);
+            double wave4Len = RandomWithinRange(diffOneTree, Math.Min(wave3Len - restTree, wave2Len * MAIN_ALLOWANCE_MAX_RATIO_INVERT));
             double wave4 = wave3 - arg.IsUpK * arg.IsUpK * wave4Len;
             
             double bars1Prop = PatternGenKit
