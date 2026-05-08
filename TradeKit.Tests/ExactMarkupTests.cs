@@ -23,7 +23,7 @@ namespace TradeKit.Tests
             public int Count => m_Candles.Count;
             public int StartIndexLimit => 0;
             public ITimeFrame TimeFrame => TIME_FRAME;
-            public ISymbol BarSymbol => null!;
+            public ISymbol BarSymbol => new SymbolBase("TEST", "Test Symbol", 0, 5, 0.0001, 1, 100000);
 
             public event EventHandler BarClosed { add { } remove { } }
             public double GetClosePrice(int index) => m_Candles[index].C;

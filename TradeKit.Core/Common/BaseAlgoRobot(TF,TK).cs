@@ -884,7 +884,7 @@ namespace TradeKit.Core.Common
         /// <param name="barProvider">Bars provider for the TF and symbol.</param>
         /// <param name="chartDateTimes">Date times for bars got from the broker.</param>
         protected virtual void OnDrawChart(
-            GenericChart.GenericChart candlestickChart, 
+            GenericChart candlestickChart, 
             TK signalEventArgs, 
             IBarsProvider barProvider, 
             List<DateTime> chartDateTimes)
@@ -929,7 +929,7 @@ namespace TradeKit.Core.Common
         /// </summary>
         /// <param name="signalEventArgs">The signal event arguments.</param>
         /// <param name="lastOpenDateTime">The last open date time.</param>
-        protected virtual GenericChart.GenericChart[] GetAdditionalChartLayers(
+        protected virtual GenericChart[] GetAdditionalChartLayers(
             TK signalEventArgs, DateTime lastOpenDateTime)
         {
             return null;
@@ -1047,15 +1047,15 @@ namespace TradeKit.Core.Common
             DateTime lastOpenDateTime = s.D[^1];
             DateTime lastCloseDateTime = lastOpenDateTime;
 
-            GenericChart.GenericChart candlestickChart = ChartGenerator.GetCandlestickChart(
+            GenericChart candlestickChart = ChartGenerator.GetCandlestickChart(
                 s.O, s.H, s.L, s.C, s.D, barProvider.BarSymbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
                 out Rangebreak[] rbs);
 
             OnDrawChart(candlestickChart, signalEventArgs, barProvider, validDateTimes);
-            GenericChart.GenericChart[] layers =
+            GenericChart[] layers =
                 GetAdditionalChartLayers(signalEventArgs, lastCloseDateTime)
-                ?? Array.Empty<GenericChart.GenericChart>();
-            GenericChart.GenericChart resultChart = Chart.Combine(
+                ?? Array.Empty<GenericChart>();
+            GenericChart resultChart = Chart.Combine(
                     layers.Concat(new[] { candlestickChart }))
                 .WithTitle(
                     $@"{barProvider.BarSymbol.Name} {barProvider.TimeFrame.ShortName} {lastCloseDateTime.ToUniversalTime():R} ",
@@ -1111,12 +1111,12 @@ namespace TradeKit.Core.Common
 
         protected Shape GetLine(BarPoint bp1, BarPoint bp2, Color color, double width = 1)
         {
-            Shape line = Shape.init(StyleParam.ShapeType.Line.ToFSharp(),
+            Shape line = Shape.init(ShapeType: StyleParam.ShapeType.Line.ToFSharp(),
                 X0: bp1.OpenTime.ToFSharp(),
                 Y0: bp1.Value.ToFSharp(),
                 X1: bp2.OpenTime.ToFSharp(),
                 Y1: bp2.Value.ToFSharp(),
-                Fillcolor: color.ToFSharp(),
+                FillColor: color.ToFSharp(),
                 Line: Line.init(Color: color, Width: width.ToFSharp()));
             return line;
         }
@@ -1165,12 +1165,12 @@ namespace TradeKit.Core.Common
         protected Shape GetSetupRectangle(
             DateTime setupStart, DateTime setupEnd, Color color, double levelStart, double levelEnd)
         {
-            Shape shape = Shape.init(StyleParam.ShapeType.Rectangle.ToFSharp(),
+            Shape shape = Shape.init(ShapeType: StyleParam.ShapeType.Rectangle.ToFSharp(),
                 X0: setupStart.ToFSharp(),
                 Y0: levelStart.ToFSharp(),
                 X1: setupEnd.ToFSharp(),
                 Y1: levelEnd.ToFSharp(),
-                Fillcolor: color,
+                FillColor: color,
                 Line: Line.init(Color: color));
 
             return shape;

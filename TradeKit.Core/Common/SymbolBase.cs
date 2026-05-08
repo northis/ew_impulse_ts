@@ -1,6 +1,4 @@
-﻿using TradeKit.Core.EventArgs;
-
-namespace TradeKit.Core.Common
+﻿namespace TradeKit.Core.Common
 {
     public class SymbolBase : ISymbol
     {

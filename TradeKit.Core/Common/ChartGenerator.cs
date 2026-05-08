@@ -31,6 +31,12 @@ namespace TradeKit.Core.Common
         public static readonly Color EwCombinationColor = Color.fromHex("#6AA84F");
         public static readonly Color EwTriangleColor   = Color.fromHex("#787B86");
 
+        static ChartGenerator()
+        {
+            PuppeteerSharpRendererOptions.launchOptions.Timeout = 0;
+            PuppeteerSharpRendererOptions.navigationOptions.Timeout = 0;
+        }
+
         /// <summary>Returns the Plotly color for the given Elliott wave model type.</summary>
         public static Color GetElliottModelColor(ElliottModelType modelType) => modelType switch
         {
@@ -46,7 +52,7 @@ namespace TradeKit.Core.Common
             _ => EwCombinationColor
         };
 
-        public static GenericChart.GenericChart GetCandlestickChart(
+        public static GenericChart GetCandlestickChart(
             List<JsonCandleExport> candles,
             string name)
         {
@@ -55,7 +61,7 @@ namespace TradeKit.Core.Common
             double[] l = new double[candles.Count];
             double[] c = new double[candles.Count];
             DateTime[] d = new DateTime[candles.Count];
-            
+
             for (int i = 0; i < candles.Count; i++)
             {
                 o[i] = candles[i].O;
@@ -65,11 +71,11 @@ namespace TradeKit.Core.Common
                 d[i] = candles[i].OpenDate;
             }
 
-            GenericChart.GenericChart res = GetCandlestickChart(o, h, l, c, d, name);
+            GenericChart res = GetCandlestickChart(o, h, l, c, d, name);
             return res;
         }
 
-        public static GenericChart.GenericChart GetCandlestickChart(
+        public static GenericChart GetCandlestickChart(
             double[] o,
             double[] h,
             double[] l,
@@ -88,7 +94,7 @@ namespace TradeKit.Core.Common
                     Values: rangeBreaks.Select(a => a.ToString("O")).ToFSharp())
             };
 
-            GenericChart.GenericChart res = 
+            GenericChart res = 
                 GetCandlestickChart(o, h, l, c, d, name, rbs);
             return res;
         }
@@ -144,7 +150,7 @@ namespace TradeKit.Core.Common
             return annotation;
         }
 
-        public static GenericChart.GenericChart GetCandlestickChart(
+        public static GenericChart GetCandlestickChart(
             double[] o,
             double[] h,
             double[] l,
@@ -153,23 +159,23 @@ namespace TradeKit.Core.Common
             string name,
             Rangebreak[] rangeBreaks = null)
         {
-            GenericChart.GenericChart candlestickChart = Chart2D.Chart.Candlestick
+            GenericChart candlestickChart = Chart2D.Chart.Candlestick
                 <double, double, double, double, DateTime, string>(
-                    o,
-                    h,
-                    l,
-                    c,
-                    d,
+                    open: o,
+                    high: h,
+                    low: l,
+                    close: c,
+                    x: d,
                     IncreasingColor: LONG_COLOR.ToFSharp(),
                     DecreasingColor: SHORT_COLOR.ToFSharp(),
                     Name: name,
                     ShowLegend: false)
-                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime, string, string>(
                     Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks),
                     ShowGrid: false));
 
-            GenericChart.GenericChart resultChart = Chart.Combine(
-                    Array.Empty<GenericChart.GenericChart>().Concat(new[] { candlestickChart }))
+            GenericChart resultChart = Chart.Combine(
+                    new[] { candlestickChart })
                 .WithXAxisRangeSlider(RangeSlider.init(Visible: false))
                 .WithConfig(Config.init(
                     StaticPlot: true,
@@ -183,10 +189,10 @@ namespace TradeKit.Core.Common
                     Columns: 0,
                     XGap: 0d,
                     YGap: 0d))
-                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                .WithXAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime, string, string>(
                     Rangebreaks: new FSharpOption<IEnumerable<Rangebreak>>(rangeBreaks), GridColor: SEMI_WHITE_COLOR,
                     ShowGrid: true))
-                .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime>(
+                .WithYAxis(LinearAxis.init<DateTime, DateTime, DateTime, DateTime, DateTime, DateTime, string, string>(
                     GridColor: SEMI_WHITE_COLOR, ShowGrid: true))
                 .WithYAxisStyle(Side: Side.Right, title: null);
 
@@ -198,12 +204,12 @@ namespace TradeKit.Core.Common
 
         private static Shape GetEwLine(DateTime x0, double y0, DateTime x1, double y1, Color color)
             => Shape.init(
-                ShapeType.Line.ToFSharp(),
+                ShapeType: ShapeType.Line.ToFSharp(),
                 X0: x0.ToFSharp(),
                 Y0: y0.ToFSharp(),
                 X1: x1.ToFSharp(),
                 Y1: y1.ToFSharp(),
-                Fillcolor: color.ToFSharp(),
+                FillColor: color.ToFSharp(),
                 Line: Line.init(Color: color, Width: 1.0.ToFSharp()));
 
         private record EwLabelItem(DateTime X, double Y, bool IsUp, string Label, byte NotationLevel, ElliottModelType ModelType);
@@ -266,7 +272,7 @@ namespace TradeKit.Core.Common
         {
             string name = model.Model.ToString().Replace("_", " ").ToUpperInvariant();
             List<JsonCandleExport> candles = model.Candles;
-            GenericChart.GenericChart chart = GetCandlestickChart(candles, name);
+            GenericChart chart = GetCandlestickChart(candles, name);
 
             const byte chartFontSizeCorrect = (byte)CHART_FONT_MAIN - 4;
             if (model.PatternKeyPoints != null)
@@ -388,10 +394,10 @@ namespace TradeKit.Core.Common
             }
             
             // Generate the candlestick chart
-            GenericChart.GenericChart candlestickChart = GetCandlestickChart(
+            GenericChart candlestickChart = GetCandlestickChart(
                 o, h, l, c, d, barsProvider.BarSymbol.Name, rangeBreaks, timeFrameInfo.TimeSpan,
                 out Rangebreak[] rbs);
-            
+
             // Add markers for start and end points
             var annotations = new List<Annotation>
             {
@@ -412,9 +418,9 @@ namespace TradeKit.Core.Common
                     "End",
                     YAnchorPosition.Top)
             };
-            
+
             // Create the final chart
-            GenericChart.GenericChart resultChart = candlestickChart
+            GenericChart resultChart = candlestickChart
                 .WithAnnotations(annotations)
                 .WithTitle(
                     $"{barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName} {DateTime.Now:R}",
@@ -494,7 +500,7 @@ namespace TradeKit.Core.Common
             }
 
             string title = $"{provider.BarSymbol.Name} {provider.TimeFrame.ShortName} — {root.ModelType} [{root.Score:F2}]";
-            GenericChart.GenericChart chart = GetCandlestickChart(
+            GenericChart chart = GetCandlestickChart(
                 o, h, l, c, d, title, rangeBreaks, timeFrameInfo.TimeSpan, out _);
 
             var shapes     = new List<Shape>();
@@ -522,9 +528,9 @@ namespace TradeKit.Core.Common
                     yShift += 2 * labelStep;
                 }
             }
-
+            
             // Apply shapes and annotations (must chain to capture immutable F# GenericChart)
-            var resultChart = shapes.Aggregate(chart, (acc, s) => acc.WithShape(s));
+           var resultChart = shapes.Aggregate(chart, (acc, s) => acc.WithShape(s));
             resultChart = resultChart
                 .WithAnnotations(annotations)
                 .WithTitle(title, Font.init(Size: CHART_FONT_MAIN));
