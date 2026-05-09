@@ -12,6 +12,14 @@ namespace TradeKit.Core.AlgoBase
         private const double FULL_FIT_BONUS = 1.2;
 
         /// <summary>
+        /// Maximum number of top-scoring candidates passed to
+        /// <see cref="FillSubWaveModels"/> for recursive sub-wave analysis.
+        /// Lower-ranked candidates are unlikely to win after the depth-coverage
+        /// re-sort, so capping avoids exponential work on mediocre combinations.
+        /// </summary>
+        private const int MAX_CANDIDATES_FOR_SUBWAVE_FILL = 20;
+
+        /// <summary>
         /// Maximum score multiplier applied to a candidate when all of its sub-waves
         /// (and their sub-waves, recursively) have been successfully identified.
         /// A value of 0.5 means a fully-identified markup can earn up to 1.5× its
@@ -26,7 +34,7 @@ namespace TradeKit.Core.AlgoBase
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 6;
+        public const int MAX_MARKUP_DEPTH = 8;
 
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
@@ -250,7 +258,11 @@ namespace TradeKit.Core.AlgoBase
                 // at the last markup level a sub-wave position whose valid models are
                 // all motive/zigzag must either (a) be identified as one of those models
                 // or (b) pass the endpoint-extremum hard rule (§4.1-endpoint).
+                // Only the top MAX_CANDIDATES_FOR_SUBWAVE_FILL candidates are processed —
+                // lower-ranked combinations are unlikely to win after the depth-coverage
+                // re-sort and processing them wastes exponential recursive work.
                 results = results
+                    .Take(MAX_CANDIDATES_FOR_SUBWAVE_FILL)
                     .Where(node => FillSubWaveModels(node, points, depth + 1))
                     .ToList();
 
@@ -404,7 +416,7 @@ namespace TradeKit.Core.AlgoBase
         ///       (the end price equals the highest High across all bars).</item>
         /// <item>Downward pattern: no bar <c>Low</c> within [start…end] may fall below the end price.</item>
         /// </list>
-        /// The start-side extremum is already enforced by <see cref="CheckCandleBreachRules"/>.
+        /// The start-side extremum is already enforced by <see cref="CheckCandleBreachIncremental"/>.
         /// Returns <c>true</c> when no <see cref="IBarsProvider"/> was supplied
         /// (check skipped) or when the model is not a motive/zigzag type.
         /// </summary>
@@ -563,7 +575,9 @@ namespace TradeKit.Core.AlgoBase
                 // Full validation: remaining hard rules, candle checks, score.
                 if (!CheckHardRules(model, waves)) return;
                 if (!CheckDirectionEndpoints(waves)) return;
-                if (!CheckCandleBreachRules(model, waves)) return;
+                // Candle-breach check for the last wave (all preceding waves were
+                // already checked incrementally in the loop below).
+                if (!CheckCandleBreachIncremental(model, waves, waveIdx)) return;
                 if (enforceEndpointExtrema && !CheckEndpointExtremum(model, waves)) return;
 
                 double score = CalculateFiboScore(model, waves);
@@ -590,6 +604,11 @@ namespace TradeKit.Core.AlgoBase
                 // Incremental hard-rule pruning — eliminates branches that already
                 // violate a structural rule before the remaining waves are chosen.
                 if (!CheckIncrementalHardRules(model, waves, waveIdx)) continue;
+
+                // Incremental candle-breach pruning: reject any combination whose
+                // most recently placed wave already violates the start-price rule.
+                // This prunes the subtree before any further waves are chosen.
+                if (!CheckCandleBreachIncremental(model, waves, waveIdx)) continue;
 
                 TryCombinationsRecurse(
                     model, altPoints, j, outerEnd, k, waveIdx + 1,
@@ -640,10 +659,16 @@ namespace TradeKit.Core.AlgoBase
         /// </list>
         /// Skipped when no <see cref="IBarsProvider"/> was supplied.
         /// </summary>
-        private bool CheckCandleBreachRules(ElliottModelType model, Segment[] waves)
+        /// <remarks>
+        /// Called once per wave as it is placed in
+        /// <see cref="TryCombinationsRecurse"/>, so invalid branches are pruned
+        /// before any remaining waves are chosen.  The full-pattern check is
+        /// therefore redundant and has been replaced by this per-wave version.
+        /// </remarks>
+        private bool CheckCandleBreachIncremental(
+            ElliottModelType model, Segment[] waves, int waveIdx)
         {
             if (m_BarsProvider == null) return true;
-            if (waves.Length == 0) return true;
 
             bool appliesToModel =
                 model == ElliottModelType.IMPULSE
@@ -654,27 +679,22 @@ namespace TradeKit.Core.AlgoBase
 
             if (!appliesToModel) return true;
 
-            bool isUp = waves[0].IsUp;   // upward pattern: higher high at end
+            bool isUp = waves[0].IsUp;
             double startPrice = waves[0].Start.Value;
+            Segment wave = waves[waveIdx];
+            int from = Math.Min(wave.Start.BarIndex, wave.End.BarIndex);
+            int to   = Math.Max(wave.Start.BarIndex, wave.End.BarIndex);
 
-            foreach (Segment wave in waves)
+            for (int i = from; i <= to; i++)
             {
-                int from = Math.Min(wave.Start.BarIndex, wave.End.BarIndex);
-                int to   = Math.Max(wave.Start.BarIndex, wave.End.BarIndex);
-
-                for (int i = from; i <= to; i++)
+                if (i < 0 || i >= m_BarsProvider.Count) continue;
+                if (isUp)
                 {
-                    if (i < 0 || i >= m_BarsProvider.Count) continue;
-                    if (isUp)
-                    {
-                        // Upward pattern — no candle LOW should fall below the start price
-                        if (m_BarsProvider.GetLowPrice(i) < startPrice) return false;
-                    }
-                    else
-                    {
-                        // Downward pattern — no candle HIGH should rise above the start price
-                        if (m_BarsProvider.GetHighPrice(i) > startPrice) return false;
-                    }
+                    if (m_BarsProvider.GetLowPrice(i) < startPrice) return false;
+                }
+                else
+                {
+                    if (m_BarsProvider.GetHighPrice(i) > startPrice) return false;
                 }
             }
             return true;

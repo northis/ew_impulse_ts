@@ -62,7 +62,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_Markup = new ElliottWaveExactMarkup(m_BarProvider);
+        m_Markup = new ElliottWaveExactMarkup();
     }
 
     public override void Calculate(int index)
@@ -176,15 +176,11 @@ public class IterativeElliottWaveExactIndicator : Indicator
                 .First()
             : null;
 
-        if (best == null)
-            return;
-
-        m_CachedBest = best;
-
         if (SaveMarkupCandles && !m_MarkupCandlesSaved)
         {
-            DateTime markupStart = m_BarProvider.GetOpenTime(best.StartPoint.BarIndex);
-            DateTime markupEnd   = m_BarProvider.GetOpenTime(best.EndPoint.BarIndex);
+            DateTime markupStart =
+                m_BarProvider.GetOpenTime(best == null ? startPoint.BarIndex : best.StartPoint.BarIndex);
+            DateTime markupEnd = m_BarProvider.GetOpenTime(best == null ? endPoint.BarIndex : best.EndPoint.BarIndex);
             if (markupStart != default && markupEnd != default)
             {
                 string markupFileName = string.Format(
@@ -199,6 +195,11 @@ public class IterativeElliottWaveExactIndicator : Indicator
                 Print($"Markup candles saved to: {markupFilePath}");
             }
         }
+
+        if (best == null)
+            return;
+
+        m_CachedBest = best;
 
         Chart.RemoveAllObjects();
 

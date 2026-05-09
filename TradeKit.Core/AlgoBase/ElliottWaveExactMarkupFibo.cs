@@ -73,6 +73,16 @@ namespace TradeKit.Core.AlgoBase
             (0, 0), (5, 0.5), (20, 0.618), (80, 0.786), (90, 0.9), (95, 0.95)
         };
 
+        // W4 retracement of W3 in an IMPULSE.
+        // Unlike W2 (always a simple correction), W4 may be a triangle, which produces
+        // a very shallow *price* retracement (often 0.118–0.236 of W3) while consuming
+        // significant time.  The map therefore explicitly includes small ratios so that
+        // triangle-shaped Wave 4s are scored fairly alongside zigzag/flat Wave 4s.
+        private static readonly (byte weight, double ratio)[] IMPULSE_4_TO_3 =
+        {
+            (0, 0), (5, 0.118), (50, 0.172), (60, 0.236), (75, 0.382), (90, 0.5), (95, 0.618)
+        };
+
         /// <summary>
         /// Returns a score [0,1] based on how well the given ratio matches the fibo map.
         /// Uses exponential penalty: score = weight * exp(-k * |ratio - nearest| / nearest).
@@ -133,7 +143,7 @@ namespace TradeKit.Core.AlgoBase
                     if (len1 <= 0) return 0;
                     product *= GetCorrectionFiboWeight(len2 / len1); numRatios++;
                     product *= GetFiboWeight(IMPULSE_3_TO_1, len3 / len1); numRatios++;
-                    if (len3 > 0) { product *= GetCorrectionFiboWeight(len4 / len3); numRatios++; }
+                    if (len3 > 0) { product *= GetFiboWeight(IMPULSE_4_TO_3, len4 / len3); numRatios++; }
                     product *= GetFiboWeight(IMPULSE_5_TO_1, len5 / len1); numRatios++;
                     break;
                 }

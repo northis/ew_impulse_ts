@@ -3,6 +3,8 @@ using Newtonsoft.Json;
 using Plotly.NET;
 using Plotly.NET.ImageExport;
 using Plotly.NET.LayoutObjects;
+using PuppeteerSharp;
+using PuppeteerSharp.BrowserData;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Json;
 using TradeKit.Core.PatternGeneration;
@@ -33,6 +35,20 @@ namespace TradeKit.Core.Common
 
         static ChartGenerator()
         {
+            string browserDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "TradeKit", "Chromium");
+            Directory.CreateDirectory(browserDir);
+
+            // Pre-fetch Chromium to a deterministic path so that PuppeteerSharp's
+            // BrowserFetcher never has to resolve AppContext.BaseDirectory (which is
+            // empty when running inside a hosted process such as cTrader).
+            var fetcher = new BrowserFetcher(new BrowserFetcherOptions { Path = browserDir });
+            InstalledBrowser revisionInfo = fetcher.DownloadAsync().GetAwaiter().GetResult();
+
+            string executablePath = revisionInfo.GetExecutablePath();
+            PuppeteerSharpRendererOptions.launchOptions.ExecutablePath = executablePath;
+            PuppeteerSharpRendererOptions.localBrowserExecutablePath = new FSharpOption<string>(executablePath);
             PuppeteerSharpRendererOptions.launchOptions.Timeout = 0;
             PuppeteerSharpRendererOptions.navigationOptions.Timeout = 0;
         }
@@ -436,7 +452,9 @@ namespace TradeKit.Core.Common
             }
             else
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+                string dir = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
                 filePath = outputPath;
             }
             
@@ -545,7 +563,8 @@ namespace TradeKit.Core.Common
             else
             {
                 string dir = Path.GetDirectoryName(outputPath);
-                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir!);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
                 filePath = outputPath;
             }
 
