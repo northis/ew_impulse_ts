@@ -1,10 +1,17 @@
-using System;
 using TradeKit.Core.ElliottWave;
 
 namespace TradeKit.Core.AlgoBase
 {
     public partial class ElliottWaveExactMarkup
     {
+        /// <summary>
+        /// Score multiplier applied to any IMPULSE candidate where wave 5 does not
+        /// exceed wave 3's end price (truncated fifth).  A truncated impulse is a rare
+        /// and structurally weak formation; this penalty ensures it always ranks below a
+        /// comparable non-truncated impulse of the same Fibonacci quality.
+        /// </summary>
+        private const double TRUNCATION_SCORE_PENALTY = 0.3;
+
         // Fibonacci ratio maps — aligned with PatternGenerator's generation maps
         // Format: (cumulative-weight-byte, ratio)  — weight=0 is sentinel
         // Weights are cumulative percentiles: (w, r) means w% of samples have ratio ≤ r.
@@ -259,7 +266,21 @@ namespace TradeKit.Core.AlgoBase
             // A triangle lasting many bars as wave B is preferred over a quick zigzag.
             double barCountBonus = CalculateCorrectiveBarCountBonus(model, w);
 
-            return modelCoeff * geometricMean * complexityBonus * barCountBonus;
+            double score = modelCoeff * geometricMean * complexityBonus * barCountBonus;
+
+            // Truncation penalty: IMPULSE where wave 5 does not exceed wave 3's end.
+            // Demoted strongly so normal impulses always outrank truncated ones.
+            if (model == ElliottModelType.IMPULSE && w.Length >= 5)
+            {
+                bool isUpImp  = w[0].IsUp;
+                bool truncated = isUpImp
+                    ? w[4].End.Value < w[2].End.Value
+                    : w[4].End.Value > w[2].End.Value;
+                if (truncated)
+                    score *= TRUNCATION_SCORE_PENALTY;
+            }
+
+            return score;
         }
 
         private static double GetModelCoeff(ElliottModelType model)

@@ -152,6 +152,8 @@ namespace TradeKit.Tests
             if (innerPoints.All(p => p.BarIndex != endPoint.BarIndex))
                 innerPoints.Add(endPoint);
 
+            innerPoints = ExtremumFinderBase.RefineToCorridors(innerPoints, m_BarsProvider);
+
             // ── step 3: parse ───────────────────────────────────────────────
             var markup = new ElliottWaveExactMarkup();
             List<ExactParsedNode> results = markup.Parse(innerPoints);
@@ -230,7 +232,8 @@ namespace TradeKit.Tests
             if (innerPoints.All(p => p.BarIndex != endPoint.BarIndex))
                 innerPoints.Add(endPoint);
 
-            TestContext.WriteLine($"Inner extrema: {innerPoints.Count} points");
+            innerPoints = ExtremumFinderBase.RefineToCorridors(innerPoints, m_BarsProvider);
+            TestContext.WriteLine($"Inner extrema after refinement: {innerPoints.Count} points");
 
             // ── step 3: parse ───────────────────────────────────────────────
             var markup = new ElliottWaveExactMarkup();

@@ -136,6 +136,10 @@ public class IterativeElliottWaveExactIndicator : Indicator
         if (innerPoints.All(p => p.BarIndex != endPoint.BarIndex))
             innerPoints.Add(endPoint);
 
+        // Ensure each zigzag segment's start price is the actual OHLC corridor extremum
+        // so that no candle inside a segment breaches the start-price boundary.
+        innerPoints = ExtremumFinderBase.RefineToCorridors(innerPoints, m_BarProvider);
+
         List<ExactParsedNode> parsed = m_Markup.Parse(innerPoints);
 
         if (SaveMarkupCharts && !m_MarkupChartsSaved && parsed.Count > 0)

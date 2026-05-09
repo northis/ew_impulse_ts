@@ -34,7 +34,7 @@ namespace TradeKit.Core.AlgoBase
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 8;
+        public const int MAX_MARKUP_DEPTH = 4;
 
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
@@ -355,12 +355,6 @@ namespace TradeKit.Core.AlgoBase
                         return false; // discard parent candidate
                 }
 
-                // Hard rule §4.1-simple-impulse (all levels, all positions):
-                // an unidentified segment that stays as SIMPLE_IMPULSE must be a clean
-                // directional move — no candle inside it may breach either the start or
-                // end price, regardless of the current recursion depth.
-                if (!CheckSimpleImpulseContainment(sw.StartPoint, sw.EndPoint))
-                    return false;
             }
             return true;
         }
@@ -435,48 +429,6 @@ namespace TradeKit.Core.AlgoBase
                 if (i < 0 || i >= m_BarsProvider.Count) continue;
                 if (isUp  && m_BarsProvider.GetHighPrice(i) > endPrice) return false;
                 if (!isUp && m_BarsProvider.GetLowPrice(i)  < endPrice) return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Hard rule §4.1-simple-impulse — at <em>any</em> markup level, a segment that
-        /// remains as SIMPLE_IMPULSE must be a "clean" directional move: every candle
-        /// within the segment's bar range must stay inside the price corridor defined
-        /// by the segment's start and end prices.
-        /// <list type="bullet">
-        /// <item>Upward segment (endPrice &gt; startPrice): no bar High above endPrice,
-        ///       no bar Low below startPrice.</item>
-        /// <item>Downward segment: no bar Low below endPrice, no bar High above startPrice.</item>
-        /// </list>
-        /// A breach indicates hidden sub-structure that contradicts the SIMPLE_IMPULSE
-        /// classification — the parent candidate is rejected at any depth.
-        /// Returns <c>true</c> when no <see cref="IBarsProvider"/> was supplied
-        /// (check is skipped in unit tests without real bar data).
-        /// </summary>
-        private bool CheckSimpleImpulseContainment(BarPoint start, BarPoint end)
-        {
-            if (m_BarsProvider == null) return true;
-
-            bool isUp = end.Value > start.Value;
-            double startPrice = start.Value;
-            double endPrice   = end.Value;
-            int from = Math.Min(start.BarIndex, end.BarIndex);
-            int to   = Math.Max(start.BarIndex, end.BarIndex);
-
-            for (int i = from; i <= to; i++)
-            {
-                if (i < 0 || i >= m_BarsProvider.Count) continue;
-                if (isUp)
-                {
-                    if (m_BarsProvider.GetHighPrice(i) > endPrice)   return false;
-                    if (m_BarsProvider.GetLowPrice(i)  < startPrice) return false;
-                }
-                else
-                {
-                    if (m_BarsProvider.GetLowPrice(i)  < endPrice)   return false;
-                    if (m_BarsProvider.GetHighPrice(i) > startPrice) return false;
-                }
             }
             return true;
         }
