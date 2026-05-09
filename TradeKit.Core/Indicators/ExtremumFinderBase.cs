@@ -100,26 +100,82 @@ namespace TradeKit.Core.Indicators
         }
 
         /// <summary>
-        /// Refines a list of alternating extremum points so that each segment's start price
-        /// is the actual OHLC extremum of the bar range it covers.
+        /// Adjusts each intermediate pivot so that it lands on the actual OHLC extremum
+        /// of the segment that <em>ends</em> at that pivot ("end-side" corridor alignment).
         /// <para>
         /// <b>Why this is needed:</b> <see cref="SimpleExtremumFinder"/> switches direction
-        /// when the counter-move exceeds a percentage of the tracked extremum.  Because the
-        /// switch is triggered by the tracked maximum/minimum (not by the leg's start price),
-        /// a bar inside an upward leg can have a Low below the leg's start price — and vice
-        /// versa for downward legs.  These "corridor breaches" indicate that the pivot point
-        /// used as the start of the segment is not the true price floor/ceiling of the leg.
+        /// when the counter-move exceeds a percentage of the tracked extremum, not when the
+        /// move's peak or trough is first visited.  As a result the recorded pivot may sit at
+        /// a bar <em>later</em> than the bar that holds the true High (for an upward segment)
+        /// or the true Low (for a downward segment) of the completed move.  Any markup that
+        /// treats such a segment as <c>SIMPLE_IMPULSE</c> will then see an end-side corridor
+        /// breach — a candle inside the segment whose High or Low exceeds the endpoint.
         /// </para>
         /// <para>
-        /// This method corrects that by scanning each segment and, where the start price is
-        /// not the true extremum, replacing it with the bar whose Low (for up-segments) or
-        /// High (for down-segments) is most extreme within the segment's bar range.
-        /// First and last points (the overall range anchors) are never modified.
+        /// For each intermediate pivot p[i], the method scans the range
+        /// (p[i−1].BarIndex, p[i].BarIndex] — starting one bar <em>after</em> the segment
+        /// start so that the start bar's opposite-side wick is never picked up — and, if a
+        /// bar earlier than p[i] is more extreme (higher High for an upward segment, lower Low
+        /// for a downward segment), replaces p[i] with that bar.  The direction of both
+        /// adjacent segments is preserved, and the alternating zigzag property is never broken.
+        /// First and last points (anchors) are never modified.
         /// </para>
         /// <para>
-        /// When <paramref name="provider"/> is <c>null</c> the list is returned unchanged.
+        /// Call this method <b>before</b> <see cref="RefineToCorridors"/> so that both the
+        /// end and the start of every segment are aligned to the true OHLC extrema.
+        /// Returns the input list unchanged when <paramref name="provider"/> is <c>null</c>.
         /// </para>
         /// </summary>
+        public static List<BarPoint> EndFixCorridors(
+            List<BarPoint> points, IBarsProvider provider)
+        {
+            if (points == null || points.Count < 2 || provider == null)
+                return points;
+
+            var result = new List<BarPoint>(points);
+
+            // Only refine intermediate pivots (i = 1 .. n-2).
+            for (int i = 1; i < result.Count - 1; i++)
+            {
+                BarPoint prev = result[i - 1];
+                BarPoint curr = result[i];
+                BarPoint next = result[i + 1];
+
+                // Direction of the segment that ENDS at curr.
+                bool segUp = curr.Value > prev.Value;
+                // Start one bar AFTER the segment start so that we never pick up
+                // the start bar's High/Low from the opposite side of the move.
+                int from   = Math.Min(prev.BarIndex, curr.BarIndex) + 1;
+                int to     = Math.Max(prev.BarIndex, curr.BarIndex);
+
+                double bestVal = curr.Value;
+                int    bestBar = curr.BarIndex;
+
+                for (int b = from; b <= to; b++)
+                {
+                    if (b < 0 || b >= provider.Count) continue;
+                    if (segUp)
+                    {
+                        double high = provider.GetHighPrice(b);
+                        if (high > bestVal) { bestVal = high; bestBar = b; }
+                    }
+                    else
+                    {
+                        double low = provider.GetLowPrice(b);
+                        if (low < bestVal) { bestVal = low; bestBar = b; }
+                    }
+                }
+
+                // Guard: do not collapse the next segment to zero length.
+                if (bestBar == next.BarIndex) continue;
+
+                if (bestBar != curr.BarIndex || Math.Abs(bestVal - curr.Value) > 1e-9)
+                    result[i] = new BarPoint(bestVal, bestBar, provider);
+            }
+
+            return result;
+        }
+
         public static List<BarPoint> RefineToCorridors(
             List<BarPoint> points, IBarsProvider provider)
         {

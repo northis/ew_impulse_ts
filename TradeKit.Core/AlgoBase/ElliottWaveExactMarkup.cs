@@ -297,6 +297,7 @@ namespace TradeKit.Core.AlgoBase
             if (node?.SubWaves == null) return true;
 
             bool isAtLastSubLevel = depth + 1 >= MAX_MARKUP_DEPTH;
+            bool anyRepaired      = false;
 
             for (int i = 0; i < node.WaveCount; i++)
             {
@@ -342,12 +343,70 @@ namespace TradeKit.Core.AlgoBase
                     continue;
                 }
 
-                // Sub-wave could not be identified.
+                // Sub-wave could not be identified — it stays as SIMPLE_IMPULSE.
+                //
+                // Repair §4.2-endpoint-repair: a corridor breach inside a bare
+                // SIMPLE_IMPULSE is physically impossible — a simple impulse must end
+                // at the true OHLC extremum of its range.  Triangles and flats are
+                // exempt because their internal sub-structure accounts for breaches.
+                // When a breach is detected, move the endpoint (and the adjacent
+                // sub-wave's startpoint) to the actual OHLC extremum so that both the
+                // hard §4.1-endpoint rule and the Fibonacci score use the true price.
+                // Because the update happens before sub-wave i+1 is processed, the
+                // next iteration automatically uses the corrected startpoint.
+                if (m_BarsProvider != null)
+                {
+                    bool   isUp   = sw.IsUp;
+                    double bestVal = sw.EndPoint.Value;
+                    int    bestBar = toBar;
+
+                    // Start from fromBar + 1: the start bar belongs to the opposite
+                    // extremum side (UP wave starts at a LOW, DOWN wave at a HIGH),
+                    // so including it would risk placing the endpoint at the wrong
+                    // side of the move.
+                    for (int b = fromBar + 1; b <= toBar; b++)
+                    {
+                        if (b < 0 || b >= m_BarsProvider.Count) continue;
+                        double v = isUp
+                            ? m_BarsProvider.GetHighPrice(b)
+                            : m_BarsProvider.GetLowPrice(b);
+                        if (isUp ? v > bestVal : v < bestVal)
+                        {
+                            bestVal = v;
+                            bestBar = b;
+                        }
+                    }
+
+                    if (bestBar != toBar)
+                    {
+                        // Guard: never collapse the next sub-wave to zero length.
+                        bool collapse = i + 1 < node.WaveCount
+                            && node.SubWaves[i + 1] != null
+                            && bestBar >= node.SubWaves[i + 1].EndPoint.BarIndex;
+
+                        if (!collapse)
+                        {
+                            var newEnd = new BarPoint(bestVal, bestBar, m_BarsProvider);
+                            sw.EndPoint = newEnd;
+                            sw.EndIndex = bestBar;
+
+                            if (i + 1 < node.WaveCount && node.SubWaves[i + 1] != null)
+                            {
+                                node.SubWaves[i + 1].StartPoint = newEnd;
+                                node.SubWaves[i + 1].StartIndex = bestBar;
+                            }
+
+                            anyRepaired = true;
+                        }
+                    }
+                }
+
                 // Hard rule §4.1-endpoint (last level, motive/zigzag positions only):
                 // if ALL valid models for this position are motive/zigzag types the
                 // segment endpoints MUST be the absolute price extrema of the segment.
-                // A flat-B or truncation exception theoretically exists but requires
-                // inner decomposition that is impossible at this depth — reject.
+                // After the repair above the endpoint is already the OHLC extremum, so
+                // this check passes.  For unrepaired (no-breach) segments it is a safety
+                // net that discards candidates whose zigzag pivot truly missed the peak.
                 if (isAtLastSubLevel && validModels.All(AppliesToMotiveOrZigzag))
                 {
                     var seg = new[] { new Segment { Start = sw.StartPoint, End = sw.EndPoint } };
@@ -356,6 +415,23 @@ namespace TradeKit.Core.AlgoBase
                 }
 
             }
+
+            // If any sub-wave endpoint was repaired, rebuild the parent's Fibonacci score
+            // using the updated wave boundaries.  All candidates are full-span so the
+            // FULL_FIT_BONUS is unconditionally re-applied.
+            if (anyRepaired)
+            {
+                var segs = new Segment[node.WaveCount];
+                for (int j = 0; j < node.WaveCount; j++)
+                {
+                    ExactParsedNode sw = node.SubWaves[j];
+                    segs[j] = new Segment { Start = sw.StartPoint, End = sw.EndPoint };
+                }
+                double repairedScore = CalculateFiboScore(node.ModelType, segs);
+                if (repairedScore > 0)
+                    node.Score = repairedScore * FULL_FIT_BONUS;
+            }
+
             return true;
         }
 
