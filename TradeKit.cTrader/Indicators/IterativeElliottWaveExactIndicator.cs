@@ -63,7 +63,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_Markup = new ElliottWaveExactMarkup();
+        m_Markup = new ElliottWaveExactMarkup(m_BarProvider);
     }
 
     public override void Calculate(int index)

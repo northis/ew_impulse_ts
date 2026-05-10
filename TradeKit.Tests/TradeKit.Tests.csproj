@@ -32,6 +32,9 @@
     <None Update="TestData\USDJPY_h1_2025-03-07T10-00-00_2025-03-10T14-00-00.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\USDJPY_h1_2026-04-30T06-00-00_2026-05-06T04-00-00.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\TriangleSetupFinderTests_001.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
