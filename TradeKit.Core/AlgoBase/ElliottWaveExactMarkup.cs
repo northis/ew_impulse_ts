@@ -34,7 +34,7 @@ namespace TradeKit.Core.AlgoBase
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 4;
+        public const int MAX_MARKUP_DEPTH = 10;
 
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
@@ -197,7 +197,9 @@ namespace TradeKit.Core.AlgoBase
         {
             List<ExactParsedNode> results = ParseInternal(points, null, 0);
             if (m_BarsProvider != null)
+            {
                 results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
+            }
             return results;
         }
 
@@ -500,7 +502,11 @@ namespace TradeKit.Core.AlgoBase
             int from = waves[0].Start.BarIndex;
             int to   = waves[^1].End.BarIndex;
 
-            for (int i = from; i <= to; i++)
+            // Start from from + 1: the start bar belongs to the opposite extremum
+            // side (an UP wave starts at a Low, a DOWN wave at a High), so its
+            // opposite-side OHLC price should not count against the endpoint check.
+            // This aligns with the §4.2-endpoint-repair scan range.
+            for (int i = from + 1; i <= to; i++)
             {
                 if (i < 0 || i >= m_BarsProvider.Count) continue;
                 if (isUp  && m_BarsProvider.GetHighPrice(i) > endPrice) return false;

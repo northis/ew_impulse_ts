@@ -1,15 +1,16 @@
+using cAlgo.API;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using cAlgo.API;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
 using TradeKit.Core.PatternGeneration;
 using TradeKit.CTrader.Core;
+using static SkiaSharp.HarfBuzz.SKShaper;
 
 namespace TradeKit.CTrader.Indicators;
 
@@ -123,7 +124,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
         BarPoint endPoint = new BarPoint(endValue, closerBarIndex, m_BarProvider);
 
         bool isUp = endPoint.Value > startPoint.Value;
-        SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(0.01, m_BarProvider, !isUp);
+        SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(0.3, m_BarProvider, !isUp);
         innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
 
         List<BarPoint> innerPoints = innerFinder.ToExtremaList()
