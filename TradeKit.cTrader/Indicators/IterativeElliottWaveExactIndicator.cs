@@ -124,7 +124,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
         BarPoint endPoint = new BarPoint(endValue, closerBarIndex, m_BarProvider);
 
         bool isUp = endPoint.Value > startPoint.Value;
-        SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(0.3, m_BarProvider, !isUp);
+        SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(0.01, m_BarProvider, !isUp);
         innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
 
         List<BarPoint> innerPoints = innerFinder.ToExtremaList()
