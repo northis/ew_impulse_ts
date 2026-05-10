@@ -10,7 +10,6 @@ using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
 using TradeKit.Core.PatternGeneration;
 using TradeKit.CTrader.Core;
-using static SkiaSharp.HarfBuzz.SKShaper;
 
 namespace TradeKit.CTrader.Indicators;
 
@@ -124,7 +123,11 @@ public class IterativeElliottWaveExactIndicator : Indicator
         BarPoint endPoint = new BarPoint(endValue, closerBarIndex, m_BarProvider);
 
         bool isUp = endPoint.Value > startPoint.Value;
-        SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(0.01, m_BarProvider, !isUp);
+
+
+        var optimizer = new DeviationOptimizer(m_BarProvider, startPoint.BarIndex, endPoint.BarIndex, false);
+        double optimalDev = optimizer.FindOptimalDeviation();
+        SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(optimalDev, m_BarProvider, !isUp);
         innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
 
         List<BarPoint> innerPoints = innerFinder.ToExtremaList()
