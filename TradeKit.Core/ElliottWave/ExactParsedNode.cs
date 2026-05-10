@@ -66,8 +66,22 @@ namespace TradeKit.Core.ElliottWave
                 return 0;
             }
 
+            // Use the minimum depth among sub-waves that have been identified
+            // (non-SIMPLE_IMPULSE). If all are SIMPLE_IMPULSE, return 1.
+            int minIdentified = int.MaxValue;
+            bool anyIdentified = false;
+            foreach (var sw in SubWaves)
+            {
+                if (sw == null) return 0;
+                if (sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
+                {
+                    int d = sw.GetDepth();
+                    if (d < minIdentified) minIdentified = d;
+                    anyIdentified = true;
+                }
+            }
 
-            return SubWaves.Min(a => a.GetDepth()) + 1;
+            return (anyIdentified ? minIdentified : 0) + 1;
         }
 
         /// <summary>

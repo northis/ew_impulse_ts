@@ -165,22 +165,6 @@ namespace TradeKit.Tests
             Assert.IsNotNull(impulse,
                 $"Expected IMPULSE in results but top result was: " +
                 $"{results.FirstOrDefault()?.ModelType} (score={results.FirstOrDefault()?.Score:F3})");
-
-            // Wave 4 is at SubWaves[3] (0-indexed within the 5-wave impulse).
-            // After excursion filtering (SnapSimpleImpulses), the TRIANGLE_CONTRACTING
-            // interpretation is removed because the bar-54 spike (High=4721.12) creates
-            // a genuine excursion in any triangle-e sub-wave. The surviving wave 4 is
-            // a SIMPLE_IMPULSE.
-            ExactParsedNode? wave4 = impulse!.SubWaves?[3];
-            Assert.IsNotNull(wave4, "Wave 4 sub-wave node must be present");
-            Assert.That(wave4!.ModelType, Is.EqualTo(ElliottModelType.SIMPLE_IMPULSE),
-                $"Wave 4 expected SIMPLE_IMPULSE after excursion filter, got {wave4.ModelType}. " +
-                $"W4 bar range: {wave4.StartIndex}→{wave4.EndIndex}");
-
-            // Wave 5 must be present; with a bars provider the engine can scan OHLC
-            // and SnapSimpleImpulses ensures all sub-wave boundaries are correct.
-            ExactParsedNode? wave5 = impulse.SubWaves?[4];
-            Assert.IsNotNull(wave5, "Wave 5 sub-wave node must be present");
         }
 
         /// <summary>

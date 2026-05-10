@@ -34,7 +34,7 @@ namespace TradeKit.Core.AlgoBase
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 10;
+        public const int MAX_MARKUP_DEPTH = 4;
 
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
@@ -76,6 +76,7 @@ namespace TradeKit.Core.AlgoBase
             ElliottModelType.DOUBLE_ZIGZAG,
             ElliottModelType.FLAT_EXTENDED,
             ElliottModelType.FLAT_RUNNING,
+            ElliottModelType.FLAT_REGULAR,
             ElliottModelType.TRIANGLE_CONTRACTING,
             ElliottModelType.TRIANGLE_RUNNING,
             ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
@@ -155,7 +156,7 @@ namespace TradeKit.Core.AlgoBase
             {
                 BarPoint prev = result[^1];
                 BarPoint cur = points[i];
-                if (Math.Abs(cur.Value - prev.Value) < double.Epsilon)
+                if (Math.Abs(cur.Value - prev.Value) < prev.Value * 1e-10)
                     continue;
                 if (result.Count == 1)
                 {
@@ -198,9 +199,95 @@ namespace TradeKit.Core.AlgoBase
             List<ExactParsedNode> results = ParseInternal(points, null, 0);
             if (m_BarsProvider != null)
             {
+                // Post-pass: walk the entire result tree and repair every SIMPLE_IMPULSE
+                // leaf so its endpoint matches the true OHLC extremum and no candle
+                // breaches the start price.  This catches leaves that were created at
+                // deep recursion levels where FillSubWaveModels could not run.
+                results = results.Where(n => RepairSimpleImpulseLeaves(n)).ToList();
+
                 results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
             }
             return results;
+        }
+
+        /// <summary>
+        /// Recursively walks the parsed tree.  For every SIMPLE_IMPULSE leaf:
+        /// 1. Checks that no candle breaches the start price (hard → returns false).
+        /// 2. Moves the endpoint to the true OHLC extremum in the wave direction.
+        /// Returns false if the tree must be discarded (breach found).
+        /// </summary>
+        private bool RepairSimpleImpulseLeaves(ExactParsedNode node)
+        {
+            if (node?.SubWaves == null) return true;
+
+            for (int i = 0; i < node.WaveCount; i++)
+            {
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw == null) continue;
+
+                if (sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
+                {
+                    bool isUp = sw.IsUp;
+                    double startPrice = sw.StartPoint.Value;
+                    int fromBar = sw.StartPoint.BarIndex;
+                    int toBar = sw.EndPoint.BarIndex;
+                    double bestVal = isUp ? double.MinValue : double.MaxValue;
+                    int bestBar = toBar;
+
+                    for (int b = fromBar; b <= toBar; b++)
+                    {
+                        if (b < 0 || b >= m_BarsProvider.Count) continue;
+
+                        // Breach check (skip fromBar — start extremum is on the opposite side)
+                        if (b > fromBar)
+                        {
+                            if (isUp && m_BarsProvider.GetLowPrice(b) < startPrice)
+                                return false;
+                            if (!isUp && m_BarsProvider.GetHighPrice(b) > startPrice)
+                                return false;
+                        }
+
+                        // Track the true extremum
+                        double v = isUp
+                            ? m_BarsProvider.GetHighPrice(b)
+                            : m_BarsProvider.GetLowPrice(b);
+                        if (isUp ? v > bestVal : v < bestVal)
+                        {
+                            bestVal = v;
+                            bestBar = b;
+                        }
+                    }
+
+                    // Repair endpoint to the true OHLC extremum
+                    if (Math.Abs(sw.EndPoint.Value - bestVal) > bestVal * 1e-10
+                        || bestBar != toBar)
+                    {
+                        bool collapse = i + 1 < node.WaveCount
+                            && node.SubWaves[i + 1] != null
+                            && bestBar >= node.SubWaves[i + 1].EndPoint.BarIndex;
+
+                        if (!collapse)
+                        {
+                            var newEnd = new BarPoint(bestVal, bestBar, m_BarsProvider);
+                            sw.EndPoint = newEnd;
+                            sw.EndIndex = bestBar;
+
+                            if (i + 1 < node.WaveCount && node.SubWaves[i + 1] != null)
+                            {
+                                node.SubWaves[i + 1].StartPoint = newEnd;
+                                node.SubWaves[i + 1].StartIndex = bestBar;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (!RepairSimpleImpulseLeaves(sw))
+                        return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -347,20 +434,20 @@ namespace TradeKit.Core.AlgoBase
 
                 // Sub-wave could not be identified — it stays as SIMPLE_IMPULSE.
                 //
-                // Repair §4.2-endpoint-repair: a corridor breach inside a bare
-                // SIMPLE_IMPULSE is physically impossible — a simple impulse must end
-                // at the true OHLC extremum of its range.  Triangles and flats are
-                // exempt because their internal sub-structure accounts for breaches.
-                // When a breach is detected, move the endpoint (and the adjacent
-                // sub-wave's startpoint) to the actual OHLC extremum so that both the
-                // hard §4.1-endpoint rule and the Fibonacci score use the true price.
-                // Because the update happens before sub-wave i+1 is processed, the
-                // next iteration automatically uses the corrected startpoint.
+                // Hard rule: SIMPLE_IMPULSE is a simple move from min to max (or vice versa).
+                // No candle within the segment may breach the start price, and the endpoint
+                // must be the true OHLC extremum of the range in the wave's direction.
+                //
+                // Repair §4.2-endpoint-repair: when a breach is detected inside a bare
+                // SIMPLE_IMPULSE, move the endpoint to the actual OHLC extremum so that
+                // both the hard §4.1-endpoint rule and the Fibonacci score use the true price.
                 if (m_BarsProvider != null)
                 {
                     bool   isUp   = sw.IsUp;
+                    double startPrice = sw.StartPoint.Value;
                     double bestVal = sw.EndPoint.Value;
                     int    bestBar = toBar;
+                    bool   hasBreach = false;
 
                     // Start from fromBar + 1: the start bar belongs to the opposite
                     // extremum side (UP wave starts at a LOW, DOWN wave at a HIGH),
@@ -369,6 +456,20 @@ namespace TradeKit.Core.AlgoBase
                     for (int b = fromBar + 1; b <= toBar; b++)
                     {
                         if (b < 0 || b >= m_BarsProvider.Count) continue;
+
+                        // Check candle breach: no candle in SIMPLE_IMPULSE may breach start
+                        if (isUp && m_BarsProvider.GetLowPrice(b) < startPrice)
+                        {
+                            hasBreach = true;
+                            break;
+                        }
+                        if (!isUp && m_BarsProvider.GetHighPrice(b) > startPrice)
+                        {
+                            hasBreach = true;
+                            break;
+                        }
+
+                        // Track the true extremum for endpoint repair
                         double v = isUp
                             ? m_BarsProvider.GetHighPrice(b)
                             : m_BarsProvider.GetLowPrice(b);
@@ -379,6 +480,14 @@ namespace TradeKit.Core.AlgoBase
                         }
                     }
 
+                    // If a candle breaches start price inside SIMPLE_IMPULSE, the
+                    // parent candidate is invalid — discard it.
+                    if (hasBreach)
+                        return false;
+
+                    // Enforce direction endpoint: up wave must end at the High,
+                    // down wave must end at the Low. If the current endpoint doesn't
+                    // match, repair it to the true extremum.
                     if (bestBar != toBar)
                     {
                         // Guard: never collapse the next sub-wave to zero length.
@@ -399,6 +508,32 @@ namespace TradeKit.Core.AlgoBase
                             }
 
                             anyRepaired = true;
+                        }
+                    }
+                    else
+                    {
+                        // Endpoint bar is correct but verify direction match:
+                        // up wave endpoint must equal the bar's High, down wave must equal Low.
+                        int endIdx = sw.EndPoint.BarIndex;
+                        if (endIdx >= 0 && endIdx < m_BarsProvider.Count)
+                        {
+                            double expected = isUp
+                                ? m_BarsProvider.GetHighPrice(endIdx)
+                                : m_BarsProvider.GetLowPrice(endIdx);
+                            if (Math.Abs(sw.EndPoint.Value - expected) > expected * 1e-7)
+                            {
+                                var newEnd = new BarPoint(expected, endIdx, m_BarsProvider);
+                                sw.EndPoint = newEnd;
+                                sw.EndIndex = endIdx;
+
+                                if (i + 1 < node.WaveCount && node.SubWaves[i + 1] != null)
+                                {
+                                    node.SubWaves[i + 1].StartPoint = newEnd;
+                                    node.SubWaves[i + 1].StartIndex = endIdx;
+                                }
+
+                                anyRepaired = true;
+                            }
                         }
                     }
                 }
@@ -668,13 +803,13 @@ namespace TradeKit.Core.AlgoBase
                 {
                     // Ascending wave — end must be the bar HIGH
                     double barHigh = m_BarsProvider.GetHighPrice(idx);
-                    if (Math.Abs(w.End.Value - barHigh) > 1e-9) return false;
+                    if (w.End.Value < barHigh * (1.0 - 1e-7)) return false;
                 }
                 else
                 {
                     // Descending wave — end must be the bar LOW
                     double barLow = m_BarsProvider.GetLowPrice(idx);
-                    if (Math.Abs(w.End.Value - barLow) > 1e-9) return false;
+                    if (w.End.Value > barLow * (1.0 + 1e-7)) return false;
                 }
             }
             return true;
@@ -803,6 +938,7 @@ namespace TradeKit.Core.AlgoBase
 
                 case ElliottModelType.FLAT_EXTENDED:
                 case ElliottModelType.FLAT_RUNNING:
+                case ElliottModelType.FLAT_REGULAR:
                     if (waveIdx == 1)
                     {
                         if ( isUp && w[1].End.Value >= start) return false; // B overshoots below start
@@ -921,9 +1057,11 @@ namespace TradeKit.Core.AlgoBase
                     {
                         double wWLen = w[0].Length;
                         double wXLen = w[1].Length;
+                        double wYLen = w[2].Length;
                         double wWEnd = w[0].End.Value;
 
                         if (wXLen > wWLen * 0.95) return false;
+                        if (wYLen < wWLen * 0.618) return false;
 
                         if (isUp && w[1].End.Value <= start) return false;
                         if (!isUp && w[1].End.Value >= start) return false;
@@ -963,6 +1101,23 @@ namespace TradeKit.Core.AlgoBase
                         // C does NOT reach A's end territory (short of A — the "running" property).
                         if (isUp && w[2].End.Value >= wAEnd) return false;
                         if (!isUp && w[2].End.Value <= wAEnd) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.FLAT_REGULAR:
+                    if (w.Length < 3) return false;
+                    {
+                        double wAEnd = w[0].End.Value;
+
+                        // B retraces near origin but does NOT overshoot it significantly.
+                        // (Opposite to FLAT_EXTENDED where B goes past start.)
+                        // B stays on the same side as the wave direction relative to start.
+                        if (isUp && w[1].End.Value >= start) return false;
+                        if (!isUp && w[1].End.Value <= start) return false;
+
+                        // C extends beyond A's end (similar to extended flat).
+                        if (isUp && w[2].End.Value <= wAEnd) return false;
+                        if (!isUp && w[2].End.Value >= wAEnd) return false;
                     }
                     return true;
 

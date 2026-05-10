@@ -75,6 +75,12 @@ namespace TradeKit.Core.AlgoBase
             (0, 0), (5, 0.5), (20, 0.618), (80, 1.0), (90, 1.272), (95, 1.618)
         };
 
+        // Regular flat: C ≈ A, peak at 1.0; 1.272 and 1.618 are uncommon extensions.
+        private static readonly (byte weight, double ratio)[] MAP_REG_FLAT_WAVE_C_TO_A =
+        {
+            (0, 0), (70, 1.0), (90, 1.272), (99, 1.618)
+        };
+
         private static readonly (byte weight, double ratio)[] MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV =
         {
             (0, 0), (5, 0.5), (20, 0.618), (80, 0.786), (90, 0.9), (95, 0.95)
@@ -235,6 +241,18 @@ namespace TradeKit.Core.AlgoBase
                     break;
                 }
 
+                case ElliottModelType.FLAT_REGULAR:
+                {
+                    double lenA = w[0].Length;
+                    double lenB = w[1].Length;
+                    double lenC = w[2].Length;
+
+                    if (lenA <= 0) return 0;
+                    product *= GetCorrectionFiboWeight(lenB / lenA); numRatios++;
+                    product *= GetFiboWeight(MAP_REG_FLAT_WAVE_C_TO_A, lenC / lenA); numRatios++;
+                    break;
+                }
+
                 case ElliottModelType.TRIANGLE_CONTRACTING:
                 case ElliottModelType.TRIANGLE_RUNNING:
                 {
@@ -258,8 +276,8 @@ namespace TradeKit.Core.AlgoBase
 
             // Complexity bonus: a model that satisfies more independent Fibo relationships is
             // more constrained (more specific) and should be preferred when the fit is equal.
-            // Using sqrt(numRatios) as the bonus so IMPULSE(4)=×2 vs ZIGZAG(2)=×1.41.
-            double complexityBonus = Math.Sqrt(numRatios);
+            // Using log2(numRatios+1) to avoid excessive bias toward models with more ratios.
+            double complexityBonus = Math.Log2(numRatios + 1);
 
             // Bar-count bonus for corrective waves: prefer candidates where corrective
             // sub-waves (e.g. B in a zigzag, waves 2/4 in an impulse) consume more bars.
@@ -302,7 +320,8 @@ namespace TradeKit.Core.AlgoBase
                 or ElliottModelType.DIAGONAL_CONTRACTING_ENDING => new[] { 1, 3 },
             ElliottModelType.ZIGZAG
                 or ElliottModelType.FLAT_EXTENDED
-                or ElliottModelType.FLAT_RUNNING => new[] { 1 },
+                or ElliottModelType.FLAT_RUNNING
+                or ElliottModelType.FLAT_REGULAR => new[] { 1 },
             ElliottModelType.DOUBLE_ZIGZAG => new[] { 1 },
             ElliottModelType.TRIANGLE_CONTRACTING
                 or ElliottModelType.TRIANGLE_RUNNING => new[] { 1, 2, 3, 4 },
