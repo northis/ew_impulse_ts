@@ -20,6 +20,22 @@ namespace TradeKit.Core.AlgoBase
         private const int MAX_CANDIDATES_FOR_SUBWAVE_FILL = 20;
 
         /// <summary>
+        /// Minimum number of top-scoring candidates retained per model type
+        /// before the global <see cref="MAX_CANDIDATES_FOR_SUBWAVE_FILL"/> cap
+        /// is applied.  Guarantees that minority models (e.g. ZIGZAG when IMPULSE
+        /// dominates) always get a chance at recursive sub-wave filling.
+        /// </summary>
+        private const int MIN_CANDIDATES_PER_MODEL = 3;
+
+        /// <summary>
+        /// Maximum number of candidate combinations evaluated per model type
+        /// inside <see cref="TryCombinationsRecurse"/>.  When the alternating-
+        /// point count is large, IMPULSE (5-wave) generates O(n^4) combinations;
+        /// this cap prevents the search from taking minutes on 200+ points.
+        /// </summary>
+        private const int MAX_ITERATIONS_PER_MODEL = 500_000;
+
+        /// <summary>
         /// Maximum score multiplier applied to a candidate when all of its sub-waves
         /// (and their sub-waves, recursively) have been successfully identified.
         /// A value of 0.5 means a fully-identified markup can earn up to 1.5× its
@@ -332,8 +348,9 @@ namespace TradeKit.Core.AlgoBase
                 // ends at altPoints[n-1], guaranteeing no extremum is silently skipped.
                 if (n - 2 >= k - 1) // at least k-1 inner points available
                 {
+                    int iterCount = 0;
                     TryCombinations(model, altPoints, 0, n - 1, k, results, fullSpan: true,
-                        enforceEndpointExtrema: isLastLevel);
+                        iterCount: ref iterCount, enforceEndpointExtrema: isLastLevel);
                 }
             }
 
@@ -347,11 +364,11 @@ namespace TradeKit.Core.AlgoBase
                 // at the last markup level a sub-wave position whose valid models are
                 // all motive/zigzag must either (a) be identified as one of those models
                 // or (b) pass the endpoint-extremum hard rule (§4.1-endpoint).
-                // Only the top MAX_CANDIDATES_FOR_SUBWAVE_FILL candidates are processed —
-                // lower-ranked combinations are unlikely to win after the depth-coverage
-                // re-sort and processing them wastes exponential recursive work.
+                // Model-diversity selection: guarantee each model type gets at
+                // least MIN_CANDIDATES_PER_MODEL slots so that minority models
+                // (e.g. ZIGZAG when IMPULSE dominates) are not completely evicted.
+                results = SelectDiverseCandidates(results);
                 results = results
-                    .Take(MAX_CANDIDATES_FOR_SUBWAVE_FILL)
                     .Where(node => FillSubWaveModels(node, points, depth + 1))
                     .ToList();
 
@@ -663,6 +680,50 @@ namespace TradeKit.Core.AlgoBase
                 : Array.Empty<ElliottModelType>();
         }
 
+        /// <summary>
+        /// Selects up to <see cref="MAX_CANDIDATES_FOR_SUBWAVE_FILL"/> candidates while
+        /// guaranteeing that each model type is represented by at least
+        /// <see cref="MIN_CANDIDATES_PER_MODEL"/> entries (when available).
+        /// Without this, a model type that generates O(n^4) combinations (IMPULSE)
+        /// can fill all top slots and evict structurally correct 3-wave candidates
+        /// (ZIGZAG, DOUBLE_ZIGZAG) from the sub-wave filling stage.
+        /// </summary>
+        private static List<ExactParsedNode> SelectDiverseCandidates(
+            List<ExactParsedNode> sortedResults)
+        {
+            if (sortedResults.Count <= MAX_CANDIDATES_FOR_SUBWAVE_FILL)
+                return sortedResults;
+
+            var selected = new List<ExactParsedNode>();
+            var usedSet  = new HashSet<ExactParsedNode>(ReferenceEqualityComparer.Instance);
+
+            // Phase 1: guarantee MIN_CANDIDATES_PER_MODEL per model type
+            foreach (var group in sortedResults.GroupBy(r => r.ModelType))
+            {
+                foreach (ExactParsedNode node in group.Take(MIN_CANDIDATES_PER_MODEL))
+                {
+                    selected.Add(node);
+                    usedSet.Add(node);
+                }
+            }
+
+            // Phase 2: fill remaining slots with the overall best-scoring candidates
+            int remaining = MAX_CANDIDATES_FOR_SUBWAVE_FILL - selected.Count;
+            if (remaining > 0)
+            {
+                foreach (ExactParsedNode node in sortedResults)
+                {
+                    if (remaining <= 0) break;
+                    if (usedSet.Contains(node)) continue;
+                    selected.Add(node);
+                    remaining--;
+                }
+            }
+
+            // Return in score-descending order
+            return selected.OrderByDescending(x => x.Score).ToList();
+        }
+
         /// <summary>Returns the index of the first element whose BarIndex ≥ <paramref name="barIndex"/>.</summary>
         private static int LowerBound(List<BarPoint> points, int barIndex)
         {
@@ -704,6 +765,7 @@ namespace TradeKit.Core.AlgoBase
             int k,
             List<ExactParsedNode> results,
             bool fullSpan,
+            ref int iterCount,
             bool enforceEndpointExtrema = false)
         {
             if (outerEnd - outerStart - 1 < k - 1) return; // not enough inner points
@@ -716,7 +778,8 @@ namespace TradeKit.Core.AlgoBase
 
             TryCombinationsRecurse(
                 model, altPoints, outerStart, outerEnd, k, 0,
-                pts, waves, results, fullSpan, enforceEndpointExtrema);
+                pts, waves, results, fullSpan, enforceEndpointExtrema,
+                ref iterCount);
         }
 
         /// <summary>
@@ -731,7 +794,8 @@ namespace TradeKit.Core.AlgoBase
             int k, int waveIdx,
             BarPoint[] pts, Segment[] waves,
             List<ExactParsedNode> results,
-            bool fullSpan, bool enforceEndpointExtrema)
+            bool fullSpan, bool enforceEndpointExtrema,
+            ref int iterCount)
         {
             if (waveIdx == k - 1)
             {
@@ -764,6 +828,9 @@ namespace TradeKit.Core.AlgoBase
 
             for (int j = prevAltIdx + 1; j <= hi; j++)
             {
+                if (iterCount >= MAX_ITERATIONS_PER_MODEL) return;
+                iterCount++;
+
                 pts[waveIdx + 1] = altPoints[j];
                 waves[waveIdx]   = new Segment { Start = pts[waveIdx], End = pts[waveIdx + 1] };
 
@@ -781,7 +848,8 @@ namespace TradeKit.Core.AlgoBase
 
                 TryCombinationsRecurse(
                     model, altPoints, j, outerEnd, k, waveIdx + 1,
-                    pts, waves, results, fullSpan, enforceEndpointExtrema);
+                    pts, waves, results, fullSpan, enforceEndpointExtrema,
+                    ref iterCount);
             }
         }
 

@@ -276,8 +276,10 @@ namespace TradeKit.Core.AlgoBase
 
             // Complexity bonus: a model that satisfies more independent Fibo relationships is
             // more constrained (more specific) and should be preferred when the fit is equal.
-            // Using log2(numRatios+1) to avoid excessive bias toward models with more ratios.
-            double complexityBonus = Math.Log2(numRatios + 1);
+            // Dampened with a small scale factor so that 5-wave and 3-wave models compete
+            // on comparable scales (raw log2 gave IMPULSE a 47 % systematic advantage
+            // over ZIGZAG, burying correct 3-wave solutions).
+            double complexityBonus = 1.0 + Math.Log2(numRatios + 1) * 0.15;
 
             // Bar-count bonus for corrective waves: prefer candidates where corrective
             // sub-waves (e.g. B in a zigzag, waves 2/4 in an impulse) consume more bars.

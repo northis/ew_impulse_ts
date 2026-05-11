@@ -126,7 +126,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
 
         var optimizer = new DeviationOptimizer(m_BarProvider, startPoint.BarIndex, endPoint.BarIndex, false);
-        double optimalDev = optimizer.FindOptimalDeviation();
+        double optimalDev = 0.1;//optimizer.FindOptimalDeviation();
         SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(optimalDev, m_BarProvider, !isUp);
         innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
 
