@@ -220,14 +220,10 @@ namespace TradeKit.Core.AlgoBase
         public List<ExactParsedNode> Parse(List<BarPoint> points)
         {
             List<ExactParsedNode> results = ParseInternal(points, null, 0);
+
             if (m_BarsProvider != null)
             {
-                // Post-pass: walk the entire result tree and repair every SIMPLE_IMPULSE
-                // leaf so its endpoint matches the true OHLC extremum and no candle
-                // breaches the start price.  This catches leaves that were created at
-                // deep recursion levels where FillSubWaveModels could not run.
                 results = results.Where(n => RepairSimpleImpulseLeaves(n)).ToList();
-
                 results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
             }
             return results;
@@ -580,6 +576,8 @@ namespace TradeKit.Core.AlgoBase
             // If any sub-wave endpoint was repaired, rebuild the parent's Fibonacci score
             // using the updated wave boundaries.  All candidates are full-span so the
             // FULL_FIT_BONUS is unconditionally re-applied.
+            // After repair, re-validate diagonal hard rules because endpoint
+            // shifts may have broken W3>W1 or contracting-length constraints.
             if (anyRepaired)
             {
                 var segs = new Segment[node.WaveCount];
@@ -588,6 +586,10 @@ namespace TradeKit.Core.AlgoBase
                     ExactParsedNode sw = node.SubWaves[j];
                     segs[j] = new Segment { Start = sw.StartPoint, End = sw.EndPoint };
                 }
+
+                if (!CheckHardRules(node.ModelType, segs))
+                    return false;
+
                 double repairedScore = CalculateFiboScore(node.ModelType, segs);
                 if (repairedScore > 0)
                     node.Score = repairedScore * FULL_FIT_BONUS;
@@ -595,11 +597,6 @@ namespace TradeKit.Core.AlgoBase
 
             return true;
         }
-
-        /// <summary>
-        /// Returns the fraction [0.0, 1.0] of immediate sub-waves that have been identified
-        /// as a real Elliott Wave model (anything other than
-        /// <see cref="ElliottModelType.SIMPLE_IMPULSE"/>).
         /// 0.0 = all sub-waves are bare SIMPLE_IMPULSE segments (no sub-structure found).
         /// 1.0 = every sub-wave was successfully identified as a named model.
         /// Used to compute the depth-coverage bonus applied in <see cref="ParseInternal"/>.

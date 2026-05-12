@@ -144,5 +144,109 @@ namespace TradeKit.Tests
             }
         }
 
+        /// <summary>
+        /// Reproduces the indicator flow for EURUSD h1 data where the chart showed
+        /// a diagonal with wave 3 not clearly exceeding wave 1.
+        /// After the MIN_DIAGONAL_PENETRATION fix no diagonal should be found.
+        /// </summary>
+        [Test]
+        public void ExactMarkup_EurusdH1_NoDiagonalWithWeakW3()
+        {
+            string csvPath = Path.Combine(
+                TestContext.CurrentContext.TestDirectory,
+                "TestData",
+                "EURUSD_h1_2026-05-08T02-00-00_2026-05-11T22-00-00.csv");
+
+            var tf = new TimeFrameBase("Hour", "h1");
+            var sym = new SymbolBase("EURUSD", "EURUSD", 5, 1, 0.00001, 0.1, 100000);
+            var provider = new TestBarsProvider(tf, sym);
+            provider.LoadCandles(csvPath);
+
+            Assert.That(provider.Count, Is.GreaterThan(0), "CSV must load successfully");
+
+            // Replicate the indicator flow: find overall max/min
+            int startBarIndex = 0;
+            int endBarIndex = provider.Count - 1;
+
+            double maxValue = double.MinValue;
+            double minValue = double.MaxValue;
+            int maxBarIndex = startBarIndex;
+            int minBarIndex = startBarIndex;
+
+            for (int i = startBarIndex; i <= endBarIndex; i++)
+            {
+                double high = provider.GetHighPrice(i);
+                double low = provider.GetLowPrice(i);
+                if (high > maxValue) { maxValue = high; maxBarIndex = i; }
+                if (low < minValue) { minValue = low; minBarIndex = i; }
+            }
+
+            int fartherBarIndex = Math.Min(maxBarIndex, minBarIndex);
+            int closerBarIndex = Math.Max(maxBarIndex, minBarIndex);
+            double startValue = fartherBarIndex == maxBarIndex ? maxValue : minValue;
+            double endValue = closerBarIndex == maxBarIndex ? maxValue : minValue;
+
+            var startPoint = new BarPoint(startValue, fartherBarIndex, provider);
+            var endPoint = new BarPoint(endValue, closerBarIndex, provider);
+            bool isUp = endPoint.Value > startPoint.Value;
+
+            // Same deviation as the indicator
+            var innerFinder = new TradeKit.Core.Indicators.SimpleExtremumFinder(
+                0.1, provider, !isUp);
+            innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
+
+            List<BarPoint> innerPoints = innerFinder.ToExtremaList()
+                .Where(p => p.BarIndex >= startPoint.BarIndex && p.BarIndex <= endPoint.BarIndex)
+                .ToList();
+
+            if (innerPoints.All(p => p.BarIndex != startPoint.BarIndex))
+                innerPoints.Insert(0, startPoint);
+            if (innerPoints.All(p => p.BarIndex != endPoint.BarIndex))
+                innerPoints.Add(endPoint);
+
+            // Corridor refinement — exactly as the indicator does
+            innerPoints = TradeKit.Core.Indicators.ExtremumFinderBase
+                .EndFixCorridors(innerPoints, provider);
+            innerPoints = TradeKit.Core.Indicators.ExtremumFinderBase
+                .RefineToCorridors(innerPoints, provider);
+
+            TestContext.WriteLine($"Inner points: {innerPoints.Count}");
+            foreach (var p in innerPoints)
+                TestContext.WriteLine($"  bar={p.BarIndex} val={p.Value:F5}");
+
+            // Parse with BarsProvider (same as indicator — enables candle breach checks)
+            var markup = new TradeKit.Core.AlgoBase.ElliottWaveExactMarkup(provider);
+            var results = markup.Parse(innerPoints);
+
+            TestContext.WriteLine($"Total results: {results.Count}");
+            foreach (var r in results.Take(10))
+                TestContext.WriteLine($"  {r.ModelType} score={r.Score:F3} waves={r.WaveCount}/{r.ExpectedWaves}");
+
+            var diagonals = results
+                .Where(r => TradeKit.Core.AlgoBase.ElliottWavePatternHelper
+                    .DiagonalImpulses.Contains(r.ModelType))
+                .ToList();
+
+            TestContext.WriteLine($"Diagonals found: {diagonals.Count}");
+            foreach (var d in diagonals)
+            {
+                TestContext.WriteLine(
+                    $"  {d.ModelType} score={d.Score:F3} " +
+                    $"start={d.StartPoint.Value:F5}(bar{d.StartPoint.BarIndex})");
+                for (int wi = 0; wi < d.WaveCount; wi++)
+                {
+                    var sw = d.SubWaves[wi];
+                    TestContext.WriteLine(
+                        $"    W{wi+1}: {sw.StartPoint.Value:F5}(bar{sw.StartPoint.BarIndex})" +
+                        $" → {sw.EndPoint.Value:F5}(bar{sw.EndPoint.BarIndex})" +
+                        $" len={Math.Abs(sw.EndPoint.Value - sw.StartPoint.Value):F5}" +
+                        $" {(sw.EndPoint.Value > sw.StartPoint.Value ? "UP" : "DN")}");
+                }
+            }
+
+            Assert.That(diagonals, Is.Empty,
+                "No diagonal should be found — wave 3 does not clearly exceed wave 1");
+        }
+
 }
 }
