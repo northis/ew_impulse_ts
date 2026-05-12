@@ -53,6 +53,13 @@ namespace TradeKit.Core.AlgoBase
         public const int MAX_MARKUP_DEPTH = 4;
 
         /// <summary>
+        /// Minimum fraction of the reference wave's length by which the next
+        /// same-direction wave must exceed the reference wave's endpoint.
+        /// Prevents diagonals where W3 barely touches W1 from being accepted.
+        /// </summary>
+        private const double MIN_DIAGONAL_PENETRATION = 0.05;
+
+        /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
         /// top-level result to be returned from <see cref="Parse"/>.
         /// A value of <c>MAX_MARKUP_DEPTH / 2</c> guarantees that every direct
@@ -982,9 +989,12 @@ namespace TradeKit.Core.AlgoBase
                             if (!isUp && w[1].End.Value >= start) return false;
                             break;
                         case 2:
-                            if ( isUp && w[2].End.Value <= w[0].End.Value) return false;
-                            if (!isUp && w[2].End.Value >= w[0].End.Value) return false;
+                        {
+                            double pen = MIN_DIAGONAL_PENETRATION * w[0].Length;
+                            if ( isUp && w[2].End.Value < w[0].End.Value + pen) return false;
+                            if (!isUp && w[2].End.Value > w[0].End.Value - pen) return false;
                             if (w[2].Length >= w[0].Length) return false; // contracting
+                        }
                             break;
                         case 3:
                             if ( isUp && w[3].End.Value >= w[0].End.Value) return false; // overlap
@@ -1077,8 +1087,9 @@ namespace TradeKit.Core.AlgoBase
                         if (isUp && w[1].End.Value <= start) return false;
                         if (!isUp && w[1].End.Value >= start) return false;
 
-                        if (isUp && w3End <= w1End) return false;
-                        if (!isUp && w3End >= w1End) return false;
+                        double diagPen = MIN_DIAGONAL_PENETRATION * w[0].Length;
+                        if (isUp && w3End < w1End + diagPen) return false;
+                        if (!isUp && w3End > w1End - diagPen) return false;
 
                         // W4 overlaps W1 territory
                         if (isUp && w4End >= w1End) return false;
@@ -1095,8 +1106,9 @@ namespace TradeKit.Core.AlgoBase
                         // Initial diagonal: W5 must exceed W3 end
                         if (model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL)
                         {
-                            if (isUp && w[4].End.Value <= w3End) return false;
-                            if (!isUp && w[4].End.Value >= w3End) return false;
+                            double pen5 = MIN_DIAGONAL_PENETRATION * w[2].Length;
+                            if (isUp && w[4].End.Value < w3End + pen5) return false;
+                            if (!isUp && w[4].End.Value > w3End - pen5) return false;
                         }
                     }
                     return true;

@@ -81,6 +81,25 @@ namespace TradeKit.Core.AlgoBase
             (0, 0), (70, 1.0), (90, 1.272), (99, 1.618)
         };
 
+        // FLAT B/A maps — wave B overshoots the pattern origin, so B/A > 1.0.
+        // Extended / running flat: B typically 100–138.2 % of A (Prechter).
+        private static readonly (byte weight, double ratio)[] MAP_FLAT_EXTENDED_B_TO_A =
+        {
+            (0, 0), (5, 0.786), (15, 1.0), (50, 1.236), (85, 1.382), (95, 1.618)
+        };
+
+        // Running flat B/A: same overshoot range as extended.
+        private static readonly (byte weight, double ratio)[] MAP_FLAT_RUNNING_B_TO_A =
+        {
+            (0, 0), (5, 0.786), (15, 1.0), (50, 1.236), (85, 1.382), (95, 1.618)
+        };
+
+        // Regular flat: B ≈ 90–105 % of A, peak at 1.0.
+        private static readonly (byte weight, double ratio)[] MAP_FLAT_REGULAR_B_TO_A =
+        {
+            (0, 0), (5, 0.618), (15, 0.786), (80, 1.0), (95, 1.1)
+        };
+
         private static readonly (byte weight, double ratio)[] MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV =
         {
             (0, 0), (5, 0.5), (20, 0.618), (80, 0.786), (90, 0.9), (95, 0.95)
@@ -170,7 +189,7 @@ namespace TradeKit.Core.AlgoBase
                     // TargetModels list order (INITIAL before ENDING) acts as a tie-breaker.
                     // The probability coefficients from EW_RULES.md (0.03 / 1.0) are generation
                     // weights only and are not used for detection scoring.
-                    modelCoeff = 1.0;
+                    modelCoeff = 1.3;
 
                     double len1 = w[0].Length;
                     double len2 = w[1].Length;
@@ -224,7 +243,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenC = w[2].Length;
 
                     if (lenA <= 0) return 0;
-                    product *= GetCorrectionFiboWeight(lenB / lenA); numRatios++;
+                    product *= GetFiboWeight(MAP_FLAT_EXTENDED_B_TO_A, lenB / lenA); numRatios++;
                     product *= GetFiboWeight(MAP_EX_FLAT_WAVE_C_TO_A, lenC / lenA); numRatios++;
                     break;
                 }
@@ -236,7 +255,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenC = w[2].Length;
 
                     if (lenA <= 0) return 0;
-                    product *= GetCorrectionFiboWeight(lenB / lenA); numRatios++;
+                    product *= GetFiboWeight(MAP_FLAT_RUNNING_B_TO_A, lenB / lenA); numRatios++;
                     product *= GetFiboWeight(MAP_RUNNING_FLAT_WAVE_C_TO_A, lenC / lenA); numRatios++;
                     break;
                 }
@@ -248,7 +267,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenC = w[2].Length;
 
                     if (lenA <= 0) return 0;
-                    product *= GetCorrectionFiboWeight(lenB / lenA); numRatios++;
+                    product *= GetFiboWeight(MAP_FLAT_REGULAR_B_TO_A, lenB / lenA); numRatios++;
                     product *= GetFiboWeight(MAP_REG_FLAT_WAVE_C_TO_A, lenC / lenA); numRatios++;
                     break;
                 }
@@ -256,6 +275,13 @@ namespace TradeKit.Core.AlgoBase
                 case ElliottModelType.TRIANGLE_CONTRACTING:
                 case ElliottModelType.TRIANGLE_RUNNING:
                 {
+                    // Running triangle probability coefficient (0.3) is a generation weight only.
+                    // For detection scoring both triangle types should compete equally.
+                    // Set to 2.0 so that a 5-wave triangle can outrank the five distinct
+                    // 3-wave interpretations (ZIGZAG, FLAT_RUNNING, FLAT_EXTENDED, etc.)
+                    // that fit the first 3 triangle legs and occupy positions 0-4.
+                    modelCoeff = 2.0;
+
                     for (int i = 1; i < w.Length; i++)
                     {
                         double prev = w[i - 1].Length;
