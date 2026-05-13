@@ -248,5 +248,174 @@ namespace TradeKit.Tests
                 "No diagonal should be found — wave 3 does not clearly exceed wave 1");
         }
 
+        /// <summary>
+        /// EURGBP M5: the chart shows a zigzag/double-zigzag going down.
+        /// Wave B (or X) contains a running triangle (ABCDE).
+        /// The engine must find at least one result whose wave B/X sub-model
+        /// is a triangle (TRIANGLE_CONTRACTING or TRIANGLE_RUNNING).
+        /// </summary>
+        [Test]
+        public void ExactMarkup_EurgbpM5_TriangleInWaveB()
+        {
+            string csvPath = Path.Combine(
+                TestContext.CurrentContext.TestDirectory,
+                "TestData",
+                "EURGBP_m5_2026-05-12T08-10-00_2026-05-12T21-00-00.csv");
+
+            var tf = new TimeFrameBase("Minute5", "m5");
+            var sym = new SymbolBase("EURGBP", "EURGBP", 5, 1, 0.00001, 0.1, 100000);
+            var provider = new TestBarsProvider(tf, sym);
+            provider.LoadCandles(csvPath);
+
+            Assert.That(provider.Count, Is.GreaterThan(0), "CSV must load successfully");
+
+            int startBarIndex = 0;
+            int endBarIndex = provider.Count - 1;
+
+            double maxValue = double.MinValue;
+            double minValue = double.MaxValue;
+            int maxBarIndex = startBarIndex;
+            int minBarIndex = startBarIndex;
+
+            for (int i = startBarIndex; i <= endBarIndex; i++)
+            {
+                double high = provider.GetHighPrice(i);
+                double low = provider.GetLowPrice(i);
+                if (high > maxValue) { maxValue = high; maxBarIndex = i; }
+                if (low < minValue) { minValue = low; minBarIndex = i; }
+            }
+
+            int fartherBarIndex = Math.Min(maxBarIndex, minBarIndex);
+            int closerBarIndex = Math.Max(maxBarIndex, minBarIndex);
+            double startValue = fartherBarIndex == maxBarIndex ? maxValue : minValue;
+            double endValue = closerBarIndex == maxBarIndex ? maxValue : minValue;
+
+            var startPoint = new BarPoint(startValue, fartherBarIndex, provider);
+            var endPoint = new BarPoint(endValue, closerBarIndex, provider);
+            bool isUp = endPoint.Value > startPoint.Value;
+
+            var innerFinder = new TradeKit.Core.Indicators.SimpleExtremumFinder(
+                0.1, provider, !isUp);
+            innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
+
+            List<BarPoint> innerPoints = innerFinder.ToExtremaList()
+                .Where(p => p.BarIndex >= startPoint.BarIndex && p.BarIndex <= endPoint.BarIndex)
+                .ToList();
+
+            if (innerPoints.All(p => p.BarIndex != startPoint.BarIndex))
+                innerPoints.Insert(0, startPoint);
+            if (innerPoints.All(p => p.BarIndex != endPoint.BarIndex))
+                innerPoints.Add(endPoint);
+
+            innerPoints = TradeKit.Core.Indicators.ExtremumFinderBase
+                .EndFixCorridors(innerPoints, provider);
+            innerPoints = TradeKit.Core.Indicators.ExtremumFinderBase
+                .RefineToCorridors(innerPoints, provider);
+
+            TestContext.WriteLine($"Inner points: {innerPoints.Count}");
+            foreach (var p in innerPoints)
+                TestContext.WriteLine($"  bar={p.BarIndex} val={p.Value:F5}");
+
+            var markup = new TradeKit.Core.AlgoBase.ElliottWaveExactMarkup(provider);
+            var results = markup.Parse(innerPoints);
+
+            TestContext.WriteLine($"\nTotal results: {results.Count}");
+            foreach (var r in results.Take(20))
+            {
+                TestContext.WriteLine($"  {r.ModelType} score={r.Score:F3} waves={r.WaveCount}/{r.ExpectedWaves}");
+                if (r.SubWaves != null)
+                {
+                    for (int wi = 0; wi < r.WaveCount && wi < r.SubWaves.Length; wi++)
+                    {
+                        var sw = r.SubWaves[wi];
+                        if (sw == null) continue;
+                        string key = TradeKit.Core.AlgoBase.ElliottWaveExactMarkup
+                            .GetWaveKey(r.ModelType, wi + 1);
+                        string subModel = sw.ModelType.ToString();
+                        if (sw.SubWaves != null && sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
+                        {
+                            string subWaves = string.Join(", ",
+                                sw.SubWaves.Where(s => s != null)
+                                    .Select(s => s.ModelType.ToString()));
+                            subModel += $" [{subWaves}]";
+                        }
+                        TestContext.WriteLine(
+                            $"    {key}: bar{sw.StartPoint.BarIndex}({sw.StartPoint.Value:F5})" +
+                            $" → bar{sw.EndPoint.BarIndex}({sw.EndPoint.Value:F5})" +
+                            $" | {subModel}");
+                    }
+                }
+            }
+
+            // Check if any result has a triangle in wave B or X
+            // Diagnostic: check finer extrema in B/X ranges
+            foreach (var r in results.Take(10))
+            {
+                if (r.SubWaves == null) continue;
+                for (int wi = 0; wi < r.WaveCount && wi < r.SubWaves.Length; wi++)
+                {
+                    var sw2 = r.SubWaves[wi];
+                    if (sw2 == null) continue;
+                    string key2 = TradeKit.Core.AlgoBase.ElliottWaveExactMarkup
+                        .GetWaveKey(r.ModelType, wi + 1);
+                    if (key2 != "b" && key2 != "x") continue;
+                    int fb = sw2.StartPoint.BarIndex, tb = sw2.EndPoint.BarIndex;
+                    bool swUp = sw2.EndPoint.Value > sw2.StartPoint.Value;
+                    var finerFinder = new TradeKit.Core.Indicators.SimpleExtremumFinder(
+                        0.03, provider, !swUp);
+                    finerFinder.Calculate(fb, tb);
+                    var finerPts = finerFinder.ToExtremaList()
+                        .Where(p => p.BarIndex >= fb && p.BarIndex <= tb).ToList();
+                    if (finerPts.All(p => p.BarIndex != fb))
+                        finerPts.Insert(0, sw2.StartPoint);
+                    if (finerPts.All(p => p.BarIndex != tb))
+                        finerPts.Add(sw2.EndPoint);
+                    finerPts = TradeKit.Core.Indicators.ExtremumFinderBase
+                        .EndFixCorridors(finerPts, provider);
+                    finerPts = TradeKit.Core.Indicators.ExtremumFinderBase
+                        .RefineToCorridors(finerPts, provider);
+                    TestContext.WriteLine($"\n  Finer extrema in {key2} (bar{fb}→bar{tb}): {finerPts.Count} points");
+                    foreach (var fp in finerPts)
+                        TestContext.WriteLine($"    bar={fp.BarIndex} val={fp.Value:F5}");
+                }
+            }
+
+            // Debug: show all sub-waves for B/X positions
+            foreach (var r in results)
+            {
+                if (r.SubWaves == null) continue;
+                for (int wi = 0; wi < r.WaveCount && wi < r.SubWaves.Length; wi++)
+                {
+                    var sw = r.SubWaves[wi];
+                    string key = TradeKit.Core.AlgoBase.ElliottWaveExactMarkup
+                        .GetWaveKey(r.ModelType, wi + 1);
+                    if (key == "b" || key == "x")
+                    {
+                        TestContext.WriteLine($"Result {r.ModelType}: wave {key} bar{sw?.StartPoint?.BarIndex}-bar{sw?.EndPoint?.BarIndex} subwave={sw?.ModelType.ToString() ?? "NULL"}");
+                    }
+                }
+            }
+
+            bool hasTriangleInBX = results.Any(r =>
+            {
+                if (r.SubWaves == null) return false;
+                for (int wi = 0; wi < r.WaveCount && wi < r.SubWaves.Length; wi++)
+                {
+                    var sw = r.SubWaves[wi];
+                    if (sw == null) continue;
+                    string key = TradeKit.Core.AlgoBase.ElliottWaveExactMarkup
+                        .GetWaveKey(r.ModelType, wi + 1);
+                    if ((key == "b" || key == "x")
+                        && (sw.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
+                         || sw.ModelType == ElliottModelType.TRIANGLE_RUNNING))
+                        return true;
+                }
+                return false;
+            });
+
+            Assert.That(hasTriangleInBX, Is.True,
+                "At least one result should have a triangle in wave B or X");
+        }
+
 }
 }

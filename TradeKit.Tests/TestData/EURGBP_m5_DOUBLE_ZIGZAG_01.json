@@ -1,0 +1,148 @@
+{
+  "model": "DOUBLE_ZIGZAG",
+  "score": 1.134257,
+  "isUp": false,
+  "waveName": null,
+  "start": {
+    "time": "2026-05-12T08:15:00Z",
+    "value": 0.86971,
+    "barIndex": 1254
+  },
+  "end": {
+    "time": "2026-05-12T21:00:00Z",
+    "value": 0.86615,
+    "barIndex": 1407
+  },
+  "subWaves": [
+    {
+      "model": "SIMPLE_IMPULSE",
+      "score": 1.0,
+      "isUp": false,
+      "waveName": "w",
+      "start": {
+        "time": "2026-05-12T08:15:00Z",
+        "value": 0.86971,
+        "barIndex": 1254
+      },
+      "end": {
+        "time": "2026-05-12T10:30:00Z",
+        "value": 0.86687,
+        "barIndex": 1281
+      }
+    },
+    {
+      "model": "TRIANGLE_CONTRACTING",
+      "score": 0.75492,
+      "isUp": true,
+      "waveName": "x",
+      "start": {
+        "time": "2026-05-12T10:30:00Z",
+        "value": 0.86687,
+        "barIndex": 1281
+      },
+      "end": {
+        "time": "2026-05-12T15:20:00Z",
+        "value": 0.86843,
+        "barIndex": 1339
+      },
+      "subWaves": [
+        {
+          "model": "SIMPLE_IMPULSE",
+          "score": 1.0,
+          "isUp": true,
+          "waveName": "a",
+          "start": {
+            "time": "2026-05-12T10:35:00Z",
+            "value": 0.86687,
+            "barIndex": 1282
+          },
+          "end": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86852,
+            "barIndex": 1305
+          }
+        },
+        {
+          "model": "SIMPLE_IMPULSE",
+          "score": 1.0,
+          "isUp": false,
+          "waveName": "b",
+          "start": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86852,
+            "barIndex": 1305
+          },
+          "end": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86721,
+            "barIndex": 1305
+          }
+        },
+        {
+          "model": "SIMPLE_IMPULSE",
+          "score": 1.0,
+          "isUp": true,
+          "waveName": "c",
+          "start": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86721,
+            "barIndex": 1305
+          },
+          "end": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86852,
+            "barIndex": 1305
+          }
+        },
+        {
+          "model": "SIMPLE_IMPULSE",
+          "score": 1.0,
+          "isUp": false,
+          "waveName": "d",
+          "start": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86852,
+            "barIndex": 1305
+          },
+          "end": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86721,
+            "barIndex": 1305
+          }
+        },
+        {
+          "model": "SIMPLE_IMPULSE",
+          "score": 1.0,
+          "isUp": true,
+          "waveName": "e",
+          "start": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86721,
+            "barIndex": 1305
+          },
+          "end": {
+            "time": "2026-05-12T12:30:00Z",
+            "value": 0.86852,
+            "barIndex": 1305
+          }
+        }
+      ]
+    },
+    {
+      "model": "SIMPLE_IMPULSE",
+      "score": 1.0,
+      "isUp": false,
+      "waveName": "y",
+      "start": {
+        "time": "2026-05-12T15:20:00Z",
+        "value": 0.86843,
+        "barIndex": 1339
+      },
+      "end": {
+        "time": "2026-05-12T21:00:00Z",
+        "value": 0.86615,
+        "barIndex": 1407
+      }
+    }
+  ]
+}

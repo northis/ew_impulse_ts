@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Newtonsoft.Json;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.Json;
 using TradeKit.Core.PatternGeneration;
 using TradeKit.CTrader.Core;
 
@@ -163,12 +165,18 @@ public class IterativeElliottWaveExactIndicator : Indicator
                 {
                     foreach (ExactParsedNode node in markupArray)
                     {
-                        string chartFileName = string.Format("{0}_{1}_{2}_{3:D2}",
+                        string baseName = string.Format("{0}_{1}_{2}_{3:D2}",
                             symName, tfName, node.ModelType, variantIdx++);
-                        string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, chartFileName);
+                        string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, baseName);
                         string savedPath = ChartGenerator.GenerateMarkupChart(node, provider, level, chartFilePath);
                         if (!string.IsNullOrEmpty(savedPath))
                             Print($"Markup chart saved: {savedPath}");
+
+                        string jsonFilePath = Path.Combine(Helper.DirectoryToSaveResults, baseName + ".json");
+                        JsonMarkupNode jsonNode = JsonMarkupNode.FromParsedNode(node);
+                        System.IO.File.WriteAllText(jsonFilePath,
+                            JsonConvert.SerializeObject(jsonNode, Formatting.Indented));
+                        Print($"Markup JSON saved: {jsonFilePath}");
                     }
                 }
             }, parsed.ToArray());

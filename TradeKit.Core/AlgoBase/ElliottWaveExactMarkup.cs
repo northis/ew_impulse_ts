@@ -1,5 +1,6 @@
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
+using TradeKit.Core.Indicators;
 
 namespace TradeKit.Core.AlgoBase
 {
@@ -50,7 +51,7 @@ namespace TradeKit.Core.AlgoBase
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 4;
+        public const int MAX_MARKUP_DEPTH = 2;
 
         /// <summary>
         /// Minimum fraction of the reference wave's length by which the next
@@ -58,6 +59,33 @@ namespace TradeKit.Core.AlgoBase
         /// Prevents diagonals where W3 barely touches W1 from being accepted.
         /// </summary>
         private const double MIN_DIAGONAL_PENETRATION = 0.05;
+
+        /// <summary>
+        /// Cross-level harmony thresholds (§4.3-harmony).
+        /// A sub-wave at depth N+1 whose bar count exceeds
+        /// <see cref="HARMONY_HARD_RATIO"/> × the shortest wave at depth N
+        /// is rejected outright.  Between <see cref="HARMONY_PESSIMIZE_RATIO"/>
+        /// and the hard limit the candidate's score is multiplied by
+        /// <see cref="HARMONY_PENALTY"/>.
+        /// </summary>
+        private const double HARMONY_PESSIMIZE_RATIO = 2.0;
+        private const double HARMONY_HARD_RATIO = 3.0;
+        private const double HARMONY_PENALTY = 0.5;
+
+        /// <summary>
+        /// Deviation percentage used by <see cref="SimpleExtremumFinder"/> when
+        /// re-discovering finer extrema inside a sub-wave range.  A smaller value
+        /// yields more intermediate points so that 5-wave models (triangles,
+        /// diagonals, impulses) can be detected even when the parent-level zigzag
+        /// produced too few points in the sub-wave region.
+        /// </summary>
+        private const double SUBWAVE_REDISCOVERY_DEVIATION = 0.03;
+
+        /// <summary>
+        /// Minimum number of alternating extrema required to attempt a 5-wave
+        /// model (triangle, impulse, diagonal).  5 waves need at least 6 points.
+        /// </summary>
+        private const int MIN_POINTS_FOR_5_WAVE = 6;
 
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
@@ -239,6 +267,12 @@ namespace TradeKit.Core.AlgoBase
         {
             if (node?.SubWaves == null) return true;
 
+            bool anyRepaired = false;
+            // Triangle waves naturally overlap — skip breach checks for their children.
+            bool isTriangleParent =
+                node.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
+             || node.ModelType == ElliottModelType.TRIANGLE_RUNNING;
+
             for (int i = 0; i < node.WaveCount; i++)
             {
                 ExactParsedNode sw = node.SubWaves[i];
@@ -258,7 +292,8 @@ namespace TradeKit.Core.AlgoBase
                         if (b < 0 || b >= m_BarsProvider.Count) continue;
 
                         // Breach check (skip fromBar — start extremum is on the opposite side)
-                        if (b > fromBar)
+                        // Also skip for triangle parents — their waves naturally overlap.
+                        if (b > fromBar && !isTriangleParent)
                         {
                             if (isUp && m_BarsProvider.GetLowPrice(b) < startPrice)
                                 return false;
@@ -296,14 +331,66 @@ namespace TradeKit.Core.AlgoBase
                                 node.SubWaves[i + 1].StartPoint = newEnd;
                                 node.SubWaves[i + 1].StartIndex = bestBar;
                             }
+
+                            anyRepaired = true;
                         }
                     }
                 }
                 else
                 {
                     if (!RepairSimpleImpulseLeaves(sw))
-                        return false;
+                    {
+                        // Demote structurally invalid sub-wave to SIMPLE_IMPULSE
+                        // instead of discarding the entire tree — but only when the
+                        // resulting leaf has no candle breach (against both start
+                        // and end prices).
+                        bool hasBreach = false;
+                        if (m_BarsProvider != null)
+                        {
+                            bool swUp = sw.StartPoint.Value < sw.EndPoint.Value;
+                            double sp = sw.StartPoint.Value;
+                            double ep = sw.EndPoint.Value;
+                            int f = Math.Min(sw.StartIndex, sw.EndIndex);
+                            int t = Math.Max(sw.StartIndex, sw.EndIndex);
+                            for (int b = f; b <= t; b++)
+                            {
+                                if (b < 0 || b >= m_BarsProvider.Count) continue;
+                                double lo = m_BarsProvider.GetLowPrice(b);
+                                double hi = m_BarsProvider.GetHighPrice(b);
+                                if (swUp)
+                                {
+                                    if (lo < sp || hi > ep) { hasBreach = true; break; }
+                                }
+                                else
+                                {
+                                    if (hi > sp || lo < ep) { hasBreach = true; break; }
+                                }
+                            }
+                        }
+                        if (hasBreach) return false;
+                        sw.ModelType = ElliottModelType.SIMPLE_IMPULSE;
+                        sw.SubWaves = null;
+                    }
                 }
+            }
+
+            // After repairing leaf endpoints, re-validate the parent's hard rules
+            // (endpoint shifts may have broken structural constraints).
+            // Skip for triangles: their convergence rules are sensitive to small
+            // endpoint shifts from OHLC repair, and the original parsing already
+            // validated them.
+            if (anyRepaired && node.ModelType != ElliottModelType.SIMPLE_IMPULSE
+                && !isTriangleParent)
+            {
+                var segs = new Segment[node.WaveCount];
+                for (int j = 0; j < node.WaveCount; j++)
+                {
+                    ExactParsedNode sw = node.SubWaves[j];
+                    segs[j] = new Segment { Start = sw.StartPoint, End = sw.EndPoint };
+                }
+
+                if (!CheckHardRules(node.ModelType, segs))
+                    return false;
             }
 
             return true;
@@ -436,16 +523,70 @@ namespace TradeKit.Core.AlgoBase
 
                 if (subPoints.Count < 2) continue;
 
+                // §4.4-rediscovery: when the parent-level zigzag produced too few
+                // alternating points in this sub-wave range for 5-wave models
+                // (triangles, diagonals, impulses), re-run extremum finding with a
+                // finer deviation to discover intermediate extrema.
+                bool needs5Wave = subPoints.Count < MIN_POINTS_FOR_5_WAVE
+                    && validModels.Any(m => GetExpectedWaves(m) == 5);
+                List<BarPoint> finerPoints = null;
+                if (needs5Wave && m_BarsProvider != null)
+                {
+                    bool isSwUp = sw.EndPoint.Value > sw.StartPoint.Value;
+                    var finder = new SimpleExtremumFinder(
+                        SUBWAVE_REDISCOVERY_DEVIATION, m_BarsProvider, !isSwUp);
+                    finder.Calculate(fromBar, toBar);
+                    finerPoints = finder.ToExtremaList()
+                        .Where(p => p.BarIndex >= fromBar && p.BarIndex <= toBar)
+                        .ToList();
+
+                    if (finerPoints.All(p => p.BarIndex != fromBar))
+                        finerPoints.Insert(0, sw.StartPoint);
+                    if (finerPoints.All(p => p.BarIndex != toBar))
+                        finerPoints.Add(sw.EndPoint);
+
+                    // Skip RefineToCorridors: the extremum finder already produces
+                    // bar-accurate H/L values; corridor refinement can distort the
+                    // contracting structure needed by triangles.
+                    finerPoints = ExtremumFinderBase.EndFixCorridors(finerPoints, m_BarsProvider);
+                }
+
+                // Parse with the original points first
                 List<ExactParsedNode> subResults =
                     ParseInternal(subPoints, validModels, depth);
+
+                // If finer points were found, parse those too and merge
+                if (finerPoints != null && finerPoints.Count > subPoints.Count)
+                {
+                    List<ExactParsedNode> finerResults =
+                        ParseInternal(finerPoints, validModels, depth);
+                    subResults.AddRange(finerResults);
+                }
 
                 // §4.1-continuity (hard rule): the sub-model must span exactly the
                 // sub-wave's bar range [fromBar, toBar] — no leading or trailing bars
                 // may be left unaccounted for within the sub-wave.
-                ExactParsedNode best = subResults.FirstOrDefault(
-                    r => r.WaveCount == r.ExpectedWaves
-                      && r.StartPoint.BarIndex == fromBar
-                      && r.EndPoint.BarIndex == toBar);
+                var validSubs = subResults
+                    .Where(r => r.WaveCount == r.ExpectedWaves
+                             && r.StartPoint.BarIndex == fromBar
+                             && r.EndPoint.BarIndex == toBar)
+                    .ToList();
+
+                // §4.5-triangle-preference: in corrective wave positions (b, x)
+                // triangles are preferred over other corrective models when found.
+                ExactParsedNode best;
+                bool isCorrective = waveKey == "b" || waveKey == "x";
+                if (isCorrective)
+                {
+                    best = validSubs.FirstOrDefault(r =>
+                        r.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
+                     || r.ModelType == ElliottModelType.TRIANGLE_RUNNING)
+                        ?? validSubs.FirstOrDefault();
+                }
+                else
+                {
+                    best = validSubs.FirstOrDefault();
+                }
                 if (best != null)
                 {
                     node.SubWaves[i] = best;
@@ -500,8 +641,6 @@ namespace TradeKit.Core.AlgoBase
                         }
                     }
 
-                    // If a candle breaches start price inside SIMPLE_IMPULSE, the
-                    // parent candidate is invalid — discard it.
                     if (hasBreach)
                         return false;
 
@@ -595,9 +734,65 @@ namespace TradeKit.Core.AlgoBase
                     node.Score = repairedScore * FULL_FIT_BONUS;
             }
 
+            // §4.3-harmony: a sub-wave at depth N+1 must not be disproportionately
+            // longer (in bars) than the shortest wave at depth N.
+            // Contracting models (diagonals, triangles) are excluded because their
+            // defining property — each successive wave shorter than the previous —
+            // naturally creates large duration disparities between early and late waves.
+            {
+                bool contracting =
+                    node.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+                 || node.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+                 || node.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
+                 || node.ModelType == ElliottModelType.TRIANGLE_RUNNING;
+
+                if (!contracting)
+                {
+                    int minParentBars = int.MaxValue;
+                    for (int i = 0; i < node.WaveCount; i++)
+                    {
+                        ExactParsedNode sw = node.SubWaves[i];
+                        if (sw == null) continue;
+                        int bars = Math.Abs(sw.EndPoint.BarIndex - sw.StartPoint.BarIndex);
+                        if (bars > 0 && bars < minParentBars) minParentBars = bars;
+                    }
+
+                    if (minParentBars < int.MaxValue)
+                    {
+                        double maxRatio = 0;
+                        for (int i = 0; i < node.WaveCount; i++)
+                        {
+                            ExactParsedNode sw = node.SubWaves[i];
+                            if (sw?.SubWaves == null
+                                || sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
+                                continue;
+
+                            // Skip harmony check for triangle sub-waves: their internal
+                            // waves naturally have large duration disparities.
+                            if (sw.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
+                             || sw.ModelType == ElliottModelType.TRIANGLE_RUNNING)
+                                continue;
+
+                            for (int j = 0; j < sw.WaveCount && j < sw.SubWaves.Length; j++)
+                            {
+                                ExactParsedNode child = sw.SubWaves[j];
+                                if (child == null) continue;
+                                int childBars = Math.Abs(
+                                    child.EndPoint.BarIndex - child.StartPoint.BarIndex);
+                                double ratio = (double)childBars / minParentBars;
+                                if (ratio > HARMONY_HARD_RATIO) return false;
+                                if (ratio > maxRatio) maxRatio = ratio;
+                            }
+                        }
+
+                        if (maxRatio > HARMONY_PESSIMIZE_RATIO)
+                            node.Score *= HARMONY_PENALTY;
+                    }
+                }
+            }
+
             return true;
         }
-        /// 0.0 = all sub-waves are bare SIMPLE_IMPULSE segments (no sub-structure found).
         /// 1.0 = every sub-wave was successfully identified as a named model.
         /// Used to compute the depth-coverage bonus applied in <see cref="ParseInternal"/>.
         /// <para>
@@ -806,12 +1001,19 @@ namespace TradeKit.Core.AlgoBase
                 // Last wave always ends at outerEnd (already in pts[k]).
                 waves[waveIdx] = new Segment { Start = pts[waveIdx], End = pts[k] };
 
+                // Every wave must span at least 2 bars.
+                if (waves[waveIdx].Start.BarIndex == waves[waveIdx].End.BarIndex) return;
+
                 // Alternation check for the last wave only (previous pairs checked incrementally).
                 if (waveIdx > 0 && waves[waveIdx].IsUp == waves[waveIdx - 1].IsUp) return;
 
                 // Full validation: remaining hard rules, candle checks, score.
                 if (!CheckHardRules(model, waves)) return;
-                if (!CheckDirectionEndpoints(waves)) return;
+                // Direction endpoint check — skip for triangles (internal waves
+                // often don't reach exact bar H/L in tight corrective ranges).
+                bool isTriangle = model == ElliottModelType.TRIANGLE_CONTRACTING ||
+                                  model == ElliottModelType.TRIANGLE_RUNNING;
+                if (!isTriangle && !CheckDirectionEndpoints(waves)) return;
                 // Candle-breach check for the last wave (all preceding waves were
                 // already checked incrementally in the loop below).
                 if (!CheckCandleBreachIncremental(model, waves, waveIdx)) return;
@@ -837,6 +1039,9 @@ namespace TradeKit.Core.AlgoBase
 
                 pts[waveIdx + 1] = altPoints[j];
                 waves[waveIdx]   = new Segment { Start = pts[waveIdx], End = pts[waveIdx + 1] };
+
+                // Every wave must span at least 2 bars.
+                if (waves[waveIdx].Start.BarIndex == waves[waveIdx].End.BarIndex) continue;
 
                 // Early alternation check for the wave just built.
                 if (waveIdx > 0 && waves[waveIdx].IsUp == waves[waveIdx - 1].IsUp) continue;
@@ -973,6 +1178,11 @@ namespace TradeKit.Core.AlgoBase
                             if (!isUp && w[3].End.Value >= start)          return false;
                             if ( isUp && w[3].End.Value <= w[0].End.Value) return false; // no overlap
                             if (!isUp && w[3].End.Value >= w[0].End.Value) return false;
+                            {
+                                int w2Bars = Math.Abs(w[1].End.BarIndex - w[1].Start.BarIndex);
+                                int w4Bars = Math.Abs(w[3].End.BarIndex - w[3].Start.BarIndex);
+                                if (w2Bars > 0 && w4Bars > 3 * w2Bars) return false;
+                            }
                             break;
                     }
                     return true;
@@ -1022,7 +1232,14 @@ namespace TradeKit.Core.AlgoBase
                     return true;
 
                 case ElliottModelType.TRIANGLE_CONTRACTING:
-                    if (waveIdx >= 1 && w[waveIdx].Length >= w[waveIdx - 1].Length) return false;
+                    // Same-direction convergence: C < A (waveIdx 2 vs 0), E < C (4 vs 2), D < B (3 vs 1)
+                    if (waveIdx >= 2 && w[waveIdx].Length >= w[waveIdx - 2].Length) return false;
+                    // B must NOT overshoot origin (that would be a running triangle).
+                    if (waveIdx >= 1)
+                    {
+                        if ( isUp && w[1].End.Value < start) return false;
+                        if (!isUp && w[1].End.Value > start) return false;
+                    }
                     return true;
 
                 case ElliottModelType.TRIANGLE_RUNNING:
@@ -1031,7 +1248,11 @@ namespace TradeKit.Core.AlgoBase
                         if ( isUp && w[1].End.Value >= start) return false;
                         if (!isUp && w[1].End.Value <= start) return false;
                     }
-                    if (waveIdx >= 2 && w[waveIdx].Length >= w[waveIdx - 1].Length) return false;
+                    // Running triangles have an oversized B wave, so C can be
+                    // larger than A.  Only require corrective convergence (D < B)
+                    // and motive convergence after B (E < C).  C < A is NOT
+                    // enforced — the overshoot resets the motive reference.
+                    if (waveIdx == 3 && w[3].Length >= w[1].Length) return false; // D < B
                     return true;
 
                 default:
@@ -1070,6 +1291,13 @@ namespace TradeKit.Core.AlgoBase
 
                         if (isUp && w5End <= w4End) return false;
                         if (!isUp && w5End >= w4End) return false;
+
+                        // W4 duration cannot exceed 3× W2 duration
+                        {
+                            int w2Bars = Math.Abs(w[1].End.BarIndex - w[1].Start.BarIndex);
+                            int w4Bars = Math.Abs(w[3].End.BarIndex - w[3].Start.BarIndex);
+                            if (w2Bars > 0 && w4Bars > 3 * w2Bars) return false;
+                        }
                     }
                     return true;
 
@@ -1201,13 +1429,18 @@ namespace TradeKit.Core.AlgoBase
                 case ElliottModelType.TRIANGLE_CONTRACTING:
                     if (w.Length < 5) return false;
                     {
-                        for (int i = 1; i < w.Length; i++)
-                            if (w[i].Length >= w[i - 1].Length) return false;
+                        // B must NOT overshoot the origin (that would be a running triangle).
+                        if (isUp && w[1].End.Value < start) return false;
+                        if (!isUp && w[1].End.Value > start) return false;
+
+                        // Convergence rule: same-direction waves must contract.
+                        // Motive waves: A > C > E (waves 0, 2, 4)
+                        // Corrective waves: B > D (waves 1, 3)
+                        if (w[2].Length >= w[0].Length) return false;
+                        if (w[4].Length >= w[2].Length) return false;
+                        if (w[3].Length >= w[1].Length) return false;
 
                         // E must remain on the triangle side of the start (not break out the wrong way).
-                        // The eEnd >= wAEnd constraint is removed: the wave-length contracting rule
-                        // (each step shorter) already enforces convergence; a price-level upper/lower
-                        // bound relative to A's end is a Fibonacci preference, not a structural rule.
                         double eEnd = w[4].End.Value;
                         if (isUp && eEnd <= start) return false;
                         if (!isUp && eEnd >= start) return false;
@@ -1221,8 +1454,12 @@ namespace TradeKit.Core.AlgoBase
                         if (isUp && w[1].End.Value >= start) return false;
                         if (!isUp && w[1].End.Value <= start) return false;
 
-                        for (int i = 2; i < w.Length; i++)
-                            if (w[i].Length >= w[i - 1].Length) return false;
+                        // Running triangle convergence: B is oversized (overshoots
+                        // origin), so C can exceed A.  Require:
+                        //   D < B  (corrective waves converge)
+                        //   E < C  (motive waves converge after the overshoot)
+                        if (w[3].Length >= w[1].Length) return false; // D < B
+                        if (w[4].Length >= w[2].Length) return false; // E < C
 
                         // Same E constraint as contracting: just stay on triangle side of start.
                         double eEnd = w[4].End.Value;

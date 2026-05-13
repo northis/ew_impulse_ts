@@ -50,6 +50,9 @@
     <None Update="TestData\EURUSD_h1_2026-05-08T02-00-00_2026-05-11T22-00-00.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\EURGBP_m5_2026-05-12T08-10-00_2026-05-12T21-00-00.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\XAUUSD_m1_2022-06-01T00-00-00_2026-04-04T00-00-00.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
