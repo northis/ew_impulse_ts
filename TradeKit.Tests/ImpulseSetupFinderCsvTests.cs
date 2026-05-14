@@ -428,7 +428,7 @@ namespace TradeKit.Tests
             string csvPath = Path.Combine(
                 TestContext.CurrentContext.TestDirectory,
                 "TestData",
-                "EURUSD_h1_2026-05-11T22-00-00_2026-05-14T16-00-00.csv");
+                "EURUSD_h1_2026-05-11T22-00-00_2026-05-13T09-00-00.csv");
 
             var tf = new TimeFrameBase("Hour", "h1");
             var sym = new SymbolBase("EURUSD", "EURUSD", 5, 1, 0.00001, 0.1, 100000);
