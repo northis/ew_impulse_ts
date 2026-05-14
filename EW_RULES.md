@@ -64,8 +64,8 @@ model picks sub-wave models. Higher value = more likely to be chosen.
 | `FLAT_EXTENDED` | **1.0** | |
 | `FLAT_RUNNING` | **1.0** | |
 | `COMBINATION` | **1.0** | |
-| `TRIANGLE_CONTRACTING` | **1.0** | |
-| `TRIANGLE_RUNNING` | 0.1 | |
+| `TRIANGLE_CONTRACTING` | **1.5** | Common corrective pattern |
+| `TRIANGLE_RUNNING` | 0.3 | |
 | `TRIANGLE_EXPANDING` | 0.02 | Rare |
 
 ---
@@ -558,7 +558,7 @@ Each weight is multiplied by a random factor in [0.7, 1.4].
 
 ## 16. TRIANGLE_RUNNING
 
-**Probability coefficient**: 0.1
+**Probability coefficient**: 0.3
 
 Structurally identical to `TRIANGLE_CONTRACTING`, with one additional constraint:
 

@@ -316,12 +316,10 @@ namespace TradeKit.Core.PatternGeneration
                 throw new ApplicationException("Wave 3 is the shortest");
             }
 
-            ElliottModelType the2NdModel = m_Wave2Impulse
-                .Intersect(is2NdDeep ? m_DeepCorrections : m_ShallowCorrections)
-                .First();
-            ElliottModelType the4ThModel = m_Wave4Impulse
-                .Intersect(is4ThDeep ? m_DeepCorrections : m_ShallowCorrections)
-                .First();
+            ElliottModelType the2NdModel = WeightedRandomlySelectModel(
+                m_Wave2Impulse.Intersect(is2NdDeep ? m_DeepCorrections : m_ShallowCorrections).ToArray());
+            ElliottModelType the4ThModel = WeightedRandomlySelectModel(
+                m_Wave4Impulse.Intersect(is4ThDeep ? m_DeepCorrections : m_ShallowCorrections).ToArray());
 
             ElliottModelType the1StModel;
             ElliottModelType the5ThModel;
@@ -583,7 +581,7 @@ namespace TradeKit.Core.PatternGeneration
             double waveW = arg.StartValue + arg.IsUpK * waveWLen;
             double waveX = waveW - arg.IsUpK * waveXLen;
             
-            double xxToY = SelectRandomly(m_ShallowCorrections.Contains(theModelX)
+            double xxToY = SelectRandomly(m_ShallowCorrections.Contains(theModelXx)
                 ? MAP_SHALLOW_CORRECTION
                 : MAP_DEEP_CORRECTION);
             
@@ -1208,7 +1206,7 @@ namespace TradeKit.Core.PatternGeneration
                                  * MAIN_ALLOWANCE_MAX_RATIO_ONE_PLUS;
 
             double wave4Len = RandomWithinRange(diffOneTree, Math.Min(wave3Len - restTree, wave2Len * MAIN_ALLOWANCE_MAX_RATIO_INVERT));
-            double wave4 = wave3 - arg.IsUpK * arg.IsUpK * wave4Len;
+            double wave4 = wave3 - arg.IsUpK * wave4Len;
             
             double bars1Prop = PatternGenKit
                 .GetNormalDistributionNumber(m_Random, 0.5, 0.8, 0.618);

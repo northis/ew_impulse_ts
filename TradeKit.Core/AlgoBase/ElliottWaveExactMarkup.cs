@@ -179,7 +179,8 @@ namespace TradeKit.Core.AlgoBase
                 return waveNum.ToString();
             if (type == ElliottModelType.ZIGZAG ||
                 type == ElliottModelType.FLAT_EXTENDED ||
-                type == ElliottModelType.FLAT_RUNNING)
+                type == ElliottModelType.FLAT_RUNNING ||
+                type == ElliottModelType.FLAT_REGULAR)
                 return waveNum == 1 ? "a" : (waveNum == 2 ? "b" : "c");
             if (type == ElliottModelType.DOUBLE_ZIGZAG)
                 return waveNum == 1 ? "w" : (waveNum == 2 ? "x" : "y");
@@ -298,11 +299,66 @@ namespace TradeKit.Core.AlgoBase
 
                 if (sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
                 {
-                    // Triangle sub-waves are defined by structural alternating
-                    // points; OHLC repair would pull endpoints toward earlier bars
-                    // (where the true extremum often lies due to convergence),
-                    // collapsing later waves to zero-bar spans.
-                    if (isTriangleParent) continue;
+                    if (isTriangleParent)
+                    {
+                        // Triangle sub-waves overlap by definition — skip breach
+                        // checks.  Still repair endpoints: scan into the next
+                        // wave's bar range because the alternating-point boundary
+                        // may not coincide with the actual OHLC price extreme
+                        // (the extremum finder can place a premature local min/max
+                        // when a brief counter-move is followed by continuation).
+                        bool isUpT = sw.IsUp;
+                        int fromBarT = sw.StartPoint.BarIndex;
+                        int toBarT = sw.EndPoint.BarIndex;
+
+                        // Extend scan into next wave (triangle waves overlap).
+                        int scanEnd = toBarT;
+                        if (i + 1 < node.WaveCount && node.SubWaves[i + 1] != null)
+                            scanEnd = node.SubWaves[i + 1].EndPoint.BarIndex - 1;
+
+                        double bestValT = isUpT ? double.MinValue : double.MaxValue;
+                        int bestBarT = toBarT;
+
+                        for (int b = fromBarT; b <= scanEnd; b++)
+                        {
+                            if (b < 0 || b >= m_BarsProvider.Count) continue;
+                            double v = isUpT
+                                ? m_BarsProvider.GetHighPrice(b)
+                                : m_BarsProvider.GetLowPrice(b);
+                            if (isUpT ? v > bestValT : v < bestValT)
+                            {
+                                bestValT = v;
+                                bestBarT = b;
+                            }
+                        }
+
+                        // Guard: bestBar must be strictly after startBar to
+                        // prevent degenerate zero-bar waves.
+                        if (bestBarT > fromBarT
+                            && (Math.Abs(sw.EndPoint.Value - bestValT) > bestValT * 1e-10
+                                || bestBarT != toBarT))
+                        {
+                            bool collapse = i + 1 < node.WaveCount
+                                && node.SubWaves[i + 1] != null
+                                && bestBarT >= node.SubWaves[i + 1].EndPoint.BarIndex;
+
+                            if (!collapse)
+                            {
+                                var newEnd = new BarPoint(bestValT, bestBarT, m_BarsProvider);
+                                sw.EndPoint = newEnd;
+                                sw.EndIndex = bestBarT;
+
+                                if (i + 1 < node.WaveCount && node.SubWaves[i + 1] != null)
+                                {
+                                    node.SubWaves[i + 1].StartPoint = newEnd;
+                                    node.SubWaves[i + 1].StartIndex = bestBarT;
+                                }
+
+                                anyRepaired = true;
+                            }
+                        }
+                        continue;
+                    }
 
                     bool isUp = sw.IsUp;
                     double startPrice = sw.StartPoint.Value;
@@ -1320,11 +1376,19 @@ namespace TradeKit.Core.AlgoBase
 
                 case ElliottModelType.FLAT_EXTENDED:
                 case ElliottModelType.FLAT_RUNNING:
-                case ElliottModelType.FLAT_REGULAR:
                     if (waveIdx == 1)
                     {
                         if ( isUp && w[1].End.Value >= start) return false; // B overshoots below start
                         if (!isUp && w[1].End.Value <= start) return false;
+                    }
+                    return true;
+
+                case ElliottModelType.FLAT_REGULAR:
+                    if (waveIdx == 1)
+                    {
+                        // Regular flat: B stays near origin, does NOT overshoot.
+                        if ( isUp && w[1].End.Value < start) return false;
+                        if (!isUp && w[1].End.Value > start) return false;
                     }
                     return true;
 
@@ -1512,11 +1576,10 @@ namespace TradeKit.Core.AlgoBase
                     {
                         double wAEnd = w[0].End.Value;
 
-                        // B retraces near origin but does NOT overshoot it significantly.
-                        // (Opposite to FLAT_EXTENDED where B goes past start.)
-                        // B stays on the same side as the wave direction relative to start.
-                        if (isUp && w[1].End.Value >= start) return false;
-                        if (!isUp && w[1].End.Value <= start) return false;
+                        // Regular flat: B retraces 90–100% of A, stays near origin
+                        // but does NOT overshoot it (opposite of extended/running).
+                        if (isUp && w[1].End.Value < start) return false;
+                        if (!isUp && w[1].End.Value > start) return false;
 
                         // C extends beyond A's end (similar to extended flat).
                         if (isUp && w[2].End.Value <= wAEnd) return false;
