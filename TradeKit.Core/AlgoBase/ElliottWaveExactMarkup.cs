@@ -46,6 +46,15 @@ namespace TradeKit.Core.AlgoBase
         private const double DEPTH_COVERAGE_BONUS = 0.5;
 
         /// <summary>
+        /// Score multiplier applied when a corrective sub-wave (b or x) is
+        /// identified as a triangle (contracting or running).  Triangles in
+        /// corrective positions are structurally significant — they explain
+        /// unusually shallow price retracements that otherwise score poorly
+        /// on the Fibonacci maps, compensating for the low top-level ratio.
+        /// </summary>
+        private const double TRIANGLE_CORRECTIVE_BONUS = 2.0;
+
+        /// <summary>
         /// Maximum recursion depth for sub-wave model identification.
         /// Depth 0 = top-level pattern; depth 1 = first-level sub-waves.
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
@@ -103,6 +112,11 @@ namespace TradeKit.Core.AlgoBase
         private readonly IBarsProvider m_BarsProvider;
 
         /// <summary>
+        /// Instance-level markup depth limit (defaults to <see cref="MAX_MARKUP_DEPTH"/>).
+        /// </summary>
+        private readonly int m_MaxMarkupDepth;
+
+        /// <summary>
         /// Initialises the markup engine.
         /// </summary>
         /// <param name="barsProvider">
@@ -112,9 +126,13 @@ namespace TradeKit.Core.AlgoBase
         /// Pass <c>null</c> (default) to skip this check — useful in unit tests that
         /// work with synthetic price points.
         /// </param>
-        public ElliottWaveExactMarkup(IBarsProvider barsProvider = null)
+        /// <param name="maxMarkupDepth">
+        /// Maximum recursion depth. Defaults to <see cref="MAX_MARKUP_DEPTH"/>.
+        /// </param>
+        public ElliottWaveExactMarkup(IBarsProvider barsProvider = null, int maxMarkupDepth = MAX_MARKUP_DEPTH)
         {
             m_BarsProvider = barsProvider;
+            m_MaxMarkupDepth = maxMarkupDepth;
         }
 
         /// <summary>
@@ -252,7 +270,7 @@ namespace TradeKit.Core.AlgoBase
             if (m_BarsProvider != null)
             {
                 results = results.Where(n => RepairSimpleImpulseLeaves(n)).ToList();
-                results = results.Where(n => n.GetDepth() >= MIN_RESULT_DEPTH).ToList();
+                results = results.Where(n => n.GetDepth() >= m_MaxMarkupDepth / 2).ToList();
             }
             return results;
         }
@@ -280,6 +298,12 @@ namespace TradeKit.Core.AlgoBase
 
                 if (sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
                 {
+                    // Triangle sub-waves are defined by structural alternating
+                    // points; OHLC repair would pull endpoints toward earlier bars
+                    // (where the true extremum often lies due to convergence),
+                    // collapsing later waves to zero-bar spans.
+                    if (isTriangleParent) continue;
+
                     bool isUp = sw.IsUp;
                     double startPrice = sw.StartPoint.Value;
                     int fromBar = sw.StartPoint.BarIndex;
@@ -291,9 +315,8 @@ namespace TradeKit.Core.AlgoBase
                     {
                         if (b < 0 || b >= m_BarsProvider.Count) continue;
 
-                        // Breach check (skip fromBar — start extremum is on the opposite side)
-                        // Also skip for triangle parents — their waves naturally overlap.
-                        if (b > fromBar && !isTriangleParent)
+                        // Breach check (skip fromBar — start extremum is on the opposite side).
+                        if (b > fromBar)
                         {
                             if (isUp && m_BarsProvider.GetLowPrice(b) < startPrice)
                                 return false;
@@ -376,11 +399,7 @@ namespace TradeKit.Core.AlgoBase
 
             // After repairing leaf endpoints, re-validate the parent's hard rules
             // (endpoint shifts may have broken structural constraints).
-            // Skip for triangles: their convergence rules are sensitive to small
-            // endpoint shifts from OHLC repair, and the original parsing already
-            // validated them.
-            if (anyRepaired && node.ModelType != ElliottModelType.SIMPLE_IMPULSE
-                && !isTriangleParent)
+            if (anyRepaired && node.ModelType != ElliottModelType.SIMPLE_IMPULSE)
             {
                 var segs = new Segment[node.WaveCount];
                 for (int j = 0; j < node.WaveCount; j++)
@@ -421,7 +440,7 @@ namespace TradeKit.Core.AlgoBase
 
             // At the last markup level sub-waves are never further decomposed, so
             // motive/zigzag patterns must satisfy the endpoint-extremum rule (§4.1-endpoint).
-            bool isLastLevel = depth + 1 >= MAX_MARKUP_DEPTH;
+            bool isLastLevel = depth + 1 >= m_MaxMarkupDepth;
 
             // §4.1-continuity (hard rule): a valid model must span the full input range —
             // from altPoints[0] to altPoints[n-1] — so that no input extremum is left
@@ -448,7 +467,7 @@ namespace TradeKit.Core.AlgoBase
 
             // Recursive sub-wave analysis: identify what sub-model fills each segment.
             // Only recurse when we have not yet reached the depth limit.
-            if (depth + 1 < MAX_MARKUP_DEPTH)
+            if (depth + 1 < m_MaxMarkupDepth)
             {
                 // FillSubWaveModels returns false when the node must be discarded:
                 // at the last markup level a sub-wave position whose valid models are
@@ -465,7 +484,15 @@ namespace TradeKit.Core.AlgoBase
                 // Re-sort after sub-wave filling: reward candidates whose sub-waves
                 // were successfully identified deeper (§6.6 — depth coverage bonus).
                 foreach (ExactParsedNode node in results)
+                {
                     node.Score *= (1.0 + ComputeDepthCoverage(node) * DEPTH_COVERAGE_BONUS);
+
+                    // §4.5-triangle-corrective-bonus: when a corrective sub-wave
+                    // (b or x) is a triangle, the shallow price retracement is
+                    // structurally justified — boost the candidate's score.
+                    if (HasTriangleInCorrectivePosition(node))
+                        node.Score *= TRIANGLE_CORRECTIVE_BONUS;
+                }
 
                 results = results.OrderByDescending(x => x.Score).ToList();
             }
@@ -492,7 +519,7 @@ namespace TradeKit.Core.AlgoBase
         {
             if (node?.SubWaves == null) return true;
 
-            bool isAtLastSubLevel = depth + 1 >= MAX_MARKUP_DEPTH;
+            bool isAtLastSubLevel = depth + 1 >= m_MaxMarkupDepth;
             bool anyRepaired      = false;
 
             for (int i = 0; i < node.WaveCount; i++)
@@ -574,13 +601,19 @@ namespace TradeKit.Core.AlgoBase
 
                 // §4.5-triangle-preference: in corrective wave positions (b, x)
                 // triangles are preferred over other corrective models when found.
+                // RUNNING is checked first: it requires B to overshoot the origin,
+                // making it the more specific pattern. When both types match (RUNNING
+                // on points where B overshoots, CONTRACTING on intermediates that
+                // avoid the overshoot), RUNNING correctly captures the actual price
+                // structure.
                 ExactParsedNode best;
                 bool isCorrective = waveKey == "b" || waveKey == "x";
                 if (isCorrective)
                 {
                     best = validSubs.FirstOrDefault(r =>
-                        r.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
-                     || r.ModelType == ElliottModelType.TRIANGLE_RUNNING)
+                        r.ModelType == ElliottModelType.TRIANGLE_RUNNING)
+                        ?? validSubs.FirstOrDefault(r =>
+                        r.ModelType == ElliottModelType.TRIANGLE_CONTRACTING)
                         ?? validSubs.FirstOrDefault();
                 }
                 else
@@ -818,6 +851,54 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
+        /// Returns <c>true</c> when a corrective sub-wave (wave b or x) of the given
+        /// node has been identified as a triangle (contracting or running).
+        /// </summary>
+        private static bool HasTriangleInCorrectivePosition(ExactParsedNode node)
+        {
+            if (node?.SubWaves == null) return false;
+            for (int i = 0; i < node.WaveCount && i < node.SubWaves.Length; i++)
+            {
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw == null) continue;
+                string key = GetWaveKey(node.ModelType, i + 1);
+                if (key != "b" && key != "x") continue;
+                if (sw.ModelType == ElliottModelType.TRIANGLE_CONTRACTING ||
+                    sw.ModelType == ElliottModelType.TRIANGLE_RUNNING)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> when a corrective sub-wave (b or x) of the given node
+        /// spans at least <paramref name="threshold"/> (0–1) of the pattern's total
+        /// bar range.  Used by <see cref="SelectDiverseCandidates"/> to protect
+        /// candidates with long corrective waves from early elimination.
+        /// </summary>
+        private static bool HasSignificantCorrectiveSpan(
+            ExactParsedNode node, double threshold)
+        {
+            if (node?.SubWaves == null) return false;
+            int totalBars = Math.Abs(
+                node.EndPoint.BarIndex - node.StartPoint.BarIndex);
+            if (totalBars <= 0) return false;
+
+            for (int i = 0; i < node.WaveCount && i < node.SubWaves.Length; i++)
+            {
+                string key = GetWaveKey(node.ModelType, i + 1);
+                if (key != "b" && key != "x") continue;
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw == null) continue;
+                int swBars = Math.Abs(
+                    sw.EndPoint.BarIndex - sw.StartPoint.BarIndex);
+                if ((double)swBars / totalBars >= threshold)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Returns <c>true</c> when <paramref name="model"/> belongs to the set of motive/zigzag
         /// patterns for which the endpoint-extremum rule (§4.1-endpoint) applies:
         /// IMPULSE, DIAGONAL_CONTRACTING_INITIAL, DIAGONAL_CONTRACTING_ENDING, ZIGZAG,
@@ -904,6 +985,22 @@ namespace TradeKit.Core.AlgoBase
                     selected.Add(node);
                     usedSet.Add(node);
                 }
+            }
+
+            // Phase 1.5: protect candidates whose corrective wave (b or x) spans
+            // a large fraction of the total bar range.  Such candidates often host
+            // a triangle or other complex corrective structure that justifies the
+            // seemingly shallow price retracement.  Without this, they are evicted
+            // by candidates with better top-level Fibonacci scores before sub-wave
+            // analysis can discover the triangle.
+            const double MIN_CORRECTIVE_BAR_FRACTION = 0.25;
+            foreach (ExactParsedNode node in sortedResults)
+            {
+                if (selected.Count >= MAX_CANDIDATES_FOR_SUBWAVE_FILL) break;
+                if (usedSet.Contains(node)) continue;
+                if (!HasSignificantCorrectiveSpan(node, MIN_CORRECTIVE_BAR_FRACTION)) continue;
+                selected.Add(node);
+                usedSet.Add(node);
             }
 
             // Phase 2: fill remaining slots with the overall best-scoring candidates
@@ -1253,6 +1350,7 @@ namespace TradeKit.Core.AlgoBase
                     // and motive convergence after B (E < C).  C < A is NOT
                     // enforced — the overshoot resets the motive reference.
                     if (waveIdx == 3 && w[3].Length >= w[1].Length) return false; // D < B
+                    if (waveIdx == 4 && w[4].Length >= w[2].Length) return false; // E < C
                     return true;
 
                 default:

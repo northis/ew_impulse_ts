@@ -28,6 +28,9 @@ public class IterativeElliottWaveExactIndicator : Indicator
     [Parameter(nameof(BarsCount), DefaultValue = 100, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
     public int BarsCount { get; set; }
 
+    [Parameter("Markup depth", DefaultValue = ElliottWaveExactMarkup.MAX_MARKUP_DEPTH, MinValue = 1, MaxValue = 5, Group = Helper.TRADE_SETTINGS_NAME)]
+    public int MarkupDepth { get; set; }
+
     /// <summary>
     /// Gets or sets a value indicating whether candle information should be saved to file.
     /// </summary>
@@ -54,17 +57,25 @@ public class IterativeElliottWaveExactIndicator : Indicator
     [Parameter("Save markup charts", DefaultValue = false, Group = Helper.DEV_SETTINGS_NAME)]
     public bool SaveMarkupCharts { get; set; }
 
+    /// <summary>
+    /// Gets or sets the path to a JSON markup file to display instead of auto-markup.
+    /// If set and the file can be parsed, the indicator shows the loaded markup.
+    /// </summary>
+    [Parameter("Markup file path", DefaultValue = "", Group = Helper.DEV_SETTINGS_NAME)]
+    public string MarkupFilePath { get; set; }
+
     private IBarsProvider m_BarProvider;
     private ElliottWaveExactMarkup m_Markup;
     private bool m_CandlesSaved;
     private bool m_MarkupCandlesSaved;
     private bool m_MarkupChartsSaved;
     private ExactParsedNode m_CachedBest;
+    private bool m_FileMarkupDrawn;
 
     protected override void Initialize()
     {
         m_BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        m_Markup = new ElliottWaveExactMarkup(m_BarProvider);
+        m_Markup = new ElliottWaveExactMarkup(m_BarProvider, MarkupDepth);
     }
 
     public override void Calculate(int index)
@@ -80,6 +91,25 @@ public class IterativeElliottWaveExactIndicator : Indicator
         }
 
         if (!IsLastBar)
+            return;
+
+        // If a markup file path is specified, try to load and display it.
+        if (!string.IsNullOrWhiteSpace(MarkupFilePath) && !m_FileMarkupDrawn)
+        {
+            ExactParsedNode fileNode = TryLoadMarkupFromFile(MarkupFilePath);
+            if (fileNode != null)
+            {
+                m_FileMarkupDrawn = true;
+                m_CachedBest = fileNode;
+                Chart.RemoveAllObjects();
+                DrawMarkupNode(fileNode, "EW_", MAIN_NOTATION_LEVEL);
+                return;
+            }
+
+            Print($"Failed to load markup from: {MarkupFilePath}, falling back to auto-markup");
+        }
+
+        if (!string.IsNullOrWhiteSpace(MarkupFilePath) && m_FileMarkupDrawn)
             return;
 
         // Skip full recalculation while the price stays within the already-marked range.
@@ -128,7 +158,7 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
 
         var optimizer = new DeviationOptimizer(m_BarProvider, startPoint.BarIndex, endPoint.BarIndex, false);
-        double optimalDev = 0.1;//optimizer.FindOptimalDeviation();
+        double optimalDev = 0.01;//optimizer.FindOptimalDeviation();
         SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(optimalDev, m_BarProvider, !isUp);
         innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
 
@@ -240,6 +270,28 @@ public class IterativeElliottWaveExactIndicator : Indicator
 
             lastIndex = proj.BarIndex;
             lastValue = proj.Value;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to load an <see cref="ExactParsedNode"/> from a JSON markup file,
+    /// resolving bar indices from UTC timestamps.
+    /// </summary>
+    private ExactParsedNode TryLoadMarkupFromFile(string filePath)
+    {
+        try
+        {
+            if (!System.IO.File.Exists(filePath))
+                return null;
+
+            string json = System.IO.File.ReadAllText(filePath);
+            var jsonNode = JsonConvert.DeserializeObject<JsonMarkupNode>(json);
+            return jsonNode?.ToParsedNode(m_BarProvider);
+        }
+        catch (Exception ex)
+        {
+            Print($"Markup file error: {ex.Message}");
+            return null;
         }
     }
 
