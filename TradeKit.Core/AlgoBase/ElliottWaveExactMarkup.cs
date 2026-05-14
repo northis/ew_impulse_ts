@@ -55,6 +55,15 @@ namespace TradeKit.Core.AlgoBase
         private const double TRIANGLE_CORRECTIVE_BONUS = 2.0;
 
         /// <summary>
+        /// Maximum allowed breach as a fraction of wave length for SIMPLE_IMPULSE
+        /// children of triangle parents.  Triangle sub-waves are corrective
+        /// structures modeled as SIMPLE_IMPULSE for simplicity, so small OHLC
+        /// breaches are tolerated.  A breach exceeding this fraction of the
+        /// wave's net price movement is rejected.
+        /// </summary>
+        private const double TRIANGLE_CHILD_MAX_BREACH_RATIO = 0.5;
+
+        /// <summary>
         /// Maximum recursion depth for sub-wave model identification.
         /// Depth 0 = top-level pattern; depth 1 = first-level sub-waves.
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
@@ -286,7 +295,8 @@ namespace TradeKit.Core.AlgoBase
             if (node?.SubWaves == null) return true;
 
             bool anyRepaired = false;
-            // Triangle waves naturally overlap — skip breach checks for their children.
+            // Triangle waves naturally overlap — skip endpoint repair for their children
+            // but still enforce breach checks.
             bool isTriangleParent =
                 node.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
              || node.ModelType == ElliottModelType.TRIANGLE_RUNNING;
@@ -298,18 +308,20 @@ namespace TradeKit.Core.AlgoBase
 
                 if (sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
                 {
-                    // Triangle sub-waves are defined by structural alternating
-                    // points; OHLC repair would pull endpoints toward earlier bars
-                    // (where the true extremum often lies due to convergence),
-                    // collapsing later waves to zero-bar spans.
-                    if (isTriangleParent) continue;
-
                     bool isUp = sw.IsUp;
                     double startPrice = sw.StartPoint.Value;
                     int fromBar = sw.StartPoint.BarIndex;
                     int toBar = sw.EndPoint.BarIndex;
                     double bestVal = isUp ? double.MinValue : double.MaxValue;
                     int bestBar = toBar;
+
+                    // For triangle children use a relaxed breach check: tolerate
+                    // small breaches up to TRIANGLE_CHILD_MAX_BREACH_RATIO of
+                    // the wave's net price movement.
+                    double waveLength = Math.Abs(sw.EndPoint.Value - sw.StartPoint.Value);
+                    double maxBreach = isTriangleParent
+                        ? waveLength * TRIANGLE_CHILD_MAX_BREACH_RATIO
+                        : 0.0;
 
                     for (int b = fromBar; b <= toBar; b++)
                     {
@@ -318,9 +330,9 @@ namespace TradeKit.Core.AlgoBase
                         // Breach check (skip fromBar — start extremum is on the opposite side).
                         if (b > fromBar)
                         {
-                            if (isUp && m_BarsProvider.GetLowPrice(b) < startPrice)
+                            if (isUp && startPrice - m_BarsProvider.GetLowPrice(b) > maxBreach)
                                 return false;
-                            if (!isUp && m_BarsProvider.GetHighPrice(b) > startPrice)
+                            if (!isUp && m_BarsProvider.GetHighPrice(b) - startPrice > maxBreach)
                                 return false;
                         }
 
@@ -334,6 +346,12 @@ namespace TradeKit.Core.AlgoBase
                             bestBar = b;
                         }
                     }
+
+                    // Triangle sub-waves are defined by structural alternating
+                    // points; OHLC repair would pull endpoints toward earlier bars
+                    // (where the true extremum often lies due to convergence),
+                    // collapsing later waves to zero-bar spans.  Skip repair only.
+                    if (isTriangleParent) continue;
 
                     // Repair endpoint to the true OHLC extremum
                     if (Math.Abs(sw.EndPoint.Value - bestVal) > bestVal * 1e-10
@@ -1337,6 +1355,20 @@ namespace TradeKit.Core.AlgoBase
                         if ( isUp && w[1].End.Value < start) return false;
                         if (!isUp && w[1].End.Value > start) return false;
                     }
+                    // Endpoint convergence for motive waves (even indices 0,2,4):
+                    // same-direction endpoints must converge toward the apex.
+                    if (waveIdx >= 2 && waveIdx % 2 == 0)
+                    {
+                        if ( isUp && w[waveIdx].End.Value >= w[waveIdx - 2].End.Value) return false;
+                        if (!isUp && w[waveIdx].End.Value <= w[waveIdx - 2].End.Value) return false;
+                    }
+                    // Endpoint convergence for corrective waves (D vs B):
+                    // opposite-direction endpoints converge from the other side.
+                    if (waveIdx == 3)
+                    {
+                        if ( isUp && w[3].End.Value <= w[1].End.Value) return false;
+                        if (!isUp && w[3].End.Value >= w[1].End.Value) return false;
+                    }
                     return true;
 
                 case ElliottModelType.TRIANGLE_RUNNING:
@@ -1537,6 +1569,27 @@ namespace TradeKit.Core.AlgoBase
                         if (w[2].Length >= w[0].Length) return false;
                         if (w[4].Length >= w[2].Length) return false;
                         if (w[3].Length >= w[1].Length) return false;
+
+                        // Endpoint convergence: same-direction wave endpoints
+                        // must converge toward the apex.  Without this a
+                        // trending zigzag with diminishing oscillations would
+                        // pass the length check above.
+                        if (isUp)
+                        {
+                            // Upper trendline descends.
+                            if (w[2].End.Value >= w[0].End.Value) return false;
+                            if (w[4].End.Value >= w[2].End.Value) return false;
+                            // Lower trendline ascends.
+                            if (w[3].End.Value <= w[1].End.Value) return false;
+                        }
+                        else
+                        {
+                            // Lower trendline ascends.
+                            if (w[2].End.Value <= w[0].End.Value) return false;
+                            if (w[4].End.Value <= w[2].End.Value) return false;
+                            // Upper trendline descends.
+                            if (w[3].End.Value >= w[1].End.Value) return false;
+                        }
 
                         // E must remain on the triangle side of the start (not break out the wrong way).
                         double eEnd = w[4].End.Value;
