@@ -579,6 +579,24 @@ Structurally identical to `TRIANGLE_CONTRACTING`, with one additional constraint
 - If the available price bounds do not allow the running condition, degrades
   automatically to `TRIANGLE_CONTRACTING`.
 
+### Relaxed amplitude rules
+
+Because B overshoots the origin, C can exceed A in amplitude. Only the following
+amplitude convergence rules are enforced:
+- D < B (corrective waves converge)
+- E < C (motive waves converge after the overshoot)
+
+### Endpoint convergence (hard rule)
+
+Same as `TRIANGLE_CONTRACTING` — same-direction endpoints must NOT break through
+the previous same-direction endpoint:
+- **C end** stays inside **A end** (motive convergence).
+- **E end** stays inside **C end** (motive convergence).
+- **D end** stays inside **B end** (corrective convergence).
+
+Note: while amplitude C > A is allowed (B overshoot), the C *endpoint* must
+still not exceed the A endpoint — the triangle trendlines must converge.
+
 ---
 
 ## 17. TRIANGLE_EXPANDING

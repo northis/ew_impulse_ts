@@ -1423,11 +1423,22 @@ namespace TradeKit.Core.AlgoBase
                         if (!isUp && w[1].End.Value <= start) return false;
                     }
                     // Running triangles have an oversized B wave, so C can be
-                    // larger than A.  Only require corrective convergence (D < B)
-                    // and motive convergence after B (E < C).  C < A is NOT
-                    // enforced — the overshoot resets the motive reference.
+                    // larger than A in amplitude.  Require:
+                    //   D < B  (corrective amplitude convergence)
+                    //   E < C  (motive amplitude convergence)
                     if (waveIdx == 3 && w[3].Length >= w[1].Length) return false; // D < B
                     if (waveIdx == 4 && w[4].Length >= w[2].Length) return false; // E < C
+                    // Endpoint convergence (same as contracting):
+                    // C must not break through A, E must not break through C,
+                    // D must not break through B.
+                    if (waveIdx >= 2)
+                    {
+                        bool waveGoesUp = (waveIdx % 2 == 0) == isUp;
+                        double currEnd = w[waveIdx].End.Value;
+                        double prevEnd = w[waveIdx - 2].End.Value;
+                        if ( waveGoesUp && currEnd > prevEnd) return false;
+                        if (!waveGoesUp && currEnd < prevEnd) return false;
+                    }
                     return true;
 
                 default:
@@ -1661,7 +1672,23 @@ namespace TradeKit.Core.AlgoBase
                         if (w[3].Length >= w[1].Length) return false; // D < B
                         if (w[4].Length >= w[2].Length) return false; // E < C
 
-                        // Same E constraint as contracting: just stay on triangle side of start.
+                        // Endpoint convergence (same as contracting):
+                        // C must not break through A, E must not break through C,
+                        // D must not break through B.
+                        if (isUp)
+                        {
+                            if (w[2].End.Value > w[0].End.Value) return false; // c peak ≤ a peak
+                            if (w[4].End.Value > w[2].End.Value) return false; // e peak ≤ c peak
+                            if (w[3].End.Value < w[1].End.Value) return false; // d trough ≥ b trough
+                        }
+                        else
+                        {
+                            if (w[2].End.Value < w[0].End.Value) return false; // c trough ≥ a trough
+                            if (w[4].End.Value < w[2].End.Value) return false; // e trough ≥ c trough
+                            if (w[3].End.Value > w[1].End.Value) return false; // d peak ≤ b peak
+                        }
+
+                        // E must remain on the triangle side of the start.
                         double eEnd = w[4].End.Value;
                         if (isUp && eEnd <= start) return false;
                         if (!isUp && eEnd >= start) return false;
