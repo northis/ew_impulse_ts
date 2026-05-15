@@ -1310,6 +1310,9 @@ namespace TradeKit.Core.AlgoBase
         private static bool CheckIncrementalHardRules(
             ElliottModelType model, Segment[] w, int waveIdx)
         {
+            // Every wave must span at least 2 bars.
+            if (w[waveIdx].End.BarIndex == w[waveIdx].Start.BarIndex) return false;
+
             bool isUp  = w[0].IsUp;
             double start = w[0].Start.Value;
 
@@ -1393,8 +1396,18 @@ namespace TradeKit.Core.AlgoBase
                     return true;
 
                 case ElliottModelType.TRIANGLE_CONTRACTING:
-                    // Same-direction convergence: C < A (waveIdx 2 vs 0), E < C (4 vs 2), D < B (3 vs 1)
+                    // Amplitude convergence: C < A, E < C, D < B
                     if (waveIdx >= 2 && w[waveIdx].Length >= w[waveIdx - 2].Length) return false;
+                    // Endpoint convergence: same-direction endpoint must NOT break
+                    // through the previous same-direction endpoint.
+                    if (waveIdx >= 2)
+                    {
+                        bool waveGoesUp = (waveIdx % 2 == 0) == isUp;
+                        double currEnd = w[waveIdx].End.Value;
+                        double prevEnd = w[waveIdx - 2].End.Value;
+                        if ( waveGoesUp && currEnd > prevEnd) return false;
+                        if (!waveGoesUp && currEnd < prevEnd) return false;
+                    }
                     // B must NOT overshoot origin (that would be a running triangle).
                     if (waveIdx >= 1)
                     {
@@ -1425,6 +1438,11 @@ namespace TradeKit.Core.AlgoBase
         private static bool CheckHardRules(ElliottModelType model, Segment[] w)
         {
             if (w.Length == 0) return false;
+
+            // Every wave must span at least 2 bars.
+            for (int i = 0; i < w.Length; i++)
+                if (w[i].End.BarIndex == w[i].Start.BarIndex) return false;
+
             bool isUp = w[0].IsUp;
             double start = w[0].Start.Value;
 
@@ -1594,12 +1612,33 @@ namespace TradeKit.Core.AlgoBase
                         if (isUp && w[1].End.Value < start) return false;
                         if (!isUp && w[1].End.Value > start) return false;
 
-                        // Convergence rule: same-direction waves must contract.
+                        // Amplitude convergence: same-direction waves must contract.
                         // Motive waves: A > C > E (waves 0, 2, 4)
                         // Corrective waves: B > D (waves 1, 3)
                         if (w[2].Length >= w[0].Length) return false;
                         if (w[4].Length >= w[2].Length) return false;
                         if (w[3].Length >= w[1].Length) return false;
+
+                        // Endpoint convergence: same-direction endpoints must NOT
+                        // break through the previous same-direction endpoint.
+                        // (The trendlines connecting motive and corrective endpoints
+                        // must narrow, not just the amplitudes.)
+                        if (isUp)
+                        {
+                            // Motive (a,c,e) go UP → peaks must not break above previous.
+                            if (w[2].End.Value > w[0].End.Value) return false;
+                            if (w[4].End.Value > w[2].End.Value) return false;
+                            // Corrective (b,d) go DOWN → troughs must not break below previous.
+                            if (w[3].End.Value < w[1].End.Value) return false;
+                        }
+                        else
+                        {
+                            // Motive (a,c,e) go DOWN → troughs must not break below previous.
+                            if (w[2].End.Value < w[0].End.Value) return false;
+                            if (w[4].End.Value < w[2].End.Value) return false;
+                            // Corrective (b,d) go UP → peaks must not break above previous.
+                            if (w[3].End.Value > w[1].End.Value) return false;
+                        }
 
                         // E must remain on the triangle side of the start (not break out the wrong way).
                         double eEnd = w[4].End.Value;

@@ -42,6 +42,12 @@ classical Elliott Wave literature.
 | `MAX_DEEP_LEVEL` | 10 | Maximum recursion depth for sub-wave generation |
 | `MAIN_ALLOWANCE_MAX_RATIO` | 0.05 (5%) | Tolerance applied when placing wave ends near Fibonacci levels (waves don't land exactly on fibs) |
 
+### Universal Hard Rule
+
+Every individual wave (sub-wave) must span **at least 2 bars** (i.e. its start bar
+and end bar must differ). A single-bar "wave" is structurally meaningless and is
+rejected by the markup engine for all model types.
+
 ---
 
 ## 2. Model Catalogue & Probability Coefficients
@@ -534,13 +540,20 @@ itself (nested triangle).
 1. **Wave A** is longer than the full pattern range — the first leg overshoots,
    then contracts back to the pattern endpoint.
    - A length drawn from approximately `range + 5%…95% of (aLimit − endValue)`.
-2. Each subsequent wave is **shorter** than the previous:
+2. Each subsequent wave is **shorter** than the previous (amplitude convergence):
    - B / A, C / B, D / C ratios: `MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV` (§ 4.11): 0.5–0.95.
    - Each ratio is constrained by the requirement that subsequent waves converge
      toward the apex (E endpoint).
-3. **Running variant** (`TRIANGLE_RUNNING`): Wave B exceeds the starting point
+3. **Endpoint convergence** (hard rule): same-direction wave endpoints must NOT
+   break through the previous same-direction endpoint.
+   - Motive endpoints: C end stays inside A end, E end stays inside C end.
+   - Corrective endpoints: D end stays inside B end.
+   - This prevents triangles where amplitudes shrink but shallow retracements
+     cause later waves to exceed earlier boundaries (the trendlines connecting
+     same-direction endpoints must narrow, not just the amplitudes).
+4. **Running variant** (`TRIANGLE_RUNNING`): Wave B exceeds the starting point
    (goes beyond the origin); see § 16.
-4. Classified as a **shallow** correction.
+5. Classified as a **shallow** correction.
 
 ### Duration distribution (base weights)
 
