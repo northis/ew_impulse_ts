@@ -14,7 +14,7 @@ namespace TradeKit.CTrader.Indicators;
 /// <see cref="SimpleExtremumFinder"/> with a configurable deviation percent,
 /// then runs the Elliott Wave markup algorithm on each segment independently.
 /// </summary>
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class AutoMarkupZigzagBaseIndicator : ElliottWaveIndicatorBase
 {
     private const double INNER_DEVIATION = 0.01;

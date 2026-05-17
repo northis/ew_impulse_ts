@@ -10,12 +10,11 @@ using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
 using TradeKit.Core.Json;
-using TradeKit.Core.PatternGeneration;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
 
-//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeElliottWaveExactIndicator : ElliottWaveIndicatorBase
 {
     [Parameter(nameof(BarsCount), DefaultValue = 100, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -149,7 +148,7 @@ public class IterativeElliottWaveExactIndicator : ElliottWaveIndicatorBase
 
 
         var optimizer = new DeviationOptimizer(BarProvider, startPoint.BarIndex, endPoint.BarIndex, false);
-        double optimalDev = 0.01;//optimizer.FindOptimalDeviation();
+        double optimalDev = optimizer.FindOptimalDeviation();
         SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(optimalDev, BarProvider, !isUp);
         innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
 

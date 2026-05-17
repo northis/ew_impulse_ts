@@ -101,8 +101,7 @@ public abstract class ElliottWaveIndicatorBase : Indicator
                 : ElliottWaveExactMarkup.GetWaveKey(node.ModelType, i + 1);
 
             string name = $"{prefix}{sw.StartPoint.BarIndex}_{sw.EndPoint.BarIndex}_{labelText}";
-            Color labelColor = GetWaveColor(
-                sw.ModelType != ElliottModelType.SIMPLE_IMPULSE ? sw.ModelType : node.ModelType);
+            Color labelColor = GetWaveColor(node.ModelType);
 
             Chart.DrawTrendLine(name + "_l",
                 sw.StartPoint.BarIndex, sw.StartPoint.Value,
@@ -121,22 +120,44 @@ public abstract class ElliottWaveIndicatorBase : Indicator
     /// <summary>
     /// Groups collected label items by bar index and draws them vertically stacked,
     /// with the youngest wave label (lowest notation level) closest to the price bar.
-    /// Each consecutive label is offset by 6 pips further from the bar.
+    /// Max-point labels stack upward (bottom→top, youngest→oldest);
+    /// min-point labels stack downward (top→bottom, youngest→oldest).
     /// </summary>
     protected void DrawStackedLabels(List<MarkupLabelItem> labels)
     {
         foreach (var grp in labels.GroupBy(x => x.BarIndex))
         {
-            var sorted = grp.OrderBy(x => x.NotationLevel).ToList();
-            bool isUp  = sorted[0].IsUp;
-            double sign   = isUp ? 1.0 : -1.0;
-            double offset = 2.0;
-            foreach (var item in sorted)
+            // Separate labels at maxima (wave going up → endpoint is peak)
+            // from labels at minima (wave going down → endpoint is valley).
+            var maxLabels = grp.Where(x => x.IsUp).OrderBy(x => x.NotationLevel).ToList();
+            var minLabels = grp.Where(x => !x.IsUp).OrderBy(x => x.NotationLevel).ToList();
+
+            // Max labels: common base = highest price, stack upward
+            if (maxLabels.Count > 0)
             {
-                Chart.DrawText(item.Name + "_t", item.LabelText,
-                    item.BarIndex, item.Value + sign * Symbol.PipSize * offset,
-                    item.LabelColor);
-                offset += 6.0;
+                double baseValue = maxLabels.Max(x => x.Value);
+                double offset = 4.0;
+                foreach (var item in maxLabels)
+                {
+                    Chart.DrawText(item.Name + "_t", item.LabelText,
+                        item.BarIndex, baseValue + Symbol.PipSize * offset,
+                        item.LabelColor);
+                    offset += 10.0;
+                }
+            }
+
+            // Min labels: common base = lowest price, stack downward
+            if (minLabels.Count > 0)
+            {
+                double baseValue = minLabels.Min(x => x.Value);
+                double offset = 4.0;
+                foreach (var item in minLabels)
+                {
+                    Chart.DrawText(item.Name + "_t", item.LabelText,
+                        item.BarIndex, baseValue - Symbol.PipSize * offset,
+                        item.LabelColor);
+                    offset += 10.0;
+                }
             }
         }
     }
