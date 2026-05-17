@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -17,6 +18,7 @@ namespace TradeKit.Core.ElliottWave
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly double m_MaxZigzagRatio;
         private readonly double m_MaxOverlapseLengthRatio;
+        private readonly ElliottWaveExactMarkup m_Markup;
 
         private readonly Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
         
@@ -64,20 +66,44 @@ namespace TradeKit.Core.ElliottWave
 
             m_MaxZigzagRatio = impulseParams.MaxZigzagPercent / 100;
             m_MaxOverlapseLengthRatio = impulseParams.MaxOverlapseLengthPercent / 100;
+            m_Markup = new ElliottWaveExactMarkup(mainBarsProvider);
         }
 
-        private bool IsSmoothImpulse(ImpulseResult stats)
+        private static readonly HashSet<ElliottModelType> S_IMPULSE_MODEL_TYPES = new()
         {
-            bool rzz = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100;
-            bool hm = stats.HeterogeneityMax <= m_ImpulseParams.MaxZigzagPercent / 100;
-            bool om = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
-            bool md = stats.MaxDistance <= m_ImpulseParams.MaxDistance / 100;
-            bool a = stats.Area <= m_ImpulseParams.AreaPercent / 100;
-            bool s = stats.Size >= m_ImpulseParams.MinSizePercent / 100;
+            ElliottModelType.IMPULSE,
+            ElliottModelType.DIAGONAL_CONTRACTING_INITIAL,
+            ElliottModelType.DIAGONAL_CONTRACTING_ENDING
+        };
 
+        private bool IsElliottImpulse(BarPoint startItem, BarPoint endItem)
+        {
+            bool isUp = endItem.Value > startItem.Value;
 
-            bool res = s && (rzz && hm && om && md && a /*|| stats.RatioZigzag<0.2 && stats.OverlapseMaxDepth < 0.2*/);
-            return res;
+            var optimizer = new DeviationOptimizer(
+                BarsProvider, startItem.BarIndex, endItem.BarIndex, false);
+            double optimalDev = optimizer.FindOptimalDeviation();
+            var innerFinder = new SimpleExtremumFinder(optimalDev, BarsProvider, !isUp);
+            innerFinder.Calculate(startItem.BarIndex, endItem.BarIndex);
+
+            List<BarPoint> innerPoints = innerFinder.ToExtremaList()
+                .Where(p => p.BarIndex >= startItem.BarIndex && p.BarIndex <= endItem.BarIndex)
+                .ToList();
+
+            if (innerPoints.All(p => p.BarIndex != startItem.BarIndex))
+                innerPoints.Insert(0, startItem);
+            if (innerPoints.All(p => p.BarIndex != endItem.BarIndex))
+                innerPoints.Add(endItem);
+
+            innerPoints = ExtremumFinderBase.EndFixCorridors(innerPoints, BarsProvider);
+            innerPoints = ExtremumFinderBase.RefineToCorridors(innerPoints, BarsProvider);
+
+            List<ExactParsedNode> parsed = m_Markup.Parse(innerPoints);
+            if (parsed.Count == 0)
+                return false;
+
+            ExactParsedNode best = parsed.OrderByDescending(a => a.Score).First();
+            return S_IMPULSE_MODEL_TYPES.Contains(best.ModelType);
         }
         
         /// <summary>
@@ -229,7 +255,8 @@ namespace TradeKit.Core.ElliottWave
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
             if (!checkSignalArgs.HasInCache &&
-                (stats.CandlesCount < m_ImpulseParams.BarsCount || !IsSmoothImpulse(stats)))
+                (stats.CandlesCount < m_ImpulseParams.BarsCount ||
+                 !IsElliottImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem)))
             {
                 m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                 //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");

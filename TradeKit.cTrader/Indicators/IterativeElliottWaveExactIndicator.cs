@@ -14,7 +14,7 @@ using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
 
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeElliottWaveExactIndicator : ElliottWaveIndicatorBase
 {
     [Parameter(nameof(BarsCount), DefaultValue = 100, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
