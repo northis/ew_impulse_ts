@@ -76,7 +76,7 @@ namespace TradeKit.Core.ElliottWave
             ElliottModelType.DIAGONAL_CONTRACTING_ENDING
         };
 
-        private bool IsElliottImpulse(BarPoint startItem, BarPoint endItem)
+        private ExactParsedNode GetElliottImpulse(BarPoint startItem, BarPoint endItem)
         {
             bool isUp = endItem.Value > startItem.Value;
 
@@ -100,10 +100,14 @@ namespace TradeKit.Core.ElliottWave
 
             List<ExactParsedNode> parsed = m_Markup.Parse(innerPoints);
             if (parsed.Count == 0)
-                return false;
+                return null;
 
             ExactParsedNode best = parsed.OrderByDescending(a => a.Score).First();
-            return S_IMPULSE_MODEL_TYPES.Contains(best.ModelType);
+            if (!S_IMPULSE_MODEL_TYPES.Contains(best.ModelType))
+                return null;
+
+            Logger.Write("Elliott impulse detected: " + best.ModelType);
+            return best;
         }
         
         /// <summary>
@@ -227,6 +231,19 @@ namespace TradeKit.Core.ElliottWave
             return IsInSetup;
         }
 
+        private bool IsSmoothImpulse(ImpulseResult stats)
+        {
+            bool rzz = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100;
+            bool hm = stats.HeterogeneityMax <= m_ImpulseParams.MaxZigzagPercent / 100;
+            bool om = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
+            bool md = stats.MaxDistance <= m_ImpulseParams.MaxDistance / 100;
+            bool a = stats.Area <= m_ImpulseParams.AreaPercent / 100;
+            bool s = stats.Size >= m_ImpulseParams.MinSizePercent / 100;
+
+            bool res = s && (rzz && hm && om && md && a /*|| stats.RatioZigzag<0.2 && stats.OverlapseMaxDepth < 0.2*/);
+            return res;
+        }
+
         private bool CheckForSignal(CheckSignalArgs checkSignalArgs)
         {
             if (checkSignalArgs.HasInCache && 
@@ -254,13 +271,21 @@ namespace TradeKit.Core.ElliottWave
                ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime]
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
-            if (!checkSignalArgs.HasInCache &&
-                (stats.CandlesCount < m_ImpulseParams.BarsCount ||
-                 !IsElliottImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem)))
+            ExactParsedNode markupNode = null;
+            if (!checkSignalArgs.HasInCache)
             {
-                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
-                //Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: CheckForSignal: not smooth enough ({stats}, {checkSignalArgs.EndItem:o})");
-                return false;
+                if (stats.CandlesCount < m_ImpulseParams.BarsCount)
+                {
+                    m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
+                    return false;
+                }
+
+                markupNode = GetElliottImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem);
+                if (markupNode == null)
+                {
+                    m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
+                    return false;
+                }
             }
 
             if (!checkSignalArgs.HasInCache)
@@ -329,7 +354,8 @@ namespace TradeKit.Core.ElliottWave
                 checkSignalArgs.StartValue,
                 checkSignalArgs.IsImpulseUp,
                 edgeIndex,
-                stats)
+                stats,
+                markupNode)
             {
                 UseLimit = useLimit
             };
@@ -446,7 +472,16 @@ namespace TradeKit.Core.ElliottWave
                 CurrentStatistic, m_ImpulseParams.BreakEvenRatio is > 0 and <= 1
                     ? m_ImpulseParams.BreakEvenRatio
                     : null,
-                signalArgs.UseLimit);
+                signalArgs.UseLimit,
+                signalArgs.MarkupNode);
+
+            //if (signalArgs.MarkupNode != null)
+            //{
+            //    string chartName = $"{Symbol.Name}_{BarsProvider.TimeFrame.ShortName}_{signalArgs.MarkupNode.ModelType}_{signalArgs.EndItem.OpenTime:yyyyMMdd_HHmm}";
+            //    string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, chartName);
+            //    ChartGenerator.GenerateMarkupChart(signalArgs.MarkupNode, BarsProvider, 4, chartFilePath);
+            //}
+
             Logger.Write($"{Symbol.Name}, {TimeFrame.ShortName}: On before Enter");
             OnEnterInvoke(CurrentSignalEventArgs);
             return true;

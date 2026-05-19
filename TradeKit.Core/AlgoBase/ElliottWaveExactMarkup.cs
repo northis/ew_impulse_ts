@@ -91,6 +91,29 @@ namespace TradeKit.Core.AlgoBase
         private const double SUBWAVE_REDISCOVERY_DEVIATION = 0.03;
 
         /// <summary>
+        /// Maximum allowed overlap depth (fraction of wave length) for a bare
+        /// SIMPLE_IMPULSE leaf occupying wave-3 position of an IMPULSE parent.
+        /// Wave 3 is the strongest motive wave — its internal structure must not
+        /// exhibit deep pullbacks characteristic of corrective patterns.
+        /// </summary>
+        private const double WAVE3_MAX_OVERLAPSE = 0.5;
+
+        /// <summary>
+        /// Maximum allowed zigzag ratio for wave-3 SIMPLE_IMPULSE leaves.
+        /// Represents the longest counter-trend bar-run relative to the segment
+        /// duration.  High values indicate the segment is likely a zigzag, not
+        /// an impulsive move.
+        /// </summary>
+        private const double WAVE3_MAX_ZIGZAG_RATIO = 0.4;
+
+        /// <summary>
+        /// Minimum number of bars required in a SIMPLE_IMPULSE segment before the
+        /// wave-3 statistical quality check is applied.  Shorter segments do not
+        /// produce meaningful statistics.
+        /// </summary>
+        private const int WAVE3_MIN_BARS_FOR_QUALITY_CHECK = 5;
+
+        /// <summary>
         /// Minimum number of alternating extrema required to attempt a 5-wave
         /// model (triangle, impulse, diagonal).  5 waves need at least 6 points.
         /// </summary>
@@ -412,6 +435,29 @@ namespace TradeKit.Core.AlgoBase
                             }
 
                             anyRepaired = true;
+                        }
+                    }
+
+                    // §4.6-wave3-quality: wave 3 of an IMPULSE must look impulsive
+                    // even when left as a bare SIMPLE_IMPULSE segment.  Reject
+                    // candidates where wave 3 exhibits zigzag-like internal structure
+                    // (high overlap depth or prolonged counter-trend sections).
+                    if (node.ModelType == ElliottModelType.IMPULSE && i == 2)
+                    {
+                        int barCount = Math.Abs(sw.EndPoint.BarIndex - sw.StartPoint.BarIndex);
+                        if (barCount >= WAVE3_MIN_BARS_FOR_QUALITY_CHECK)
+                        {
+                            var (overlapseDepth, _, _, _) = MovementStatistic.GetMaxOverlapseScore(
+                                sw.StartPoint, sw.EndPoint, m_BarsProvider,
+                                WAVE3_MAX_OVERLAPSE);
+                            if (overlapseDepth > WAVE3_MAX_OVERLAPSE)
+                                return false;
+
+                            double zigzagRatio = MovementStatistic.GetRatioZigZag(
+                                sw.StartPoint, sw.EndPoint, m_BarsProvider,
+                                WAVE3_MAX_ZIGZAG_RATIO);
+                            if (zigzagRatio > WAVE3_MAX_ZIGZAG_RATIO)
+                                return false;
                         }
                     }
                 }

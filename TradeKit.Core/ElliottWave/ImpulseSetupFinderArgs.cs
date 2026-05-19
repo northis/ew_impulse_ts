@@ -25,7 +25,7 @@ namespace TradeKit.Core.ElliottWave
 
     internal class SignalArgs
     {
-        internal SignalArgs(int index, double? currentPriceBid, BarPoint startItem, BarPoint endItem, double triggerLevel, double low, double high, double endValue, double startValue, bool isImpulseUp, int edgeIndex, ImpulseResult stats)
+        internal SignalArgs(int index, double? currentPriceBid, BarPoint startItem, BarPoint endItem, double triggerLevel, double low, double high, double endValue, double startValue, bool isImpulseUp, int edgeIndex, ImpulseResult stats, ExactParsedNode markupNode = null)
         {
             Index = index;
             CurrentPriceBid = currentPriceBid;
@@ -39,6 +39,7 @@ namespace TradeKit.Core.ElliottWave
             IsImpulseUp = isImpulseUp;
             EdgeIndex = edgeIndex;
             Stats = stats;
+            MarkupNode = markupNode;
         }
 
         public int Index { get; }
@@ -55,6 +56,7 @@ namespace TradeKit.Core.ElliottWave
         
         public bool UseLimit { get; set; }
         public ImpulseResult Stats { get; }
+        public ExactParsedNode MarkupNode { get; }
     }
 
     internal class CheckSignalArgs
