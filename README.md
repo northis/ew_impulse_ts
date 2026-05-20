@@ -1,52 +1,32 @@
-# cTrader bots & indicators
-Can be easily connected to your cTrader terminal.
-1. Build the project you need.
-2. Get the indicator or bot `/bin/Release/net6.0/<bot_project_name>.algo`.
-3. Place it to `/cAlgo/Sources/Indicators` or `/cAlgo/Sources/Robots`.
-4. Find it in cTrader and connect to a chart/backtesting/real trading
-5. ???
-6. PROFIT!
+# Elliott Wave Auto-Markup & Price Prediction
 
-## Price Action patterns
-- indicator `PriceActionIndicator.csproj`
+Automated Elliott Wave analysis indicator for cTrader. Identifies wave models on live charts, matches partial (incomplete) structures, and projects price targets for the next waves using Fibonacci ratios and trendline convergence.
 
-    [ ![Indicator in work](images/priceActionInd_preview.png) ](images/priceActionInd.png)
+![Prediction indicator](images/ew_prediction.png)
 
-## Gartley patterns + MACD divergences (bot & indicator)
-- indicator `GartleyFinderIndicator.csproj`
+## Key features
 
-    [ ![Indicator in work](images/gartleyInd_preview.png) ](images/gartleyInd.png)
+- **Full auto-markup** — recursive identification of impulses, zigzags, flats, triangles, and diagonals up to configurable depth.
+- **Partial model matching** — recognizes incomplete structures (missing 1–2 trailing waves) and competes them against full models by adjusted score.
+- **Price projections** — Fibonacci-based target levels for active/upcoming waves with trendline intersection for triangles and diagonals.
+- **Cluster zones** — highlights price areas where multiple projections converge (≤ 5 % tolerance).
 
-- bot `GartleySignalerBot.csproj`
+## Quick start
 
-## Elliott Wave Impulse Trading System (bot & indicator)
-Setup principle is to find an initial impulse (wave 1 or wave A) and trade the next wave from the pullback.
+1. Build `ElliottIndicator.csproj` (or `ImpulseFinderIndicator.csproj` for the classic setup-finder).
+2. Copy the resulting `.algo` file to `cAlgo/Sources/Indicators`.
+3. Attach to a chart — the indicator auto-detects zigzag structure and displays markup + projections.
 
-![Setup](images/ew_setup.png)
+## Other indicators & bots
 
-- indicator `ImpulseFinderIndicator.csproj`
+| Project | Description |
+|---------|-------------|
+| `ImpulseFinderIndicator` / `ImpulseSignalerBot` | Finds initial impulse (wave 1/A) and signals the pullback trade. |
+| `GartleyFinderIndicator` / `GartleySignalerBot` | Gartley harmonic patterns + MACD divergence filter. |
+| `PriceActionIndicator` / `PriceActionSignalerBot` | Classic price-action pattern detector. |
+| `SignalsCheckIndicator` / `SignalCheckerBot` | Validates external signals against chart structure. |
+| `RateSignalerBot` | Rate-of-change based alerting bot. |
+| `SignalForwarder` | Forwards Telegram signals between channels. |
 
-    [ ![Indicator in work](images/impulseFinderInd_preview.png) ](images/impulseFinderInd.png)
-
-- bot `ImpulseSignalerBot.csproj`
-
-    [ ![Bot in work](images/impulseFinderBot_preview.png) ](images/impulseFinderBot.png)
-
-## Signals checker bot & indicator
-- indicator `SignalsCheckIndicator.csproj`
-
-    [ ![Indicator in work](images/signalsCheckerInd_preview.png) ](images/signalsCheckerInd.png)
-
-- bot `SignalCheckerBot.csproj`
-
-    [ ![Bot in work](images/signalsCheckerBot_preview.png) ](images/signalsCheckerBot.png)
-
-## Rate-based bot
-- bot `RateSignalerBot.csproj`
-
-    [ ![Bot in work](images/rateSignalerBot_preview.png) ](images/rateSignalerBot.png)
-
-## Telegram reporting
-
-![Bot in work](images/telegramSignalsBot.png)
+All bots support Telegram reporting for trade alerts.
 
