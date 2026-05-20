@@ -54,6 +54,13 @@ namespace TradeKit.Core.ElliottWave
         public ExactParsedNode[] SubWaves { get; set; }
 
         /// <summary>
+        /// Index of the first sub-wave that is "active" (still forming, unconfirmed).
+        /// -1 means all waves are confirmed.
+        /// Waves with index >= ActiveFromWaveIndex are marked as unconfirmed.
+        /// </summary>
+        public int ActiveFromWaveIndex { get; set; } = -1;
+
+        /// <summary>
         /// Calculates the maximum depth of the current wave and its subwaves.
         /// </summary>
         /// <remarks>Use this method to determine how deeply nested the current wave is within its

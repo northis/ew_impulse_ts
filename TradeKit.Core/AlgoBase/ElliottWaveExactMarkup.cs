@@ -300,6 +300,379 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
+        /// Parses in prediction mode: accepts partial models (missing 1–2 trailing waves)
+        /// and produces projections for the missing waves. Returns the best candidate
+        /// (complete or partial) with its projections.
+        /// </summary>
+        /// <param name="points">Zigzag extrema including the active (unconfirmed) endpoint.</param>
+        /// <param name="activeBarIndex">
+        /// Bar index of the live (unconfirmed) endpoint. Points at this index are
+        /// considered active — hard rules are relaxed for segments touching this point.
+        /// Pass -1 to disable prediction mode (equivalent to <see cref="Parse"/>).
+        /// </param>
+        public PredictionResult ParsePredictive(List<BarPoint> points, int activeBarIndex)
+        {
+            if (points == null || points.Count < 2)
+                return null;
+
+            // Run full + partial parsing
+            List<ExactParsedNode> results = ParseInternal(
+                points, null, 0, allowPartial: true, activeBarIndex: activeBarIndex);
+
+            if (m_BarsProvider != null)
+            {
+                // Only apply repair/depth filter to complete candidates
+                results = results.Where(n =>
+                    n.ActiveFromWaveIndex >= 0 || RepairSimpleImpulseLeaves(n)).ToList();
+                results = results.Where(n =>
+                    n.ActiveFromWaveIndex >= 0 || n.GetDepth() >= m_MaxMarkupDepth / 2).ToList();
+            }
+
+            if (results.Count == 0)
+                return null;
+
+            // Select the best candidate by adjusted score
+            ExactParsedNode best = results.OrderByDescending(x => x.Score).First();
+
+            // Build projections for partial candidates
+            var prediction = new PredictionResult
+            {
+                Model = best,
+                AdjustedScore = best.Score
+            };
+
+            if (best.ActiveFromWaveIndex >= 0 && best.WaveCount < best.ExpectedWaves)
+            {
+                prediction.Projections = CalculateProjections(best, activeBarIndex);
+                prediction.Clusters = CalculateClusterZones(prediction.Projections);
+            }
+
+            return prediction;
+        }
+
+        /// <summary>
+        /// Calculates Fibonacci-based projections for missing waves of a partial candidate.
+        /// </summary>
+        private List<WaveProjection> CalculateProjections(ExactParsedNode node, int activeBarIndex)
+        {
+            var projections = new List<WaveProjection>();
+            if (node == null || node.SubWaves == null) return projections;
+
+            int confirmedCount = node.ActiveFromWaveIndex >= 0
+                ? node.ActiveFromWaveIndex
+                : node.WaveCount;
+
+            if (confirmedCount < 1) return projections;
+
+            double lastPrice = node.SubWaves[confirmedCount - 1].EndPoint.Value;
+            int lastBar = node.SubWaves[confirmedCount - 1].EndPoint.BarIndex;
+            bool nextIsUp = !node.SubWaves[confirmedCount - 1].IsUp;
+
+            // Calculate average bar duration from confirmed waves for time estimates
+            int totalBars = 0;
+            for (int i = 0; i < confirmedCount; i++)
+            {
+                totalBars += Math.Abs(
+                    node.SubWaves[i].EndPoint.BarIndex - node.SubWaves[i].StartPoint.BarIndex);
+            }
+            int avgBars = Math.Max(1, totalBars / confirmedCount);
+
+            for (int w = confirmedCount; w < node.ExpectedWaves; w++)
+            {
+                string waveName = GetWaveKey(node.ModelType, w + 1);
+
+                // Try trendline projection first (for triangles/diagonals)
+                var trendlineProj = TryTrendlineProjection(
+                    node, w, lastPrice, lastBar, nextIsUp);
+
+                if (trendlineProj != null)
+                {
+                    projections.Add(trendlineProj);
+                    lastPrice = trendlineProj.Price;
+                    lastBar = trendlineProj.BarIndex;
+                    nextIsUp = !nextIsUp;
+                    continue;
+                }
+
+                // Fibonacci projection
+                var (ratio, weight) = GetBestFibRatio(node.ModelType, w, node.SubWaves, confirmedCount);
+                if (ratio <= 0) ratio = 0.618; // fallback
+                if (weight <= 0) weight = 0.1;
+
+                double refLength = GetReferenceWaveLength(node.ModelType, w, node.SubWaves, confirmedCount);
+                double projLength = refLength * ratio;
+                double projPrice = nextIsUp ? lastPrice + projLength : lastPrice - projLength;
+
+                // Estimate bar index using duration proportionality
+                int estBars = EstimateWaveDuration(node.ModelType, w, node.SubWaves, confirmedCount, avgBars);
+                int projBar = lastBar + estBars;
+
+                projections.Add(new WaveProjection(
+                    projPrice, projBar, ratio.ToString("0.###"), weight, waveName));
+
+                lastPrice = projPrice;
+                lastBar = projBar;
+                nextIsUp = !nextIsUp;
+            }
+
+            return projections;
+        }
+
+        /// <summary>
+        /// Attempts trendline-based projection for triangles and diagonals.
+        /// Returns null if trendline projection is not applicable.
+        /// </summary>
+        private WaveProjection TryTrendlineProjection(
+            ExactParsedNode node, int waveIndex,
+            double lastPrice, int lastBar, bool nextIsUp)
+        {
+            bool isTriangle = node.ModelType == ElliottModelType.TRIANGLE_CONTRACTING
+                           || node.ModelType == ElliottModelType.TRIANGLE_RUNNING;
+            bool isDiagonal = node.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+                           || node.ModelType == ElliottModelType.DIAGONAL_CONTRACTING_ENDING;
+
+            if (!isTriangle && !isDiagonal) return null;
+            if (node.SubWaves == null) return null;
+
+            int confirmedCount = node.ActiveFromWaveIndex >= 0
+                ? node.ActiveFromWaveIndex
+                : node.WaveCount;
+
+            // Need at least 3 confirmed waves to draw trendlines
+            if (confirmedCount < 3) return null;
+
+            // Triangle/diagonal: project using converging trendlines
+            // Line through same-direction endpoints: A–C (indices 0,2) or B–D (indices 1,3)
+            int lineIdx1, lineIdx2;
+            if (waveIndex % 2 == 0)
+            {
+                // Same direction as waves 0,2,4 (motive in triangle)
+                lineIdx1 = 0;
+                lineIdx2 = 2;
+            }
+            else
+            {
+                // Same direction as waves 1,3 (corrective in triangle)
+                if (confirmedCount < 4) return null;
+                lineIdx1 = 1;
+                lineIdx2 = 3;
+            }
+
+            if (lineIdx2 >= confirmedCount) return null;
+
+            // Get two points for the trendline
+            BarPoint p1 = node.SubWaves[lineIdx1].EndPoint;
+            BarPoint p2 = node.SubWaves[lineIdx2].EndPoint;
+
+            if (p2.BarIndex == p1.BarIndex) return null;
+
+            // Linear extrapolation
+            double slope = (p2.Value - p1.Value) / (p2.BarIndex - p1.BarIndex);
+
+            // Estimate target bar using average duration of same-parity waves
+            int refBars = Math.Abs(p2.BarIndex - p1.BarIndex);
+            int estTargetBar = lastBar + Math.Max(1, refBars / 2);
+
+            double projPrice = p2.Value + slope * (estTargetBar - p2.BarIndex);
+
+            // Validate: projection must be in the right direction
+            if (nextIsUp && projPrice <= lastPrice) return null;
+            if (!nextIsUp && projPrice >= lastPrice) return null;
+
+            string waveName = GetWaveKey(node.ModelType, waveIndex + 1);
+            return new WaveProjection(projPrice, estTargetBar, "trendline", 0.8, waveName);
+        }
+
+        /// <summary>
+        /// Returns the best (highest-weight) Fibonacci ratio for projecting a specific wave.
+        /// </summary>
+        private static (double ratio, double weight) GetBestFibRatio(
+            ElliottModelType model, int waveIndex,
+            ExactParsedNode[] subWaves, int confirmedCount)
+        {
+            var map = GetProjectionFibMap(model, waveIndex);
+            if (map == null || map.Length <= 1) return (0.618, 0.5);
+
+            // Find the highest-weight entry
+            double bestRatio = 0;
+            double bestWeight = 0;
+            for (int i = 1; i < map.Length; i++)
+            {
+                double w = map[i].weight / 100.0;
+                if (w > bestWeight)
+                {
+                    bestWeight = w;
+                    bestRatio = map[i].ratio;
+                }
+            }
+
+            return (bestRatio, bestWeight);
+        }
+
+        /// <summary>
+        /// Returns the appropriate Fibonacci map for projecting a given wave index.
+        /// </summary>
+        private static (byte weight, double ratio)[] GetProjectionFibMap(
+            ElliottModelType model, int waveIndex)
+        {
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    if (waveIndex == 1) return MAP_DEEP_CORRECTION; // W2
+                    if (waveIndex == 2) return IMPULSE_3_TO_1;      // W3
+                    if (waveIndex == 3) return IMPULSE_4_TO_3;      // W4
+                    if (waveIndex == 4) return IMPULSE_5_TO_1;      // W5
+                    break;
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    if (waveIndex == 1) return MAP_DIAGONAL_CORRECTION;
+                    if (waveIndex == 2) return CONTRACTING_DIAGONAL_3_TO_1;
+                    if (waveIndex == 3) return MAP_DIAGONAL_CORRECTION;
+                    if (waveIndex == 4) return MAP_DIAGONAL_5_TO_3;
+                    break;
+                case ElliottModelType.ZIGZAG:
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                    if (waveIndex == 1) return MAP_DEEP_CORRECTION; // B
+                    if (waveIndex == 2) return ZIGZAG_C_TO_A;        // C
+                    break;
+                case ElliottModelType.FLAT_EXTENDED:
+                    if (waveIndex == 1) return MAP_FLAT_EXTENDED_B_TO_A;
+                    if (waveIndex == 2) return MAP_EX_FLAT_WAVE_C_TO_A;
+                    break;
+                case ElliottModelType.FLAT_RUNNING:
+                    if (waveIndex == 1) return MAP_FLAT_RUNNING_B_TO_A;
+                    if (waveIndex == 2) return MAP_RUNNING_FLAT_WAVE_C_TO_A;
+                    break;
+                case ElliottModelType.FLAT_REGULAR:
+                    if (waveIndex == 1) return MAP_FLAT_REGULAR_B_TO_A;
+                    if (waveIndex == 2) return MAP_REG_FLAT_WAVE_C_TO_A;
+                    break;
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                case ElliottModelType.TRIANGLE_RUNNING:
+                    return MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Returns the reference wave length used as the base for Fibonacci projection.
+        /// </summary>
+        private static double GetReferenceWaveLength(
+            ElliottModelType model, int waveIndex,
+            ExactParsedNode[] subWaves, int confirmedCount)
+        {
+            if (subWaves == null || confirmedCount < 1) return 1.0;
+
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    // W2 → ref W1; W3 → ref W1; W4 → ref W3; W5 → ref W1
+                    if (waveIndex == 1) return subWaves[0].Length; // W2 ref=W1
+                    if (waveIndex == 2) return subWaves[0].Length; // W3 ref=W1
+                    if (waveIndex == 3 && confirmedCount > 2) return subWaves[2].Length; // W4 ref=W3
+                    if (waveIndex == 4) return subWaves[0].Length; // W5 ref=W1
+                    return subWaves[0].Length;
+
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    if (waveIndex == 1) return subWaves[0].Length;
+                    if (waveIndex == 2) return subWaves[0].Length;
+                    if (waveIndex == 3 && confirmedCount > 2) return subWaves[2].Length;
+                    if (waveIndex == 4 && confirmedCount > 2) return subWaves[2].Length;
+                    return subWaves[0].Length;
+
+                case ElliottModelType.ZIGZAG:
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                case ElliottModelType.FLAT_EXTENDED:
+                case ElliottModelType.FLAT_RUNNING:
+                case ElliottModelType.FLAT_REGULAR:
+                    return subWaves[0].Length; // always relative to wave A/W
+
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                case ElliottModelType.TRIANGLE_RUNNING:
+                    // Each wave relative to previous
+                    if (waveIndex > 0 && waveIndex - 1 < confirmedCount)
+                        return subWaves[waveIndex - 1].Length;
+                    return subWaves[confirmedCount - 1].Length;
+            }
+
+            return subWaves[0].Length;
+        }
+
+        /// <summary>
+        /// Estimates the bar duration of a projected wave based on confirmed wave durations.
+        /// </summary>
+        private static int EstimateWaveDuration(
+            ElliottModelType model, int waveIndex,
+            ExactParsedNode[] subWaves, int confirmedCount, int avgBars)
+        {
+            if (subWaves == null || confirmedCount < 1) return avgBars;
+
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    // W4 duration ≈ W2 duration; W5 duration ≈ W1 duration
+                    if (waveIndex == 3 && confirmedCount > 1)
+                        return Math.Max(1, Math.Abs(
+                            subWaves[1].EndPoint.BarIndex - subWaves[1].StartPoint.BarIndex));
+                    if (waveIndex == 4)
+                        return Math.Max(1, Math.Abs(
+                            subWaves[0].EndPoint.BarIndex - subWaves[0].StartPoint.BarIndex));
+                    break;
+
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                case ElliottModelType.TRIANGLE_RUNNING:
+                    // Each wave slightly shorter than previous
+                    if (waveIndex > 0 && waveIndex - 1 < confirmedCount)
+                    {
+                        int prevBars = Math.Abs(
+                            subWaves[waveIndex - 1].EndPoint.BarIndex -
+                            subWaves[waveIndex - 1].StartPoint.BarIndex);
+                        return Math.Max(1, (int)(prevBars * 0.786));
+                    }
+                    break;
+            }
+
+            return avgBars;
+        }
+
+        /// <summary>
+        /// Finds cluster zones where multiple projections converge within a tolerance.
+        /// </summary>
+        private static List<ClusterZone> CalculateClusterZones(List<WaveProjection> projections)
+        {
+            var clusters = new List<ClusterZone>();
+            if (projections == null || projections.Count < 2) return clusters;
+
+            // Look for price convergence between projections
+            const double CLUSTER_TOLERANCE = 0.05; // 5% of average price
+
+            for (int i = 0; i < projections.Count; i++)
+            {
+                for (int j = i + 1; j < projections.Count; j++)
+                {
+                    double avgPrice = (projections[i].Price + projections[j].Price) / 2.0;
+                    double diff = Math.Abs(projections[i].Price - projections[j].Price);
+
+                    if (diff / avgPrice <= CLUSTER_TOLERANCE)
+                    {
+                        double low = Math.Min(projections[i].Price, projections[j].Price);
+                        double high = Math.Max(projections[i].Price, projections[j].Price);
+                        double combinedWeight = projections[i].Weight * projections[j].Weight;
+                        int barFrom = Math.Min(projections[i].BarIndex, projections[j].BarIndex);
+                        int barTo = Math.Max(projections[i].BarIndex, projections[j].BarIndex);
+
+                        clusters.Add(new ClusterZone(
+                            low, high, combinedWeight, barFrom, barTo,
+                            new[] { projections[i].WaveName, projections[j].WaveName }));
+                    }
+                }
+            }
+
+            return clusters;
+        }
+
+        /// <summary>
         /// Recursively walks the parsed tree.  For every SIMPLE_IMPULSE leaf:
         /// 1. Checks that no candle breaches the start price (hard → returns false).
         /// 2. Moves the endpoint to the true OHLC extremum in the wave direction.
@@ -523,10 +896,14 @@ namespace TradeKit.Core.AlgoBase
         /// <param name="points">Original (possibly multi-level) extremum points.</param>
         /// <param name="allowedModels">Subset of models to try, or null to use <see cref="TargetModels"/>.</param>
         /// <param name="depth">Current recursion depth (0 = top level).</param>
+        /// <param name="allowPartial">When true, also try partial models (S = K-1, K-2).</param>
+        /// <param name="activeBarIndex">Bar index of the active (unconfirmed) endpoint; -1 to disable.</param>
         private List<ExactParsedNode> ParseInternal(
             List<BarPoint> points,
             ElliottModelType[] allowedModels,
-            int depth)
+            int depth,
+            bool allowPartial = false,
+            int activeBarIndex = -1)
         {
             if (points == null || points.Count < 2)
                 return new List<ExactParsedNode>();
@@ -562,6 +939,60 @@ namespace TradeKit.Core.AlgoBase
                     int iterCount = 0;
                     TryCombinations(model, altPoints, 0, n - 1, k, results, fullSpan: true,
                         iterCount: ref iterCount, enforceEndpointExtrema: isLastLevel);
+                }
+            }
+
+            // Partial candidate generation (§3.2): when allowPartial is set,
+            // try models where confirmed waves end before altPoints[^1].
+            // The tail (altPoints[J]..altPoints[^1]) is the active segment.
+            if (allowPartial && depth == 0)
+            {
+                foreach (ElliottModelType model in modelsToSearch)
+                {
+                    int k = GetExpectedWaves(model);
+
+                    // Try S = K-1 and S = K-2 (one or two missing waves)
+                    for (int missing = 1; missing <= 2; missing++)
+                    {
+                        int s = k - missing; // number of confirmed waves
+                        if (s < 2) continue; // need at least 2 confirmed waves
+
+                        // The confirmed waves end at altPoints[J] where J < n-1.
+                        // J must provide enough inner points for s waves:
+                        // need at least s+1 points (s segments) in range [0..J].
+                        // J ranges from s (minimum: s inner points between 0..J)
+                        // to n-2 (leave at least the last point as active segment).
+                        int minJ = s; // need J+1 >= s+1, so J >= s
+                        int maxJ = n - 2; // at least one segment left as active
+
+                        for (int j = minJ; j <= maxJ; j++)
+                        {
+                            // Need at least s-1 inner points between 0 and j
+                            if (j - 1 < s - 1) continue;
+
+                            int iterCount = 0;
+                            var partialResults = new List<ExactParsedNode>();
+                            TryCombinations(model, altPoints, 0, j, s, partialResults,
+                                fullSpan: false, iterCount: ref iterCount,
+                                enforceEndpointExtrema: false);
+
+                            // Mark partial candidates
+                            foreach (var node in partialResults)
+                            {
+                                // Apply completion penalty (§5.2)
+                                double completionLevel = (double)s / k;
+                                node.Score *= completionLevel * completionLevel;
+
+                                // Mark active from wave index: confirmed waves are 0..(s-1),
+                                // projected waves would be from index s onwards
+                                node.ActiveFromWaveIndex = s;
+                                node.WaveCount = s;
+                                node.ExpectedWaves = k;
+
+                                results.Add(node);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -928,6 +1359,7 @@ namespace TradeKit.Core.AlgoBase
 
             return true;
         }
+        /// <summary>
         /// 1.0 = every sub-wave was successfully identified as a named model.
         /// Used to compute the depth-coverage bonus applied in <see cref="ParseInternal"/>.
         /// <para>
@@ -1782,81 +2214,6 @@ namespace TradeKit.Core.AlgoBase
                 Score = score,
                 SubWaves = subWaves
             };
-        }
-
-        /// <summary>
-        /// Calculates Fibonacci price projections for missing sub-waves in an incomplete wave node.
-        /// </summary>
-        public List<(double Value, int BarIndex, string Name)> GetProjections(ExactParsedNode node)
-        {
-            var projections = new List<(double Value, int BarIndex, string Name)>();
-            if (node == null || node.WaveCount >= node.ExpectedWaves) return projections;
-
-            double[] waveLengths = new double[node.ExpectedWaves];
-            int[] waveTimeLengths = new int[node.ExpectedWaves];
-
-            for (int i = 0; i < node.WaveCount; i++)
-            {
-                waveLengths[i] = node.SubWaves[i].Length;
-                waveTimeLengths[i] = Math.Max(1,
-                    node.SubWaves[i].EndIndex - node.SubWaves[i].StartIndex);
-            }
-
-            int avgTimeLen = (int)waveTimeLengths.Take(node.WaveCount).Average();
-            double currentValue = node.EndPoint.Value;
-            int currentIndex = node.EndPoint.BarIndex;
-            bool nextIsUp = !node.SubWaves[node.WaveCount - 1].IsUp;
-
-            for (int w = node.WaveCount + 1; w <= node.ExpectedWaves; w++)
-            {
-                double projLen = GetProjectedLength(node.ModelType, w, waveLengths);
-                if (projLen == 0) projLen = waveLengths[0] * 0.5;
-
-                double nextValue = nextIsUp ? currentValue + projLen : currentValue - projLen;
-                int nextIndex = currentIndex + avgTimeLen;
-                string name = GetWaveKey(node.ModelType, w);
-
-                projections.Add((nextValue, nextIndex, name));
-                waveLengths[w - 1] = projLen;
-                currentValue = nextValue;
-                currentIndex = nextIndex;
-                nextIsUp = !nextIsUp;
-            }
-
-            return projections;
-        }
-
-        private static double GetProjectedLength(ElliottModelType model, int w, double[] lengths)
-        {
-            switch (model)
-            {
-                case ElliottModelType.IMPULSE:
-                    if (w == 2) return lengths[0] * 0.618;
-                    if (w == 3) return lengths[0] * 1.618;
-                    if (w == 4) return lengths[2] * 0.382;
-                    if (w == 5) return lengths[0] * 1.0;
-                    break;
-                case ElliottModelType.ZIGZAG:
-                case ElliottModelType.DOUBLE_ZIGZAG:
-                    if (w == 2) return lengths[0] * 0.618;
-                    if (w == 3) return lengths[0] * 1.0;
-                    break;
-                case ElliottModelType.FLAT_EXTENDED:
-                    if (w == 2) return lengths[0] * 1.272;
-                    if (w == 3) return lengths[0] * 1.618;
-                    break;
-                case ElliottModelType.FLAT_RUNNING:
-                    if (w == 2) return lengths[0] * 1.272;
-                    if (w == 3) return lengths[0] * 1.0;
-                    break;
-                case ElliottModelType.TRIANGLE_CONTRACTING:
-                    if (w >= 2) return lengths[w - 2] * 0.618;
-                    break;
-                default:
-                    if (w >= 2) return lengths[0] * 0.618;
-                    break;
-            }
-            return 0;
         }
     }
 }

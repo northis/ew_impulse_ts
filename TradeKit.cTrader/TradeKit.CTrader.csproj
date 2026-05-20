@@ -42,6 +42,7 @@
     <Compile Include="Indicators\IterativeElliottWaveExactIndicator.cs" />
     <Compile Include="Indicators\IterativeImpulseZigzagIndicator.cs" />
     <Compile Include="Indicators\IterativeZigzagSeniorityIndicator.cs" />
+    <Compile Include="Indicators\PredictiveElliottWaveIndicator.cs" />
     <Compile Include="Indicators\RelativeStrengthIndexIndicator.cs" />
     <Compile Include="Indicators\AwesomeOscillatorIndicator.cs" />
     <Compile Include="Indicators\PriceActionHistogramIndicator.cs" />

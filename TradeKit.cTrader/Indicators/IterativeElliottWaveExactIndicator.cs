@@ -14,7 +14,7 @@ using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
 
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class IterativeElliottWaveExactIndicator : ElliottWaveIndicatorBase
 {
     [Parameter(nameof(BarsCount), DefaultValue = 100, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -243,23 +243,24 @@ public class IterativeElliottWaveExactIndicator : ElliottWaveIndicatorBase
         // Draw best result with model-type colours and stacked wave labels
         DrawMarkupNode(best, "EW_", MAIN_NOTATION_LEVEL);
 
-        var projections = Markup.GetProjections(best);
-        if (projections.Count <= 0)
+        // Use new prediction system for projections
+        var prediction = Markup.ParsePredictive(innerPoints, index);
+        if (prediction?.Projections == null || prediction.Projections.Count <= 0)
             return;
 
         int lastIndex = best.EndPoint.BarIndex;
         double lastValue = best.EndPoint.Value;
-        foreach (var proj in projections)
+        foreach (var proj in prediction.Projections)
         {
-            string pName = $"PROJ_{lastIndex}_{proj.BarIndex}_{proj.Name}";
+            string pName = $"PROJ_{lastIndex}_{proj.BarIndex}_{proj.WaveName}";
 
-            Chart.DrawTrendLine(pName + "_line", lastIndex, lastValue, proj.BarIndex, proj.Value, Color.Gray, 1, LineStyle.LinesDots);
+            Chart.DrawTrendLine(pName + "_line", lastIndex, lastValue, proj.BarIndex, proj.Price, Color.Gray, 1, LineStyle.LinesDots);
 
-            double pyOffset = lastValue < proj.Value ? Symbol.PipSize * 2 : -Symbol.PipSize * 2;
-            Chart.DrawText(pName, $"({proj.Name})", proj.BarIndex, proj.Value + pyOffset, Color.Gray);
+            double pyOffset = lastValue < proj.Price ? Symbol.PipSize * 2 : -Symbol.PipSize * 2;
+            Chart.DrawText(pName, $"({proj.WaveName})?", proj.BarIndex, proj.Price + pyOffset, Color.Gray);
 
             lastIndex = proj.BarIndex;
-            lastValue = proj.Value;
+            lastValue = proj.Price;
         }
     }
 }
