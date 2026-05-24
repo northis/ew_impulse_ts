@@ -194,15 +194,16 @@ namespace TradeKit.CTrader.Core
 
             // OpenTimes[0] is the oldest available bar.
             // LoadMoreHistory() prepends older bars.
-            // Keep loading while the oldest bar is still newer than the target date.
-            DateTime lastDate;
+            // Always call LoadMoreHistory at least once because cTrader may
+            // initially report a single date without having the full history loaded.
+            int previousCount;
+            DateTime lastBar;
             do
             {
-                lastDate = m_Bars.OpenTimes[0];
-                if (lastDate <= date) break;
+                previousCount = m_Bars.OpenTimes.Count;
                 m_Bars.LoadMoreHistory();
-            }
-            while (m_Bars.OpenTimes[0] < lastDate); // stop when no new bars were prepended
+                lastBar = m_Bars.GetServerFirstBarOpenTime();
+            } while (m_Bars.OpenTimes.Count > previousCount && lastBar > date && lastBar != m_Bars.LastBar.OpenTime);
 
             ReloadBars();
             m_Bars.BarClosed += OnBarClosed;

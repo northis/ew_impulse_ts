@@ -233,14 +233,14 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool rzz = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100;
-            bool hm = stats.HeterogeneityMax <= m_ImpulseParams.MaxZigzagPercent / 100;
+            //bool rzz = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100;
+            //bool hm = stats.HeterogeneityMax <= m_ImpulseParams.MaxZigzagPercent / 100;
             bool om = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
             bool md = stats.MaxDistance <= m_ImpulseParams.MaxDistance / 100;
             bool a = stats.Area <= m_ImpulseParams.AreaPercent / 100;
             bool s = stats.Size >= m_ImpulseParams.MinSizePercent / 100;
 
-            bool res = s && (rzz && hm && om && md && a /*|| stats.RatioZigzag<0.2 && stats.OverlapseMaxDepth < 0.2*/);
+            bool res = s && (/*rzz && hm &&*/ om && md && a /*|| stats.RatioZigzag<0.2 && stats.OverlapseMaxDepth < 0.2*/);
             return res;
         }
 
@@ -280,8 +280,8 @@ namespace TradeKit.Core.ElliottWave
                     return false;
                 }
 
-                markupNode = GetElliottImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem);
-                if (markupNode == null)
+                //markupNode = GetElliottImpulse(checkSignalArgs.StartItem, checkSignalArgs.EndItem);
+                if (!IsSmoothImpulse(stats))
                 {
                     m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                     return false;

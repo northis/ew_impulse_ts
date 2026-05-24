@@ -15,7 +15,7 @@ namespace TradeKit.CTrader.Indicators;
 /// Predictive Elliott Wave indicator that analyses from the farthest extremum
 /// to the last closed bar, producing projections for incomplete wave models.
 /// </summary>
-[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
 {
     [Parameter(nameof(BarsCount), DefaultValue = 200, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
@@ -66,12 +66,15 @@ public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
         double startValue = fartherBarIndex == maxBarIndex ? maxValue : minValue;
         BarPoint startPoint = new BarPoint(startValue, fartherBarIndex, BarProvider);
 
-        // endPoint is the last closed bar (current bar index)
-        int endBarIndex = index;
+        // endPoint is the last *closed* bar (index - 1), because the current bar
+        // is still forming and may not yet be present in the BarsProvider cache.
+        int endBarIndex = index - 1;
+        if (endBarIndex <= fartherBarIndex) return;
+
         bool isUp = fartherBarIndex == minBarIndex; // if start is min, we go up
         double endValue = isUp
-            ? BarProvider.GetHighPrice(endBarIndex)
-            : BarProvider.GetLowPrice(endBarIndex);
+            ? Bars.HighPrices[endBarIndex]
+            : Bars.LowPrices[endBarIndex];
         BarPoint endPoint = new BarPoint(endValue, endBarIndex, BarProvider);
 
         // Build inner zigzag
@@ -94,19 +97,20 @@ public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
         innerPoints = ExtremumFinderBase.EndFixCorridors(innerPoints, BarProvider);
         innerPoints = ExtremumFinderBase.RefineToCorridors(innerPoints, BarProvider);
 
-        // Build active segment (§2.3): if last pivot != endBar, add active point
+        // Build active segment (§2.3): append the current forming bar as live endpoint.
+        // Use Bars directly because the forming bar is not yet in BarsProvider cache.
         BarPoint lastPivot = innerPoints[^1];
-        if (lastPivot.BarIndex < endBarIndex)
+        double activeHigh = Bars.HighPrices[index];
+        double activeLow = Bars.LowPrices[index];
+        bool activeIsUp = lastPivot.Value < activeHigh;
+        double activePrice = activeIsUp ? activeHigh : activeLow;
+        if (lastPivot.BarIndex < index)
         {
-            bool activeIsUp = lastPivot.Value < endValue;
-            double activePrice = activeIsUp
-                ? BarProvider.GetHighPrice(endBarIndex)
-                : BarProvider.GetLowPrice(endBarIndex);
-            innerPoints.Add(new BarPoint(activePrice, endBarIndex, BarProvider));
+            innerPoints.Add(new BarPoint(activePrice, index, BarProvider));
         }
 
         // Run predictive parsing
-        PredictionResult prediction = Markup.ParsePredictive(innerPoints, endBarIndex);
+        PredictionResult prediction = Markup.ParsePredictive(innerPoints, index);
 
         if (prediction?.Model == null) return;
 

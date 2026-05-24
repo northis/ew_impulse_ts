@@ -1,6 +1,7 @@
-﻿using System.Globalization;
+﻿using Newtonsoft.Json;
+using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Json;
@@ -387,7 +388,6 @@ namespace TradeKit.Core.Signals
             int msgStart = Math.Max(
                 LowerBoundAfter(m_MessagesList, prevBarDateTime),
                 m_NextMessageIndex);
-
             for (int i = msgStart; i < m_MessagesList.Count; i++)
             {
                 if (m_MessagesList[i].Key > barDateTime)
