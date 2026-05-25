@@ -65,6 +65,9 @@
     <None Update="TestData\EURUSD_h1_2026-05-11T22-00-00_2026-05-13T09-00-00.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\GBPJPY_m15_2026-04-19T21-00-00_2026-04-23T09-30-00.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

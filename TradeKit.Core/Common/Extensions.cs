@@ -1,8 +1,10 @@
 using Microsoft.FSharp.Core;
+using Newtonsoft.Json;
 using PuppeteerSharp.Input;
 using System.Globalization;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Gartley;
+using TradeKit.Core.Json;
 using TradeKit.Core.PriceAction;
 
 namespace TradeKit.Core.Common
@@ -642,6 +644,73 @@ namespace TradeKit.Core.Common
             double rangeLen = Math.Abs(tp - sl);
 
             return spread > 0 && spread / rangeLen > Helper.MAX_SPREAD_RATIO;
+        }
+
+        /// <summary>
+        /// Saves all markup results as PNG chart images and JSON files.
+        /// </summary>
+        /// <param name="results">Parsed markup nodes to save.</param>
+        /// <param name="provider">Bar provider (used for symbol name, timeframe, and chart data).</param>
+        /// <param name="notationLevel">Chart notation depth level.</param>
+        /// <returns>List of saved file paths (charts + JSON).</returns>
+        public static List<string> SaveMarkupResults(
+            this IList<ExactParsedNode> results,
+            IBarsProvider provider,
+            byte notationLevel = 4)
+        {
+            var savedPaths = new List<string>();
+            string symName = provider.BarSymbol.Name;
+            string tfName = provider.TimeFrame.ShortName;
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                ExactParsedNode node = results[i];
+                string baseName = string.Format("{0}_{1}_{2}_{3:D2}",
+                    symName, tfName, node.ModelType, i);
+
+                string chartPath = node.SaveMarkupChart(provider, baseName, notationLevel);
+                if (!string.IsNullOrEmpty(chartPath))
+                    savedPaths.Add(chartPath);
+
+                string jsonPath = node.SaveMarkupJson(baseName);
+                if (!string.IsNullOrEmpty(jsonPath))
+                    savedPaths.Add(jsonPath);
+            }
+
+            return savedPaths;
+        }
+
+        /// <summary>
+        /// Saves a single markup node as a PNG chart image.
+        /// </summary>
+        /// <param name="node">The parsed markup node.</param>
+        /// <param name="provider">Bar provider for chart data.</param>
+        /// <param name="baseName">Base file name (without extension).</param>
+        /// <param name="notationLevel">Chart notation depth level.</param>
+        /// <returns>Full path to the saved PNG file, or null on failure.</returns>
+        public static string SaveMarkupChart(
+            this ExactParsedNode node,
+            IBarsProvider provider,
+            string baseName,
+            byte notationLevel = 4)
+        {
+            string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, baseName);
+            return ChartGenerator.GenerateMarkupChart(node, provider, notationLevel, chartFilePath);
+        }
+
+        /// <summary>
+        /// Saves a single markup node as a JSON file.
+        /// </summary>
+        /// <param name="node">The parsed markup node.</param>
+        /// <param name="baseName">Base file name (without .json extension).</param>
+        /// <returns>Full path to the saved JSON file.</returns>
+        public static string SaveMarkupJson(this ExactParsedNode node, string baseName)
+        {
+            string jsonFilePath = Path.Combine(Helper.DirectoryToSaveResults, baseName + ".json");
+            JsonMarkupNode jsonNode = JsonMarkupNode.FromParsedNode(node);
+            File.WriteAllText(jsonFilePath,
+                JsonConvert.SerializeObject(jsonNode, Formatting.Indented));
+            return jsonFilePath;
         }
     }
 }

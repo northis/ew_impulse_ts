@@ -120,6 +120,13 @@ namespace TradeKit.Core.AlgoBase
         private const int MIN_POINTS_FOR_5_WAVE = 6;
 
         /// <summary>
+        /// Minimum number of alternating extrema required to attempt a 3-wave
+        /// model (zigzag, flat).  3 waves need at least 4 points
+        /// (start + 2 intermediates + end).
+        /// </summary>
+        private const int MIN_POINTS_FOR_3_WAVE = 4;
+
+        /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
         /// top-level result to be returned from <see cref="Parse"/>.
         /// A value of <c>MAX_MARKUP_DEPTH / 2</c> guarantees that every direct
@@ -707,6 +714,39 @@ namespace TradeKit.Core.AlgoBase
                         int fromBarT = sw.StartPoint.BarIndex;
                         int toBarT = sw.EndPoint.BarIndex;
 
+                        // Repair start point to the true OHLC extremum at fromBarT.
+                        if (fromBarT >= 0 && fromBarT < m_BarsProvider.Count)
+                        {
+                            double trueStartT = isUpT
+                                ? m_BarsProvider.GetLowPrice(fromBarT)
+                                : m_BarsProvider.GetHighPrice(fromBarT);
+                            if (isUpT ? trueStartT < sw.StartPoint.Value : trueStartT > sw.StartPoint.Value)
+                            {
+                                // §triangle-contraction: propagating to the previous
+                                // sibling must not violate convergence.
+                                bool skipStart = false;
+                                if (i > 0 && i - 1 >= 2 && node.SubWaves[i - 3] != null)
+                                {
+                                    bool prevIsUp = node.SubWaves[i - 1].IsUp;
+                                    double prevSameEnd = node.SubWaves[i - 3].EndPoint.Value;
+                                    if (prevIsUp ? trueStartT > prevSameEnd
+                                                 : trueStartT < prevSameEnd)
+                                        skipStart = true;
+                                }
+
+                                if (!skipStart)
+                                {
+                                    sw.StartPoint = new BarPoint(trueStartT, fromBarT, m_BarsProvider);
+                                    if (i > 0 && node.SubWaves[i - 1] != null)
+                                    {
+                                        node.SubWaves[i - 1].EndPoint = sw.StartPoint;
+                                        node.SubWaves[i - 1].EndIndex = fromBarT;
+                                    }
+                                    anyRepaired = true;
+                                }
+                            }
+                        }
+
                         // Extend scan into next wave (triangle waves overlap).
                         int scanEnd = toBarT;
                         if (i + 1 < node.WaveCount && node.SubWaves[i + 1] != null)
@@ -726,6 +766,16 @@ namespace TradeKit.Core.AlgoBase
                                 bestValT = v;
                                 bestBarT = b;
                             }
+                        }
+
+                        // §triangle-contraction: repaired endpoint must not
+                        // violate the convergence rule (wave[i] must not exceed
+                        // wave[i-2] for same-direction waves).
+                        if (i >= 2 && node.SubWaves[i - 2] != null)
+                        {
+                            double prevSameEnd = node.SubWaves[i - 2].EndPoint.Value;
+                            if (isUpT ? bestValT > prevSameEnd : bestValT < prevSameEnd)
+                                continue; // skip — would break contraction
                         }
 
                         // Guard: bestBar must be strictly after startBar to
@@ -787,6 +837,25 @@ namespace TradeKit.Core.AlgoBase
                         }
                     }
 
+                    // Repair start point to the true OHLC extremum at fromBar
+                    // so the containment invariant holds at the start bar too.
+                    if (fromBar >= 0 && fromBar < m_BarsProvider.Count)
+                    {
+                        double trueStart = isUp
+                            ? m_BarsProvider.GetLowPrice(fromBar)
+                            : m_BarsProvider.GetHighPrice(fromBar);
+                        if (isUp ? trueStart < startPrice : trueStart > startPrice)
+                        {
+                            sw.StartPoint = new BarPoint(trueStart, fromBar, m_BarsProvider);
+                            if (i > 0 && node.SubWaves[i - 1] != null)
+                            {
+                                node.SubWaves[i - 1].EndPoint = sw.StartPoint;
+                                node.SubWaves[i - 1].EndIndex = fromBar;
+                            }
+                            anyRepaired = true;
+                        }
+                    }
+
                     // Repair endpoint to the true OHLC extremum
                     if (Math.Abs(sw.EndPoint.Value - bestVal) > bestVal * 1e-10
                         || bestBar != toBar)
@@ -838,36 +907,96 @@ namespace TradeKit.Core.AlgoBase
                 {
                     if (!RepairSimpleImpulseLeaves(sw))
                     {
-                        // Demote structurally invalid sub-wave to SIMPLE_IMPULSE
-                        // instead of discarding the entire tree — but only when the
-                        // resulting leaf has no candle breach (against both start
-                        // and end prices).
-                        bool hasBreach = false;
-                        if (m_BarsProvider != null)
+                        // The recursive repair failed — one of the sub-wave's deepest
+                        // SIMPLE_IMPULSE children has a candle breach.
+                        bool allChildrenSimple = sw.SubWaves != null
+                            && sw.SubWaves.All(c => c == null
+                                || c.ModelType == ElliottModelType.SIMPLE_IMPULSE);
+
+                        // Only keep leaf-level structures for corrective parents
+                        // where boundary noise is expected (zigzags, flats, etc.).
+                        bool isCorrectiveParent =
+                            node.ModelType == ElliottModelType.ZIGZAG
+                         || node.ModelType == ElliottModelType.DOUBLE_ZIGZAG
+                         || node.ModelType == ElliottModelType.TRIPLE_ZIGZAG
+                         || node.ModelType == ElliottModelType.FLAT_REGULAR
+                         || node.ModelType == ElliottModelType.FLAT_EXTENDED
+                         || node.ModelType == ElliottModelType.FLAT_RUNNING
+                         || node.ModelType == ElliottModelType.COMBINATION;
+
+                        if (allChildrenSimple && isCorrectiveParent)
                         {
-                            bool swUp = sw.StartPoint.Value < sw.EndPoint.Value;
-                            double sp = sw.StartPoint.Value;
-                            double ep = sw.EndPoint.Value;
-                            int f = Math.Min(sw.StartIndex, sw.EndIndex);
-                            int t = Math.Max(sw.StartIndex, sw.EndIndex);
-                            for (int b = f; b <= t; b++)
+                            // Leaf-level breaches represent intra-candle noise below
+                            // the zigzag deviation threshold.  Keep the structural
+                            // model but repair each child's boundaries to the true
+                            // OHLC corridor so containment invariant holds.
+                            if (m_BarsProvider != null)
                             {
-                                if (b < 0 || b >= m_BarsProvider.Count) continue;
-                                double lo = m_BarsProvider.GetLowPrice(b);
-                                double hi = m_BarsProvider.GetHighPrice(b);
-                                if (swUp)
+                                for (int k = 0; k < sw.WaveCount; k++)
                                 {
-                                    if (lo < sp || hi > ep) { hasBreach = true; break; }
-                                }
-                                else
-                                {
-                                    if (hi > sp || lo < ep) { hasBreach = true; break; }
+                                    ExactParsedNode leaf = sw.SubWaves[k];
+                                    if (leaf == null || leaf.ModelType != ElliottModelType.SIMPLE_IMPULSE)
+                                        continue;
+
+                                    bool leafUp = leaf.IsUp;
+                                    int fBar = Math.Min(leaf.StartPoint.BarIndex, leaf.EndPoint.BarIndex);
+                                    int tBar = Math.Max(leaf.StartPoint.BarIndex, leaf.EndPoint.BarIndex);
+
+                                    double minLow = double.MaxValue;
+                                    double maxHigh = double.MinValue;
+                                    for (int b = fBar; b <= tBar; b++)
+                                    {
+                                        if (b < 0 || b >= m_BarsProvider.Count) continue;
+                                        double lo = m_BarsProvider.GetLowPrice(b);
+                                        double hi = m_BarsProvider.GetHighPrice(b);
+                                        if (lo < minLow) minLow = lo;
+                                        if (hi > maxHigh) maxHigh = hi;
+                                    }
+
+                                    // Upward: start <= all Lows, end >= all Highs
+                                    // Downward: start >= all Highs, end <= all Lows
+                                    double reqStart = leafUp ? minLow : maxHigh;
+                                    double reqEnd = leafUp ? maxHigh : minLow;
+
+                                    if (Math.Abs(reqStart - leaf.StartPoint.Value) > 1e-10)
+                                        leaf.StartPoint = new BarPoint(reqStart, leaf.StartPoint.BarIndex, m_BarsProvider);
+                                    if (Math.Abs(reqEnd - leaf.EndPoint.Value) > 1e-10)
+                                        leaf.EndPoint = new BarPoint(reqEnd, leaf.EndPoint.BarIndex, m_BarsProvider);
                                 }
                             }
                         }
-                        if (hasBreach) return false;
-                        sw.ModelType = ElliottModelType.SIMPLE_IMPULSE;
-                        sw.SubWaves = null;
+                        else
+                        {
+                            // Non-corrective parent or deeper structure — demote to
+                            // SIMPLE_IMPULSE but only if the resulting leaf has no
+                            // candle breach.
+                            bool hasBreach = false;
+                            if (m_BarsProvider != null)
+                            {
+                                bool swUp = sw.StartPoint.Value < sw.EndPoint.Value;
+                                double sp = sw.StartPoint.Value;
+                                double ep = sw.EndPoint.Value;
+                                int f = Math.Min(sw.StartIndex, sw.EndIndex);
+                                int t = Math.Max(sw.StartIndex, sw.EndIndex);
+                                for (int b = f; b <= t; b++)
+                                {
+                                    if (b < 0 || b >= m_BarsProvider.Count) continue;
+                                    double lo = m_BarsProvider.GetLowPrice(b);
+                                    double hi = m_BarsProvider.GetHighPrice(b);
+                                    if (swUp)
+                                    {
+                                        if (lo < sp || hi > ep) { hasBreach = true; break; }
+                                    }
+                                    else
+                                    {
+                                        if (hi > sp || lo < ep) { hasBreach = true; break; }
+                                    }
+                                }
+                            }
+                            if (hasBreach) return false;
+                            sw.ModelType = ElliottModelType.SIMPLE_IMPULSE;
+                            sw.SubWaves = null;
+                        }
                     }
                 }
             }
@@ -1085,12 +1214,15 @@ namespace TradeKit.Core.AlgoBase
 
                 // §4.4-rediscovery: when the parent-level zigzag produced too few
                 // alternating points in this sub-wave range for 5-wave models
-                // (triangles, diagonals, impulses), re-run extremum finding with a
-                // finer deviation to discover intermediate extrema.
+                // (triangles, diagonals, impulses) or 3-wave models (zigzag, flat),
+                // re-run extremum finding with a finer deviation to discover
+                // intermediate extrema.
                 bool needs5Wave = subPoints.Count < MIN_POINTS_FOR_5_WAVE
                     && validModels.Any(m => GetExpectedWaves(m) == 5);
+                bool needs3Wave = subPoints.Count < MIN_POINTS_FOR_3_WAVE
+                    && validModels.Any(m => GetExpectedWaves(m) == 3);
                 List<BarPoint> finerPoints = null;
-                if (needs5Wave && m_BarsProvider != null)
+                if ((needs5Wave || needs3Wave) && m_BarsProvider != null)
                 {
                     bool isSwUp = sw.EndPoint.Value > sw.StartPoint.Value;
                     var finder = new SimpleExtremumFinder(
@@ -1131,6 +1263,46 @@ namespace TradeKit.Core.AlgoBase
                              && r.StartPoint.BarIndex == fromBar
                              && r.EndPoint.BarIndex == toBar)
                     .ToList();
+
+                // §4.4-fallback-rediscovery: when the original (possibly
+                // RefineToCorridors-shifted) points failed to produce a valid
+                // sub-model, re-run extremum finding with finer deviation.
+                // The finer finder produces true bar H/L values that pass
+                // CheckDirectionEndpoints.
+                if (validSubs.Count == 0 && finerPoints == null && m_BarsProvider != null)
+                {
+                    bool isSwUp2 = sw.EndPoint.Value > sw.StartPoint.Value;
+                    var finder2 = new SimpleExtremumFinder(
+                        SUBWAVE_REDISCOVERY_DEVIATION, m_BarsProvider, !isSwUp2);
+                    finder2.Calculate(fromBar, toBar);
+                    var fallbackPoints = finder2.ToExtremaList()
+                        .Where(p => p.BarIndex >= fromBar && p.BarIndex <= toBar)
+                        .ToList();
+
+                    if (fallbackPoints.All(p => p.BarIndex != fromBar))
+                        fallbackPoints.Insert(0, sw.StartPoint);
+                    if (fallbackPoints.All(p => p.BarIndex != toBar))
+                        fallbackPoints.Add(sw.EndPoint);
+
+                    fallbackPoints = ExtremumFinderBase.EndFixCorridors(fallbackPoints, m_BarsProvider);
+
+                    if (fallbackPoints.Count >= MIN_POINTS_FOR_3_WAVE)
+                    {
+                        // Use depth-1 so that isLastLevel=false: the finer points
+                        // already satisfy CheckDirectionEndpoints and the full-span
+                        // endpoint is already the true OHLC extremum, so enforcing
+                        // CheckEndpointExtremum again at this level would only
+                        // reject valid candidates due to rounding/tolerance issues.
+                        List<ExactParsedNode> fallbackResults =
+                            ParseInternal(fallbackPoints, validModels,
+                                Math.Max(0, depth - 1));
+                        validSubs = fallbackResults
+                            .Where(r => r.WaveCount == r.ExpectedWaves
+                                     && r.StartPoint.BarIndex == fromBar
+                                     && r.EndPoint.BarIndex == toBar)
+                            .ToList();
+                    }
+                }
 
                 // §4.5-triangle-preference: in corrective wave positions (b, x)
                 // triangles are preferred over other corrective models when found.
@@ -1346,7 +1518,10 @@ namespace TradeKit.Core.AlgoBase
                                 int childBars = Math.Abs(
                                     child.EndPoint.BarIndex - child.StartPoint.BarIndex);
                                 double ratio = (double)childBars / minParentBars;
-                                if (ratio > HARMONY_HARD_RATIO) return false;
+                                if (ratio > HARMONY_HARD_RATIO)
+                                {
+                                    return false;
+                                }
                                 if (ratio > maxRatio) maxRatio = ratio;
                             }
                         }

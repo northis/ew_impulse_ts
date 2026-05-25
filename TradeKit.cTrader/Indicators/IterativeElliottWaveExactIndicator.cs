@@ -4,12 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using Newtonsoft.Json;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Indicators;
-using TradeKit.Core.Json;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
@@ -173,31 +171,16 @@ public class IterativeElliottWaveExactIndicator : ElliottWaveIndicatorBase
         {
             m_MarkupChartsSaved = true;
             IBarsProvider provider = BarProvider;
-            string symName = BarProvider.BarSymbol.Name;
-            string tfName = BarProvider.TimeFrame.ShortName;
             byte level = MAIN_NOTATION_LEVEL;
 
             ThreadPool.QueueUserWorkItem(markups =>
             {
                 ExactParsedNode[] markupArray = (ExactParsedNode[])markups;
-                int variantIdx = 0;
                 if (markupArray != null)
                 {
-                    foreach (ExactParsedNode node in markupArray)
-                    {
-                        string baseName = string.Format("{0}_{1}_{2}_{3:D2}",
-                            symName, tfName, node.ModelType, variantIdx++);
-                        string chartFilePath = Path.Combine(Helper.DirectoryToSaveResults, baseName);
-                        string savedPath = ChartGenerator.GenerateMarkupChart(node, provider, level, chartFilePath);
-                        if (!string.IsNullOrEmpty(savedPath))
-                            Print($"Markup chart saved: {savedPath}");
-
-                        string jsonFilePath = Path.Combine(Helper.DirectoryToSaveResults, baseName + ".json");
-                        JsonMarkupNode jsonNode = JsonMarkupNode.FromParsedNode(node);
-                        System.IO.File.WriteAllText(jsonFilePath,
-                            JsonConvert.SerializeObject(jsonNode, Formatting.Indented));
-                        Print($"Markup JSON saved: {jsonFilePath}");
-                    }
+                    List<string> savedPaths = markupArray.SaveMarkupResults(provider, level);
+                    foreach (string path in savedPaths)
+                        Print($"Markup saved: {path}");
                 }
             }, parsed.ToArray());
         }
