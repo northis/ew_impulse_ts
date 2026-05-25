@@ -177,6 +177,10 @@ namespace TradeKit.Core.AlgoBase
                     product *= GetFiboWeight(IMPULSE_3_TO_1, len3 / len1); numRatios++;
                     if (len3 > 0) { product *= GetFiboWeight(IMPULSE_4_TO_3, len4 / len3); numRatios++; }
                     product *= GetFiboWeight(IMPULSE_5_TO_1, len5 / len1); numRatios++;
+
+                    // EW_MARKUP §20.1: penalise W2/W4 duration imbalance
+                    double durPenImp = CalculateDurationPenalty(w);
+                    if (durPenImp < 1.0) { product *= durPenImp; numRatios++; }
                     break;
                 }
 
@@ -209,6 +213,10 @@ namespace TradeKit.Core.AlgoBase
                         // W5/W3: contracting, typical ~0.677, dedicated map
                         product *= GetFiboWeight(MAP_DIAGONAL_5_TO_3, len5 / len3); numRatios++;
                     }
+
+                    // EW_MARKUP §20.4: same W2/W4 duration proportionality as impulse
+                    double durPenDiag = CalculateDurationPenalty(w);
+                    if (durPenDiag < 1.0) { product *= durPenDiag; numRatios++; }
                     break;
                 }
 
@@ -387,6 +395,48 @@ namespace TradeKit.Core.AlgoBase
             double avgFraction = sumFraction / count;
             // Bonus range: 1.0 (corrective wave 0 % of time) → 1.3 (100 % of time)
             return 1.0 + 0.3 * avgFraction;
+        }
+
+        /// <summary>
+        /// Computes a score penalty [0.1, 1.0] for impulse/diagonal candidates where
+        /// the corrective waves (W2 and W4) are disproportionately different in
+        /// bar duration.  Based on EW_MARKUP §20.1 and §20.4.
+        /// <list type="bullet">
+        /// <item>W4 ≤ 1.5 × W2 bars → soft limit</item>
+        /// <item>W2 ≤ 1.1 × W4 bars → soft limit</item>
+        /// </list>
+        /// Penalty formula: <c>Clamp(1 − (imbalanceRatio − 1.0) × 0.5, 0.1, 1.0)</c>
+        /// applied per violated limit, then multiplied together.
+        /// </summary>
+        private static double CalculateDurationPenalty(Segment[] w)
+        {
+            if (w.Length < 4) return 1.0;
+
+            int w2Bars = Math.Abs(w[1].End.BarIndex - w[1].Start.BarIndex);
+            int w4Bars = Math.Abs(w[3].End.BarIndex - w[3].Start.BarIndex);
+            if (w2Bars <= 0 || w4Bars <= 0) return 1.0;
+
+            double penalty = 1.0;
+
+            // W4 ≤ 1.5 × W2
+            const double limit4over2 = 1.5;
+            double ratio4over2 = (double)w4Bars / w2Bars;
+            if (ratio4over2 > limit4over2)
+            {
+                double imb = ratio4over2 / limit4over2;
+                penalty *= Math.Max(0.1, 1.0 - (imb - 1.0) * 0.5);
+            }
+
+            // W2 ≤ 1.1 × W4
+            const double limit2over4 = 1.1;
+            double ratio2over4 = (double)w2Bars / w4Bars;
+            if (ratio2over4 > limit2over4)
+            {
+                double imb = ratio2over4 / limit2over4;
+                penalty *= Math.Max(0.1, 1.0 - (imb - 1.0) * 0.5);
+            }
+
+            return penalty;
         }
     }
 }

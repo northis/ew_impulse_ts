@@ -106,7 +106,7 @@ namespace TradeKit.Tests
             ExactParsedNode? doubleZigzag = results.FirstOrDefault(
                 r => r.ModelType == ElliottModelType.DOUBLE_ZIGZAG && r.WaveCount == r.ExpectedWaves);
 
-            //results.SaveMarkupResults(m_BarsProvider);
+            results.SaveMarkupResults(m_BarsProvider);
 
 
             Assert.IsNotNull(doubleZigzag,

@@ -56,11 +56,18 @@ namespace TradeKit.Core.AlgoBase
 
         /// <summary>
         /// Maximum recursion depth for sub-wave model identification.
-        /// Depth 0 = top-level pattern; depth 1 = first-level sub-waves.
+        /// Depth 0 = top-level pattern; depth 1 = first-level sub-waves;
+        /// depth 2 = second-level sub-waves (sub-waves of sub-waves).
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
+        /// <para>
+        /// Performance note: depth 3 adds one extra level of recursive analysis
+        /// vs depth 2.  With <see cref="MAX_CANDIDATES_FOR_SUBWAVE_FILL"/> = 20
+        /// and <see cref="MAX_ITERATIONS_PER_MODEL"/> = 500k, the worst-case
+        /// work grows roughly by a factor of (average sub-waves per model).
+        /// </para>
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 2;
+        public const int MAX_MARKUP_DEPTH = 3;
 
         /// <summary>
         /// Minimum fraction of the reference wave's length by which the next
@@ -129,10 +136,15 @@ namespace TradeKit.Core.AlgoBase
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
         /// top-level result to be returned from <see cref="Parse"/>.
-        /// A value of <c>MAX_MARKUP_DEPTH / 2</c> guarantees that every direct
-        /// sub-wave of the top-level model was itself successfully identified
-        /// (i.e. none of them stayed as a bare SIMPLE_IMPULSE segment after
-        /// the recursive decomposition pass).
+        /// With <see cref="MAX_MARKUP_DEPTH"/> = 3, a value of 1 guarantees at least
+        /// one direct sub-wave of the top-level model was successfully identified
+        /// (i.e. not all of them stayed as bare SIMPLE_IMPULSE segments).
+        /// <para>
+        /// Set to <c>MAX_MARKUP_DEPTH / 2</c> (integer division) to grow with depth.
+        /// For MAX_MARKUP_DEPTH = 3 this is 1; a stricter value of 2 would require
+        /// full identification through both sub-levels but may discard too many
+        /// valid candidates on sparse price data.
+        /// </para>
         /// </summary>
         public const int MIN_RESULT_DEPTH = MAX_MARKUP_DEPTH / 2;
 
@@ -1932,7 +1944,7 @@ namespace TradeKit.Core.AlgoBase
             if (!appliesToModel) return true;
 
             bool isUp = waves[0].IsUp;
-            double startPrice = waves[0].Start.Value;
+            double start = waves[0].Start.Value;
             Segment wave = waves[waveIdx];
             int from = Math.Min(wave.Start.BarIndex, wave.End.BarIndex);
             int to   = Math.Max(wave.Start.BarIndex, wave.End.BarIndex);
@@ -1942,11 +1954,11 @@ namespace TradeKit.Core.AlgoBase
                 if (i < 0 || i >= m_BarsProvider.Count) continue;
                 if (isUp)
                 {
-                    if (m_BarsProvider.GetLowPrice(i) < startPrice) return false;
+                    if (m_BarsProvider.GetLowPrice(i) < start) return false;
                 }
                 else
                 {
-                    if (m_BarsProvider.GetHighPrice(i) > startPrice) return false;
+                    if (m_BarsProvider.GetHighPrice(i) > start) return false;
                 }
             }
             return true;
@@ -2075,10 +2087,9 @@ namespace TradeKit.Core.AlgoBase
                         if ( isUp && w[1].End.Value >= start) return false;
                         if (!isUp && w[1].End.Value <= start) return false;
                     }
-                    // Running triangles have an oversized B wave, so C can be
-                    // larger than A in amplitude.  Require:
-                    //   D < B  (corrective amplitude convergence)
-                    //   E < C  (motive amplitude convergence)
+                    // Running triangles have an oversized B wave, so C can exceed A in amplitude.  Require:
+                    //   D < B  (corrective waves converge)
+                    //   E < C  (motive waves converge after the overshoot)
                     if (waveIdx == 3 && w[3].Length >= w[1].Length) return false; // D < B
                     if (waveIdx == 4 && w[4].Length >= w[2].Length) return false; // E < C
                     // Endpoint convergence (same as contracting):
@@ -2232,9 +2243,11 @@ namespace TradeKit.Core.AlgoBase
                         if (isUp && w[1].End.Value >= start) return false;
                         if (!isUp && w[1].End.Value <= start) return false;
 
-                        // C extends beyond A's price territory (the defining feature of "extended").
+                        // C extends beyond A's price territory AND is at least 1.618×A in length
+                        // (EW_MARKUP §4.1: C ≥ 1.618 × A — key hard rule for extended flat).
                         if (isUp && w[2].End.Value <= wAEnd) return false;
                         if (!isUp && w[2].End.Value >= wAEnd) return false;
+                        if (w[2].Length < w[0].Length * 1.618) return false;
                     }
                     return true;
 
@@ -2248,8 +2261,10 @@ namespace TradeKit.Core.AlgoBase
                         if (!isUp && w[1].End.Value <= start) return false;
 
                         // C does NOT reach A's end territory (short of A — the "running" property).
+                        // Also must not exceed 1.618×A in length (EW_MARKUP §4.1).
                         if (isUp && w[2].End.Value >= wAEnd) return false;
                         if (!isUp && w[2].End.Value <= wAEnd) return false;
+                        if (w[2].Length > w[0].Length * 1.618) return false;
                     }
                     return true;
 
