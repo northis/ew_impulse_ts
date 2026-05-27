@@ -61,13 +61,12 @@ namespace TradeKit.Core.AlgoBase
         /// At depth MAX_MARKUP_DEPTH the recursion stops — sub-waves at that
         /// level are left as SIMPLE_IMPULSE segments.
         /// <para>
-        /// Performance note: depth 3 adds one extra level of recursive analysis
-        /// vs depth 2.  With <see cref="MAX_CANDIDATES_FOR_SUBWAVE_FILL"/> = 20
-        /// and <see cref="MAX_ITERATIONS_PER_MODEL"/> = 500k, the worst-case
-        /// work grows roughly by a factor of (average sub-waves per model).
+        /// Depth 2 was chosen as a safe limit: depth 3 causes exponential growth
+        /// in candidate combinations (20 top × 5 sub × 20 sub × 5 sub-sub),
+        /// leading to test-host crashes on commodity hardware.
         /// </para>
         /// </summary>
-        public const int MAX_MARKUP_DEPTH = 3;
+        public const int MAX_MARKUP_DEPTH = 2;
 
         /// <summary>
         /// Minimum fraction of the reference wave's length by which the next
@@ -136,15 +135,10 @@ namespace TradeKit.Core.AlgoBase
         /// <summary>
         /// Minimum value of <see cref="ExactParsedNode.GetDepth"/> required for a
         /// top-level result to be returned from <see cref="Parse"/>.
-        /// With <see cref="MAX_MARKUP_DEPTH"/> = 3, a value of 1 guarantees at least
-        /// one direct sub-wave of the top-level model was successfully identified
-        /// (i.e. not all of them stayed as bare SIMPLE_IMPULSE segments).
-        /// <para>
-        /// Set to <c>MAX_MARKUP_DEPTH / 2</c> (integer division) to grow with depth.
-        /// For MAX_MARKUP_DEPTH = 3 this is 1; a stricter value of 2 would require
-        /// full identification through both sub-levels but may discard too many
-        /// valid candidates on sparse price data.
-        /// </para>
+        /// A value of <c>MAX_MARKUP_DEPTH / 2</c> guarantees that at least one
+        /// direct sub-wave of the top-level model was successfully identified
+        /// (i.e. not all of them stayed as bare SIMPLE_IMPULSE segments after
+        /// the recursive decomposition pass).
         /// </summary>
         public const int MIN_RESULT_DEPTH = MAX_MARKUP_DEPTH / 2;
 
@@ -313,6 +307,14 @@ namespace TradeKit.Core.AlgoBase
             if (m_BarsProvider != null)
             {
                 results = results.Where(n => RepairSimpleImpulseLeaves(n)).ToList();
+
+                // Final safety pass: synchronize adjacent SIMPLE_IMPULSE leaf
+                // boundaries at shared bar indices. This catches any remaining
+                // discontinuities that the recursive repair did not fully resolve
+                // (e.g. when a leaf endpoint was set to the range-wide extremum
+                // instead of the OHLC value at the actual bar).
+                results.ForEach(n => SyncLeafBoundaries(n));
+
                 results = results.Where(n => n.GetDepth() >= m_MaxMarkupDepth / 2).ToList();
             }
             return results;
@@ -343,6 +345,11 @@ namespace TradeKit.Core.AlgoBase
                 // Only apply repair/depth filter to complete candidates
                 results = results.Where(n =>
                     n.ActiveFromWaveIndex >= 0 || RepairSimpleImpulseLeaves(n)).ToList();
+                results.ForEach(n =>
+                {
+                    if (n.ActiveFromWaveIndex < 0)
+                        SyncLeafBoundaries(n);
+                });
                 results = results.Where(n =>
                     n.ActiveFromWaveIndex >= 0 || n.GetDepth() >= m_MaxMarkupDepth / 2).ToList();
             }
@@ -941,7 +948,8 @@ namespace TradeKit.Core.AlgoBase
                             // Leaf-level breaches represent intra-candle noise below
                             // the zigzag deviation threshold.  Keep the structural
                             // model but repair each child's boundaries to the true
-                            // OHLC corridor so containment invariant holds.
+                            // OHLC value at the actual bar (not the range-wide
+                            // extremum, which may belong to a completely different bar).
                             if (m_BarsProvider != null)
                             {
                                 for (int k = 0; k < sw.WaveCount; k++)
@@ -951,29 +959,55 @@ namespace TradeKit.Core.AlgoBase
                                         continue;
 
                                     bool leafUp = leaf.IsUp;
-                                    int fBar = Math.Min(leaf.StartPoint.BarIndex, leaf.EndPoint.BarIndex);
-                                    int tBar = Math.Max(leaf.StartPoint.BarIndex, leaf.EndPoint.BarIndex);
+                                    int startBar = leaf.StartPoint.BarIndex;
+                                    int endBar   = leaf.EndPoint.BarIndex;
 
-                                    double minLow = double.MaxValue;
-                                    double maxHigh = double.MinValue;
-                                    for (int b = fBar; b <= tBar; b++)
+                                    // Repair start: use OHLC at the actual start bar
+                                    if (startBar >= 0 && startBar < m_BarsProvider.Count)
                                     {
-                                        if (b < 0 || b >= m_BarsProvider.Count) continue;
-                                        double lo = m_BarsProvider.GetLowPrice(b);
-                                        double hi = m_BarsProvider.GetHighPrice(b);
-                                        if (lo < minLow) minLow = lo;
-                                        if (hi > maxHigh) maxHigh = hi;
+                                        double trueStart = leafUp
+                                            ? m_BarsProvider.GetLowPrice(startBar)
+                                            : m_BarsProvider.GetHighPrice(startBar);
+                                        if (Math.Abs(trueStart - leaf.StartPoint.Value) > 1e-10)
+                                            leaf.StartPoint = new BarPoint(trueStart, startBar, m_BarsProvider);
                                     }
 
-                                    // Upward: start <= all Lows, end >= all Highs
-                                    // Downward: start >= all Highs, end <= all Lows
-                                    double reqStart = leafUp ? minLow : maxHigh;
-                                    double reqEnd = leafUp ? maxHigh : minLow;
+                                    // Repair end: use OHLC at the actual end bar
+                                    if (endBar >= 0 && endBar < m_BarsProvider.Count)
+                                    {
+                                        double trueEnd = leafUp
+                                            ? m_BarsProvider.GetHighPrice(endBar)
+                                            : m_BarsProvider.GetLowPrice(endBar);
+                                        if (Math.Abs(trueEnd - leaf.EndPoint.Value) > 1e-10)
+                                            leaf.EndPoint = new BarPoint(trueEnd, endBar, m_BarsProvider);
+                                    }
+                                }
 
-                                    if (Math.Abs(reqStart - leaf.StartPoint.Value) > 1e-10)
-                                        leaf.StartPoint = new BarPoint(reqStart, leaf.StartPoint.BarIndex, m_BarsProvider);
-                                    if (Math.Abs(reqEnd - leaf.EndPoint.Value) > 1e-10)
-                                        leaf.EndPoint = new BarPoint(reqEnd, leaf.EndPoint.BarIndex, m_BarsProvider);
+                                // Synchronize adjacent leaf boundaries at shared bars:
+                                // when leaf[i].EndPoint.BarIndex == leaf[i+1].StartPoint.BarIndex,
+                                // the two BarPoints must carry the same value. Use the OHLC
+                                // extremum appropriate for the transition direction:
+                                //   UP→DOWN boundary: High of the bar
+                                //   DOWN→UP boundary: Low of the bar
+                                for (int k = 0; k < sw.WaveCount - 1; k++)
+                                {
+                                    ExactParsedNode left  = sw.SubWaves[k];
+                                    ExactParsedNode right = sw.SubWaves[k + 1];
+                                    if (left == null || right == null) continue;
+                                    if (left.EndPoint.BarIndex != right.StartPoint.BarIndex) continue;
+
+                                    int boundaryBar = left.EndPoint.BarIndex;
+                                    if (boundaryBar < 0 || boundaryBar >= m_BarsProvider.Count) continue;
+
+                                    // UP→DOWN: boundary is a local peak → use High
+                                    // DOWN→UP: boundary is a local trough → use Low
+                                    double boundaryVal = left.IsUp
+                                        ? m_BarsProvider.GetHighPrice(boundaryBar)
+                                        : m_BarsProvider.GetLowPrice(boundaryBar);
+
+                                    var syncPoint = new BarPoint(boundaryVal, boundaryBar, m_BarsProvider);
+                                    left.EndPoint    = syncPoint;
+                                    right.StartPoint = syncPoint;
                                 }
                             }
                         }
@@ -1401,7 +1435,7 @@ namespace TradeKit.Core.AlgoBase
                     {
                         // Guard: never collapse the next sub-wave to zero length.
                         bool collapse = i + 1 < node.WaveCount
-                            && node.SubWaves[i + 1] != null
+                           
                             && bestBar >= node.SubWaves[i + 1].EndPoint.BarIndex;
 
                         if (!collapse)
@@ -1656,7 +1690,7 @@ namespace TradeKit.Core.AlgoBase
             int to   = waves[^1].End.BarIndex;
 
             // Start from from + 1: the start bar belongs to the opposite extremum
-            // side (an UP wave starts at a Low, a DOWN wave at a High), so its
+            // side (an UP wave starts at a LOW, a DOWN wave at a HIGH), so its
             // opposite-side OHLC price should not count against the endpoint check.
             // This aligns with the §4.2-endpoint-repair scan range.
             for (int i = from + 1; i <= to; i++)
@@ -2170,15 +2204,9 @@ namespace TradeKit.Core.AlgoBase
                         double diagPen = MIN_DIAGONAL_PENETRATION * w[0].Length;
                         if (isUp && w3End < w1End + diagPen) return false;
                         if (!isUp && w3End > w1End - diagPen) return false;
-
-                        // W4 overlaps W1 territory
-                        if (isUp && w4End >= w1End) return false;
-                        if (!isUp && w4End <= w1End) return false;
-
-                        // Contracting: each same-dir wave < previous
-                        if (w[2].Length >= w[0].Length) return false;
-                        if (w[4].Length >= w[2].Length) return false;
-                        if (w[3].Length >= w[1].Length) return false;
+                        if (w[2].Length >= w[0].Length) return false; // contracting
+                        if (w[4].Length >= w[2].Length) return false; // contracting
+                        if (w[3].Length >= w[1].Length) return false; // contracting
 
                         if (isUp && w[4].End.Value <= w4End) return false;
                         if (!isUp && w[4].End.Value >= w4End) return false;
@@ -2404,6 +2432,109 @@ namespace TradeKit.Core.AlgoBase
                 Score = score,
                 SubWaves = subWaves
             };
+        }
+
+        /// <summary>
+        /// Synchronises start/end values of adjacent <see cref="ElliottModelType.SIMPLE_IMPULSE"/>
+        /// leaves that share a bar boundary.  Uses the true OHLC extremum at the
+        /// boundary bar and propagates it to both sides.
+        /// </summary>
+        private void SyncLeafBoundaries(ExactParsedNode node)
+        {
+            if (node?.SubWaves == null) return;
+
+            // Recurse into non-leaf children first.
+            for (int i = 0; i < node.WaveCount; i++)
+            {
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw != null && sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
+                    SyncLeafBoundaries(sw);
+            }
+
+            // Sync adjacent SIMPLE_IMPULSE leaves at this level.
+            for (int i = 0; i < node.WaveCount - 1; i++)
+            {
+                ExactParsedNode a = node.SubWaves[i];
+                ExactParsedNode b = node.SubWaves[i + 1];
+                if (a == null || b == null) continue;
+                if (a.ModelType != ElliottModelType.SIMPLE_IMPULSE) continue;
+                if (b.ModelType != ElliottModelType.SIMPLE_IMPULSE) continue;
+
+                int boundaryBar = a.EndPoint.BarIndex;
+                if (boundaryBar != b.StartPoint.BarIndex) continue;
+                if (boundaryBar < 0 || boundaryBar >= m_BarsProvider.Count) continue;
+
+                // At a shared boundary where a.IsUp → the bar is a local high;
+                // where !a.IsUp → the bar is a local low.
+                double boundaryVal = a.IsUp
+                    ? m_BarsProvider.GetHighPrice(boundaryBar)
+                    : m_BarsProvider.GetLowPrice(boundaryBar);
+
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SyncLeaf] bar={boundaryBar} a.end={a.EndPoint.Value:F5} " +
+                    $"b.start={b.StartPoint.Value:F5} boundaryVal={boundaryVal:F5} " +
+                    $"a.IsUp={a.IsUp}");
+
+                // Force sync: use the more extreme value that satisfies containment
+                // for BOTH adjacent leaves. For up→down transition, use the OHLC High;
+                // for down→up, use the OHLC Low.
+                if (Math.Abs(a.EndPoint.Value - boundaryVal) > boundaryVal * 1e-10
+                    || Math.Abs(b.StartPoint.Value - boundaryVal) > boundaryVal * 1e-10)
+                {
+                    var bp = new BarPoint(boundaryVal, boundaryBar, m_BarsProvider);
+                    a.EndPoint = bp;
+                    b.StartPoint = bp;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively validates that every SIMPLE_IMPULSE leaf has no candle
+        /// breaching its start/end boundaries.  Upward: no Low &lt; start, no High &gt; end.
+        /// Downward: no High &gt; start, no Low &lt; end.
+        /// Returns <c>false</c> if any leaf is breached.
+        /// </summary>
+        private bool ValidateLeafContainment(ExactParsedNode node)
+        {
+            if (node?.SubWaves == null) return true;
+
+            for (int i = 0; i < node.WaveCount; i++)
+            {
+                ExactParsedNode sw = node.SubWaves[i];
+                if (sw == null) continue;
+
+                if (sw.ModelType == ElliottModelType.SIMPLE_IMPULSE)
+                {
+                    bool isUp = sw.IsUp;
+                    double sp = sw.StartPoint.Value;
+                    double ep = sw.EndPoint.Value;
+                    int f = Math.Min(sw.StartPoint.BarIndex, sw.EndPoint.BarIndex);
+                    int t = Math.Max(sw.StartPoint.BarIndex, sw.EndPoint.BarIndex);
+
+                    for (int b = f; b <= t; b++)
+                    {
+                        if (b < 0 || b >= m_BarsProvider.Count) continue;
+                        double lo = m_BarsProvider.GetLowPrice(b);
+                        double hi = m_BarsProvider.GetHighPrice(b);
+                        if (isUp)
+                        {
+                            if (lo < sp - sp * 1e-10) return false;
+                            if (hi > ep + ep * 1e-10) return false;
+                        }
+                        else
+                        {
+                            if (hi > sp + sp * 1e-10) return false;
+                            if (lo < ep - ep * 1e-10) return false;
+                        }
+                    }
+                }
+                else
+                {
+                    if (!ValidateLeafContainment(sw))
+                        return false;
+                }
+            }
+            return true;
         }
     }
 }

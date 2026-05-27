@@ -108,7 +108,6 @@ namespace TradeKit.Tests
 
             results.SaveMarkupResults(m_BarsProvider);
 
-
             Assert.IsNotNull(doubleZigzag,
                 $"Expected DOUBLE_ZIGZAG in results but top result was: " +
                 $"{results.FirstOrDefault()?.ModelType} (score={results.FirstOrDefault()?.Score:F3}) " +
@@ -166,6 +165,18 @@ namespace TradeKit.Tests
             // (this is what we expect FillSubWaveModels fallback to produce)
             Assert.IsTrue(yResults.Any(r => r.ModelType == ElliottModelType.ZIGZAG),
                 "Y-wave segment should be parseable as ZIGZAG");
+
+            // ── Diagnostic: verify boundary sync at bar 171 ──────────────
+            TestContext.WriteLine($"\nBoundary sync diagnostic:");
+            TestContext.WriteLine($"GetHighPrice(171) = {m_BarsProvider.GetHighPrice(171):F5}");
+            TestContext.WriteLine($"GetLowPrice(171) = {m_BarsProvider.GetLowPrice(171):F5}");
+            
+            TestContext.WriteLine($"\nY-wave sub-wave boundaries after Parse():");
+            for (int i = 0; i < doubleZigzag.SubWaves[2].SubWaves.Length; i++)
+            {
+                var leaf = doubleZigzag.SubWaves[2].SubWaves[i];
+                TestContext.WriteLine($"  Wave {i} ({leaf.ModelType}): [{leaf.StartPoint.BarIndex}]={leaf.StartPoint.Value:F5} → [{leaf.EndPoint.BarIndex}]={leaf.EndPoint.Value:F5}");
+            }
         }
     }
 }
