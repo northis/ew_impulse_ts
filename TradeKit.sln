@@ -1,5 +1,4 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.6.11806.211
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -42,6 +41,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMarkupZigzagIndicator", "AutoMarkupZigzagIndicator\AutoMarkupZigzagIndicator.csproj", "{354761E9-72D1-40F2-937C-6BAF7AABDFA4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElliottIndicator", "ElliottIndicator\ElliottIndicator.csproj", "{91FE7308-C5CC-019D-573F-8089C6600A5A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MarketUtilsBot", "MarketUtilsBot\MarketUtilsBot.csproj", "{B8D2F705-3E91-4C5A-A6D8-1F9C3E4B5A72}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -129,6 +130,10 @@ Global
 		{91FE7308-C5CC-019D-573F-8089C6600A5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{91FE7308-C5CC-019D-573F-8089C6600A5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{91FE7308-C5CC-019D-573F-8089C6600A5A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8D2F705-3E91-4C5A-A6D8-1F9C3E4B5A72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8D2F705-3E91-4C5A-A6D8-1F9C3E4B5A72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8D2F705-3E91-4C5A-A6D8-1F9C3E4B5A72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8D2F705-3E91-4C5A-A6D8-1F9C3E4B5A72}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
