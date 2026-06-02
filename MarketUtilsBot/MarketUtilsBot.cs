@@ -41,12 +41,28 @@ namespace MarketUtilsBot
 
         private string m_ResolvedSavePath;
         private readonly Dictionary<string, LiveStreamContext> m_LiveStreams = new();
+        private bool m_IsBacktesting;
+        private readonly List<SymbolTfPair> m_ResolvedPairs = new();
+
+        /// <summary>
+        /// Pre-resolved symbol + timeframe combination.
+        /// Built once in <see cref="OnStart"/> so we never touch
+        /// <see cref="Symbols"/> or <see cref="MarketData"/> in <see cref="OnStop"/>.
+        /// </summary>
+        private sealed class SymbolTfPair
+        {
+            public string SymbolName { get; init; }
+            public TimeFrame TimeFrame { get; init; }
+            public Symbol Symbol { get; set; }
+            public Bars Bars { get; set; }
+        }
 
         private sealed class LiveStreamContext
         {
             public Bars Bars { get; init; }
             public StreamWriter Writer { get; init; }
             public int LastWrittenIndex { get; set; }
+            public SymbolTfPair Pair { get; init; }
         }
 
         protected override void OnStart()
@@ -61,13 +77,17 @@ namespace MarketUtilsBot
             string[] symbols = GetSymbols();
             TimeFrame[] timeFrames = GetTimeFrames();
 
+            ResolveSymbolPairs(symbols, timeFrames);
+
             if (IsBacktesting)
             {
-                SaveHistoryForRange(symbols, timeFrames);
+                m_IsBacktesting = true;
+                // Bars aren't fully loaded here, but Symbol and Bars references
+                // are resolved and will be populated by the time OnStop fires.
             }
             else
             {
-                StartLiveCapture(symbols, timeFrames);
+                StartLiveCapture();
             }
         }
 
@@ -80,6 +100,11 @@ namespace MarketUtilsBot
             }
 
             m_LiveStreams.Clear();
+
+            if (m_IsBacktesting)
+            {
+                SaveBacktestHistory();
+            }
         }
 
         #region Symbol / TimeFrame resolution
@@ -144,35 +169,121 @@ namespace MarketUtilsBot
             };
         }
 
+        /// <summary>
+        /// Resolves <see cref="Symbol"/> and <see cref="Bars"/> for every
+        /// symbol × timeframe combination. Unavailable symbols are silently
+        /// skipped. Populates <see cref="m_ResolvedPairs"/>.
+        /// </summary>
+        private void ResolveSymbolPairs(string[] symbols, TimeFrame[] timeFrames)
+        {
+            m_ResolvedPairs.Clear();
+
+            foreach (string symbolName in symbols)
+            {
+                foreach (TimeFrame tf in timeFrames)
+                {
+                    try
+                    {
+                        Bars bars = MarketData.GetBars(tf, symbolName);
+                        if (bars == null || bars.OpenTimes.Count == 0)
+                        {
+                            Print($"SKIP: no data for {symbolName}/{tf.ShortName} — not loaded in terminal");
+                            continue;
+                        }
+
+                        Symbol symbol = Symbols.GetSymbol(symbolName);
+
+                        m_ResolvedPairs.Add(new SymbolTfPair
+                        {
+                            SymbolName = symbolName,
+                            TimeFrame = tf,
+                            Symbol = symbol,
+                            Bars = bars,
+                        });
+                    }
+                    catch
+                    {
+                        Print($"SKIP: {symbolName}/{tf.ShortName} — not available");
+                    }
+                }
+            }
+
+            Print($"Resolved {m_ResolvedPairs.Count} symbol/timeframe pair(s)");
+        }
+
         #endregion
 
         #region Backtest mode
 
-        private void SaveHistoryForRange(string[] symbols, TimeFrame[] timeFrames)
+        private void SaveBacktestHistory()
         {
-            if (!TryParseDateRange(DateRangeToCollect, out DateTime startDate, out DateTime endDate))
+            if (m_ResolvedPairs.Count == 0)
             {
-                Print($"ERROR: Failed to parse date range: '{DateRangeToCollect}'. Expected format: {Helper.DATE_COLLECTION_PATTERN}");
+                Print("No symbol/timeframe pairs resolved — nothing to save.");
                 return;
             }
 
-            foreach (string symbol in symbols)
+            bool hasUserRange = TryParseDateRange(
+                DateRangeToCollect, out DateTime userStart, out DateTime userEnd);
+
+            // Group by symbol so that all timeframes for the same symbol
+            // share one date range — the intersection where every TF has data.
+            foreach (var symbolGroup in m_ResolvedPairs.GroupBy(p => p.SymbolName))
             {
-                foreach (TimeFrame tf in timeFrames)
+                DateTime startDate, endDate;
+                if (hasUserRange)
                 {
-                    SaveSymbolHistory(symbol, tf, startDate, endDate);
+                    (startDate, endDate) = (userStart, userEnd);
                 }
+                else
+                {
+                    (startDate, endDate) = GetSymbolHistoryRange(symbolGroup);
+                }
+
+                foreach (SymbolTfPair pair in symbolGroup)
+                    SaveSymbolHistory(pair, startDate, endDate);
             }
+
+            Print("Backtest history saved.");
         }
 
-        private void SaveSymbolHistory(string symbolName, TimeFrame tf, DateTime startDate, DateTime endDate)
+        /// <summary>
+        /// Returns the date range where ALL timeframes for a single symbol
+        /// have data. Start is the latest first-bar among TFs, end is the
+        /// earliest last-bar among TFs — i.e. the intersection.
+        /// </summary>
+        private static (DateTime start, DateTime end) GetSymbolHistoryRange(
+            IEnumerable<SymbolTfPair> pairs)
         {
+            DateTime start = DateTime.MinValue;
+            DateTime end = DateTime.MaxValue;
+
+            foreach (SymbolTfPair pair in pairs)
+            {
+                int count = pair.Bars.OpenTimes.Count;
+                if (count == 0) continue;
+
+                DateTime first = pair.Bars.OpenTimes[0];
+                DateTime last = pair.Bars.OpenTimes[count - 1];
+
+                if (first > start) start = first;
+                if (last < end) end = last;
+            }
+
+            return start == DateTime.MinValue
+                ? (DateTime.MinValue, DateTime.MaxValue)
+                : (start, end);
+        }
+
+        private void SaveSymbolHistory(SymbolTfPair pair,
+            DateTime startDate, DateTime endDate)
+        {
+            Bars bars = pair.Bars;
+            string symbolName = pair.SymbolName;
+            TimeFrame tf = pair.TimeFrame;
+
             try
             {
-                Symbol symbolEntity = Symbols.GetSymbol(symbolName);
-
-                // Load enough history so startDate is in range
-                Bars bars = MarketData.GetBars(tf, symbolName);
                 while (bars.OpenTimes.Count > 0 && bars.OpenTimes[0] > startDate)
                     bars.LoadMoreHistory();
 
@@ -181,7 +292,7 @@ namespace MarketUtilsBot
 
                 if (startIndex < 0 || endIndex < 0 || startIndex > endIndex)
                 {
-                    Print($"WARNING: No bars in range for {symbolName}/{tf.ShortName}");
+                    Print($"WARNING: No bars in range for {symbolName}/{tf.ShortName} from {startDate:yyyy-MM-dd HH:mm} to {endDate:yyyy-MM-dd HH:mm}");
                     return;
                 }
 
@@ -193,8 +304,7 @@ namespace MarketUtilsBot
                     endDate.ToString(Helper.DATE_COLLECTION_FORMAT).Replace(":", "-"));
 
                 string filePath = Path.Combine(m_ResolvedSavePath, fileName);
-                int digits = symbolEntity.Digits;
-                string formatSpecifier = $"F{digits}";
+                string formatSpecifier = $"F{pair.Symbol.Digits}";
 
                 WriteCsvFile(filePath, bars, startIndex, endIndex, formatSpecifier);
                 Print($"Saved: {filePath}");
@@ -250,23 +360,17 @@ namespace MarketUtilsBot
 
         #region Live mode
 
-        private void StartLiveCapture(string[] symbols, TimeFrame[] timeFrames)
+        private void StartLiveCapture()
         {
-            foreach (string symbol in symbols)
-            {
-                foreach (TimeFrame tf in timeFrames)
-                {
-                    StartSymbolLiveCapture(symbol, tf);
-                }
-            }
+            foreach (SymbolTfPair pair in m_ResolvedPairs)
+                StartSymbolLiveCapture(pair);
         }
 
-        private void StartSymbolLiveCapture(string symbolName, TimeFrame tf)
+        private void StartSymbolLiveCapture(SymbolTfPair pair)
         {
             try
             {
-                Symbol symbolEntity = Symbols.GetSymbol(symbolName);
-                Bars bars = MarketData.GetBars(tf, symbolName);
+                Bars bars = pair.Bars;
 
                 DateTime earliestBar = bars.OpenTimes.Count > 0
                     ? bars.OpenTimes[0]
@@ -274,18 +378,16 @@ namespace MarketUtilsBot
 
                 string fileName = string.Format(
                     "{0}_{1}_{2}_live.csv",
-                    symbolName,
-                    tf.ShortName,
+                    pair.SymbolName,
+                    pair.TimeFrame.ShortName,
                     earliestBar.ToString(Helper.DATE_COLLECTION_FORMAT).Replace(":", "-"));
 
                 string filePath = Path.Combine(m_ResolvedSavePath, fileName);
-                int digits = symbolEntity.Digits;
-                string formatSpecifier = $"F{digits}";
+                string formatSpecifier = $"F{pair.Symbol.Digits}";
 
                 int lastIndex = bars.OpenTimes.Count - 1;
 
-                // Write header and all currently available bars, then keep writing on each close
-                using var writer = new StreamWriter(filePath, append: false);
+                var writer = new StreamWriter(filePath, append: false);
                 writer.WriteLine(
                     $"Time{Helper.CSV_SEPARATOR}Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close");
 
@@ -294,12 +396,13 @@ namespace MarketUtilsBot
 
                 writer.Flush();
 
-                string key = $"{symbolName}_{tf.ShortName}";
+                string key = $"{pair.SymbolName}_{pair.TimeFrame.ShortName}";
                 var ctx = new LiveStreamContext
                 {
                     Bars = bars,
                     Writer = writer,
                     LastWrittenIndex = lastIndex,
+                    Pair = pair,
                 };
 
                 m_LiveStreams[key] = ctx;
@@ -309,7 +412,7 @@ namespace MarketUtilsBot
             }
             catch (Exception ex)
             {
-                Print($"ERROR starting live capture for {symbolName}/{tf.ShortName}: {ex.Message}");
+                Print($"ERROR starting live capture for {pair.SymbolName}/{pair.TimeFrame.ShortName}: {ex.Message}");
             }
         }
 
@@ -322,12 +425,11 @@ namespace MarketUtilsBot
             LiveStreamContext ctx = m_LiveStreams.Values
                 .FirstOrDefault(c => ReferenceEquals(c.Bars, sourceBars));
 
-            if (ctx == null)
+            if (ctx?.Pair == null)
                 return;
 
             int closedIndex = obj.Bars.Count - 1;
-            Symbol symbolEntity = Symbols.GetSymbol(sourceBars.SymbolName);
-            string fmtSpec = $"F{symbolEntity.Digits}";
+            string fmtSpec = $"F{ctx.Pair.Symbol.Digits}";
 
             for (int i = ctx.LastWrittenIndex + 1; i <= closedIndex; i++)
             {
