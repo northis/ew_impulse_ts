@@ -22,10 +22,14 @@ namespace TradeKit.Tests
         private const int MAX_FILES = 4;
 
         // Explicit deviation for the input zigzag. The DeviationOptimizer default
-        // (FindOptimalDeviation) currently degenerates to a coarse 1-2 pivot zigzag on
-        // these slices (see step-1 notes), so the invariant tests pin an explicit value
-        // that yields a meaningful multi-segment zigzag. The invariants hold regardless
-        // of the deviation chosen.
+        // (FindOptimalDeviation, Step 8) is now fixed and no longer degenerates — it
+        // returns the structural knee of the deviation/extremum curve. On these long
+        // (~2500-bar) slices that knee is very fine (~0.03-0.09%), yielding ~1000
+        // segments: structurally correct but far too many for the current single-range
+        // beam search, which then exceeds MAX_NODES_TOTAL and aborts with 0 roots. Full
+        // whole-history parsing at the auto-deviation is deferred to Step 9 (windowed
+        // stitching). Until then these invariant tests pin an explicit, tractable value;
+        // the invariants hold regardless of the deviation chosen.
         private const double DEVIATION_PERCENT = 0.5;
 
         private static readonly ITimeFrame HOUR1 = TimeFrameHelper.Hour1;

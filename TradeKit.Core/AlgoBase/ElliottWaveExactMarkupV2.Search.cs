@@ -122,7 +122,8 @@ namespace TradeKit.Core.AlgoBase
 
             var roots = new List<Candidate>();
             foreach (ElliottModelType model in StartModels)
-                roots.AddRange(ParseRange(startSeg, endSeg, model));
+                foreach (Candidate c in ParseRange(startSeg, endSeg, model))
+                    roots.Add(c with { Score = c.Score * ModelProbability(c.Model) });
 
             roots = Beam(roots);
 
@@ -178,11 +179,12 @@ namespace TradeKit.Core.AlgoBase
                 return Array.Empty<Candidate>();
             }
 
-            double score = ModelProbability(ElliottModelType.SIMPLE_IMPULSE);
+            // Structural-only score; the model-probability factor is applied by the
+            // parent (PositionProbability) or, for a single-segment root, by the caller.
             return new[]
             {
                 new Candidate(
-                    ElliottModelType.SIMPLE_IMPULSE, null, i, j, 0, score,
+                    ElliottModelType.SIMPLE_IMPULSE, null, i, j, 0, 1.0,
                     Array.Empty<Candidate>())
             };
         }
@@ -278,13 +280,22 @@ namespace TradeKit.Core.AlgoBase
         private void Finalize(
             ElliottModelType model, int i, int j, List<Candidate> chosen, List<Candidate> results)
         {
-            byte level = 0;
-            double score = ModelProbability(model);
+            // Own structural quality (pure fibo × soft penalties, §16.1).
+            var waves = new List<Segment>(chosen.Count);
             foreach (Candidate c in chosen)
+                waves.Add(new Segment(Pivots[c.StartSeg], Pivots[c.EndSeg + 1]));
+
+            byte level = 0;
+            double score = StructuralScore(model, waves);
+            for (int k = 0; k < chosen.Count; k++)
             {
+                Candidate c = chosen[k];
                 if (c.Level >= level)
                     level = (byte)(c.Level + 1);
-                score *= c.Score;
+
+                // Combine the child's own structural score with P(child | model, position).
+                string waveKey = ElliottWaveExactMarkup.GetWaveKey(model, k + 1);
+                score *= c.Score * PositionProbability(model, waveKey, c.Model);
             }
 
             if (level > MAX_LEVELS_V2)

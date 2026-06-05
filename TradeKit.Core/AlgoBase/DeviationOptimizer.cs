@@ -51,76 +51,89 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Finds the optimal deviation percent — the saturation point where further
-        /// decrease no longer increases the number of zigzag segments.
+        /// Finds the optimal deviation percent — the saturation knee of the
+        /// count-vs-deviation curve, i.e. the largest (coarsest) deviation that still
+        /// captures the meaningful swing structure before the curve flattens into
+        /// per-bar noise. The full deviation range is swept (no premature early-exit on
+        /// the first plateau), then the elbow is located as the point of maximum vertical
+        /// distance above the straight chord of the normalised (log-deviation, count) curve.
         /// </summary>
         /// <param name="maxDeviation">
-        /// Upper bound for binary search. If null, automatically determined as the deviation
+        /// Upper bound for the sweep. If null, automatically determined as the deviation
         /// that produces exactly 2 extremum points (one segment).
         /// </param>
         /// <param name="minDeviation">
         /// Lower bound for deviation search. Default is 0.001 (very small moves).
         /// </param>
-        /// <param name="stableSteps">
-        /// Number of consecutive steps with the same segment count required to declare saturation.
-        /// Default is 3.
-        /// </param>
         /// <returns>
-        /// The optimal deviation percent at the saturation point, or <paramref name="minDeviation"/>
-        /// if no saturation is found.
+        /// The deviation percent at the saturation knee, or <paramref name="minDeviation"/>
+        /// when the range is degenerate.
         /// </returns>
         public double FindOptimalDeviation(
             double? maxDeviation = null,
-            double minDeviation = 0.001,
-            int stableSteps = 3)
+            double minDeviation = 0.001)
         {
             // Step 1: find the upper bound (deviation producing minimal segments)
             double upper = maxDeviation ?? FindUpperBound();
             if (upper <= minDeviation)
                 return minDeviation;
 
-            // Step 2: sweep from upper to lower, tracking segment count
-            // Use logarithmic steps for even coverage across orders of magnitude
+            // Step 2: sweep the whole range with logarithmic steps for even coverage
+            // across orders of magnitude, recording the segment count at each deviation.
             int totalSteps = Math.Max(20, (int)(Math.Log(upper / minDeviation) / Math.Log(1.2)));
             double ratio = Math.Pow(minDeviation / upper, 1.0 / totalSteps);
 
-            int previousCount = GetExtremumCount(upper);
-            double previousDeviation = upper;
-            int stableCounter = 0;
-            double saturationDeviation = upper;
-
-            for (int step = 1; step <= totalSteps; step++)
+            var devs = new double[totalSteps + 1];
+            var counts = new int[totalSteps + 1];
+            for (int step = 0; step <= totalSteps; step++)
             {
-                double dev = upper * Math.Pow(ratio, step);
+                double dev = step == totalSteps ? minDeviation : upper * Math.Pow(ratio, step);
                 if (dev < minDeviation)
                     dev = minDeviation;
-
-                int count = GetExtremumCount(dev);
-
-                if (count > previousCount)
-                {
-                    // Segment count increased — reset stability counter
-                    stableCounter = 0;
-                    saturationDeviation = dev;
-                    previousCount = count;
-                }
-                else
-                {
-                    // Segment count did not increase
-                    stableCounter++;
-                    if (stableCounter >= stableSteps)
-                    {
-                        // Saturation reached: return the last deviation that increased count
-                        return saturationDeviation;
-                    }
-                }
-
-                previousDeviation = dev;
-                if (dev <= minDeviation)
-                    break;
+                devs[step] = dev;
+                counts[step] = GetExtremumCount(dev);
             }
 
-            return saturationDeviation;
+            return FindKnee(devs, counts);
+        }
+
+        /// <summary>
+        /// Locates the saturation knee of a non-decreasing count curve sampled across
+        /// decreasing deviations. The knee is the sample with the maximum vertical
+        /// distance above the chord joining the first (coarsest) and last (finest)
+        /// samples on the normalised (log-deviation, count) plane — the elbow where the
+        /// count stops growing meaningfully and only noise pivots remain at finer scales.
+        /// </summary>
+        private static double FindKnee(double[] devs, int[] counts)
+        {
+            int n = devs.Length;
+            int minCount = counts[0];
+            int maxCount = counts[n - 1];
+
+            // No structural growth (e.g. a monotonic series): the coarsest deviation
+            // already captures everything there is.
+            if (maxCount <= minCount)
+                return devs[0];
+
+            double x0 = Math.Log(devs[0]);
+            double dx = Math.Log(devs[n - 1]) - x0; // negative (fine < coarse)
+            double dy = maxCount - minCount;
+
+            double bestDist = double.NegativeInfinity;
+            int bestIdx = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double nx = (Math.Log(devs[i]) - x0) / dx; // 0 (coarse) → 1 (fine)
+                double ny = (counts[i] - minCount) / dy;   // 0 → 1
+                double dist = ny - nx;
+                if (dist > bestDist)
+                {
+                    bestDist = dist;
+                    bestIdx = i;
+                }
+            }
+
+            return devs[bestIdx];
         }
 
         /// <summary>

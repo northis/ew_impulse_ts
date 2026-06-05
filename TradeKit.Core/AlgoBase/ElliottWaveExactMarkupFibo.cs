@@ -158,7 +158,95 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         private static double CalculateFiboScore(ElliottModelType model, Segment[] w)
         {
-            double modelCoeff = GetModelCoeff(model);
+            (double product, int numRatios) = CollectFiboRatios(model, w, includeDuration: true);
+            if (numRatios == 0)
+                return 0;
+
+            double modelCoeff = GetDetectionModelCoeff(model);
+
+            // Geometric mean: normalize by number of ratios so a model with more ratio checks
+            // doesn't intrinsically score lower than a simpler model.
+            double geometricMean = Math.Pow(product, 1.0 / numRatios);
+
+            // Complexity bonus: a model that satisfies more independent Fibo relationships is
+            // more constrained (more specific) and should be preferred when the fit is equal.
+            double complexityBonus = 1.0 + Math.Log2(numRatios + 1) * 0.15;
+
+            // Bar-count bonus for corrective waves.
+            double barCountBonus = CalculateCorrectiveBarCountBonus(model, w);
+
+            double score = modelCoeff * geometricMean * complexityBonus * barCountBonus;
+
+            // Truncation penalty: IMPULSE where wave 5 does not exceed wave 3's end.
+            if (model == ElliottModelType.IMPULSE && w.Length >= 5)
+            {
+                bool isUpImp = w[0].IsUp;
+                bool truncated = isUpImp
+                    ? w[4].End.Value < w[2].End.Value
+                    : w[4].End.Value > w[2].End.Value;
+                if (truncated)
+                    score *= TRUNCATION_SCORE_PENALTY;
+            }
+
+            return score;
+        }
+
+        /// <summary>
+        /// Detection-scoring model coefficient. Mirrors the inline overrides v1 used
+        /// for diagonals (1.3) and triangles (2.0) so they compete fairly against the
+        /// several 3-wave interpretations that occupy the same positions; all other
+        /// models use their <see cref="ModelRules.ProbabilityCoefficient"/>.
+        /// </summary>
+        private static double GetDetectionModelCoeff(ElliottModelType model)
+        {
+            switch (model)
+            {
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    return 1.3;
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                case ElliottModelType.TRIANGLE_RUNNING:
+                    return 2.0;
+                default:
+                    return GetModelCoeff(model);
+            }
+        }
+
+        /// <summary>
+        /// Pure Fibonacci geometric-mean score for v2 (EW_MARKUP_v2 §16.1). Reuses the
+        /// exact v1 ratio maps and <see cref="GetFiboWeight"/> but returns ONLY the
+        /// geometric mean of the price-ratio weights — without v1's model coefficient,
+        /// complexity/bar-count bonuses, truncation or duration penalties (those are
+        /// applied explicitly by the v2 scorer as the <c>P(model|position)</c> factor
+        /// and the soft penalties). Returns 1.0 for models that carry no Fibo ratios
+        /// (e.g. <see cref="ElliottModelType.SIMPLE_IMPULSE"/>) and a small floor for
+        /// invalid geometry.
+        /// </summary>
+        public static double CalculatePureFiboScore(
+            ElliottModelType model, IReadOnlyList<ElliottWaveExactMarkupV2.Segment> waves)
+        {
+            var w = new Segment[waves.Count];
+            for (int i = 0; i < waves.Count; i++)
+                w[i] = new Segment { Start = waves[i].Start, End = waves[i].End };
+
+            (double product, int numRatios) = CollectFiboRatios(model, w, includeDuration: false);
+            if (numRatios == 0)
+                return product <= 0.0 ? 0.001 : 1.0;
+
+            return Math.Pow(product, 1.0 / numRatios);
+        }
+
+        /// <summary>
+        /// Collects the per-model Fibonacci ratio weights into a running product and a
+        /// ratio counter (shared by the v1 <see cref="CalculateFiboScore"/> and the v2
+        /// <see cref="CalculatePureFiboScore"/>). When <paramref name="includeDuration"/>
+        /// is set, the §20.1 W2/W4 duration penalty is folded into the product (v1
+        /// behaviour). Returns <c>product = 0</c> with <c>numRatios = 0</c> to signal
+        /// invalid geometry (a zero-length leading wave).
+        /// </summary>
+        private static (double product, int numRatios) CollectFiboRatios(
+            ElliottModelType model, Segment[] w, bool includeDuration)
+        {
             double product = 1.0;
             int numRatios = 0;
 
@@ -172,15 +260,18 @@ namespace TradeKit.Core.AlgoBase
                     double len4 = w[3].Length;
                     double len5 = w[4].Length;
 
-                    if (len1 <= 0) return 0;
+                    if (len1 <= 0) return (0.0, 0);
                     product *= GetCorrectionFiboWeight(len2 / len1); numRatios++;
                     product *= GetFiboWeight(IMPULSE_3_TO_1, len3 / len1); numRatios++;
                     if (len3 > 0) { product *= GetFiboWeight(IMPULSE_4_TO_3, len4 / len3); numRatios++; }
                     product *= GetFiboWeight(IMPULSE_5_TO_1, len5 / len1); numRatios++;
 
                     // EW_MARKUP §20.1: penalise W2/W4 duration imbalance
-                    double durPenImp = CalculateDurationPenalty(w);
-                    if (durPenImp < 1.0) { product *= durPenImp; numRatios++; }
+                    if (includeDuration)
+                    {
+                        double durPenImp = CalculateDurationPenalty(w);
+                        if (durPenImp < 1.0) { product *= durPenImp; numRatios++; }
+                    }
                     break;
                 }
 
@@ -192,16 +283,14 @@ namespace TradeKit.Core.AlgoBase
                     // distinguished without sub-wave analysis. Both use modelCoeff=1.0 so the
                     // TargetModels list order (INITIAL before ENDING) acts as a tie-breaker.
                     // The probability coefficients from EW_RULES.md (0.03 / 1.0) are generation
-                    // weights only and are not used for detection scoring.
-                    modelCoeff = 1.3;
-
+                    // weights only and are not used for detection scoring (see GetDetectionModelCoeff).
                     double len1 = w[0].Length;
                     double len2 = w[1].Length;
                     double len3 = w[2].Length;
                     double len4 = w[3].Length;
                     double len5 = w[4].Length;
 
-                    if (len1 <= 0) return 0;
+                    if (len1 <= 0) return (0.0, 0);
                     // W2/W1: diagonal corrections peak at 0.66 (not 0.786 like impulse)
                     product *= GetFiboWeight(MAP_DIAGONAL_CORRECTION, len2 / len1); numRatios++;
                     // W3/W1: contracting diagonal, same map applies (peaks at 0.786)
@@ -215,8 +304,11 @@ namespace TradeKit.Core.AlgoBase
                     }
 
                     // EW_MARKUP §20.4: same W2/W4 duration proportionality as impulse
-                    double durPenDiag = CalculateDurationPenalty(w);
-                    if (durPenDiag < 1.0) { product *= durPenDiag; numRatios++; }
+                    if (includeDuration)
+                    {
+                        double durPenDiag = CalculateDurationPenalty(w);
+                        if (durPenDiag < 1.0) { product *= durPenDiag; numRatios++; }
+                    }
                     break;
                 }
 
@@ -226,7 +318,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenB = w[1].Length;
                     double lenC = w[2].Length;
 
-                    if (lenA <= 0) return 0;
+                    if (lenA <= 0) return (0.0, 0);
                     product *= GetCorrectionFiboWeight(lenB / lenA); numRatios++;
                     product *= GetFiboWeight(ZIGZAG_C_TO_A, lenC / lenA); numRatios++;
                     break;
@@ -238,7 +330,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenX = w[1].Length;
                     double lenY = w[2].Length;
 
-                    if (lenW <= 0) return 0;
+                    if (lenW <= 0) return (0.0, 0);
                     product *= GetCorrectionFiboWeight(lenX / lenW); numRatios++;
                     product *= GetFiboWeight(ZIGZAG_C_TO_A, lenY / lenW); numRatios++;
                     break;
@@ -250,7 +342,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenB = w[1].Length;
                     double lenC = w[2].Length;
 
-                    if (lenA <= 0) return 0;
+                    if (lenA <= 0) return (0.0, 0);
                     product *= GetFiboWeight(MAP_FLAT_EXTENDED_B_TO_A, lenB / lenA); numRatios++;
                     product *= GetFiboWeight(MAP_EX_FLAT_WAVE_C_TO_A, lenC / lenA); numRatios++;
                     break;
@@ -262,7 +354,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenB = w[1].Length;
                     double lenC = w[2].Length;
 
-                    if (lenA <= 0) return 0;
+                    if (lenA <= 0) return (0.0, 0);
                     product *= GetFiboWeight(MAP_FLAT_RUNNING_B_TO_A, lenB / lenA); numRatios++;
                     product *= GetFiboWeight(MAP_RUNNING_FLAT_WAVE_C_TO_A, lenC / lenA); numRatios++;
                     break;
@@ -274,7 +366,7 @@ namespace TradeKit.Core.AlgoBase
                     double lenB = w[1].Length;
                     double lenC = w[2].Length;
 
-                    if (lenA <= 0) return 0;
+                    if (lenA <= 0) return (0.0, 0);
                     product *= GetFiboWeight(MAP_FLAT_REGULAR_B_TO_A, lenB / lenA); numRatios++;
                     product *= GetFiboWeight(MAP_REG_FLAT_WAVE_C_TO_A, lenC / lenA); numRatios++;
                     break;
@@ -287,9 +379,8 @@ namespace TradeKit.Core.AlgoBase
                     // For detection scoring both triangle types should compete equally.
                     // Set to 2.0 so that a 5-wave triangle can outrank the five distinct
                     // 3-wave interpretations (ZIGZAG, FLAT_RUNNING, FLAT_EXTENDED, etc.)
-                    // that fit the first 3 triangle legs and occupy positions 0-4.
-                    modelCoeff = 2.0;
-
+                    // that fit the first 3 triangle legs and occupy positions 0-4
+                    // (see GetDetectionModelCoeff).
                     for (int i = 1; i < w.Length; i++)
                     {
                         double prev = w[i - 1].Length;
@@ -302,39 +393,7 @@ namespace TradeKit.Core.AlgoBase
                 }
             }
 
-            if (numRatios == 0) return 0;
-
-            // Geometric mean: normalize by number of ratios so a model with more ratio checks
-            // doesn't intrinsically score lower than a simpler model.
-            double geometricMean = Math.Pow(product, 1.0 / numRatios);
-
-            // Complexity bonus: a model that satisfies more independent Fibo relationships is
-            // more constrained (more specific) and should be preferred when the fit is equal.
-            // Dampened with a small scale factor so that 5-wave and 3-wave models compete
-            // on comparable scales (raw log2 gave IMPULSE a 47 % systematic advantage
-            // over ZIGZAG, burying correct 3-wave solutions).
-            double complexityBonus = 1.0 + Math.Log2(numRatios + 1) * 0.15;
-
-            // Bar-count bonus for corrective waves: prefer candidates where corrective
-            // sub-waves (e.g. B in a zigzag, waves 2/4 in an impulse) consume more bars.
-            // A triangle lasting many bars as wave B is preferred over a quick zigzag.
-            double barCountBonus = CalculateCorrectiveBarCountBonus(model, w);
-
-            double score = modelCoeff * geometricMean * complexityBonus * barCountBonus;
-
-            // Truncation penalty: IMPULSE where wave 5 does not exceed wave 3's end.
-            // Demoted strongly so normal impulses always outrank truncated ones.
-            if (model == ElliottModelType.IMPULSE && w.Length >= 5)
-            {
-                bool isUpImp  = w[0].IsUp;
-                bool truncated = isUpImp
-                    ? w[4].End.Value < w[2].End.Value
-                    : w[4].End.Value > w[2].End.Value;
-                if (truncated)
-                    score *= TRUNCATION_SCORE_PENALTY;
-            }
-
-            return score;
+            return (product, numRatios);
         }
 
         private static double GetModelCoeff(ElliottModelType model)
