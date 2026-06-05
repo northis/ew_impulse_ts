@@ -41,6 +41,9 @@ namespace TradeKit.Core.AlgoBase
             /// <summary>Gets a value indicating whether the segment goes upward.</summary>
             public bool IsUp => End.Value > Start.Value;
 
+            /// <summary>Gets the absolute price amplitude of the segment.</summary>
+            public double Length => Math.Abs(End.Value - Start.Value);
+
             /// <summary>Gets the number of bars the segment spans (inclusive).</summary>
             public int BarsCount => Math.Abs(End.BarIndex - Start.BarIndex) + 1;
         }

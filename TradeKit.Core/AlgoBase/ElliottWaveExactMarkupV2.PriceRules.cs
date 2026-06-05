@@ -1,0 +1,272 @@
+using TradeKit.Core.ElliottWave;
+
+namespace TradeKit.Core.AlgoBase
+{
+    /// <summary>
+    /// Hard-price death conditions (EW_MARKUP_v2 §7).
+    /// <para>
+    /// These are the classical Elliott structural prohibitions (overlap, direction,
+    /// "wave 3 is never the shortest", etc.).  They coincide with v1's
+    /// <c>CheckHardRules</c> but are evaluated <b>incrementally</b>: a partial
+    /// wave sequence is rejected only when a rule is <i>already</i> definitively
+    /// violated, never speculatively.  A violation means the hypothesis node must
+    /// be <see cref="NodeStatus.DEAD"/>; Fibonacci-ratio deviations are <b>not</b>
+    /// handled here (those are score penalties — §16).
+    /// </para>
+    /// </summary>
+    public partial class ElliottWaveExactMarkupV2
+    {
+        /// <summary>
+        /// Tolerance applied when comparing a pivot against a boundary level so
+        /// that "almost touches" are not rejected (EW_MARKUP_v2 §7.3).  Expressed
+        /// as a fraction of the pattern scale (largest gathered wave amplitude).
+        /// </summary>
+        public const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
+
+        /// <summary>
+        /// Minimum fraction of the reference wave's length by which a diagonal's
+        /// next same-direction wave must exceed the reference endpoint, so that a
+        /// W3 that barely touches W1 is not accepted (mirrors v1).
+        /// </summary>
+        private const double MIN_DIAGONAL_PENETRATION = 0.05;
+
+        /// <summary>
+        /// Incrementally validates the hard-price rules (§7) for the given model
+        /// hypothesis against the waves gathered so far.
+        /// </summary>
+        /// <param name="model">The model hypothesis being validated.</param>
+        /// <param name="waves">
+        /// The ordered wave segments collected so far (1 … expected).  Each entry
+        /// is one full wave of <paramref name="model"/> (W1, W2, …).
+        /// </param>
+        /// <param name="wave4Simple">
+        /// <c>true</c> when the IMPULSE wave-4 sub-model is atomic
+        /// (<see cref="ElliottModelType.SIMPLE_IMPULSE"/>): the W4↔W1 overlap rule
+        /// then applies.  <c>false</c> when W4 is a triangle/flat that may legally
+        /// dip into the W1 zone (§6.3 exception).  Defaults to <c>true</c>.
+        /// </param>
+        /// <returns>
+        /// The reason the hypothesis must die, or <see cref="DeathReason.NONE"/>
+        /// when no hard-price rule is violated yet.
+        /// </returns>
+        public static DeathReason CheckPriceRules(
+            ElliottModelType model,
+            IReadOnlyList<Segment> waves,
+            bool wave4Simple = true)
+        {
+            if (waves == null || waves.Count == 0)
+                return DeathReason.NONE;
+
+            // Pattern-scale tolerance: 5 % of the largest gathered amplitude.
+            double scale = 0;
+            foreach (Segment seg in waves)
+                if (seg.Length > scale) scale = seg.Length;
+            double tol = MAIN_ALLOWANCE_MAX_RATIO * scale;
+
+            bool isUp = waves[0].IsUp;
+            double s = isUp ? 1.0 : -1.0;
+            double start = waves[0].Start.Value;
+
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    return CheckImpulse(waves, s, start, tol, wave4Simple);
+
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    return CheckDiagonalContracting(model, waves, s, start, tol);
+
+                case ElliottModelType.ZIGZAG:
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                case ElliottModelType.TRIPLE_ZIGZAG:
+                    return CheckZigzag(waves, s, start, tol);
+
+                case ElliottModelType.FLAT_EXTENDED:
+                case ElliottModelType.FLAT_RUNNING:
+                    return CheckFlatOvershoot(waves, s, start, tol);
+
+                case ElliottModelType.FLAT_REGULAR:
+                    return CheckFlatRegular(waves, s, start, tol);
+
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                    return CheckTriangle(waves, s, start, tol, running: false);
+
+                case ElliottModelType.TRIANGLE_RUNNING:
+                    return CheckTriangle(waves, s, start, tol, running: true);
+
+                default:
+                    // Atomic leaves (SIMPLE_IMPULSE) and models without dedicated
+                    // hard-price rules cannot be falsified on price alone here.
+                    return DeathReason.NONE;
+            }
+        }
+
+        // ----- per-model checks ------------------------------------------------
+
+        private static DeathReason CheckImpulse(
+            IReadOnlyList<Segment> w, double s, double start, double tol, bool wave4Simple)
+        {
+            // W2 must not retrace beyond the start of W1.
+            if (w.Count >= 2 && s * (w[1].End.Value - start) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            // W3 must make a new extreme beyond the end of W1.
+            if (w.Count >= 3 && s * (w[2].End.Value - w[0].End.Value) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            if (w.Count >= 4)
+            {
+                // W4 must never retrace past the start of W1.
+                if (s * (w[3].End.Value - start) < -tol)
+                    return DeathReason.PRICE_BREACH;
+
+                // W4 must not enter the W1 price zone when W4 is a simple wave
+                // (§6.3 grants triangles/flats an exception).
+                if (wave4Simple && s * (w[3].End.Value - w[0].End.Value) < -tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            if (w.Count >= 5)
+            {
+                // W3 is never the shortest of the three motive waves.
+                if (w[2].Length < w[0].Length - tol && w[2].Length < w[4].Length - tol)
+                    return DeathReason.PRICE_BREACH;
+
+                // W5 must make a new extreme beyond the end of W4.
+                if (s * (w[4].End.Value - w[3].End.Value) < -tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            return DeathReason.NONE;
+        }
+
+        private static DeathReason CheckDiagonalContracting(
+            ElliottModelType model, IReadOnlyList<Segment> w, double s, double start, double tol)
+        {
+            // W2 must not retrace beyond the start of W1.
+            if (w.Count >= 2 && s * (w[1].End.Value - start) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            if (w.Count >= 3)
+            {
+                double pen = MIN_DIAGONAL_PENETRATION * w[0].Length;
+                // W3 must penetrate beyond W1 end (diagonals still make new extremes).
+                if (s * (w[2].End.Value - w[0].End.Value) < pen - tol)
+                    return DeathReason.PRICE_BREACH;
+                // Contracting: |W3| < |W1|.
+                if (w[2].Length >= w[0].Length + tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            if (w.Count >= 4)
+            {
+                // Contracting: |W4| < |W2|.
+                if (w[3].Length >= w[1].Length + tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            if (w.Count >= 5)
+            {
+                // Contracting: |W5| < |W3|.
+                if (w[4].Length >= w[2].Length + tol)
+                    return DeathReason.PRICE_BREACH;
+
+                // Initial diagonal: W5 must exceed W3 end.
+                if (model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL)
+                {
+                    double pen5 = MIN_DIAGONAL_PENETRATION * w[2].Length;
+                    if (s * (w[4].End.Value - w[2].End.Value) < pen5 - tol)
+                        return DeathReason.PRICE_BREACH;
+                }
+            }
+
+            return DeathReason.NONE;
+        }
+
+        private static DeathReason CheckZigzag(
+            IReadOnlyList<Segment> w, double s, double start, double tol)
+        {
+            // Wave B (or X) must not retrace beyond the start of wave A (or W).
+            if (w.Count >= 2 && s * (w[1].End.Value - start) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            // Wave C (or Y) must make a new extreme beyond the end of A (or W).
+            if (w.Count >= 3 && s * (w[2].End.Value - w[0].End.Value) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            return DeathReason.NONE;
+        }
+
+        private static DeathReason CheckFlatOvershoot(
+            IReadOnlyList<Segment> w, double s, double start, double tol)
+        {
+            // Extended / running flat: B is obliged to overshoot the pattern origin,
+            // i.e. end on the far side of start relative to A's direction.
+            if (w.Count >= 2 && s * (w[1].End.Value - start) > tol)
+                return DeathReason.PRICE_BREACH;
+
+            return DeathReason.NONE;
+        }
+
+        private static DeathReason CheckFlatRegular(
+            IReadOnlyList<Segment> w, double s, double start, double tol)
+        {
+            // Regular flat: B retraces close to origin but must NOT overshoot it.
+            if (w.Count >= 2 && s * (w[1].End.Value - start) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            return DeathReason.NONE;
+        }
+
+        private static DeathReason CheckTriangle(
+            IReadOnlyList<Segment> w, double s, double start, double tol, bool running)
+        {
+            if (w.Count >= 2)
+            {
+                // Contracting: B must NOT overshoot origin.
+                // Running: B MUST overshoot origin.
+                double bSide = s * (w[1].End.Value - start);
+                if (!running && bSide < -tol)
+                    return DeathReason.PRICE_BREACH;
+                if (running && bSide > tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            if (w.Count >= 3)
+            {
+                // Amplitude convergence: |C| < |A| (contracting only — a running
+                // triangle's oversized B lets C legitimately exceed A).
+                if (!running && w[2].Length >= w[0].Length + tol)
+                    return DeathReason.PRICE_BREACH;
+                // Endpoint convergence: C must not break through A's endpoint.
+                if (s * (w[2].End.Value - w[0].End.Value) > tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            if (w.Count >= 4)
+            {
+                // |D| < |B|.
+                if (w[3].Length >= w[1].Length + tol)
+                    return DeathReason.PRICE_BREACH;
+                // D must not break through B's endpoint.
+                if (s * (w[3].End.Value - w[1].End.Value) < -tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            if (w.Count >= 5)
+            {
+                // |E| < |C|.
+                if (w[4].Length >= w[2].Length + tol)
+                    return DeathReason.PRICE_BREACH;
+                // E must not break through C's endpoint.
+                if (s * (w[4].End.Value - w[2].End.Value) > tol)
+                    return DeathReason.PRICE_BREACH;
+                // E must remain on the triangle side of the start.
+                if (s * (w[4].End.Value - start) < -tol)
+                    return DeathReason.PRICE_BREACH;
+            }
+
+            return DeathReason.NONE;
+        }
+    }
+}
