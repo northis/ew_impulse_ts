@@ -613,18 +613,36 @@ score(node) = fiboScore × P(model | position) × Π(softPenalties)
    максимизации `Coverage` и минимизации `GapCount`.
 4. Внести откалиброванные значения в финальный код v2.
 
-### 16.3 Таблица вероятностей (PLACEHOLDER — заполнить после прогона)
+### 16.3 Таблица вероятностей (откалибровано по `data/`)
 
-| Позиция | Модель | Старт. коэф. (v1) | Эмпирич. P (TBD) |
-|---|---|---|---|
-| IMPULSE.2 | ZIGZAG | 1.0 | `TBD` |
-| IMPULSE.2 | FLAT_EXTENDED | 1.0 | `TBD` |
-| IMPULSE.2 | FLAT_RUNNING | 1.0 | `TBD` |
-| IMPULSE.4 | TRIANGLE_CONTRACTING | 1.5 | `TBD` |
-| IMPULSE.4 | ZIGZAG | 1.0 | `TBD` |
-| ZIGZAG.B | TRIANGLE_CONTRACTING | 1.5 | `TBD` |
-| ZIGZAG.B | FLAT_RUNNING | 1.0 | `TBD` |
-| … | … | … | `TBD` |
+Сгенерировано `ElliottWaveV2CalibrationTests.GeneratePositionProbabilityTable`
+сквозной сшивкой (`ParseContinuous`, §15.3) по всем 56 файлам `data/`
+(8224 top-level тайла, авто-девиация, первые 4000 баров каждого). Наблюдённая
+частота каждого ребра `родитель→ребёнок` нормируется так, чтобы сохранить
+бюджет базовых коэффициентов слота `(parent, wavePos)` — значения остаются в
+той же шкале, что и позиционно-независимый fallback `ModelProbability`.
+Полная таблица из 139 строк — в `reports/ew_v2_position_probability.md`;
+ниже — ключевые позиции из ТЗ.
+
+| Позиция | Модель | Старт. коэф. (v1) | Эмпирич. P | n / total |
+|---|---|---|---|---|
+| IMPULSE.2 | SIMPLE_IMPULSE | 0.25 | 1.956 | 3061/6729 |
+| IMPULSE.2 | FLAT_RUNNING | 1.0 | 1.488 | 2329/6729 |
+| IMPULSE.2 | FLAT_EXTENDED | 1.0 | 0.311 | 486/6729 |
+| IMPULSE.2 | ZIGZAG | 1.0 | 0.250 | 391/6729 |
+| IMPULSE.4 | SIMPLE_IMPULSE | 0.25 | 2.585 | 2851/6729 |
+| IMPULSE.4 | FLAT_RUNNING | 1.0 | 1.386 | 1529/6729 |
+| IMPULSE.4 | TRIANGLE_CONTRACTING | 1.5 | 0.287 | 317/6729 |
+| IMPULSE.4 | ZIGZAG | 1.0 | 0.293 | 323/6729 |
+| ZIGZAG.b | SIMPLE_IMPULSE | 0.25 | 3.604 | 6573/11124 |
+| ZIGZAG.b | FLAT_RUNNING | 1.0 | 1.467 | 2675/11124 |
+| ZIGZAG.b | TRIANGLE_CONTRACTING | 1.5 | 0.105 | 191/11124 |
+| ZIGZAG.b | TRIANGLE_RUNNING | 1.0 | 0.216 | 393/11124 |
+| … | … | … | … | (см. отчёт) |
+
+> Перегенерация: `dotnet test --filter "FullyQualifiedName~ElliottWaveV2Calibration"`
+> → запишет `reports/ew_v2_position_probability.md` и `.g.cs.txt`; вставить
+> инициализатор в `ElliottWaveExactMarkupV2.Scoring.cs` (`S_POSITION_PROBABILITY`).
 
 ### 16.4 Калибруемые пороги (сводка TBD)
 | Параметр | Назначение | Раздел | Ориентир |
