@@ -107,6 +107,30 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
+        /// Initializes a new instance from a pre-built pivot list, bypassing the zigzag
+        /// builder. Used by the step-by-step replay (§17.1) and by deterministic tests
+        /// that need full control over the input pivots.
+        /// </summary>
+        /// <param name="barsProvider">The source bars provider (may be <c>null</c> for synthetic pivots).</param>
+        /// <param name="pivots">The strictly-alternating pivots (invariant I1).</param>
+        /// <param name="deviationPercent">The deviation the pivots correspond to (informational).</param>
+        public ElliottWaveExactMarkupV2(
+            IBarsProvider barsProvider,
+            IReadOnlyList<BarPoint> pivots,
+            double deviationPercent = 0)
+        {
+            if (pivots == null)
+                throw new ArgumentNullException(nameof(pivots));
+            if (pivots.Count < 2)
+                throw new ArgumentException("At least two pivots are required.", nameof(pivots));
+
+            m_BarsProvider = barsProvider;
+            DeviationPercent = deviationPercent;
+            Pivots = pivots;
+            Segments = BuildSegments(pivots);
+        }
+
+        /// <summary>
         /// Builds the minimal-period zigzag and aligns every pivot to the true OHLC
         /// extremum so the result honours invariant I2 (no intra-segment overshoot).
         /// </summary>
