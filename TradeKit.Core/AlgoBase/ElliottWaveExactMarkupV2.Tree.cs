@@ -149,6 +149,26 @@ namespace TradeKit.Core.AlgoBase
         /// <summary>Gets or sets the node score (§16).</summary>
         public double Score { get; set; }
 
+        /// <summary>
+        /// Gets or sets the index (0-based) of the first projected wave for a
+        /// <see cref="NodeStatus.PROJECTED"/> node, i.e. the count of confirmed sub-waves;
+        /// <c>-1</c> when every expected wave is confirmed (§13, §3.5 of EW_PREDICTION.md).
+        /// </summary>
+        public int ActiveFromWaveIndex { get; set; } = -1;
+
+        /// <summary>
+        /// Gets or sets the Fibonacci/trendline projections of the missing tail waves of a
+        /// <see cref="NodeStatus.PROJECTED"/> node (§13); empty for confirmed nodes.
+        /// </summary>
+        public IReadOnlyList<WaveProjection> Projections { get; set; } =
+            Array.Empty<WaveProjection>();
+
+        /// <summary>
+        /// Gets or sets the cancellation zone of a projected tail (price/time level whose
+        /// breach kills the projection, §11.2); <c>null</c> when not projected.
+        /// </summary>
+        public WaveCancellation Cancellation { get; set; }
+
         /// <summary>Gets the lifecycle status of the node.</summary>
         public NodeStatus Status { get; private set; } = NodeStatus.OPEN;
 

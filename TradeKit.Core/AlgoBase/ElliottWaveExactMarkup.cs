@@ -515,6 +515,15 @@ namespace TradeKit.Core.AlgoBase
         private static (double ratio, double weight) GetBestFibRatio(
             ElliottModelType model, int waveIndex,
             ExactParsedNode[] subWaves, int confirmedCount)
+            => GetBestFibRatio(model, waveIndex);
+
+        /// <summary>
+        /// Shared projection helper: returns the best (highest-weight) Fibonacci ratio for
+        /// projecting wave <paramref name="waveIndex"/> (0-based) of <paramref name="model"/>.
+        /// Reused by the v2 markup engine's prediction mode (EW_MARKUP_v2.md §13).
+        /// </summary>
+        public static (double ratio, double weight) GetBestFibRatio(
+            ElliottModelType model, int waveIndex)
         {
             var map = GetProjectionFibMap(model, waveIndex);
             if (map == null || map.Length <= 1) return (0.618, 0.5);
@@ -537,8 +546,9 @@ namespace TradeKit.Core.AlgoBase
 
         /// <summary>
         /// Returns the appropriate Fibonacci map for projecting a given wave index.
+        /// Shared with the v2 markup engine's prediction mode (EW_MARKUP_v2.md §13).
         /// </summary>
-        private static (byte weight, double ratio)[] GetProjectionFibMap(
+        public static (byte weight, double ratio)[] GetProjectionFibMap(
             ElliottModelType model, int waveIndex)
         {
             switch (model)

@@ -119,12 +119,19 @@ namespace TradeKit.Core.AlgoBase
 
             roots = Beam(roots);
 
+            // §13 prediction mode: best partial continuation reaching the current bar.
+            List<Candidate> projection = BuildProjectionRoots(startSeg, endSeg);
+
             var nodes = new List<TreeNode>(roots.Count);
             foreach (Candidate c in roots)
                 nodes.Add(Materialize(c, isRoot: true));
 
+            TreeNode bestProjection = projection.Count > 0
+                ? MaterializeProjection(projection[0])
+                : null;
+
             FillMetrics(nodes, startSeg, endSeg);
-            return new MarkupSearchResult(nodes, m_Metrics);
+            return new MarkupSearchResult(nodes, m_Metrics, bestProjection);
         }
 
         /// <summary>
@@ -454,14 +461,22 @@ namespace TradeKit.Core.AlgoBase
     /// <summary>Result of a markup search: the COMPLETE roots and the run metrics.</summary>
     public sealed class MarkupSearchResult
     {
-        internal MarkupSearchResult(IReadOnlyList<TreeNode> roots, MarkupSearchMetrics metrics)
+        internal MarkupSearchResult(
+            IReadOnlyList<TreeNode> roots, MarkupSearchMetrics metrics, TreeNode bestProjection = null)
         {
             Roots = roots;
             Metrics = metrics;
+            BestProjection = bestProjection;
         }
 
         /// <summary>Gets the best <see cref="NodeStatus.COMPLETE"/> roots over the parsed range.</summary>
         public IReadOnlyList<TreeNode> Roots { get; }
+
+        /// <summary>
+        /// Gets the single best <see cref="NodeStatus.PROJECTED"/> continuation whose confirmed
+        /// prefix reaches the current bar (§13); <c>null</c> when no partial model fits.
+        /// </summary>
+        public TreeNode BestProjection { get; }
 
         /// <summary>Gets the search metrics (§15.4).</summary>
         public MarkupSearchMetrics Metrics { get; }
