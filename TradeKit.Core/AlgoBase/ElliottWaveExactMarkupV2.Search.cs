@@ -96,14 +96,18 @@ namespace TradeKit.Core.AlgoBase
         /// Runs the markup search over the whole input range and returns the best
         /// <see cref="NodeStatus.COMPLETE"/> roots together with search metrics.
         /// </summary>
-        public MarkupSearchResult Parse() => ParseSegmentRange(0, Segments.Count - 1);
+        public MarkupSearchResult Parse(int deadDepth = 0) => ParseSegmentRange(0, Segments.Count - 1, deadDepth);
 
         /// <summary>
         /// Runs the markup search over the segment range <c>[startSeg..endSeg]</c>.
         /// </summary>
         /// <param name="startSeg">Inclusive first segment index.</param>
         /// <param name="endSeg">Inclusive last segment index.</param>
-        public MarkupSearchResult ParseSegmentRange(int startSeg, int endSeg)
+        /// <param name="deadDepth">
+        /// When &gt; 0, dead wave hypotheses are captured during the search so they can be
+        /// attached to the exported tree (§17 debug export). Default 0 means zero overhead.
+        /// </param>
+        public MarkupSearchResult ParseSegmentRange(int startSeg, int endSeg, int deadDepth = 0)
         {
             if (startSeg < 0 || endSeg >= Segments.Count || endSeg < startSeg)
                 throw new ArgumentOutOfRangeException(nameof(startSeg));
@@ -112,6 +116,9 @@ namespace TradeKit.Core.AlgoBase
             m_Metrics = new MarkupSearchMetrics();
             m_NodesCreated = 0;
             m_Aborted = false;
+            m_DeadDepth = deadDepth;
+            m_DeadCaptures = deadDepth > 0 ? new List<DeadCapture>() : null;
+            m_DeadLookup = null;
 
             var roots = new List<Candidate>();
             foreach (ElliottModelType model in StartModels)
@@ -241,6 +248,10 @@ namespace TradeKit.Core.AlgoBase
                     if (death != DeathReason.NONE)
                     {
                         m_Metrics.Count(death);
+                        if (m_DeadCaptures != null && m_DeadCaptures.Count < MAX_DEAD_CAPTURES)
+                            m_DeadCaptures.Add(new DeadCapture(
+                                model, chosen[0].StartSeg, rangeEnd, waveIndex,
+                                child.Model, child.StartSeg, child.EndSeg, death));
                         chosen.RemoveAt(chosen.Count - 1);
                         continue;
                     }
