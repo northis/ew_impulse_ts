@@ -5,35 +5,37 @@ using System.Linq;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
-using TradeKit.Core.Indicators;
 using TradeKit.Core.PatternGeneration;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
 
 /// <summary>
-/// Predictive Elliott Wave indicator that analyses from the farthest extremum
-/// to the last closed bar, producing projections for incomplete wave models.
+/// Predictive Elliott Wave indicator (v2 engine — see EW_MARKUP_v2.md).
+/// Analyses from the farthest extremum to the last closed bar using the
+/// bottom-up interval-DP <see cref="ElliottWaveExactMarkupV2"/> engine,
+/// producing projections for incomplete wave models (§13).
 /// </summary>
-//[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
+[Indicator(IsOverlay = true, AutoRescale = true, AccessRights = AccessRights.FullAccess)]
 public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
 {
     [Parameter(nameof(BarsCount), DefaultValue = 200, MinValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
     public int BarsCount { get; set; }
 
-    [Parameter("Markup depth", DefaultValue = ElliottWaveExactMarkup.MAX_MARKUP_DEPTH, MinValue = 1, MaxValue = 5, Group = Helper.TRADE_SETTINGS_NAME)]
+    [Parameter("Markup depth", DefaultValue = ElliottWaveExactMarkupV2.MAX_LEVELS_V2,
+        MinValue = 1, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
     public int MarkupDepth { get; set; }
 
     [Parameter("Show target zones", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
     public bool ShowTargetZones { get; set; }
 
     private int m_LastCalculatedIndex = -1;
-    private PredictionResult m_CachedPrediction;
+    private IReadOnlyList<ElliottWaveExactMarkupV2.Segment> m_LastSegments;
 
     protected override void Initialize()
     {
         BarProvider = new CTraderBarsProvider(Bars, Symbol.ToISymbol());
-        Markup = new ElliottWaveExactMarkup(BarProvider, MarkupDepth);
+        UseV2 = true;
     }
 
     public override void Calculate(int index)
@@ -44,7 +46,7 @@ public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
 
         int startBarIndex = Math.Max(0, index - BarsCount + 1);
 
-        // Find global max and min
+        // Find global max and min in the lookback window
         double maxValue = double.MinValue;
         double minValue = double.MaxValue;
         int maxBarIndex = startBarIndex;
@@ -61,73 +63,54 @@ public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
 
         if (maxBarIndex == minBarIndex) return;
 
-        // Farthest extremum = startPoint; endPoint = last closed bar
+        // Farthest extremum → analysis start.
         int fartherBarIndex = Math.Min(maxBarIndex, minBarIndex);
-        double startValue = fartherBarIndex == maxBarIndex ? maxValue : minValue;
-        BarPoint startPoint = new BarPoint(startValue, fartherBarIndex, BarProvider);
+        bool isUp = fartherBarIndex == minBarIndex; // start at min → expect upward
 
-        // endPoint is the last *closed* bar (index - 1), because the current bar
+        // End point is the last *closed* bar (index - 1), because the current bar
         // is still forming and may not yet be present in the BarsProvider cache.
         int endBarIndex = index - 1;
         if (endBarIndex <= fartherBarIndex) return;
 
-        bool isUp = fartherBarIndex == minBarIndex; // if start is min, we go up
-        double endValue = isUp
-            ? Bars.HighPrices[endBarIndex]
-            : Bars.LowPrices[endBarIndex];
-        BarPoint endPoint = new BarPoint(endValue, endBarIndex, BarProvider);
+        // --- v2 engine: it builds its own minimal-period zigzag internally (§4) ---
+        MarkupV2 = new ElliottWaveExactMarkupV2(
+            BarProvider,
+            fartherBarIndex,
+            endBarIndex,
+            deviationPercent: null,   // auto-optimal via FindOptimalDeviation()
+            isUpDirection: !isUp);    // SimpleExtremumFinder uses "first isHigh"
 
-        // Build inner zigzag
-        var optimizer = new DeviationOptimizer(BarProvider, startPoint.BarIndex, endPoint.BarIndex, false);
-        double optimalDev = optimizer.FindOptimalDeviation();
-        SimpleExtremumFinder innerFinder = new SimpleExtremumFinder(optimalDev, BarProvider, !isUp);
-        innerFinder.Calculate(startPoint.BarIndex, endPoint.BarIndex);
+        MarkupSearchResult result = MarkupV2.Parse();
 
-        List<BarPoint> innerPoints = innerFinder.ToExtremaList()
-            .Where(p => p.BarIndex >= startPoint.BarIndex && p.BarIndex <= endPoint.BarIndex)
-            .ToList();
+        // Prefer the best projection (incomplete model at the right edge, §13);
+        // fall back to the best-scoring complete root.
+        TreeNode bestNode = result.BestProjection ?? result.Roots.FirstOrDefault();
+        if (bestNode == null) return;
 
-        if (innerPoints.All(p => p.BarIndex != startPoint.BarIndex))
-            innerPoints.Insert(0, startPoint);
+        m_LastSegments = MarkupV2.Segments;
 
-        if (innerPoints.All(p => p.BarIndex != endPoint.BarIndex))
-            innerPoints.Add(endPoint);
+        // Convert the v2 TreeNode tree to v1 ExactParsedNode for rendering.
+        ExactParsedNode model = ConvertV2NodeToExactParsedNode(bestNode, m_LastSegments);
 
-        // Corridor fixes
-        innerPoints = ExtremumFinderBase.EndFixCorridors(innerPoints, BarProvider);
-        innerPoints = ExtremumFinderBase.RefineToCorridors(innerPoints, BarProvider);
-
-        // Build active segment (§2.3): append the current forming bar as live endpoint.
-        // Use Bars directly because the forming bar is not yet in BarsProvider cache.
-        BarPoint lastPivot = innerPoints[^1];
-        double activeHigh = Bars.HighPrices[index];
-        double activeLow = Bars.LowPrices[index];
-        bool activeIsUp = lastPivot.Value < activeHigh;
-        double activePrice = activeIsUp ? activeHigh : activeLow;
-        if (lastPivot.BarIndex < index)
-        {
-            innerPoints.Add(new BarPoint(activePrice, index, BarProvider));
-        }
-
-        // Run predictive parsing
-        PredictionResult prediction = Markup.ParsePredictive(innerPoints, index);
-
-        if (prediction?.Model == null) return;
-
-        m_CachedPrediction = prediction;
         Chart.RemoveAllObjects();
 
-        ExactParsedNode model = prediction.Model;
-
-        // Draw confirmed waves
+        // Draw confirmed + active waves
         DrawConfirmedWaves(model);
 
-        // Draw projected waves
-        DrawProjectedWaves(model, prediction.Projections);
+        // Draw projected tail waves from the v2 node's built-in projections (§13)
+        if (bestNode.Projections?.Count > 0)
+            DrawProjectedWaves(model, bestNode.Projections.ToList());
 
-        // Draw cluster zones if enabled
-        if (ShowTargetZones && prediction.Clusters?.Count > 0)
-            DrawClusterZones(prediction.Clusters);
+        // Draw cluster zones if enabled (v2 projected tail may carry clusters)
+        if (ShowTargetZones)
+        {
+            // v2 projections don't carry clusters directly; clusters are computed
+            // by the shared CalculateClusterZones helper from v1 when needed.
+            var clusters = ElliottWaveExactMarkup.CalculateClusterZones(
+                bestNode.Projections?.ToList());
+            if (clusters?.Count > 0)
+                DrawClusterZones(clusters);
+        }
     }
 
     private void DrawConfirmedWaves(ExactParsedNode node)
@@ -138,8 +121,6 @@ public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
             ? node.ActiveFromWaveIndex
             : node.WaveCount;
 
-        // Draw confirmed sub-waves using the base class method
-        // but only up to the confirmed count
         var labels = new List<MarkupLabelItem>();
         NotationItem[] notation = TryGetNotation(node.ModelType, MAIN_NOTATION_LEVEL);
         Color lineColor = GetWaveColor(node.ModelType);
@@ -164,9 +145,9 @@ public class PredictiveElliottWaveIndicator : ElliottWaveIndicatorBase
                 sw.EndPoint.BarIndex, sw.EndPoint.Value, sw.IsUp,
                 name, labelText, MAIN_NOTATION_LEVEL, lineColor));
 
-            // Draw sub-wave structure for confirmed waves
+            // Draw sub-wave structure for confirmed waves (v2 style: draw one level down)
             if (MAIN_NOTATION_LEVEL > 0 && sw.ModelType != ElliottModelType.SIMPLE_IMPULSE)
-                DrawMarkupLines(sw, "EW_s_", (byte)(MAIN_NOTATION_LEVEL - 1), labels);
+                DrawMarkupLines(sw, "EW_s_", MAIN_NOTATION_LEVEL - 1, labels);
         }
 
         // Draw active (unconfirmed) waves with dashed lines

@@ -674,8 +674,9 @@ namespace TradeKit.Core.AlgoBase
 
         /// <summary>
         /// Finds cluster zones where multiple projections converge within a tolerance.
+        /// Public helper usable by both v1 and v2 consumers.
         /// </summary>
-        private static List<ClusterZone> CalculateClusterZones(List<WaveProjection> projections)
+        public static List<ClusterZone> CalculateClusterZones(List<WaveProjection> projections)
         {
             var clusters = new List<ClusterZone>();
             if (projections == null || projections.Count < 2) return clusters;

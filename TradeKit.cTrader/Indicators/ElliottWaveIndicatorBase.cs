@@ -1,7 +1,6 @@
 using cAlgo.API;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using TradeKit.Core.AlgoBase;
@@ -9,12 +8,13 @@ using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.Json;
 using TradeKit.Core.PatternGeneration;
-using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Indicators;
 
 /// <summary>
 /// Base class for Elliott Wave indicators providing common drawing and markup utilities.
+/// Supports both v1 (<see cref="ElliottWaveExactMarkup"/>) and v2
+/// (<see cref="ElliottWaveExactMarkupV2"/>) markup engines.
 /// </summary>
 public abstract class ElliottWaveIndicatorBase : Indicator
 {
@@ -25,8 +25,13 @@ public abstract class ElliottWaveIndicatorBase : Indicator
     /// </summary>
     protected const byte MAIN_NOTATION_LEVEL = 4;
 
+    /// <summary>Maximum sub-wave depth to draw for v2 trees.</summary>
+    protected const byte MAX_DRAW_DEPTH = 5;
+
     protected IBarsProvider BarProvider;
     protected ElliottWaveExactMarkup Markup;
+    protected ElliottWaveExactMarkupV2 MarkupV2;
+    protected bool UseV2 { get; set; }
 
     /// <summary>
     /// Attempts to load an <see cref="ExactParsedNode"/> from a JSON markup file,
@@ -170,5 +175,74 @@ public abstract class ElliottWaveIndicatorBase : Indicator
     {
         try { return NotationHelper.GetNotation(model, level); }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// Converts a v2 <see cref="TreeNode"/> hierarchy into a v1-compatible
+    /// <see cref="ExactParsedNode"/> tree for rendering.
+    /// </summary>
+    /// <param name="node">The v2 tree node (root or sub-wave).</param>
+    /// <param name="segments">The zigzag segments from the v2 engine (used to infer IsUp).</param>
+    /// <returns>An equivalent <see cref="ExactParsedNode"/> tree, or null if input is null.</returns>
+    protected static ExactParsedNode ConvertV2NodeToExactParsedNode(
+        TreeNode node,
+        IReadOnlyList<ElliottWaveExactMarkupV2.Segment> segments)
+    {
+        if (node == null)
+            return null;
+
+        int waveCount = node.Children.Count;
+        int expectedWaves = ElliottWaveExactMarkup.GetExpectedWaves(node.Model);
+
+        // Infer IsUp from the children's segment range (fallback to pivot comparison).
+        bool isUp;
+        if (node.Children.Count > 0)
+        {
+            int firstChildStart = node.Children[0].RangeStartSegment;
+            if (firstChildStart >= 0 && firstChildStart < segments.Count)
+                isUp = segments[firstChildStart].IsUp;
+            else
+                isUp = node.EndPivot != null && node.StartPivot != null
+                    && node.EndPivot.Value > node.StartPivot.Value;
+        }
+        else
+        {
+            isUp = node.EndPivot != null && node.StartPivot != null
+                && node.EndPivot.Value > node.StartPivot.Value;
+        }
+
+        var subWaves = new ExactParsedNode[waveCount];
+        for (int i = 0; i < waveCount; i++)
+            subWaves[i] = ConvertV2NodeToExactParsedNode(node.Children[i], segments);
+
+        // Calculate StartIndex/EndIndex from segment range.
+        int startIndex = node.StartPivot?.BarIndex ?? 0;
+        int endIndex = node.EndPivot?.BarIndex ?? 0;
+
+        return new ExactParsedNode
+        {
+            ModelType = node.Model,
+            WaveCount = waveCount,
+            ExpectedWaves = expectedWaves,
+            StartIndex = startIndex,
+            EndIndex = endIndex,
+            StartPoint = node.StartPivot,
+            EndPoint = node.EndPivot,
+            IsUp = isUp,
+            Score = node.Score,
+            SubWaves = subWaves,
+            ActiveFromWaveIndex = node.ActiveFromWaveIndex,
+        };
+    }
+
+    /// <summary>
+    /// Draws all waves from a v2 <see cref="TreeNode"/> tree by first converting it
+    /// to an <see cref="ExactParsedNode"/> and delegating to the existing drawing routines.
+    /// </summary>
+    protected void DrawV2MarkupNode(TreeNode node, IReadOnlyList<ElliottWaveExactMarkupV2.Segment> segments)
+    {
+        ExactParsedNode parsed = ConvertV2NodeToExactParsedNode(node, segments);
+        if (parsed == null) return;
+        DrawMarkupNode(parsed, "EWv2_", MAX_DRAW_DEPTH);
     }
 }
