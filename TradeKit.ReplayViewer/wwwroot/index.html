@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EW v2 Markup Replay</title>
+  <link rel="stylesheet" href="/css/replay.css">
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+<div id="app">
+  <!-- Top bar -->
+  <div id="topbar">
+    <label>CSV file:</label>
+    <select id="selFile"><option>-- loading files... --</option></select>
+    <label>Start:</label><input type="number" id="inpStart" value="0" min="0">
+    <label>End:</label><input type="number" id="inpEnd" value="400" min="1">
+    <label>Dead:</label><input type="number" id="inpDead" value="1" min="0" max="3" style="width:44px">
+    <button id="btnLoad">▶ Run</button>
+    <span id="status">Ready</span>
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+    <div id="chartContainer"></div>
+    <div id="treePanel">
+      <h4>📋 Nodes — Bar <span id="treeBarLabel">0</span></h4>
+      <div id="nodeList"><em style="color:#666;padding:12px">Run a replay to see nodes</em></div>
+    </div>
+  </div>
+
+  <!-- Playback bar -->
+  <div id="playback">
+    <button id="btnFirst" title="First frame">⏮</button>
+    <button id="btnPrev"  title="Previous frame">◀</button>
+    <span id="frmCurrent">0</span>/<span id="frmTotal">0</span>
+    <input type="range" id="slider" min="0" max="0" value="0">
+    <button id="btnNext"  title="Next frame">▶</button>
+    <button id="btnLast"  title="Last frame">⏭</button>
+    <button id="btnAuto"  title="Auto-play">▶▶</button>
+    <span id="frameLabel">Bar 0 / 0</span>
+  </div>
+</div>
+
+<script src="/js/chart.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

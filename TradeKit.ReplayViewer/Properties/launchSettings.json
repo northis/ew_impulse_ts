@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "TradeKit.ReplayViewer": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:61287;http://localhost:61288"
+    }
+  }
+}

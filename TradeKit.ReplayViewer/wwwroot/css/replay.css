@@ -1,0 +1,96 @@
+/* ── Layout ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1d23; color: #d1d5db; overflow: hidden; height: 100vh;
+}
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* Top bar */
+#topbar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  background: #242730; border-bottom: 1px solid #333840; flex-shrink: 0;
+  user-select: none;
+}
+#topbar label { font-size: 13px; color: #8892a0; white-space: nowrap; }
+#topbar select, #topbar input[type=number] {
+  background: #1a1d23; color: #d1d5db; border: 1px solid #444a55;
+  border-radius: 4px; padding: 4px 8px; font-size: 13px;
+}
+#topbar select { min-width: 180px; }
+#topbar input[type=number] { width: 62px; }
+#btnLoad {
+  background: #3D85C6; color: #fff; border: none; border-radius: 4px;
+  padding: 5px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
+}
+#btnLoad:hover { background: #336ba3; }
+#btnLoad:disabled { opacity: 0.4; cursor: default; }
+
+/* Main pane */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* Chart area */
+#chartContainer { flex: 1; min-width: 0; }
+
+/* Tree panel */
+#treePanel {
+  width: 340px; flex-shrink: 0; background: #1e2128;
+  border-left: 1px solid #333840; display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#treePanel h4 {
+  padding: 8px 12px; font-size: 13px; color: #8892a0;
+  border-bottom: 1px solid #333840; flex-shrink: 0;
+}
+#nodeList {
+  flex: 1; overflow-y: auto; padding: 6px 0;
+}
+
+/* Node card */
+.node-card {
+  margin: 2px 6px; padding: 6px 10px; border-radius: 6px;
+  cursor: pointer; border: 1px solid transparent; transition: 0.15s;
+  font-size: 12px; line-height: 1.5;
+}
+.node-card:hover { background: #2a2f3b; }
+.node-card.selected { border-color: #3D85C6; background: #25374d; }
+.node-card .node-model { font-weight: 700; }
+.node-card .node-meta { font-size: 11px; color: #8892a0; }
+.node-card .node-waves { font-size: 11px; margin-top: 2px; }
+
+/* Status badges */
+.badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+.badge-complete  { background: #1a4d2e; color: #57d68b; }
+.badge-projected { background: #4d3b00; color: #f0c040; }
+.badge-open      { background: #1a3a5c; color: #6ba8d6; }
+.badge-dead      { background: #3d1a1a; color: #d65757; }
+
+.node-dead { opacity: 0.6; }
+.node-dead .node-model { text-decoration: line-through; }
+
+/* Cancellation info */
+.cancel-info { font-size: 11px; color: #f0c040; margin-top: 2px; display: none; }
+.node-card.selected .cancel-info { display: block; }
+
+/* Playback bar */
+#playback {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: #242730; border-top: 1px solid #333840; flex-shrink: 0;
+  user-select: none;
+}
+#playback button {
+  background: #333840; color: #d1d5db; border: none; border-radius: 4px;
+  padding: 4px 10px; font-size: 14px; cursor: pointer;
+}
+#playback button:hover { background: #444a55; }
+#playback button:disabled { opacity: 0.3; cursor: default; }
+#playback input[type=range] { flex: 1; accent-color: #3D85C6; }
+#frameLabel { font-size: 12px; color: #8892a0; white-space: nowrap; min-width: 140px; text-align: center; }
+
+/* Status message */
+#status { font-size: 11px; color: #8892a0; padding: 0 4px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1e2128; }
+::-webkit-scrollbar-thumb { background: #444a55; border-radius: 3px; }
