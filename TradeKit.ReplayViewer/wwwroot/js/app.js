@@ -142,7 +142,7 @@ function updateRangeInfo() {
     el.rangeInfo.textContent = `[${selStart.replace(/\//g, '.')} … ${selEnd.replace(/\//g, '.')}]  /  ${fullStart} … ${fullEnd}`;
 }
 
-// ── Run replay ──
+// ── Run replay (SSE streaming) ──
 async function runReplay() {
     const file = el.selFile.value;
     if (!file) return;
@@ -151,9 +151,17 @@ async function runReplay() {
     el.status.textContent = 'Running markup...';
     currentFrame = 0;
     selectedNodeId = null;
+    clearMarkup();
+
+    replayData = {
+        candles: [],
+        replay: { $schema: 'ew-markup-tree-replay/v2', symbol: '', timeframe: '', frames: [] },
+        snapshot: { nodes: [], zigzag: [] },
+        startBar: 0, endBar: 0
+    };
 
     try {
-        const res = await fetch('/api/replay/run', {
+        const res = await fetch('/api/replay/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -164,26 +172,199 @@ async function runReplay() {
             })
         });
         if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || err.title || 'Unknown error');
+            const err = await res.text();
+            throw new Error(err || 'Unknown error');
         }
 
-        replayData = await res.json();
-        el.status.textContent = `OK — ${replayData.snapshot.nodes.length} nodes, ${replayData.replay.frames.length} frames`;
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
 
-        // Init playback
-        const n = replayData.replay.frames.length;
-        el.slider.max = Math.max(0, n - 1);
-        el.slider.value = 0;
-        el.frmTotal.textContent = n;
-        el.btnLoad.disabled = false;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        // Show first frame
-        goFrame(0);
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split('\n');
+            buf = lines.pop() || ''; // keep incomplete last line
+
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                try {
+                    const event = JSON.parse(line.slice(6));
+                    handleSseEvent(event);
+                } catch { /* skip malformed */ }
+            }
+        }
     } catch (e) {
         el.status.textContent = 'Error: ' + e.message;
         el.btnLoad.disabled = false;
     }
+}
+
+function handleSseEvent(event) {
+    switch (event.type) {
+        case 'init':
+            replayData.candles = event.candles;
+            replayData.startBar = event.startBar;
+            replayData.endBar = event.endBar;
+            setCandles(event.candles);
+            el.status.textContent = 'Initialised — streaming frames...';
+            break;
+
+        case 'frame':
+            replayData.replay.frames.push(event.frame);
+            const n = replayData.replay.frames.length;
+            el.slider.max = Math.max(0, n - 1);
+            el.slider.value = n - 1;
+            el.frmTotal.textContent = n;
+            el.frmCurrent.textContent = n - 1;
+            currentFrame = n - 1;
+            const f = event.frame;
+            el.frameLabel.textContent = `Bar ${f.newPivot?.barIndex ?? '?'} / ${replayData.candles.length}`;
+            el.treeBarLabel.textContent = f.newPivot?.barIndex ?? '0';
+            renderLiveFrame(f);
+            el.status.textContent = `Frame ${n} — bar ${f.newPivot?.barIndex ?? '?'}`;
+            break;
+
+        case 'done':
+            replayData.snapshot = event.snapshot;
+            const totalFrames = replayData.replay.frames.length;
+            el.status.textContent = `OK — ${event.snapshot.nodes.length} nodes, ${totalFrames} frames`;
+            el.btnLoad.disabled = false;
+            // Show last frame with full tree
+            if (totalFrames > 0) {
+                const lastFrame = replayData.replay.frames[totalFrames - 1];
+                renderTree(lastFrame);
+                // Auto-select best node
+                if (lastFrame.bestNodeId) {
+                    const bestCard = el.nodeList.querySelector(`[data-node-id="${CSS.escape(lastFrame.bestNodeId)}"]`);
+                    if (bestCard) {
+                        bestCard.classList.add('selected');
+                        selectedNodeId = lastFrame.bestNodeId;
+                        drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
+                    }
+                }
+            }
+            break;
+
+        case 'error':
+            el.status.textContent = 'Error: ' + (event.message || 'Unknown');
+            el.btnLoad.disabled = false;
+            break;
+    }
+}
+
+/** Lightweight tree render during streaming (no snapshot yet). */
+function renderLiveFrame(frame) {
+    const aliveIds = frame.aliveNodeIds || [];
+    let html = '';
+    if (aliveIds.length === 0) {
+        html = '<em style="color:#666;padding:12px;display:block">No nodes yet</em>';
+    } else {
+        for (const id of aliveIds) {
+            html += `<div class="node-card" data-node-id="${escHtml(id)}" style="cursor:default">
+              <div><span class="badge badge-open">ALIVE</span>
+              <span class="node-model">${escHtml(id)}</span></div>
+            </div>`;
+        }
+    }
+
+    // Show recent events
+    if (frame.events && frame.events.length > 0) {
+        const recent = frame.events.slice(-8);
+        html += '<div style="padding:4px 12px;font-size:10px;color:#555d6b;border-top:1px solid #333840;margin-top:4px">Recent events</div>';
+        for (const ev of recent) {
+            const icon = ev.type === 'BORN' ? '🟢' : ev.type === 'DIED' ? '🔴' : ev.type === 'COMPLETED' ? '✅' : '⏳';
+            html += `<div class="node-meta" style="padding:1px 12px;font-size:10px">${icon} ${ev.type} ${escHtml(ev.nodeId)}</div>`;
+        }
+    }
+
+    el.nodeList.innerHTML = html;
+}
+
+// ── Full tree render (after streaming completes) ──
+
+function renderTree(frame) {
+    // Build node lookup
+    const nodeMap = {};
+    for (const n of replayData.snapshot.nodes) nodeMap[n.id] = n;
+
+    const aliveIds = new Set(frame.aliveNodeIds || []);
+    const aliveNodes = [];
+    const deadNodes = [];
+
+    for (const n of replayData.snapshot.nodes) {
+        if (aliveIds.has(n.id)) aliveNodes.push(n);
+        else deadNodes.push(n);
+    }
+
+    let html = '';
+    if (aliveNodes.length === 0 && deadNodes.length === 0) {
+        html = '<em style="color:#666;padding:12px;display:block">No nodes yet</em>';
+    }
+
+    for (const n of aliveNodes) {
+        html += nodeHtml(n, true);
+    }
+    if (deadNodes.length > 0) {
+        html += `<div style="padding:6px 12px;font-size:11px;color:#666;border-top:1px solid #333840;margin-top:4px">Dead / pruned</div>`;
+        for (const n of deadNodes) {
+            if (n.status === 'DEAD')
+                html += nodeHtml(n, false);
+        }
+    }
+
+    el.nodeList.innerHTML = html;
+
+    // Click handlers
+    el.nodeList.querySelectorAll('.node-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const nid = card.dataset.nodeId;
+            el.nodeList.querySelectorAll('.node-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedNodeId = nid;
+            drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
+        });
+    });
+}
+
+function nodeHtml(n, alive) {
+    const statusClass = n.status === 'COMPLETE' ? 'badge-complete'
+        : n.status === 'PROJECTED' ? 'badge-projected'
+        : n.status === 'DEAD' ? 'badge-dead'
+        : 'badge-open';
+    const statusLabel = n.status === 'DEAD' ? (n.deathReason || 'DEAD') : n.status;
+
+    const childModels = (n.children || []).map(cid => {
+        const c = replayData.snapshot.nodes.find(x => x.id === cid);
+        return c ? `${c.wavePos || '?'}:${c.model}` : '';
+    }).filter(Boolean).join(' ');
+
+    const zz = replayData.snapshot.zigzag;
+    const startPx = zz && n.startPivot >= 0 && n.startPivot < zz.length
+        ? zz[n.startPivot].price : null;
+    const endPx = zz && n.endPivot >= 0 && n.endPivot < zz.length
+        ? zz[n.endPivot].price : null;
+
+    return `
+    <div class="node-card ${alive ? '' : 'node-dead'}" data-node-id="${escHtml(n.id)}">
+      <div>
+        <span class="badge ${statusClass}">${statusLabel}</span>
+        <span class="node-model">${escHtml(n.model)}</span>
+        <span style="color:#8892a0;font-size:11px">${n.wavePos === 'root' ? 'root' : escHtml(n.wavePos)}</span>
+        <span style="float:right;font-size:11px;color:#8892a0">${(n.score || 0).toFixed(3)}</span>
+      </div>
+      <div class="node-meta">L${n.level} pivots [${n.startPivot}..${n.endPivot}] ${n.isUp ? '↑' : '↓'}</div>
+      <div class="node-meta">${startPx != null ? startPx.toFixed(5) : '?'} → ${endPx != null ? endPx.toFixed(5) : '?'}</div>
+      ${childModels ? `<div class="node-waves">${childModels}</div>` : ''}
+      ${n.status === 'DEAD' ? `<div class="cancel-info" style="color:#d65757">death: ${escHtml(n.deathReason)}</div>` : ''}
+    </div>`;
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── Frame navigation ──
@@ -203,135 +384,16 @@ function goFrame(idx) {
 
     renderTree(frame);
     updatePlaybackButtons();
-}
 
-// ── Tree panel ──
-function renderTree(frame) {
-    // Build node lookup
-    const nodeMap = {};
-    for (const n of replayData.snapshot.nodes) nodeMap[n.id] = n;
-
-    // Group by status
-    const aliveIds = new Set(frame.aliveNodeIds || []);
-    const aliveNodes = [];
-    const deadNodes = [];
-
-    for (const n of replayData.snapshot.nodes) {
-        if (aliveIds.has(n.id)) aliveNodes.push(n);
-        else deadNodes.push(n);
+    // Re-draw selected node on chart
+    if (selectedNodeId && replayData.snapshot.nodes.length > 0) {
+        drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
     }
-
-    // Render
-    let html = '';
-    if (aliveNodes.length === 0 && deadNodes.length === 0) {
-        html = '<em style="color:#666;padding:12px;display:block">No nodes yet</em>';
-    }
-
-    for (const n of aliveNodes) {
-        html += nodeHtml(n, true);
-    }
-    if (deadNodes.length > 0) {
-        html += '<div style="padding:6px 12px;font-size:11px;color:#666;border-top:1px solid #333840;margin-top:4px">Dead / pruned</div>';
-        for (const n of deadNodes) {
-            if (n.status === 'DEAD')
-                html += nodeHtml(n, false);
-        }
-    }
-
-    el.nodeList.innerHTML = html;
-
-    // Click handlers
-    el.nodeList.querySelectorAll('.node-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const nid = card.dataset.nodeId;
-            el.nodeList.querySelectorAll('.node-card').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            selectedNodeId = nid;
-            drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
-        });
-    });
-
-    // Auto-select best node
-    if (!selectedNodeId && frame.bestNodeId && nodeMap[frame.bestNodeId]) {
-        const bestCard = el.nodeList.querySelector(`[data-node-id="${CSS.escape(frame.bestNodeId)}"]`);
-        if (bestCard) {
-            bestCard.classList.add('selected');
-            selectedNodeId = frame.bestNodeId;
-            drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
-        }
-    }
-}
-
-function nodeHtml(n, alive) {
-    const statusClass = n.status === 'COMPLETE' ? 'badge-complete'
-        : n.status === 'PROJECTED' ? 'badge-projected'
-        : n.status === 'DEAD' ? 'badge-dead'
-        : 'badge-open';
-    const statusLabel = n.status === 'DEAD' ? (n.deathReason || 'DEAD') : n.status;
-
-    const childModels = (n.children || []).map(cid => {
-        const c = replayData.snapshot.nodes.find(x => x.id === cid);
-        return c ? `${c.wavePos || '?'}:${c.model}` : '';
-    }).filter(Boolean).join(' ');
-
-    // Get zigzag prices for this node
-    const zz = replayData.snapshot.zigzag;
-    const startPx = zz && n.startPivot >= 0 && n.startPivot < zz.length
-        ? zz[n.startPivot].price : null;
-    const endPx = zz && n.endPivot >= 0 && n.endPivot < zz.length
-        ? zz[n.endPivot].price : null;
-
-    return `
-    <div class="node-card ${alive ? '' : 'node-dead'}" data-node-id="${escHtml(n.id)}">
-      <div>
-        <span class="badge ${statusClass}">${statusLabel}</span>
-        <span class="node-model">${n.model}</span>
-        <span style="color:#8892a0;font-size:11px">${n.wavePos === 'root' ? 'root' : n.wavePos}</span>
-        <span style="float:right;font-size:11px;color:#8892a0">${(n.score || 0).toFixed(3)}</span>
-      </div>
-      <div class="node-meta">L${n.level} pivots [${n.startPivot}..${n.endPivot}] ${n.isUp ? '↑' : '↓'}</div>
-      <div class="node-meta">
-        ${startPx != null ? startPx.toFixed(5) : '?'} → ${endPx != null ? endPx.toFixed(5) : '?'}
-      </div>
-      ${childModels ? `<div class="node-waves">${childModels}</div>` : ''}
-      ${n.status === 'DEAD' ? `<div class="cancel-info" style="color:#d65757">death: ${n.deathReason}</div>` : ''}
-    </div>`;
-}
-
-function escHtml(s) {
-    if (!s) return '';
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Auto play ──
-function toggleAuto() {
-    if (autoTimer) {
-        clearInterval(autoTimer);
-        autoTimer = null;
-        el.btnAuto.textContent = '▶▶';
-        el.btnAuto.style.background = '#333840';
-    } else {
-        el.btnAuto.textContent = '⏹';
-        el.btnAuto.style.background = '#cc4444';
-        autoTimer = setInterval(() => {
-            if (currentFrame >= (replayData?.replay?.frames?.length || 0) - 1) {
-                toggleAuto();
-                return;
-            }
-            goFrame(currentFrame + 1);
-        }, autoSpeed);
-    }
-}
-
-function updatePlaybackButtons() {
-    const n = replayData?.replay?.frames?.length || 0;
-    el.btnFirst.disabled = currentFrame === 0;
-    el.btnPrev.disabled = currentFrame === 0;
-    el.btnNext.disabled = currentFrame >= n - 1;
-    el.btnLast.disabled = currentFrame >= n - 1;
 }
 
 // ── Calendar ↔ text sync ──
+// Hidden date input overlays the text field (opacity 0) → native picker opens on click.
+// Changes are synced both ways.
 el.inpFromCal.addEventListener('change', () => {
     el.inpFrom.value = isoToDateInput(el.inpFromCal.value + 'T00:00:00Z');
     updateRangeInfo();
@@ -340,16 +402,15 @@ el.inpToCal.addEventListener('change', () => {
     el.inpTo.value = isoToDateInput(el.inpToCal.value + 'T00:00:00Z');
     updateRangeInfo();
 });
-// Open calendar on text input or icon click
-el.inpFrom.addEventListener('click', () => {
-    try { el.inpFromCal.showPicker(); } catch{/* no-op */}
+// Allow manual typing in text field → sync back to hidden date input
+el.inpFrom.addEventListener('input', () => {
+    const iso = dateInputToIso(el.inpFrom.value);
+    if (iso) el.inpFromCal.value = isoToCalValue(iso);
 });
-el.inpTo.addEventListener('click', () => {
-    try { el.inpToCal.showPicker(); } catch{/* no-op */}
+el.inpTo.addEventListener('input', () => {
+    const iso = dateInputToIso(el.inpTo.value);
+    if (iso) el.inpToCal.value = isoToCalValue(iso);
 });
-$('iconFromCal').addEventListener('click', () => {
-    try { el.inpFromCal.showPicker(); } catch{/* no-op */}
-});
-$('iconToCal').addEventListener('click', () => {
-    try { el.inpToCal.showPicker(); } catch{/* no-op */}
-});
+// Calendar icon clicks pass through to hidden date input
+$('iconFromCal').addEventListener('click', () => { el.inpFromCal.focus(); try { el.inpFromCal.showPicker(); } catch {/* no-op */} });
+$('iconToCal').addEventListener('click', () => { el.inpToCal.focus(); try { el.inpToCal.showPicker(); } catch {/* no-op */} });

@@ -13,10 +13,28 @@ public sealed class ReplayEngine
 {
     private readonly ReplayBarsProvider m_BarsProvider;
 
+    // ── Incremental replay state (§14.6) ──
+    private IReadOnlyList<BarPoint>? m_Pivots;
+    private ElliottWaveExactMarkupV2? m_FullMarkup;
+    private Dictionary<string, string>? m_PrevState;
+    private int m_CurrentStep;
+    private bool m_Initialized;
+
     public ReplayEngine(ReplayBarsProvider barsProvider)
     {
         m_BarsProvider = barsProvider;
     }
+
+    // ── Public state (read by Program.cs for snapshot export) ──
+
+    /// <summary>The fully-built markup for the complete range (for final snapshot).</summary>
+    public ElliottWaveExactMarkupV2? FullMarkup => m_FullMarkup;
+
+    /// <summary>Whether the engine has been initialised with a CSV.</summary>
+    public bool IsInitialized => m_Initialized;
+
+    /// <summary>Whether there are more pivot-frames to process.</summary>
+    public bool HasMoreSteps => m_Initialized && m_CurrentStep <= m_Pivots!.Count;
 
     /// <summary>Describes a CSV file available for replay.</summary>
     public static IEnumerable<CsvFileInfo> ListCsvFiles(string dataDir)
@@ -81,12 +99,17 @@ public sealed class ReplayEngine
         }
     }
 
-    /// <summary>Runs the full bar-by-bar replay over <c>[startBar..endBar]</c>.</summary>
-    public ReplayData Run(
-        string csvPath, int startBar, int endBar, int deadDepth = 1,
-        double? deviationPercent = null)
+    // ══════════════════════════════════════════════════════
+    //  Incremental bar-by-bar replay driver (§14.6 / §17.1)
+    // ══════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Initialises the engine for step-by-step replay.  Loads candles, builds the
+    /// full-range zigzag, and positions the cursor at the second pivot (first frame).
+    /// </summary>
+    public void Initialize(
+        string csvPath, int startBar, int endBar, double? deviationPercent = null)
     {
-        // 1. Load candles
         m_BarsProvider.LoadCandles(csvPath);
 
         int n = m_BarsProvider.Count;
@@ -96,36 +119,152 @@ public sealed class ReplayEngine
             startBar = 0;
         if (startBar >= endBar)
             startBar = Math.Max(0, endBar - 1);
-
-        // Guard: after clamping, end must be strictly after start
         if (endBar <= startBar)
             throw new ArgumentException(
                 $"Range too narrow: startBar={startBar}, endBar={endBar}, total bars={n}. " +
                 "Try widening the date range.");
 
-        // 2. Candles for web
+        m_FullMarkup = new ElliottWaveExactMarkupV2(
+            m_BarsProvider, startBar, endBar, deviationPercent, isUpDirection: false);
+
+        m_Pivots = m_FullMarkup.Pivots;
+        m_PrevState = new Dictionary<string, string>();
+        m_CurrentStep = 2; // need at least 2 pivots for the first frame
+        m_Initialized = true;
+    }
+
+    /// <summary>
+    /// Initialises the engine from date strings (used by the SSE endpoint).</summary>
+    public void InitializeForDates(
+        string csvPath, string? fromDate, string? toDate, double? deviationPercent = null)
+    {
+        m_BarsProvider.LoadCandles(csvPath);
+        (int start, int end) = m_BarsProvider.ResolveDateRange(fromDate ?? "", toDate ?? "");
+        Initialize(csvPath, start, end, deviationPercent);
+    }
+
+    /// <summary>
+    /// Advances the replay by one pivot, re-parsing the growing prefix, and returns
+    /// the delta frame (<c>null</c> when all pivots have been consumed).
+    /// </summary>
+    public EwReplayFrameDto? StepForward(int deadDepth = 1)
+    {
+        if (!m_Initialized || m_CurrentStep > m_Pivots!.Count)
+            return null;
+
+        int k = m_CurrentStep++;
+        var prefix = m_Pivots!.Take(k).ToList();
+        var sub = new ElliottWaveExactMarkupV2(
+            m_FullMarkup!.BarsProvider, prefix, m_FullMarkup.DeviationPercent);
+        MarkupSearchResult r = sub.Parse(deadDepth);
+
+        // ── Collect current tree ──
+        var cur = new Dictionary<string, string>();
+        var meta = new Dictionary<string, (string model, string wavePos)>();
+        void Collect(TreeNode node)
+        {
+            string sid = StableId(node);
+            cur[sid] = node.Status.ToString();
+            meta[sid] = (node.Model.ToString(), node.WavePos ?? "root");
+            foreach (TreeNode child in node.Children)
+                Collect(child);
+        }
+        foreach (TreeNode root in r.Roots)
+            Collect(root);
+        if (r.BestProjection != null)
+            Collect(r.BestProjection);
+
+        // ── Compute delta events ──
+        var events = new List<EwReplayEventDto>();
+        foreach (var kv in cur)
+        {
+            if (!m_PrevState!.TryGetValue(kv.Key, out string? prevStatus))
+            {
+                events.Add(new EwReplayEventDto
+                {
+                    Type = "BORN", NodeId = kv.Key,
+                    Model = meta[kv.Key].model, WavePos = meta[kv.Key].wavePos
+                });
+            }
+            else if (prevStatus != kv.Value)
+            {
+                string? type = kv.Value == nameof(NodeStatus.COMPLETE) && prevStatus == nameof(NodeStatus.PROJECTED)
+                    ? "COMPLETED"
+                    : kv.Value == nameof(NodeStatus.PROJECTED) ? "PROJECTED" : null;
+                if (type != null)
+                    events.Add(new EwReplayEventDto { Type = type, NodeId = kv.Key });
+            }
+        }
+        foreach (string deadId in m_PrevState!.Keys.Where(id => !cur.ContainsKey(id)))
+            events.Add(new EwReplayEventDto { Type = "DIED", NodeId = deadId });
+
+        events = events
+            .OrderBy(e => e.Type, StringComparer.Ordinal)
+            .ThenBy(e => e.NodeId, StringComparer.Ordinal)
+            .ToList();
+
+        string? best = r.Roots.Count > 0
+            ? StableId(r.Roots[0])
+            : r.BestProjection != null ? StableId(r.BestProjection) : null;
+
+        var frame = new EwReplayFrameDto
+        {
+            BarIndex = m_Pivots[k - 1].BarIndex,
+            CloseTime = m_Pivots[k - 1].OpenTime,
+            NewPivot = new EwPivotDto
+            {
+                BarIndex = m_Pivots[k - 1].BarIndex,
+                Price = m_Pivots[k - 1].Value,
+                IsHigh = ComputePivotIsHigh(sub, k - 1)
+            },
+            Events = events,
+            AliveNodeIds = cur.Keys.OrderBy(id => id, StringComparer.Ordinal).ToList(),
+            BestNodeId = best
+        };
+
+        m_PrevState = cur;
+        return frame;
+    }
+
+    /// <summary>Runs the full bar-by-bar replay over <c>[startBar..endBar]</c>.</summary>
+    public ReplayData Run(
+        string csvPath, int startBar, int endBar, int deadDepth = 1,
+        double? deviationPercent = null)
+    {
+        Initialize(csvPath, startBar, endBar, deviationPercent);
+
+        // Candles for the web chart
+        int firstBar = startBar;
+        int lastBar = endBar < m_BarsProvider.Count ? endBar : m_BarsProvider.Count - 1;
         var candles = m_BarsProvider.GetAllCandles()
-            .Skip(startBar).Take(endBar - startBar + 1).ToList();
+            .Skip(firstBar).Take(lastBar - firstBar + 1).ToList();
 
-        // 3. Build the full zigzag for the range
-        var markup = new ElliottWaveExactMarkupV2(
-            m_BarsProvider, startBar, endBar, deviationPercent,
-            isUpDirection: false);
+        // Build replay frames by stepping through every pivot
+        var replay = new EwReplayDto
+        {
+            Symbol = m_BarsProvider.BarSymbol.Name,
+            Timeframe = m_BarsProvider.TimeFrame.Name
+        };
 
-        // 4. Replay frames (§17.1)
-        EwReplayDto replay = EwMarkupTreeExporter.BuildReplay(markup);
+        while (HasMoreSteps)
+        {
+            EwReplayFrameDto? frame = StepForward(deadDepth);
+            if (frame != null)
+                replay.Frames.Add(frame);
+        }
 
-        // 5. Snapshot (§17)
-        MarkupSearchResult result = markup.Parse(deadDepth);
-        EwTreeSnapshotDto snapshot = EwMarkupTreeExporter.BuildSnapshot(markup, result, deadDepth);
+        // Final snapshot
+        MarkupSearchResult result = m_FullMarkup!.Parse(deadDepth);
+        EwTreeSnapshotDto snapshot = EwMarkupTreeExporter.BuildSnapshot(
+            m_FullMarkup, result, deadDepth);
 
         return new ReplayData
         {
             Candles = candles,
             Replay = replay,
             Snapshot = snapshot,
-            StartBar = startBar,
-            EndBar = endBar
+            StartBar = firstBar,
+            EndBar = lastBar
         };
     }
 
@@ -164,6 +303,24 @@ public sealed class ReplayEngine
         }
 
         return info;
+    }
+
+    // ── private helpers ──────────────────────────────────
+
+    /// <summary>
+    /// Frame-stable id: same logical node keeps its id across replay steps.
+    /// Mirrors <c>EwMarkupTreeExporter.StableId</c>.
+    /// </summary>
+    private static string StableId(TreeNode node) =>
+        $"{node.Model}|{node.RangeStartSegment}-{node.RangeEndSegment}|{node.WavePos ?? "root"}|L{node.Level}";
+
+    /// <summary>
+    /// Determines whether <c>pivots[index]</c> is a swing high from segment directions.
+    /// </summary>
+    private static bool ComputePivotIsHigh(ElliottWaveExactMarkupV2 markup, int index)
+    {
+        bool firstSegUp = markup.Segments[0].IsUp;
+        return firstSegUp ? index % 2 == 1 : index % 2 == 0;
     }
 }
 

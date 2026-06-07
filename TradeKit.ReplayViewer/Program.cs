@@ -1,4 +1,5 @@
 using TradeKit.Core.Common;
+using TradeKit.Core.Json;
 using TradeKit.ReplayViewer.Services;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -73,6 +74,81 @@ app.MapPost("/api/replay/run", (ReplayRequest req) =>
     }
 });
 
+// Run replay — streaming (SSE): each pivot frame is pushed to the client as it is generated
+app.MapPost("/api/replay/stream", async (HttpContext ctx) =>
+{
+    var req = await ctx.Request.ReadFromJsonAsync<ReplayRequest>();
+    if (req == null || string.IsNullOrWhiteSpace(req.File))
+    {
+        ctx.Response.StatusCode = 400;
+        await ctx.Response.WriteAsync("{\"error\":\"File name is required\"}");
+        return;
+    }
+
+    string path = Path.Combine(dataDir, req.File);
+    if (!File.Exists(path))
+    {
+        ctx.Response.StatusCode = 404;
+        await ctx.Response.WriteAsync("{\"error\":\"File not found\"}");
+        return;
+    }
+
+    ctx.Response.ContentType = "text/event-stream";
+    ctx.Response.Headers["Cache-Control"] = "no-cache";
+    ctx.Response.Headers["Connection"] = "keep-alive";
+    ctx.Response.Headers["X-Accel-Buffering"] = "no"; // disable nginx buffering
+
+    try
+    {
+        EnsureProvider(path);
+
+        int startBar, endBar;
+        if (!string.IsNullOrWhiteSpace(req.FromDate) || !string.IsNullOrWhiteSpace(req.ToDate))
+        {
+            engine!.InitializeForDates(path, req.FromDate, req.ToDate, deviationPercent: null);
+            startBar = 0;
+            endBar = engine.FullMarkup!.BarsProvider.Count - 1;
+        }
+        else
+        {
+            engine!.Initialize(path, req.StartBar, req.EndBar, deviationPercent: null);
+            startBar = req.StartBar;
+            endBar = req.EndBar;
+        }
+
+        int deadDepth = req.DeadDepth;
+
+        // 1. Send candles + metadata first
+        var candles = engine.FullMarkup!.BarsProvider is ReplayBarsProvider rbp
+            ? rbp.GetAllCandles().Skip(startBar).Take(endBar - startBar + 1).ToList()
+            : new List<CandleBar>();
+        var initEvent = new { type = "init", candles, startBar, endBar };
+        await WriteSseEvent(ctx, initEvent);
+
+        // 2. Stream frames one by one
+        while (engine.HasMoreSteps)
+        {
+            var frame = engine.StepForward(deadDepth);
+            if (frame != null)
+            {
+                var frameEvent = new { type = "frame", frame };
+                await WriteSseEvent(ctx, frameEvent);
+            }
+        }
+
+        // 3. Final snapshot
+        var result = engine.FullMarkup!.Parse(deadDepth);
+        var snapshot = EwMarkupTreeExporter.BuildSnapshot(engine.FullMarkup, result, deadDepth);
+        var doneEvent = new { type = "done", snapshot };
+        await WriteSseEvent(ctx, doneEvent);
+    }
+    catch (Exception ex)
+    {
+        var errEvent = new { type = "error", message = ex.Message, detail = ex.ToString() };
+        await WriteSseEvent(ctx, errEvent);
+    }
+});
+
 app.Run();
 
 // ── helpers ──────────────────────────────────────────
@@ -85,6 +161,13 @@ void EnsureProvider(string csvPath)
     loadedProvider = new ReplayBarsProvider(tf);
     engine = new ReplayEngine(loadedProvider);
     loadedCsvPath = csvPath;
+}
+
+async Task WriteSseEvent(HttpContext ctx, object data)
+{
+    string json = System.Text.Json.JsonSerializer.Serialize(data);
+    await ctx.Response.WriteAsync($"data: {json}\n\n");
+    await ctx.Response.Body.FlushAsync();
 }
 
 // Extracts the timeframe shortName from a CSV filename like

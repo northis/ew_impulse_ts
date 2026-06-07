@@ -23,21 +23,21 @@ body {
 #topbar input[type=number] { width: 62px; }
 #topbar input[type=date] { width: 140px; color-scheme: dark; }
 
-/* Date wrapper: text input shows dd/MM/yyyy, calendar icon triggers hidden date picker */
+/* Date wrapper: text input shows dd/MM/yyyy, hidden date input overlays it for native picker */
 .date-wrap {
   position: relative; display: inline-flex; align-items: center;
 }
 .date-wrap input[type=text] {
-  width: 90px; padding-right: 22px;
+  width: 90px; padding-right: 22px; position: relative; z-index: 0;
 }
 .date-cal-hidden {
-  position: absolute; left: 0; top: 0; width: 0; height: 0;
-  opacity: 0; pointer-events: none; border: 0; padding: 0;
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  opacity: 0; z-index: 1; cursor: pointer; border: 0; padding: 0;
 }
 .date-icon {
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
   cursor: pointer; font-size: 13px; line-height: 1; color: #8892a0;
-  user-select: none;
+  user-select: none; z-index: 2;
 }
 .date-icon:hover { color: #d1d5db; }
 
