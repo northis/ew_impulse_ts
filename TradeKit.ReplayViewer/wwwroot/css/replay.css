@@ -13,18 +13,25 @@ body {
   user-select: none;
 }
 #topbar label { font-size: 13px; color: #8892a0; white-space: nowrap; }
-#topbar select, #topbar input[type=number] {
+#topbar select, #topbar input[type=number], #topbar input[type=date] {
   background: #1a1d23; color: #d1d5db; border: 1px solid #444a55;
   border-radius: 4px; padding: 4px 8px; font-size: 13px;
 }
 #topbar select { min-width: 180px; }
 #topbar input[type=number] { width: 62px; }
+#topbar input[type=date] { width: 140px; color-scheme: dark; }
 #btnLoad {
   background: #3D85C6; color: #fff; border: none; border-radius: 4px;
   padding: 5px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
 }
 #btnLoad:hover { background: #336ba3; }
 #btnLoad:disabled { opacity: 0.4; cursor: default; }
+#btnFull {
+  background: #333840; color: #d1d5db; border: 1px solid #444a55;
+  border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+}
+#btnFull:hover { background: #444a55; }
+#rangeInfo { font-size: 11px; color: #555d6b; white-space: nowrap; }
 
 /* Main pane */
 #main { display: flex; flex: 1; overflow: hidden; }

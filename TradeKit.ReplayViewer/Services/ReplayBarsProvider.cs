@@ -30,6 +30,11 @@ public sealed class ReplayBarsProvider : IBarsProvider
         if (!File.Exists(pathToFile))
             throw new FileNotFoundException("Candle data file not found", pathToFile);
 
+        // Clear previous data — each load is a fresh start
+        m_Candles.Clear();
+        m_OpenTimes.Clear();
+        m_TimeToIndex.Clear();
+
         var lines = File.ReadAllLines(pathToFile);
         if (lines.Length == 0) return;
 
@@ -99,6 +104,37 @@ public sealed class ReplayBarsProvider : IBarsProvider
     public void Dispose() { }
 
     private void OnBarClosed() => BarClosed?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Returns bar index closest to <paramref name="date"/> (UTC).</summary>
+    public int FindBarIndex(DateTime date)
+    {
+        int idx = GetIndexByTime(date);
+        if (idx >= 0) return idx;
+
+        int best = 0;
+        double bestDiff = double.MaxValue;
+        for (int i = 0; i < m_Candles.Count; i++)
+        {
+            double diff = Math.Abs((m_OpenTimes[i] - date).TotalMilliseconds);
+            if (diff < bestDiff) { bestDiff = diff; best = i; }
+        }
+        return best;
+    }
+
+    public (int first, int last) GetBarRange() => (0, m_Candles.Count - 1);
+
+    public (int start, int end) ResolveDateRange(string fromDate, string toDate)
+    {
+        int start = 0, end = m_Candles.Count - 1;
+        if (!string.IsNullOrWhiteSpace(fromDate) &&
+            DateTime.TryParse(fromDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime from))
+            start = FindBarIndex(from);
+        if (!string.IsNullOrWhiteSpace(toDate) &&
+            DateTime.TryParse(toDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime to))
+            end = FindBarIndex(to);
+        if (start > end) (start, end) = (end, start);
+        return (start, end);
+    }
 }
 
 /// <summary>Lightweight OHLC bar DTO for JSON serialisation to the web client.</summary>

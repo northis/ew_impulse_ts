@@ -52,6 +52,12 @@ public sealed class ReplayEngine
         if (startBar >= endBar)
             startBar = Math.Max(0, endBar - 1);
 
+        // Guard: after clamping, end must be strictly after start
+        if (endBar <= startBar)
+            throw new ArgumentException(
+                $"Range too narrow: startBar={startBar}, endBar={endBar}, total bars={n}. " +
+                "Try widening the date range.");
+
         // 2. Candles for web
         var candles = m_BarsProvider.GetAllCandles()
             .Skip(startBar).Take(endBar - startBar + 1).ToList();
@@ -76,6 +82,16 @@ public sealed class ReplayEngine
             StartBar = startBar,
             EndBar = endBar
         };
+    }
+
+    /// <summary>Runs the replay for a date range (ISO-format strings).</summary>
+    public ReplayData RunByDate(
+        string csvPath, string? fromDate, string? toDate,
+        int deadDepth = 1, double? deviationPercent = null)
+    {
+        m_BarsProvider.LoadCandles(csvPath);
+        (int start, int end) = m_BarsProvider.ResolveDateRange(fromDate ?? "", toDate ?? "");
+        return Run(csvPath, start, end, deadDepth, deviationPercent);
     }
 
     /// <summary>Returns basic info about a CSV file.</summary>

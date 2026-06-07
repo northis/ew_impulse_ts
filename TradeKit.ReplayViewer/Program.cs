@@ -42,7 +42,6 @@ app.MapGet("/api/replay/files/{name}", (string name) =>
 // Run replay
 app.MapPost("/api/replay/run", (ReplayRequest req) =>
 {
-    // Validation
     if (string.IsNullOrWhiteSpace(req.File))
         return Results.BadRequest(new { error = "File name is required" });
 
@@ -53,11 +52,16 @@ app.MapPost("/api/replay/run", (ReplayRequest req) =>
     try
     {
         EnsureProvider(path);
-        ReplayData data = engine!.Run(
-            path,
-            req.StartBar,
-            req.EndBar,
-            req.DeadDepth);
+
+        ReplayData data;
+        if (!string.IsNullOrWhiteSpace(req.FromDate) || !string.IsNullOrWhiteSpace(req.ToDate))
+        {
+            data = engine!.RunByDate(path, req.FromDate, req.ToDate, req.DeadDepth);
+        }
+        else
+        {
+            data = engine!.Run(path, req.StartBar, req.EndBar, req.DeadDepth);
+        }
         return Results.Ok(data);
     }
     catch (Exception ex)
@@ -89,4 +93,6 @@ record ReplayRequest(
     string? File,
     int StartBar = 0,
     int EndBar = -1,
-    int DeadDepth = 1);
+    int DeadDepth = 1,
+    string? FromDate = null,
+    string? ToDate = null);

@@ -4,11 +4,13 @@ let replayData = null;     // { candles, replay, snapshot, startBar, endBar }
 let selectedNodeId = null;
 let autoTimer = null;
 let autoSpeed = 500;       // ms
+let fileInfo = null;        // { barCount, firstBarTime, lastBarTime }
 
 // ── DOM refs ──
 const $ = id => document.getElementById(id);
 const el = {
-    selFile: $('selFile'), inpStart: $('inpStart'), inpEnd: $('inpEnd'),
+    selFile: $('selFile'), inpFrom: $('inpFromDate'), inpTo: $('inpToDate'),
+    btnFull: $('btnFull'), rangeInfo: $('rangeInfo'),
     inpDead: $('inpDead'), btnLoad: $('btnLoad'), status: $('status'),
     nodeList: $('nodeList'), treeBarLabel: $('treeBarLabel'),
     btnFirst: $('btnFirst'), btnPrev: $('btnPrev'), btnNext: $('btnNext'),
@@ -16,6 +18,26 @@ const el = {
     slider: $('slider'), frmCurrent: $('frmCurrent'), frmTotal: $('frmTotal'),
     frameLabel: $('frameLabel')
 };
+
+// ── Date helpers ──
+function isoToDateInput(isoStr) {
+    if (!isoStr) return '';
+    // "2024-05-01T10:00:00.0000000Z" → "2024-05-01"
+    const m = isoStr.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : '';
+}
+
+function dateInputToIso(dateStr) {
+    if (!dateStr) return null;
+    // "2024-05-01" → "2024-05-01T00:00:00Z"
+    return dateStr + 'T00:00:00Z';
+}
+
+function formatDate(isoStr) {
+    // "2024-05-01" → "01.05.2024" (day first)
+    const m = isoStr ? isoStr.match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : isoStr || '?';
+}
 
 // ── Init ──
 (async function init() {
@@ -36,6 +58,12 @@ const el = {
             el.selFile.appendChild(opt);
         }
         el.status.textContent = 'Ready. Select a file and click Run.';
+
+        // Auto-select first file to pre-populate date range
+        if (files.length > 0) {
+            el.selFile.value = files[0].name;
+            el.selFile.dispatchEvent(new Event('change'));
+        }
     } catch (e) {
         el.status.textContent = 'Error: ' + e.message;
     }
@@ -43,6 +71,7 @@ const el = {
 
 // ── Events ──
 el.btnLoad.addEventListener('click', runReplay);
+el.btnFull.addEventListener('click', resetRange);
 el.btnFirst.addEventListener('click', () => goFrame(0));
 el.btnPrev.addEventListener('click', () => goFrame(currentFrame - 1));
 el.btnNext.addEventListener('click', () => goFrame(currentFrame + 1));
@@ -55,14 +84,34 @@ el.selFile.addEventListener('change', async () => {
     if (!name) return;
     try {
         const res = await fetch(`/api/replay/files/${encodeURIComponent(name)}`);
-        const info = await res.json();
-        if (info.barCount) {
-            el.inpStart.value = 0;
-            el.inpEnd.value = Math.min(400, info.barCount - 1);
-            el.status.textContent = `${info.barCount} bars, ${info.firstBarTime} — ${info.lastBarTime}`;
+        fileInfo = await res.json();
+        if (fileInfo.barCount) {
+            el.inpFrom.value = isoToDateInput(fileInfo.firstBarTime);
+            el.inpTo.value = isoToDateInput(fileInfo.lastBarTime);
+            updateRangeInfo();
+            el.status.textContent = `${fileInfo.barCount} bars`;
         }
     } catch { /* ignore */ }
 });
+
+el.inpFrom.addEventListener('change', updateRangeInfo);
+el.inpTo.addEventListener('change', updateRangeInfo);
+
+function resetRange() {
+    if (!fileInfo) return;
+    el.inpFrom.value = isoToDateInput(fileInfo.firstBarTime);
+    el.inpTo.value = isoToDateInput(fileInfo.lastBarTime);
+    updateRangeInfo();
+}
+
+function updateRangeInfo() {
+    if (!fileInfo) return;
+    const fullStart = isoToDateInput(fileInfo.firstBarTime);
+    const fullEnd = isoToDateInput(fileInfo.lastBarTime);
+    const selStart = el.inpFrom.value || fullStart;
+    const selEnd = el.inpTo.value || fullEnd;
+    el.rangeInfo.textContent = `[${formatDate(selStart)} … ${formatDate(selEnd)}]  /  ${formatDate(fullStart)} … ${formatDate(fullEnd)}`;
+}
 
 // ── Run replay ──
 async function runReplay() {
@@ -80,8 +129,8 @@ async function runReplay() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 file,
-                startBar: parseInt(el.inpStart.value) || 0,
-                endBar: parseInt(el.inpEnd.value) || -1,
+                fromDate: dateInputToIso(el.inpFrom.value),
+                toDate: dateInputToIso(el.inpTo.value),
                 deadDepth: parseInt(el.inpDead.value) || 1
             })
         });
