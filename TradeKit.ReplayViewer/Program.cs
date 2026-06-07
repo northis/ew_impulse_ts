@@ -4,6 +4,12 @@ using TradeKit.ReplayViewer.Services;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+// camelCase JSON for SSE so the browser client (and §17.1 schema) matches.
+var SseJsonOptions = new System.Text.Json.JsonSerializerOptions
+{
+    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+};
+
 // Path to data/ relative to repo root (adjustable via env var)
 string dataDir = Environment.GetEnvironmentVariable("REPLAY_DATA_DIR")
     ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "data"));
@@ -106,15 +112,16 @@ app.MapPost("/api/replay/stream", async (HttpContext ctx) =>
         if (!string.IsNullOrWhiteSpace(req.FromDate) || !string.IsNullOrWhiteSpace(req.ToDate))
         {
             engine!.InitializeForDates(path, req.FromDate, req.ToDate, deviationPercent: null);
-            startBar = 0;
-            endBar = engine.FullMarkup!.BarsProvider.Count - 1;
         }
         else
         {
             engine!.Initialize(path, req.StartBar, req.EndBar, deviationPercent: null);
-            startBar = req.StartBar;
-            endBar = req.EndBar;
         }
+
+        // Use the range the engine actually resolved (date → bar mapping + clamping),
+        // so the chart shows only the selected window, not the whole CSV file.
+        startBar = engine.StartBar;
+        endBar = engine.EndBar;
 
         int deadDepth = req.DeadDepth;
 
@@ -137,7 +144,7 @@ app.MapPost("/api/replay/stream", async (HttpContext ctx) =>
         }
 
         // 3. Final snapshot
-        var result = engine.FullMarkup!.Parse(deadDepth);
+        var result = engine.FullMarkup!.ParseTiled();
         var snapshot = EwMarkupTreeExporter.BuildSnapshot(engine.FullMarkup, result, deadDepth);
         var doneEvent = new { type = "done", snapshot };
         await WriteSseEvent(ctx, doneEvent);
@@ -165,7 +172,7 @@ void EnsureProvider(string csvPath)
 
 async Task WriteSseEvent(HttpContext ctx, object data)
 {
-    string json = System.Text.Json.JsonSerializer.Serialize(data);
+    string json = System.Text.Json.JsonSerializer.Serialize(data, SseJsonOptions);
     await ctx.Response.WriteAsync($"data: {json}\n\n");
     await ctx.Response.Body.FlushAsync();
 }

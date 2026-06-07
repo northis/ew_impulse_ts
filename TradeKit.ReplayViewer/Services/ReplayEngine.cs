@@ -19,6 +19,8 @@ public sealed class ReplayEngine
     private Dictionary<string, string>? m_PrevState;
     private int m_CurrentStep;
     private bool m_Initialized;
+    private int m_StartBar;
+    private int m_EndBar;
 
     public ReplayEngine(ReplayBarsProvider barsProvider)
     {
@@ -32,6 +34,12 @@ public sealed class ReplayEngine
 
     /// <summary>Whether the engine has been initialised with a CSV.</summary>
     public bool IsInitialized => m_Initialized;
+
+    /// <summary>Resolved first bar index of the active range (after date/clamp resolution).</summary>
+    public int StartBar => m_StartBar;
+
+    /// <summary>Resolved last bar index of the active range (after date/clamp resolution).</summary>
+    public int EndBar => m_EndBar;
 
     /// <summary>Whether there are more pivot-frames to process.</summary>
     public bool HasMoreSteps => m_Initialized && m_CurrentStep <= m_Pivots!.Count;
@@ -127,6 +135,8 @@ public sealed class ReplayEngine
         m_FullMarkup = new ElliottWaveExactMarkupV2(
             m_BarsProvider, startBar, endBar, deviationPercent, isUpDirection: false);
 
+        m_StartBar = startBar;
+        m_EndBar = endBar;
         m_Pivots = m_FullMarkup.Pivots;
         m_PrevState = new Dictionary<string, string>();
         m_CurrentStep = 2; // need at least 2 pivots for the first frame
@@ -156,7 +166,7 @@ public sealed class ReplayEngine
         var prefix = m_Pivots!.Take(k).ToList();
         var sub = new ElliottWaveExactMarkupV2(
             m_FullMarkup!.BarsProvider, prefix, m_FullMarkup.DeviationPercent);
-        MarkupSearchResult r = sub.Parse(deadDepth);
+        MarkupSearchResult r = sub.ParseTiled();
 
         // ── Collect current tree ──
         var cur = new Dictionary<string, string>();
@@ -254,7 +264,7 @@ public sealed class ReplayEngine
         }
 
         // Final snapshot
-        MarkupSearchResult result = m_FullMarkup!.Parse(deadDepth);
+        MarkupSearchResult result = m_FullMarkup!.ParseTiled();
         EwTreeSnapshotDto snapshot = EwMarkupTreeExporter.BuildSnapshot(
             m_FullMarkup, result, deadDepth);
 

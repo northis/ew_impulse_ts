@@ -47,7 +47,7 @@ const MODEL_COLORS = {
 /** Convert bar index → unix timestamp (seconds) */
 function barTime(candles, barIndex) {
     if (barIndex < 0 || !candles || barIndex >= candles.length) return null;
-    return Math.floor(new Date(candles[barIndex].Time).getTime() / 1000);
+    return Math.floor(new Date(candles[barIndex].time).getTime() / 1000);
 }
 
 /** Parse hex colour → rgba */
@@ -69,8 +69,8 @@ function clearMarkup() {
 /** Set candles */
 function setCandles(candles) {
     const data = candles.map(c => ({
-        time: barTime(candles, c.BarIndex),
-        open: c.Open, high: c.High, low: c.Low, close: c.Close
+        time: barTime(candles, c.barIndex),
+        open: c.open, high: c.high, low: c.low, close: c.close
     }));
     candleSeries.setData(data);
     chart.timeScale().fitContent();

@@ -10,32 +10,21 @@ let fileInfo = null;        // { barCount, firstBarTime, lastBarTime }
 const $ = id => document.getElementById(id);
 const el = {
     selFile: $('selFile'), inpFrom: $('inpFromDate'), inpTo: $('inpToDate'),
-    inpFromCal: $('inpFromDateCal'), inpToCal: $('inpToDateCal'),
     btnFull: $('btnFull'), rangeInfo: $('rangeInfo'),
     inpDead: $('inpDead'), btnLoad: $('btnLoad'), status: $('status'),
     nodeList: $('nodeList'), treeBarLabel: $('treeBarLabel'),
-    btnFirst: $('btnFirst'), btnPrev: $('btnPrev'), btnNext: $('btnNext'),
-    btnLast: $('btnLast'), btnAuto: $('btnAuto'),
+    btnNext: $('btnNext'), btnLast: $('btnLast'), btnAuto: $('btnAuto'),
     slider: $('slider'), frmCurrent: $('frmCurrent'), frmTotal: $('frmTotal'),
     frameLabel: $('frameLabel')
 };
 
 // ── Date helpers ──
-function isoToDateInput(isoStr) {
-    if (!isoStr) return '';
-    // "2024-05-01T10:00:00.0000000Z" → "01/05/2024"
-    const m = isoStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!m) return '';
-    return `${m[3]}/${m[2]}/${m[1]}`;
-}
-
+/** Native <input type="date"> value (yyyy-MM-dd) → ISO instant for the API. */
 function dateInputToIso(dateStr) {
     if (!dateStr) return null;
-    // "01/05/2024" → "2024-05-01T00:00:00Z"
-    // Accept both dd/MM/yyyy and dd.MM.yyyy
-    const m = dateStr.match(/^(\d{2})[./](\d{2})[./](\d{4})/);
+    const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (!m) return null;
-    return `${m[3]}-${m[2]}-${m[1]}T00:00:00Z`;
+    return `${m[1]}-${m[2]}-${m[3]}T00:00:00Z`;
 }
 
 function formatDate(isoStr) {
@@ -98,8 +87,6 @@ function isoToCalValue(isoStr) {
 // ── Events ──
 el.btnLoad.addEventListener('click', runReplay);
 el.btnFull.addEventListener('click', resetRange);
-el.btnFirst.addEventListener('click', () => goFrame(0));
-el.btnPrev.addEventListener('click', () => goFrame(currentFrame - 1));
 el.btnNext.addEventListener('click', () => goFrame(currentFrame + 1));
 el.btnLast.addEventListener('click', () => goFrame((replayData?.replay?.frames?.length || 1) - 1));
 el.btnAuto.addEventListener('click', toggleAuto);
@@ -125,21 +112,19 @@ function resetRange() {
     updateRangeInfo();
 }
 
-/** Set both text (dd/MM/yyyy) and hidden calendar (yyyy-MM-dd) fields. */
+/** Set native date inputs (yyyy-MM-dd). */
 function setDateValues(firstIso, lastIso) {
-    el.inpFrom.value = isoToDateInput(firstIso);
-    el.inpFromCal.value = isoToCalValue(firstIso);
-    el.inpTo.value = isoToDateInput(lastIso);
-    el.inpToCal.value = isoToCalValue(lastIso);
+    el.inpFrom.value = isoToCalValue(firstIso);
+    el.inpTo.value = isoToCalValue(lastIso);
 }
 
 function updateRangeInfo() {
     if (!fileInfo) return;
     const fullStart = formatDate(fileInfo.firstBarTime);
     const fullEnd = formatDate(fileInfo.lastBarTime);
-    const selStart = el.inpFrom.value || isoToDateInput(fileInfo.firstBarTime);
-    const selEnd = el.inpTo.value || isoToDateInput(fileInfo.lastBarTime);
-    el.rangeInfo.textContent = `[${selStart.replace(/\//g, '.')} … ${selEnd.replace(/\//g, '.')}]  /  ${fullStart} … ${fullEnd}`;
+    const selStart = formatDate(el.inpFrom.value || fileInfo.firstBarTime);
+    const selEnd = formatDate(el.inpTo.value || fileInfo.lastBarTime);
+    el.rangeInfo.textContent = `[${selStart} … ${selEnd}]  /  ${fullStart} … ${fullEnd}`;
 }
 
 // ── Run replay (SSE streaming) ──
@@ -151,6 +136,7 @@ async function runReplay() {
     el.status.textContent = 'Running markup...';
     currentFrame = 0;
     selectedNodeId = null;
+    stopAuto();
     clearMarkup();
 
     replayData = {
@@ -235,6 +221,10 @@ function handleSseEvent(event) {
             // Show last frame with full tree
             if (totalFrames > 0) {
                 const lastFrame = replayData.replay.frames[totalFrames - 1];
+                currentFrame = totalFrames - 1;
+                el.slider.max = Math.max(0, totalFrames - 1);
+                el.slider.value = currentFrame;
+                el.frmCurrent.textContent = currentFrame;
                 renderTree(lastFrame);
                 // Auto-select best node
                 if (lastFrame.bestNodeId) {
@@ -246,6 +236,7 @@ function handleSseEvent(event) {
                     }
                 }
             }
+            updatePlaybackButtons();
             break;
 
         case 'error':
@@ -391,26 +382,40 @@ function goFrame(idx) {
     }
 }
 
-// ── Calendar ↔ text sync ──
-// Hidden date input overlays the text field (opacity 0) → native picker opens on click.
-// Changes are synced both ways.
-el.inpFromCal.addEventListener('change', () => {
-    el.inpFrom.value = isoToDateInput(el.inpFromCal.value + 'T00:00:00Z');
-    updateRangeInfo();
-});
-el.inpToCal.addEventListener('change', () => {
-    el.inpTo.value = isoToDateInput(el.inpToCal.value + 'T00:00:00Z');
-    updateRangeInfo();
-});
-// Allow manual typing in text field → sync back to hidden date input
-el.inpFrom.addEventListener('input', () => {
-    const iso = dateInputToIso(el.inpFrom.value);
-    if (iso) el.inpFromCal.value = isoToCalValue(iso);
-});
-el.inpTo.addEventListener('input', () => {
-    const iso = dateInputToIso(el.inpTo.value);
-    if (iso) el.inpToCal.value = isoToCalValue(iso);
-});
-// Calendar icon clicks pass through to hidden date input
-$('iconFromCal').addEventListener('click', () => { el.inpFromCal.focus(); try { el.inpFromCal.showPicker(); } catch {/* no-op */} });
-$('iconToCal').addEventListener('click', () => { el.inpToCal.focus(); try { el.inpToCal.showPicker(); } catch {/* no-op */} });
+// ── Playback (forward only) ──
+function updatePlaybackButtons() {
+    const frames = replayData?.replay?.frames || [];
+    const atEnd = frames.length === 0 || currentFrame >= frames.length - 1;
+    el.btnNext.disabled = atEnd;
+    el.btnLast.disabled = atEnd;
+}
+
+function toggleAuto() {
+    if (autoTimer) {
+        stopAuto();
+        return;
+    }
+    const frames = replayData?.replay?.frames || [];
+    if (frames.length === 0) return;
+    // Restart from the beginning if we are already at the last frame.
+    if (currentFrame >= frames.length - 1) goFrame(0);
+
+    el.btnAuto.textContent = '⏸';
+    autoTimer = setInterval(() => {
+        const total = replayData?.replay?.frames?.length || 0;
+        if (currentFrame >= total - 1) {
+            stopAuto();
+            return;
+        }
+        goFrame(currentFrame + 1);
+    }, autoSpeed);
+}
+
+function stopAuto() {
+    if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+    }
+    el.btnAuto.textContent = '▶▶';
+}
+

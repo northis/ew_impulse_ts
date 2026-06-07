@@ -14,17 +14,9 @@
     <label>CSV:</label>
     <select id="selFile"><option>-- loading files... --</option></select>
     <label>From:</label>
-    <span class="date-wrap">
-      <input type="text" id="inpFromDate" placeholder="dd/MM/yyyy">
-      <input type="date" id="inpFromDateCal" class="date-cal-hidden" tabindex="-1">
-      <span class="date-icon" id="iconFromCal">📅</span>
-    </span>
+    <input type="date" id="inpFromDate">
     <label>To:</label>
-    <span class="date-wrap">
-      <input type="text" id="inpToDate" placeholder="dd/MM/yyyy">
-      <input type="date" id="inpToDateCal" class="date-cal-hidden" tabindex="-1">
-      <span class="date-icon" id="iconToCal">📅</span>
-    </span>
+    <input type="date" id="inpToDate">
     <button id="btnFull" title="Reset to full range">↔ Full</button>
     <span id="rangeInfo"></span>
     <label>Dead:</label><input type="number" id="inpDead" value="1" min="0" max="3" style="width:44px">
@@ -41,15 +33,13 @@
     </div>
   </div>
 
-  <!-- Playback bar -->
+  <!-- Playback bar (forward only) -->
   <div id="playback">
-    <button id="btnFirst" title="First frame">⏮</button>
-    <button id="btnPrev"  title="Previous frame">◀</button>
     <span id="frmCurrent">0</span>/<span id="frmTotal">0</span>
     <input type="range" id="slider" min="0" max="0" value="0">
-    <button id="btnNext"  title="Next frame">▶</button>
-    <button id="btnLast"  title="Last frame">⏭</button>
-    <button id="btnAuto"  title="Auto-play">▶▶</button>
+    <button id="btnNext"  title="Step forward one segment">▶ Step</button>
+    <button id="btnLast"  title="Jump to last frame">⏭</button>
+    <button id="btnAuto"  title="Auto-play forward">▶▶</button>
     <span id="frameLabel">Bar 0 / 0</span>
   </div>
 </div>

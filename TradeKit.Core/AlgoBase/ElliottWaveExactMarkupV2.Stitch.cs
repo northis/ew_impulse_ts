@@ -106,6 +106,20 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
+        /// Convenience adapter for the debug viewer (§13.1/§17.1): runs the gap-free
+        /// continuous markup (<see cref="ParseContinuous"/>) and exposes the top-level
+        /// tiles as the roots of a <see cref="MarkupSearchResult"/>. Unlike
+        /// <see cref="Parse"/> — which only yields a root when the <em>whole</em> range is a
+        /// single complete model — this always covers an arbitrary range, so the replay
+        /// tree is never empty.
+        /// </summary>
+        public MarkupSearchResult ParseTiled()
+        {
+            ContinuousMarkupResult c = ParseContinuous();
+            return new MarkupSearchResult(c.Tiles, c.Metrics, c.BestProjection);
+        }
+
+        /// <summary>
         /// Finds the longest rule-valid top-level pattern that starts at segment
         /// <paramref name="p"/> and fits within the bounded window
         /// <c>[p .. min(p+W-1, n-1)]</c>. Among candidates of equal (maximal) length the
