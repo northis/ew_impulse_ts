@@ -13,8 +13,18 @@
   <div id="topbar">
     <label>CSV:</label>
     <select id="selFile"><option>-- loading files... --</option></select>
-    <label>From:</label><input type="date" id="inpFromDate">
-    <label>To:</label><input type="date" id="inpToDate">
+    <label>From:</label>
+    <span class="date-wrap">
+      <input type="text" id="inpFromDate" placeholder="dd/MM/yyyy">
+      <input type="date" id="inpFromDateCal" class="date-cal-hidden" tabindex="-1">
+      <span class="date-icon" id="iconFromCal">📅</span>
+    </span>
+    <label>To:</label>
+    <span class="date-wrap">
+      <input type="text" id="inpToDate" placeholder="dd/MM/yyyy">
+      <input type="date" id="inpToDateCal" class="date-cal-hidden" tabindex="-1">
+      <span class="date-icon" id="iconToCal">📅</span>
+    </span>
     <button id="btnFull" title="Reset to full range">↔ Full</button>
     <span id="rangeInfo"></span>
     <label>Dead:</label><input type="number" id="inpDead" value="1" min="0" max="3" style="width:44px">

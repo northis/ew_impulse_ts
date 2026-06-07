@@ -27,12 +27,57 @@ public sealed class ReplayEngine
         foreach (string f in Directory.EnumerateFiles(dataDir, "*.csv"))
         {
             var fi = new FileInfo(f);
-            yield return new CsvFileInfo
+            var info = new CsvFileInfo
             {
                 Name = fi.Name,
                 Path = f,
                 SizeBytes = fi.Length
             };
+
+            // Read first and last data lines to extract date range (cheap — no full load)
+            try
+            {
+                using var fs = new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
+
+                // Check if there's a header
+                string? header = reader.ReadLine();
+                bool hasHeader = header != null &&
+                    (header.StartsWith("Time") || header.Contains($"Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close"));
+
+                string? firstDataLine = hasHeader ? reader.ReadLine() : header;
+                string? lastDataLine = null;
+                int lineCount = firstDataLine != null ? 1 : 0;
+
+                // Read to end to find last line (CSVs are ~hundreds of KB — fine)
+                while (reader.ReadLine() is { } line)
+                {
+                    lastDataLine = line;
+                    lineCount++;
+                }
+
+                if (firstDataLine != null)
+                {
+                    info.BarCount = lineCount;
+                    string[] parts = firstDataLine.Split(Helper.CSV_SEPARATOR);
+                    if (parts.Length >= 1 && DateTime.TryParse(parts[0],
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None, out DateTime firstDt))
+                        info.FirstBarTime = DateTime.SpecifyKind(firstDt, DateTimeKind.Utc).ToString("o");
+                }
+
+                if (lastDataLine != null)
+                {
+                    string[] parts = lastDataLine.Split(Helper.CSV_SEPARATOR);
+                    if (parts.Length >= 1 && DateTime.TryParse(parts[0],
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None, out DateTime lastDt))
+                        info.LastBarTime = DateTime.SpecifyKind(lastDt, DateTimeKind.Utc).ToString("o");
+                }
+            }
+            catch { /* can't read — leave times null */ }
+
+            yield return info;
         }
     }
 

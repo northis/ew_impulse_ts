@@ -10,6 +10,7 @@ let fileInfo = null;        // { barCount, firstBarTime, lastBarTime }
 const $ = id => document.getElementById(id);
 const el = {
     selFile: $('selFile'), inpFrom: $('inpFromDate'), inpTo: $('inpToDate'),
+    inpFromCal: $('inpFromDateCal'), inpToCal: $('inpToDateCal'),
     btnFull: $('btnFull'), rangeInfo: $('rangeInfo'),
     inpDead: $('inpDead'), btnLoad: $('btnLoad'), status: $('status'),
     nodeList: $('nodeList'), treeBarLabel: $('treeBarLabel'),
@@ -22,21 +23,32 @@ const el = {
 // ── Date helpers ──
 function isoToDateInput(isoStr) {
     if (!isoStr) return '';
-    // "2024-05-01T10:00:00.0000000Z" → "2024-05-01"
-    const m = isoStr.match(/^(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] : '';
+    // "2024-05-01T10:00:00.0000000Z" → "01/05/2024"
+    const m = isoStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
 function dateInputToIso(dateStr) {
     if (!dateStr) return null;
-    // "2024-05-01" → "2024-05-01T00:00:00Z"
-    return dateStr + 'T00:00:00Z';
+    // "01/05/2024" → "2024-05-01T00:00:00Z"
+    // Accept both dd/MM/yyyy and dd.MM.yyyy
+    const m = dateStr.match(/^(\d{2})[./](\d{2})[./](\d{4})/);
+    if (!m) return null;
+    return `${m[3]}-${m[2]}-${m[1]}T00:00:00Z`;
 }
 
 function formatDate(isoStr) {
     // "2024-05-01" → "01.05.2024" (day first)
     const m = isoStr ? isoStr.match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
     return m ? `${m[3]}.${m[2]}.${m[1]}` : isoStr || '?';
+}
+
+/** Convert ISO string to yyyy-MM-dd (native date input value). */
+function isoToCalValue(isoStr) {
+    if (!isoStr) return '';
+    const m = isoStr.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : '';
 }
 
 // ── Init ──
@@ -51,10 +63,16 @@ function formatDate(isoStr) {
             el.status.textContent = 'No CSV files found. Set REPLAY_DATA_DIR env var.';
             return;
         }
+
+        // Build file index for quick lookup
+        const fileIndex = {};
         for (const f of files) {
+            fileIndex[f.name] = f;
             const opt = document.createElement('option');
             opt.value = f.name;
-            opt.textContent = `${f.name} (${(f.sizeBytes / 1024).toFixed(0)} KB)`;
+            const kb = (f.sizeBytes / 1024).toFixed(0);
+            const barHint = f.barCount ? `  [${f.barCount} bars]` : '';
+            opt.textContent = `${f.name} (${kb} KB)${barHint}`;
             el.selFile.appendChild(opt);
         }
         el.status.textContent = 'Ready. Select a file and click Run.';
@@ -62,8 +80,16 @@ function formatDate(isoStr) {
         // Auto-select first file to pre-populate date range
         if (files.length > 0) {
             el.selFile.value = files[0].name;
-            el.selFile.dispatchEvent(new Event('change'));
+            populateDatesFromFileInfo(files[0]);
         }
+
+        // Update dates when user changes selection
+        el.selFile.addEventListener('change', async () => {
+            const name = el.selFile.value;
+            if (name && fileIndex[name]) {
+                populateDatesFromFileInfo(fileIndex[name]);
+            }
+        });
     } catch (e) {
         el.status.textContent = 'Error: ' + e.message;
     }
@@ -79,38 +105,41 @@ el.btnLast.addEventListener('click', () => goFrame((replayData?.replay?.frames?.
 el.btnAuto.addEventListener('click', toggleAuto);
 el.slider.addEventListener('input', () => goFrame(parseInt(el.slider.value)));
 
-el.selFile.addEventListener('change', async () => {
-    const name = el.selFile.value;
-    if (!name) return;
-    try {
-        const res = await fetch(`/api/replay/files/${encodeURIComponent(name)}`);
-        fileInfo = await res.json();
-        if (fileInfo.barCount) {
-            el.inpFrom.value = isoToDateInput(fileInfo.firstBarTime);
-            el.inpTo.value = isoToDateInput(fileInfo.lastBarTime);
-            updateRangeInfo();
-            el.status.textContent = `${fileInfo.barCount} bars`;
-        }
-    } catch { /* ignore */ }
-});
-
 el.inpFrom.addEventListener('change', updateRangeInfo);
 el.inpTo.addEventListener('change', updateRangeInfo);
 
+/** Populate date fields from a CsvFileInfo object (from the listing cache). */
+function populateDatesFromFileInfo(info) {
+    if (!info) return;
+    fileInfo = info;
+    if (info.barCount) {
+        setDateValues(info.firstBarTime, info.lastBarTime);
+        updateRangeInfo();
+        el.status.textContent = `${info.barCount} bars`;
+    }
+}
+
 function resetRange() {
     if (!fileInfo) return;
-    el.inpFrom.value = isoToDateInput(fileInfo.firstBarTime);
-    el.inpTo.value = isoToDateInput(fileInfo.lastBarTime);
+    setDateValues(fileInfo.firstBarTime, fileInfo.lastBarTime);
     updateRangeInfo();
+}
+
+/** Set both text (dd/MM/yyyy) and hidden calendar (yyyy-MM-dd) fields. */
+function setDateValues(firstIso, lastIso) {
+    el.inpFrom.value = isoToDateInput(firstIso);
+    el.inpFromCal.value = isoToCalValue(firstIso);
+    el.inpTo.value = isoToDateInput(lastIso);
+    el.inpToCal.value = isoToCalValue(lastIso);
 }
 
 function updateRangeInfo() {
     if (!fileInfo) return;
-    const fullStart = isoToDateInput(fileInfo.firstBarTime);
-    const fullEnd = isoToDateInput(fileInfo.lastBarTime);
-    const selStart = el.inpFrom.value || fullStart;
-    const selEnd = el.inpTo.value || fullEnd;
-    el.rangeInfo.textContent = `[${formatDate(selStart)} … ${formatDate(selEnd)}]  /  ${formatDate(fullStart)} … ${formatDate(fullEnd)}`;
+    const fullStart = formatDate(fileInfo.firstBarTime);
+    const fullEnd = formatDate(fileInfo.lastBarTime);
+    const selStart = el.inpFrom.value || isoToDateInput(fileInfo.firstBarTime);
+    const selEnd = el.inpTo.value || isoToDateInput(fileInfo.lastBarTime);
+    el.rangeInfo.textContent = `[${selStart.replace(/\//g, '.')} … ${selEnd.replace(/\//g, '.')}]  /  ${fullStart} … ${fullEnd}`;
 }
 
 // ── Run replay ──
@@ -301,3 +330,26 @@ function updatePlaybackButtons() {
     el.btnNext.disabled = currentFrame >= n - 1;
     el.btnLast.disabled = currentFrame >= n - 1;
 }
+
+// ── Calendar ↔ text sync ──
+el.inpFromCal.addEventListener('change', () => {
+    el.inpFrom.value = isoToDateInput(el.inpFromCal.value + 'T00:00:00Z');
+    updateRangeInfo();
+});
+el.inpToCal.addEventListener('change', () => {
+    el.inpTo.value = isoToDateInput(el.inpToCal.value + 'T00:00:00Z');
+    updateRangeInfo();
+});
+// Open calendar on text input or icon click
+el.inpFrom.addEventListener('click', () => {
+    try { el.inpFromCal.showPicker(); } catch{/* no-op */}
+});
+el.inpTo.addEventListener('click', () => {
+    try { el.inpToCal.showPicker(); } catch{/* no-op */}
+});
+$('iconFromCal').addEventListener('click', () => {
+    try { el.inpFromCal.showPicker(); } catch{/* no-op */}
+});
+$('iconToCal').addEventListener('click', () => {
+    try { el.inpToCal.showPicker(); } catch{/* no-op */}
+});

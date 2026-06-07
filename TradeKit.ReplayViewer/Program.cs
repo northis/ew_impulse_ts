@@ -81,11 +81,31 @@ void EnsureProvider(string csvPath)
     if (loadedCsvPath == csvPath && loadedProvider != null && engine != null)
         return;
 
-    // TimeFrame / Symbol — use synthetic defaults
-    var tf = new TimeFrameBase("H1", "H1");
+    ITimeFrame tf = ResolveTimeFrame(csvPath);
     loadedProvider = new ReplayBarsProvider(tf);
     engine = new ReplayEngine(loadedProvider);
     loadedCsvPath = csvPath;
+}
+
+// Extracts the timeframe shortName from a CSV filename like
+// "AUDCAD_h1_2019-...csv" → looks up TimeFrameHelper for matching ITimeFrame.
+// Falls back to Hour1.
+static ITimeFrame ResolveTimeFrame(string csvPath)
+{
+    string name = Path.GetFileNameWithoutExtension(csvPath);
+    // Pattern: SYMBOL_TF_...  e.g. "AUDCAD_h1_2019-..." → "h1"
+    var m = System.Text.RegularExpressions.Regex.Match(name, @"_([a-zA-Z]\d{1,2})_");
+    if (m.Success)
+    {
+        string shortName = m.Groups[1].Value;
+        var match = TimeFrameHelper.TimeFrames.Values
+            .FirstOrDefault(v => string.Equals(
+                v.TimeFrame.ShortName, shortName, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+            return match.TimeFrame;
+    }
+    // Fallback — try "Hour" by name
+    return TimeFrameHelper.Hour1;
 }
 
 // ── request DTO ──────────────────────────────────────

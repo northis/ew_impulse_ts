@@ -40,12 +40,12 @@ public sealed class ReplayBarsProvider : IBarsProvider
 
         // Check header
         int startLine = lines[0].StartsWith("Time") ||
-                        lines[0].Contains($"Open{','}High{','}Low{','}Close")
+                        lines[0].Contains($"Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close")
             ? 1 : 0;
 
         for (int i = startLine; i < lines.Length; i++)
         {
-            string[] parts = lines[i].Split(',');
+            string[] parts = lines[i].Split(Helper.CSV_SEPARATOR);
             if (parts.Length < 5) continue;
 
             if (!DateTime.TryParse(parts[0], CultureInfo.InvariantCulture,
