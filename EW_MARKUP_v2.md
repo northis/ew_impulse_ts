@@ -526,61 +526,97 @@ bars(parentWaveOfSameRole) ≥ 0.9 · bars(childWave)   // иначе DEAD: DURA
 генерирует их на лету и отдаёт прямо в браузер.
 
 ```
-┌─ TradeKit.ReplayViewer (Kestrel :5000) ────────────────────┐
-│                                                             │
-│  POST /api/replay/run                                       │
-│    { file, fromDate, toDate, deadDepth }                    │
-│         │                                                   │
-│         ▼                                                   │
-│  ReplayEngine:                                              │
-│    1. ReplayBarsProvider.LoadCandles(csv)                   │
-│    2. ElliottWaveExactMarkupV2(provider, start, end)       │
-│    3. EwMarkupTreeExporter.BuildReplay(markup)  ← §17 DTO  │
-│    4. возвращает { candles, replay, snapshot }             │
-│         │                                                   │
-│         ▼                                                   │
-│  ┌──────────────────────────────────────────┐              │
-│  │  Браузер (TradingView Lightweight Charts)│              │
-│  │  ┌────────────────┬────────────────────┐ │              │
-│  │  │ Свечной график │ Панель узлов       │ │              │
-│  │  │ + разметка     │ • ✓ COMPLETE       │ │              │
-│  │  │ + зоны отмены  │ • ⏳ PROJECTED     │ │              │
-│  │  │ + проекции     │ • ✗ DEAD + причина │ │              │
-│  │  └────────────────┴────────────────────┘ │              │
-│  │  [⏮] [◀] [▶] [⏭] [▶▶]  Bar 247 / 400   │              │
-│  └──────────────────────────────────────────┘              │
-└─────────────────────────────────────────────────────────────┘
+┌─ TradeKit.ReplayViewer (Kestrel :5000) ───────────────────────┐
+│                                                               │
+│  POST /api/replay/init                                        │
+│    { file, fromDate, toDate }                                 │
+│         │                                                     │
+│         ▼                                                     │
+│  ReplayEngine.Initialize(...):                                │
+│    1. ReplayBarsProvider.LoadCandles(csv) → PriceDecimals     │
+│    2. ElliottWaveExactMarkupV2(provider, startBar, endBar)    │
+│    3. возвращает { symbol, timeframe, priceDecimals,          │
+│           startBar, endBar, totalSteps }                      │
+│                                                               │
+│  POST /api/replay/step  (на каждое нажатие)                   │
+│    { deadDepth }                                              │
+│         │                                                     │
+│         ▼                                                     │
+│  ReplayEngine.Step(deadDepth):                                │
+│    1. продвигается на 1 сегмент зигзага                      │
+│    2. раскрывает новые бары (m_LastRevealedBar+1 .. newBar)  │
+│    3. BuildSnapshot(sub, result, deadDepth)                   │
+│    4. возвращает { done, frame, snapshot, newCandles }        │
+│         │                                                     │
+│         ▼                                                     │
+│  ┌──────────────────────────────────────────┐                │
+│  │  Браузер (TradingView Lightweight Charts)│                │
+│  │  ┌────────────────┬────────────────────┐ │                │
+│  │  │ Свечной график │ Панель узлов       │ │                │
+│  │  │ + разметка     │ (автоскролл вниз)  │ │                │
+│  │  │ + волны/проекц │ • COMPLETE / ALIVE │ │                │
+│  │  │ + инкремент.   │ • DEAD + причина   │ │                │
+│  │  │   бары          │                    │ │                │
+│  │  └────────────────┴────────────────────┘ │                │
+│  │  ▶ Play / ⏸ Pause   ⏭ Step   3 / 39     │                │
+│  │  [═══════════░░░░░░░░░░░░░░░░] 06.01.20  │                │
+│  └──────────────────────────────────────────┘                │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 **Возможности web-интерфейса:**
 - **Выбор CSV** из `data/` с автоопределением полного диапазона дат
-- **Диапазон задаётся датами** (не индексами баров) — сервер резолвит даты в индексы
-- **Пошаговое проигрывание** — кнопки ⏮ ⏪ ▶ ⏭, ползунок, авто-проигрывание ▶▶
-  с настраиваемой скоростью
-- **Панель узлов** — список всех живых и мёртвых узлов текущего кадра:
-  цветовая индикация статуса (✓ зелёный = `COMPLETE`, ⏳ жёлтый = `PROJECTED`,
+- **Диапазон задаётся датами** (не индексами баров) — поля ввода `dd.mm.yyyy`
+  (текстовые, day-first, без зависимости от локали браузера)
+- **Пошаговое проигрывание** — кнопка `⏭ Step`: ровно один сегмент зигзага
+  за нажатие; сервер выполняет шаг на лету и возвращает снапшот дерева +
+  новые бары
+- **Авто-проигрывание** — кнопка `▶ Play` (превращается в `⏸ Pause`):
+  последовательный вызов шагов с задержкой 150 мс; Pause доигрывает текущий
+  сегмент и останавливается
+- **Инкрементальное раскрытие баров** — на каждом шагу на график добавляются
+  только бары, составляющие текущий сегмент (не все сразу)
+- **Точность цены по Y** — число десятичных разрядов извлекается из CSV
+  (поле `PriceDecimals`) и передаётся в UI → формат оси Y и цен в панели
+  узлов `.toFixed(priceDecimals)`
+- **Не кликабельный прогресс-бар** внизу — показывает позицию в диапазоне
+  дат (stepIndex / totalSteps) и дату текущего бара
+- **Панель узлов** — дерево узлов из снапшота: цветовая индикация статуса
+  (✓ зелёный = `COMPLETE`, ⏳ жёлтый = `PROJECTED`/`ALIVE`,
   ✗ красный = `DEAD`), модель, позиция, скор, ценовой диапазон, причина смерти
+- **Автоскролл панели узлов вниз** — новые ветви всегда видны
 - **Клик по узлу** → на графике рисуется разметка именно этого узла (подволны +
   зоны отмены + пунктирные проекции для `PROJECTED`)
-- **Кадры как дельты** — на каждом шагу сервер отдаёт только изменения
-  (`BORN` / `DIED` / `COMPLETED` / `PROJECTED`), а не всё дерево целиком,
-  что позволяет визуализатору анимировать переходы
 
 **Внутреннее устройство:**
 - `ReplayBarsProvider` — лёгкая реализация `IBarsProvider`, загружающая CSV
-  в память; предоставляет `FindBarIndex(DateTime)` и `ResolveDateRange()` для
-  трансляции дат в индексы
-- `ReplayEngine` — оркестратор: грузит свечи → создаёт `ElliottWaveExactMarkupV2`
-  → вызывает `Parse(deadDepth)` → использует `EwMarkupTreeExporter.BuildReplay()`
-  и `BuildSnapshot()` для генерации replay-кадров и снапшота дерева
-- DTO-классы из §17 (`EwReplayDto`, `EwTreeSnapshotDto`, `EwNodeDto`) остаются
-  внутренним форматом данных, передаваемым через HTTP API
+  в память; вычисляет `PriceDecimals` (макс. число разрядов OHLC); предоставляет
+  `FindBarIndex(DateTime)` для трансляции дат в индексы
+- `ReplayEngine` — оркестратор с состоянием:
+  - `Initialize(file, fromDate, toDate)` — грузит свечи → строит зигзаг →
+    создаёт `ElliottWaveExactMarkupV2` на диапазоне → запоминает пивоты,
+    все свечи, стартовый бар; возвращает метаданные (`/api/replay/init`)
+  - `Step(deadDepth)` — продвигает `m_CurrentStep` на 1, вызывает
+    `EwMarkupTreeExporter.BuildSnapshot()` для текущего префикса пивотов,
+    раскрывает новые бары (`newCandles`); возвращает `ReplayStepResult`
+    (`/api/replay/step`)
+- `ReplayStepResult` — `{ done, frame, snapshot, newCandles }`:
+  - `frame` — `EwReplayFrameDto` с `closeTime`, `barIndex`, `newPivot`
+  - `snapshot` — `EwTreeSnapshotDto` (§17): полное дерево узлов на текущий шаг
+  - `newCandles` — бары, раскрытые на этом шагу (для инкрементального добавления
+    на график)
+  - `done` — `true`, когда шаги исчерпаны (stepIndex == totalSteps)
+- DTO-классы из §17 (`EwTreeSnapshotDto`, `EwNodeDto`, `EwPivotDto`) — внутренний
+  формат данных, передаваемый через HTTP API; сериализация — System.Text.Json
+  (camelCase, как в ASP.NET Core minimal API по умолчанию)
+- **Важно:** `frame.newPivot` **не содержит время** — время текущего бара
+  находится в `frame.closeTime` (дата открытия пивота)
 
 **Запуск:**
 ```powershell
 cd TradeKit.ReplayViewer
 dotnet run
-# → http://localhost:5000
+# → https://localhost:5000
 ```
 
 Путь к `data/` настраивается переменной окружения `REPLAY_DATA_DIR` (по умолчанию
@@ -591,7 +627,6 @@ dotnet run
 > отказались в пользу прямого веб-сервера: он устраняет промежуточный слой,
 > позволяет менять диапазон «на лету» и наблюдать работу алгоритма без
 > перезапуска.
-
 ---
 
 ## 14. Управление комбинаторной сложностью
@@ -797,59 +832,95 @@ score(node) = fiboScore × P(model | position) × Π(softPenalties)
 > Дерево может быть большим; для экспорта применяется тот же beam-фильтр (§14.2),
 > либо опция «экспортировать и мёртвые ветви до глубины D» для отладки.
 
-### 17.1 Побаровое проигрывание (replay) — `TradeKit.ReplayViewer`
+### 17.1 Пошаговое проигрывание (replay) — `TradeKit.ReplayViewer`
 
 Пошаговая отладка реализована как веб-приложение на ASP.NET Core Kestrel
-(см. §13.1). Сервер перепрогоняет v2-разметку на растущих префиксе пивотов
-и вычисляет дельты между последовательными состояниями дерева.
+(см. §13.1). Сервер выполняет шаги **на лету** (on-demand): каждый запрос
+`/api/replay/step` перепрогоняет v2-разметку на растущем префиксе пивотов
+и возвращает полный снапшот дерева на текущий шаг.
 
-**Формат replay (внутренний, `EwReplayDto`):**
+**Инициализация — `POST /api/replay/init`:**
 
 ```json
+// Запрос
+{ "file": "EURUSD_h1_...csv", "fromDate": "2024-05-01", "toDate": "2024-05-10" }
+
+// Ответ
 {
-  "$schema": "ew-markup-tree-replay/v2",
   "symbol": "EURUSD",
   "timeframe": "h1",
-  "frames": [
-    {
-      "barIndex": 12017,
-      "closeTime": "2024-05-01T10:00:00Z",
-      "newPivot": { "barIndex": 12017, "price": 1.0920, "isHigh": true },
-      "events": [
-        { "type": "BORN",  "nodeId": "n7", "model": "ZIGZAG", "wavePos": "b" },
-        { "type": "DIED",  "nodeId": "n4", "deathReason": "PRICE_BREACH" }
-      ],
-      "aliveNodeIds": ["n0", "n1", "n2", "n3", "n7"],
-      "bestNodeId": "n0"
-    }
-  ]
+  "priceDecimals": 5,
+  "startBar": 12000,
+  "endBar": 12940,
+  "totalSteps": 39
 }
 ```
 
-**Генерация кадров** — `EwMarkupTreeExporter.BuildReplay(markup)`:
-- Для k от 2 до `pivots.Count` создаёт `ElliottWaveExactMarkupV2` на префиксе
-  `pivots[0..k]` и вызывает `Parse()`
-- Сравнивает состояния узлов между последовательными кадрами:
-  - `BORN` — узел появился впервые
-  - `DIED` — узел исчез (отмер по hard-правилу)
-  - `COMPLETED` — статус сменился с `PROJECTED` на `COMPLETE`
-  - `PROJECTED` — узел стал проекцией (не хватает волн, но диапазон упёрся в конец)
-- `aliveNodeIds` — ID всех живых узлов на конец кадра
-- `bestNodeId` — ID узла с наивысшим скором
+**Шаг — `POST /api/replay/step`:**
 
-**Стабильные ID узлов** — `StableId(node)` = `{Model}|{StartSeg}-{EndSeg}|{WavePos}|L{Level}`.
-Один и тот же логический узел сохраняет ID между кадрами, что позволяет
-визуализатору отслеживать его жизненный цикл.
+```json
+// Запрос
+{ "deadDepth": 1 }
 
-**Снапшот дерева** (`EwTreeSnapshotDto`, см. §17) содержит полные атрибуты
-всех узлов (включая мёртвые ветви при `deadDepth > 0`). Replay-кадры
-ссылаются на узлы по `nodeId` и несут только дельты — так достигается
-компактность при передаче по HTTP.
+// Ответ (промежуточный шаг)
+{
+  "done": false,
+  "frame": {
+    "barIndex": 12017,
+    "closeTime": "2024-05-01T10:00:00Z",
+    "newPivot": { "barIndex": 12017, "price": 1.09204, "isHigh": true }
+  },
+  "snapshot": {
+    "zigzag": [
+      { "barIndex": 12000, "price": 1.08503, "isHigh": false },
+      { "barIndex": 12017, "price": 1.09204, "isHigh": true }
+    ],
+    "nodes": [
+      {
+        "id": "n0",
+        "parentId": null,
+        "model": "IMPULSE",
+        "wavePos": "root",
+        "level": 0,
+        "startPivot": 0,
+        "endPivot": -1,
+        "isUp": true,
+        "status": "ALIVE",
+        "score": 0.0,
+        "children": []
+      }
+    ]
+  },
+  "newCandles": [
+    { "time": "2024-05-01T10:00:00Z", "open": 1.08650, "high": 1.09204,
+      "low": 1.08550, "close": 1.09120, "barIndex": 12017 }
+  ]
+}
 
-> Первоначальный проектный план предполагал запись JSON на диск и загрузку
-> во внешний визуализатор. От этого отказались: прямой веб-сервер устраняет
-> промежуточный слой, позволяет менять диапазон без перезапуска и даёт
-> интерактивность (клик по узлу → разметка на графике).
+// Ответ (последний шаг)
+{ "done": true }
+```
+
+**Генерация шагов** — `ReplayEngine.Step(deadDepth)`:
+- Инкрементирует `m_CurrentStep` (начинается с 2, т.к. нужно ≥2 пивотов для
+  первого сегмента)
+- Вызывает `ElliottWaveExactMarkupV2.ParseTiled()` на префиксе
+  `pivots[0..m_CurrentStep]` и `EwMarkupTreeExporter.BuildSnapshot()`
+- Раскрывает бары `m_LastRevealedBar+1 .. newPivot.BarIndex` как `newCandles`
+- Если `m_CurrentStep >= pivots.Count` → возвращает `{ done: true }`
+
+**Особенности реализации:**
+- **Не pre-compute:** дерево перестраивается на каждом шагу заново на растущем
+  префиксе — это O(n²) по числу пивотов, поэтому рекомендуется использовать
+  узкие диапазоны дат (например, 3–5 дней для h1)
+- **Стабильные ID узлов** — `StableId(node)` =
+  `{Model}|{StartSeg}-{EndSeg}|{WavePos}|L{Level}`.
+  Один и тот же логический узел сохраняет ID между шагами, что позволяет
+  визуализатору отслеживать его жизненный цикл.
+- **Снапшот** (`EwTreeSnapshotDto`, см. §17) содержит полные атрибуты
+  всех узлов на текущий шаг (включая мёртвые ветви при `deadDepth > 0`).
+- **`frame.closeTime` — источник времени:** `newPivot` (EwPivotDto) не содержит
+  время — дата текущего бара находится в `frame.closeTime` (дата открытия пивота).
 
 ---
 
@@ -884,8 +955,11 @@ score(node) = fiboScore × P(model | position) × Π(softPenalties)
 5. **Beam search + DP-мемоизация** (§14) — контроль сложности, метрики §15.4.
 6. **Растяжения и проекции** (§11, §13) — режим прогноза.
 7. ✅ **Экспорт дерева + web-отладка** (§17, §17.1) — `TradeKit.ReplayViewer`:
-   веб-приложение на Kestrel с TradingView Lightweight Charts, пошаговым
-   проигрыванием, панелью узлов и выбором диапазона по датам.
+   веб-приложение на Kestrel (https://localhost:5000) с TradingView Lightweight
+   Charts, пошаговым проигрыванием (on-demand `/api/replay/init` + `/api/replay/step`),
+   панелью узлов с автоскроллом, инкрементальным раскрытием баров, Play/Pause,
+   не кликабельным прогресс-баром, выбором диапазона по датам (dd.mm.yyyy),
+   точностью цен из CSV.
 8. **Калибровка по `data/`** (§16) — заполнить все TBD и таблицу вероятностей.
 9. **Непрерывность** (§15.3 `T-MK-1/3`) — добиться `GapCount → 0` на всей истории.
 
