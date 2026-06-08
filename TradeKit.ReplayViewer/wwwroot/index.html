@@ -14,13 +14,16 @@
     <label>CSV:</label>
     <select id="selFile"><option>-- loading files... --</option></select>
     <label>From:</label>
-    <input type="date" id="inpFromDate">
+    <input type="text" id="inpFromDate" placeholder="dd.mm.yyyy" maxlength="10" inputmode="numeric" autocomplete="off">
     <label>To:</label>
-    <input type="date" id="inpToDate">
+    <input type="text" id="inpToDate" placeholder="dd.mm.yyyy" maxlength="10" inputmode="numeric" autocomplete="off">
     <button id="btnFull" title="Reset to full range">↔ Full</button>
     <span id="rangeInfo"></span>
     <label>Dead:</label><input type="number" id="inpDead" value="1" min="0" max="3" style="width:44px">
-    <button id="btnLoad">▶ Run</button>
+    <button id="btnLoad">⏎ Load</button>
+    <span class="ctrl-sep"></span>
+    <button id="btnPlay" title="Play / pause continuous analysis" disabled>▶ Play</button>
+    <button id="btnStep" title="Analyse one zigzag segment" disabled>⏭ Step</button>
     <span id="status">Ready</span>
   </div>
 
@@ -29,18 +32,15 @@
     <div id="chartContainer"></div>
     <div id="treePanel">
       <h4>📋 Nodes — Bar <span id="treeBarLabel">0</span></h4>
-      <div id="nodeList"><em style="color:#666;padding:12px">Run a replay to see nodes</em></div>
+      <div id="nodeList"><em style="color:#666;padding:12px">Load a file, then Step / Play</em></div>
     </div>
   </div>
 
-  <!-- Playback bar (forward only) -->
+  <!-- Progress bar (position in date range — not interactive) -->
   <div id="playback">
-    <span id="frmCurrent">0</span>/<span id="frmTotal">0</span>
-    <input type="range" id="slider" min="0" max="0" value="0">
-    <button id="btnNext"  title="Step forward one segment">▶ Step</button>
-    <button id="btnLast"  title="Jump to last frame">⏭</button>
-    <button id="btnAuto"  title="Auto-play forward">▶▶</button>
-    <span id="frameLabel">Bar 0 / 0</span>
+    <span id="stepCounter">0 / 0</span>
+    <progress id="progress" max="100" value="0"></progress>
+    <span id="barDate">—</span>
   </div>
 </div>
 

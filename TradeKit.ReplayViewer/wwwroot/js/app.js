@@ -1,10 +1,14 @@
 // ── State ──
-let currentFrame = 0;
-let replayData = null;     // { candles, replay, snapshot, startBar, endBar }
+let session = null;          // { startBar, endBar, totalSteps, priceDecimals, symbol, timeframe }
+let stepIndex = 0;           // number of segments analysed so far
+let allCandles = [];         // accumulated candles (absolute barIndex), revealed segment by segment
+let currentSnapshot = null;  // latest per-step tree snapshot
 let selectedNodeId = null;
-let autoTimer = null;
-let autoSpeed = 500;       // ms
-let fileInfo = null;        // { barCount, firstBarTime, lastBarTime }
+let playing = false;         // continuous play in progress
+let pauseRequested = false;  // finish current segment, then stop
+let priceDecimals = 5;
+let fileInfo = null;         // { barCount, firstBarTime, lastBarTime }
+const PLAY_DELAY = 150;      // ms between auto steps
 
 // ── DOM refs ──
 const $ = id => document.getElementById(id);
@@ -13,31 +17,36 @@ const el = {
     btnFull: $('btnFull'), rangeInfo: $('rangeInfo'),
     inpDead: $('inpDead'), btnLoad: $('btnLoad'), status: $('status'),
     nodeList: $('nodeList'), treeBarLabel: $('treeBarLabel'),
-    btnNext: $('btnNext'), btnLast: $('btnLast'), btnAuto: $('btnAuto'),
-    slider: $('slider'), frmCurrent: $('frmCurrent'), frmTotal: $('frmTotal'),
-    frameLabel: $('frameLabel')
+    btnPlay: $('btnPlay'), btnStep: $('btnStep'),
+    stepCounter: $('stepCounter'), progress: $('progress'), barDate: $('barDate')
 };
 
 // ── Date helpers ──
-/** Native <input type="date"> value (yyyy-MM-dd) → ISO instant for the API. */
+/** "dd.mm.yyyy" (day-first) text-input value → ISO instant for the API. Also accepts ISO. */
 function dateInputToIso(dateStr) {
     if (!dateStr) return null;
-    const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!m) return null;
-    return `${m[1]}-${m[2]}-${m[3]}T00:00:00Z`;
+    let m = dateStr.match(/^\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})\s*$/); // dd.mm.yyyy
+    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T00:00:00Z`;
+    m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);                          // yyyy-mm-dd
+    if (m) return `${m[1]}-${m[2]}-${m[3]}T00:00:00Z`;
+    return null;
 }
 
 function formatDate(isoStr) {
-    // "2024-05-01" → "01.05.2024" (day first)
+    // "2024-05-01" / ISO → "01.05.2024" (day first)
     const m = isoStr ? isoStr.match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
     return m ? `${m[3]}.${m[2]}.${m[1]}` : isoStr || '?';
 }
 
-/** Convert ISO string to yyyy-MM-dd (native date input value). */
+/** "2024-05-01T13:00:00Z" → "01.05.2024 13:00" (day first, with time). */
+function formatDateTime(isoStr) {
+    const m = isoStr ? isoStr.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/) : null;
+    return m ? `${m[3]}.${m[2]}.${m[1]} ${m[4]}:${m[5]}` : (formatDate(isoStr));
+}
+
+/** Convert ISO string to "dd.mm.yyyy" (day-first text-input value). */
 function isoToCalValue(isoStr) {
-    if (!isoStr) return '';
-    const m = isoStr.match(/^(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] : '';
+    return formatDate(isoStr) === '?' ? '' : formatDate(isoStr);
 }
 
 // ── Init ──
@@ -85,12 +94,10 @@ function isoToCalValue(isoStr) {
 })();
 
 // ── Events ──
-el.btnLoad.addEventListener('click', runReplay);
+el.btnLoad.addEventListener('click', loadReplay);
 el.btnFull.addEventListener('click', resetRange);
-el.btnNext.addEventListener('click', () => goFrame(currentFrame + 1));
-el.btnLast.addEventListener('click', () => goFrame((replayData?.replay?.frames?.length || 1) - 1));
-el.btnAuto.addEventListener('click', toggleAuto);
-el.slider.addEventListener('input', () => goFrame(parseInt(el.slider.value)));
+el.btnPlay.addEventListener('click', togglePlay);
+el.btnStep.addEventListener('click', () => { if (!playing) doStep(); });
 
 el.inpFrom.addEventListener('change', updateRangeInfo);
 el.inpTo.addEventListener('change', updateRangeInfo);
@@ -127,27 +134,35 @@ function updateRangeInfo() {
     el.rangeInfo.textContent = `[${selStart} … ${selEnd}]  /  ${fullStart} … ${fullEnd}`;
 }
 
-// ── Run replay (SSE streaming) ──
-async function runReplay() {
+// ── Load (initialise an on-demand stepping session) ──
+async function loadReplay() {
     const file = el.selFile.value;
     if (!file) return;
 
+    pauseRequested = true;            // stop any running play loop
+    playing = false;
+    setPlayButton(false);
     el.btnLoad.disabled = true;
-    el.status.textContent = 'Running markup...';
-    currentFrame = 0;
-    selectedNodeId = null;
-    stopAuto();
-    clearMarkup();
+    el.btnPlay.disabled = true;
+    el.btnStep.disabled = true;
+    el.status.textContent = 'Initialising...';
 
-    replayData = {
-        candles: [],
-        replay: { $schema: 'ew-markup-tree-replay/v2', symbol: '', timeframe: '', frames: [] },
-        snapshot: { nodes: [], zigzag: [] },
-        startBar: 0, endBar: 0
-    };
+    // Reset accumulators + chart
+    session = null;
+    stepIndex = 0;
+    allCandles = [];
+    currentSnapshot = null;
+    selectedNodeId = null;
+    clearMarkup();
+    setCandles([]);
+    el.nodeList.innerHTML = '<em style="color:#666;padding:12px;display:block">Analysing…</em>';
+    el.treeBarLabel.textContent = '0';
+    el.stepCounter.textContent = '0 / 0';
+    el.progress.value = 0;
+    el.barDate.textContent = '—';
 
     try {
-        const res = await fetch('/api/replay/stream', {
+        const res = await fetch('/api/replay/init', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -157,153 +172,130 @@ async function runReplay() {
                 deadDepth: parseInt(el.inpDead.value) || 1
             })
         });
-        if (!res.ok) {
-            const err = await res.text();
-            throw new Error(err || 'Unknown error');
-        }
+        if (!res.ok) throw new Error((await res.text()) || 'Unknown error');
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = '';
+        session = await res.json();
+        priceDecimals = session.priceDecimals || 5;
+        setPricePrecision(priceDecimals);
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buf += decoder.decode(value, { stream: true });
-            const lines = buf.split('\n');
-            buf = lines.pop() || ''; // keep incomplete last line
-
-            for (const line of lines) {
-                if (!line.startsWith('data: ')) continue;
-                try {
-                    const event = JSON.parse(line.slice(6));
-                    handleSseEvent(event);
-                } catch { /* skip malformed */ }
-            }
-        }
+        el.status.textContent = `${session.symbol} ${session.timeframe} — ${session.totalSteps} segments`;
+        el.stepCounter.textContent = `0 / ${session.totalSteps}`;
+        el.btnPlay.disabled = false;
+        el.btnStep.disabled = false;
     } catch (e) {
         el.status.textContent = 'Error: ' + e.message;
+    } finally {
         el.btnLoad.disabled = false;
     }
 }
 
-function handleSseEvent(event) {
-    switch (event.type) {
-        case 'init':
-            replayData.candles = event.candles;
-            replayData.startBar = event.startBar;
-            replayData.endBar = event.endBar;
-            setCandles(event.candles);
-            el.status.textContent = 'Initialised — streaming frames...';
-            break;
+// ── Step: analyse exactly one zigzag segment ──
+/** Returns true if more segments remain afterwards, false when finished. */
+async function doStep() {
+    if (!session) return false;
+    try {
+        const res = await fetch('/api/replay/step', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deadDepth: parseInt(el.inpDead.value) || 1 })
+        });
+        if (!res.ok) throw new Error((await res.text()) || 'Step failed');
 
-        case 'frame':
-            replayData.replay.frames.push(event.frame);
-            const n = replayData.replay.frames.length;
-            el.slider.max = Math.max(0, n - 1);
-            el.slider.value = n - 1;
-            el.frmTotal.textContent = n;
-            el.frmCurrent.textContent = n - 1;
-            currentFrame = n - 1;
-            const f = event.frame;
-            el.frameLabel.textContent = `Bar ${f.newPivot?.barIndex ?? '?'} / ${replayData.candles.length}`;
-            el.treeBarLabel.textContent = f.newPivot?.barIndex ?? '0';
-            renderLiveFrame(f);
-            el.status.textContent = `Frame ${n} — bar ${f.newPivot?.barIndex ?? '?'}`;
-            break;
+        const data = await res.json();
+        if (data.done) {
+            el.btnStep.disabled = true;
+            el.status.textContent = `Finished — ${stepIndex} / ${session.totalSteps} segments`;
+            return false;
+        }
 
-        case 'done':
-            replayData.snapshot = event.snapshot;
-            const totalFrames = replayData.replay.frames.length;
-            el.status.textContent = `OK — ${event.snapshot.nodes.length} nodes, ${totalFrames} frames`;
-            el.btnLoad.disabled = false;
-            // Show last frame with full tree
-            if (totalFrames > 0) {
-                const lastFrame = replayData.replay.frames[totalFrames - 1];
-                currentFrame = totalFrames - 1;
-                el.slider.max = Math.max(0, totalFrames - 1);
-                el.slider.value = currentFrame;
-                el.frmCurrent.textContent = currentFrame;
-                renderTree(lastFrame);
-                // Auto-select best node
-                if (lastFrame.bestNodeId) {
-                    const bestCard = el.nodeList.querySelector(`[data-node-id="${CSS.escape(lastFrame.bestNodeId)}"]`);
-                    if (bestCard) {
-                        bestCard.classList.add('selected');
-                        selectedNodeId = lastFrame.bestNodeId;
-                        drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
-                    }
-                }
-            }
-            updatePlaybackButtons();
-            break;
+        // Reveal the candles that make up this segment
+        if (data.newCandles && data.newCandles.length) {
+            for (const c of data.newCandles) allCandles.push(c);
+            setCandles(allCandles);
+        }
 
-        case 'error':
-            el.status.textContent = 'Error: ' + (event.message || 'Unknown');
-            el.btnLoad.disabled = false;
-            break;
+        currentSnapshot = data.snapshot;
+        stepIndex++;
+
+        // Progress = position of the current bar within the date range (not clickable)
+        const f = data.frame;
+        const curBar = f?.newPivot?.barIndex
+            ?? (allCandles.length ? allCandles[allCandles.length - 1].barIndex : session.startBar);
+        const span = Math.max(1, session.endBar - session.startBar);
+        el.progress.value = Math.max(0, Math.min(100, ((curBar - session.startBar) / span) * 100));
+
+        const barIso = f?.closeTime || f?.newPivot?.closeTime
+            || (allCandles.length ? allCandles[allCandles.length - 1].time : null);
+        el.barDate.textContent = barIso ? formatDateTime(barIso) : `bar ${curBar}`;
+        el.treeBarLabel.textContent = curBar;
+        el.stepCounter.textContent = `${stepIndex} / ${session.totalSteps}`;
+        el.status.textContent = `Segment ${stepIndex} — bar ${curBar}`;
+
+        // Render the per-step tree and auto-select the best (first) node
+        renderTree(currentSnapshot, f?.bestNodeId);
+
+        return stepIndex < session.totalSteps;
+    } catch (e) {
+        el.status.textContent = 'Error: ' + e.message;
+        return false;
     }
 }
 
-/** Lightweight tree render during streaming (no snapshot yet). */
-function renderLiveFrame(frame) {
-    const aliveIds = frame.aliveNodeIds || [];
-    let html = '';
-    if (aliveIds.length === 0) {
-        html = '<em style="color:#666;padding:12px;display:block">No nodes yet</em>';
-    } else {
-        for (const id of aliveIds) {
-            html += `<div class="node-card" data-node-id="${escHtml(id)}" style="cursor:default">
-              <div><span class="badge badge-open">ALIVE</span>
-              <span class="node-model">${escHtml(id)}</span></div>
-            </div>`;
-        }
-    }
-
-    // Show recent events
-    if (frame.events && frame.events.length > 0) {
-        const recent = frame.events.slice(-8);
-        html += '<div style="padding:4px 12px;font-size:10px;color:#555d6b;border-top:1px solid #333840;margin-top:4px">Recent events</div>';
-        for (const ev of recent) {
-            const icon = ev.type === 'BORN' ? '🟢' : ev.type === 'DIED' ? '🔴' : ev.type === 'COMPLETED' ? '✅' : '⏳';
-            html += `<div class="node-meta" style="padding:1px 12px;font-size:10px">${icon} ${ev.type} ${escHtml(ev.nodeId)}</div>`;
-        }
-    }
-
-    el.nodeList.innerHTML = html;
+// ── Play / pause ──
+function setPlayButton(isPlaying) {
+    el.btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+    el.btnPlay.classList.toggle('playing', isPlaying);
 }
 
-// ── Full tree render (after streaming completes) ──
+const delay = ms => new Promise(r => setTimeout(r, ms));
 
-function renderTree(frame) {
-    // Build node lookup
-    const nodeMap = {};
-    for (const n of replayData.snapshot.nodes) nodeMap[n.id] = n;
+async function togglePlay() {
+    if (playing) {
+        // Pause: finish the current segment, then stop
+        pauseRequested = true;
+        return;
+    }
+    if (!session) return;
 
-    const aliveIds = new Set(frame.aliveNodeIds || []);
+    playing = true;
+    pauseRequested = false;
+    setPlayButton(true);
+    el.btnStep.disabled = true;
+
+    while (!pauseRequested) {
+        const more = await doStep();
+        if (!more) break;
+        if (pauseRequested) break;
+        await delay(PLAY_DELAY);
+    }
+
+    playing = false;
+    pauseRequested = false;
+    setPlayButton(false);
+    el.btnStep.disabled = stepIndex >= (session?.totalSteps || 0);
+}
+
+
+// ── Per-step tree render ──
+
+function renderTree(snapshot, bestNodeId) {
+    if (!snapshot || !snapshot.nodes) return;
+
     const aliveNodes = [];
     const deadNodes = [];
-
-    for (const n of replayData.snapshot.nodes) {
-        if (aliveIds.has(n.id)) aliveNodes.push(n);
-        else deadNodes.push(n);
+    for (const n of snapshot.nodes) {
+        if (n.status === 'DEAD') deadNodes.push(n);
+        else aliveNodes.push(n);
     }
 
     let html = '';
     if (aliveNodes.length === 0 && deadNodes.length === 0) {
         html = '<em style="color:#666;padding:12px;display:block">No nodes yet</em>';
     }
-
-    for (const n of aliveNodes) {
-        html += nodeHtml(n, true);
-    }
+    for (const n of aliveNodes) html += nodeHtml(snapshot, n, true);
     if (deadNodes.length > 0) {
         html += `<div style="padding:6px 12px;font-size:11px;color:#666;border-top:1px solid #333840;margin-top:4px">Dead / pruned</div>`;
-        for (const n of deadNodes) {
-            if (n.status === 'DEAD')
-                html += nodeHtml(n, false);
-        }
+        for (const n of deadNodes) html += nodeHtml(snapshot, n, false);
     }
 
     el.nodeList.innerHTML = html;
@@ -315,12 +307,26 @@ function renderTree(frame) {
             el.nodeList.querySelectorAll('.node-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             selectedNodeId = nid;
-            drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
+            drawFromSnapshot(currentSnapshot, allCandles, selectedNodeId);
         });
     });
+
+    // Auto-select the best node (default: first/"n0") and draw it
+    const pick = (bestNodeId && snapshot.nodes.some(n => n.id === bestNodeId))
+        ? bestNodeId
+        : (snapshot.nodes[0] ? snapshot.nodes[0].id : null);
+    if (pick) {
+        const card = el.nodeList.querySelector(`[data-node-id="${CSS.escape(pick)}"]`);
+        if (card) card.classList.add('selected');
+        selectedNodeId = pick;
+        drawFromSnapshot(currentSnapshot, allCandles, selectedNodeId);
+    }
+
+    // Keep the newest branches visible: scroll the panel to the bottom
+    el.nodeList.scrollTop = el.nodeList.scrollHeight;
 }
 
-function nodeHtml(n, alive) {
+function nodeHtml(snapshot, n, alive) {
     const statusClass = n.status === 'COMPLETE' ? 'badge-complete'
         : n.status === 'PROJECTED' ? 'badge-projected'
         : n.status === 'DEAD' ? 'badge-dead'
@@ -328,15 +334,16 @@ function nodeHtml(n, alive) {
     const statusLabel = n.status === 'DEAD' ? (n.deathReason || 'DEAD') : n.status;
 
     const childModels = (n.children || []).map(cid => {
-        const c = replayData.snapshot.nodes.find(x => x.id === cid);
+        const c = snapshot.nodes.find(x => x.id === cid);
         return c ? `${c.wavePos || '?'}:${c.model}` : '';
     }).filter(Boolean).join(' ');
 
-    const zz = replayData.snapshot.zigzag;
+    const zz = snapshot.zigzag;
     const startPx = zz && n.startPivot >= 0 && n.startPivot < zz.length
         ? zz[n.startPivot].price : null;
     const endPx = zz && n.endPivot >= 0 && n.endPivot < zz.length
         ? zz[n.endPivot].price : null;
+    const px = v => v != null ? v.toFixed(priceDecimals) : '?';
 
     return `
     <div class="node-card ${alive ? '' : 'node-dead'}" data-node-id="${escHtml(n.id)}">
@@ -347,7 +354,7 @@ function nodeHtml(n, alive) {
         <span style="float:right;font-size:11px;color:#8892a0">${(n.score || 0).toFixed(3)}</span>
       </div>
       <div class="node-meta">L${n.level} pivots [${n.startPivot}..${n.endPivot}] ${n.isUp ? '↑' : '↓'}</div>
-      <div class="node-meta">${startPx != null ? startPx.toFixed(5) : '?'} → ${endPx != null ? endPx.toFixed(5) : '?'}</div>
+      <div class="node-meta">${px(startPx)} → ${px(endPx)}</div>
       ${childModels ? `<div class="node-waves">${childModels}</div>` : ''}
       ${n.status === 'DEAD' ? `<div class="cancel-info" style="color:#d65757">death: ${escHtml(n.deathReason)}</div>` : ''}
     </div>`;
@@ -356,66 +363,5 @@ function nodeHtml(n, alive) {
 function escHtml(s) {
     if (!s) return '';
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Frame navigation ──
-function goFrame(idx) {
-    if (!replayData) return;
-    const frames = replayData.replay.frames;
-    if (frames.length === 0) return;
-
-    idx = Math.max(0, Math.min(idx, frames.length - 1));
-    currentFrame = idx;
-    el.slider.value = idx;
-    el.frmCurrent.textContent = idx;
-
-    const frame = frames[idx];
-    el.frameLabel.textContent = `Bar ${frame.newPivot?.barIndex ?? '?'} / ${replayData.candles.length}`;
-    el.treeBarLabel.textContent = frame.newPivot?.barIndex ?? '0';
-
-    renderTree(frame);
-    updatePlaybackButtons();
-
-    // Re-draw selected node on chart
-    if (selectedNodeId && replayData.snapshot.nodes.length > 0) {
-        drawFromSnapshot(replayData.snapshot, replayData.candles, selectedNodeId);
-    }
-}
-
-// ── Playback (forward only) ──
-function updatePlaybackButtons() {
-    const frames = replayData?.replay?.frames || [];
-    const atEnd = frames.length === 0 || currentFrame >= frames.length - 1;
-    el.btnNext.disabled = atEnd;
-    el.btnLast.disabled = atEnd;
-}
-
-function toggleAuto() {
-    if (autoTimer) {
-        stopAuto();
-        return;
-    }
-    const frames = replayData?.replay?.frames || [];
-    if (frames.length === 0) return;
-    // Restart from the beginning if we are already at the last frame.
-    if (currentFrame >= frames.length - 1) goFrame(0);
-
-    el.btnAuto.textContent = '⏸';
-    autoTimer = setInterval(() => {
-        const total = replayData?.replay?.frames?.length || 0;
-        if (currentFrame >= total - 1) {
-            stopAuto();
-            return;
-        }
-        goFrame(currentFrame + 1);
-    }, autoSpeed);
-}
-
-function stopAuto() {
-    if (autoTimer) {
-        clearInterval(autoTimer);
-        autoTimer = null;
-    }
-    el.btnAuto.textContent = '▶▶';
 }
 

@@ -36,6 +36,18 @@ body {
 #btnFull:hover { background: #444a55; }
 #rangeInfo { font-size: 11px; color: #555d6b; white-space: nowrap; }
 
+/* Vertical separator between load and playback controls */
+.ctrl-sep { width: 1px; height: 22px; background: #444a55; margin: 0 2px; }
+
+/* Playback controls (in the top bar) */
+#btnPlay, #btnStep {
+  background: #333840; color: #d1d5db; border: 1px solid #444a55;
+  border-radius: 4px; padding: 5px 12px; font-size: 13px; cursor: pointer; font-weight: 600;
+}
+#btnPlay:hover, #btnStep:hover { background: #444a55; }
+#btnPlay:disabled, #btnStep:disabled { opacity: 0.35; cursor: default; }
+#btnPlay.playing { background: #4d3b00; color: #f0c040; border-color: #6b5400; }
+
 /* Main pane */
 #main { display: flex; flex: 1; overflow: hidden; }
 
@@ -82,20 +94,21 @@ body {
 .cancel-info { font-size: 11px; color: #f0c040; margin-top: 2px; display: none; }
 .node-card.selected .cancel-info { display: block; }
 
-/* Playback bar */
+/* Progress bar (position in date range — not interactive) */
 #playback {
-  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  display: flex; align-items: center; gap: 12px; padding: 8px 14px;
   background: #242730; border-top: 1px solid #333840; flex-shrink: 0;
   user-select: none;
 }
-#playback button {
-  background: #333840; color: #d1d5db; border: none; border-radius: 4px;
-  padding: 4px 10px; font-size: 14px; cursor: pointer;
+#stepCounter { font-size: 12px; color: #8892a0; white-space: nowrap; min-width: 70px; }
+#progress {
+  flex: 1; height: 8px; appearance: none; -webkit-appearance: none;
+  border: none; border-radius: 4px; overflow: hidden; background: #1a1d23;
 }
-#playback button:hover { background: #444a55; }
-#playback button:disabled { opacity: 0.3; cursor: default; }
-#playback input[type=range] { flex: 1; accent-color: #3D85C6; }
-#frameLabel { font-size: 12px; color: #8892a0; white-space: nowrap; min-width: 140px; text-align: center; }
+#progress::-webkit-progress-bar { background: #1a1d23; border-radius: 4px; }
+#progress::-webkit-progress-value { background: #3D85C6; border-radius: 4px; }
+#progress::-moz-progress-bar { background: #3D85C6; border-radius: 4px; }
+#barDate { font-size: 12px; color: #8892a0; white-space: nowrap; min-width: 150px; text-align: right; }
 
 /* Status message */
 #status { font-size: 11px; color: #8892a0; padding: 0 4px; }

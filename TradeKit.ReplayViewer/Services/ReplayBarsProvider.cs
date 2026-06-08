@@ -24,6 +24,12 @@ public sealed class ReplayBarsProvider : IBarsProvider
     public int StartIndexLimit => 0;
     public event EventHandler? BarClosed;
 
+    /// <summary>
+    /// Number of decimal places used for prices in the loaded CSV (max over O/H/L/C).
+    /// Drives the chart's Y-axis precision in the UI. Defaults to 5.
+    /// </summary>
+    public int PriceDecimals { get; private set; } = 5;
+
     /// <summary>Loads OHLC candles from a CSV file (data/*.csv format).</summary>
     public void LoadCandles(string pathToFile, DateTime? from = null, DateTime? to = null)
     {
@@ -43,6 +49,7 @@ public sealed class ReplayBarsProvider : IBarsProvider
                         lines[0].Contains($"Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close")
             ? 1 : 0;
 
+        int maxDecimals = 0;
         for (int i = startLine; i < lines.Length; i++)
         {
             string[] parts = lines[i].Split(Helper.CSV_SEPARATOR);
@@ -61,11 +68,26 @@ public sealed class ReplayBarsProvider : IBarsProvider
             if (!double.TryParse(parts[3], NumberStyles.Any, CultureInfo.InvariantCulture, out double low)) continue;
             if (!double.TryParse(parts[4], NumberStyles.Any, CultureInfo.InvariantCulture, out double close)) continue;
 
+            for (int p = 1; p <= 4; p++)
+                maxDecimals = Math.Max(maxDecimals, CountDecimals(parts[p]));
+
             int index = m_Candles.Count;
             m_Candles.Add(new Candle(open, high, low, close, null, index));
             m_OpenTimes[index] = openTime;
             m_TimeToIndex[openTime] = index;
         }
+
+        PriceDecimals = maxDecimals > 0 ? maxDecimals : 5;
+    }
+
+    /// <summary>Counts the decimal places in a numeric string (ignores any exponent).</summary>
+    private static int CountDecimals(string s)
+    {
+        int dot = s.IndexOf('.');
+        if (dot < 0) return 0;
+        int end = s.IndexOfAny(new[] { 'e', 'E' });
+        if (end < 0) end = s.Length;
+        return Math.Max(0, end - dot - 1);
     }
 
     /// <summary>Returns candle OHLC data for the web UI (bar-by-bar).</summary>

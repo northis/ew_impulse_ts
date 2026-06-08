@@ -21,6 +21,8 @@ public sealed class ReplayEngine
     private bool m_Initialized;
     private int m_StartBar;
     private int m_EndBar;
+    private int m_LastRevealedBar;
+    private IReadOnlyList<CandleBar>? m_AllCandles;
 
     public ReplayEngine(ReplayBarsProvider barsProvider)
     {
@@ -40,6 +42,18 @@ public sealed class ReplayEngine
 
     /// <summary>Resolved last bar index of the active range (after date/clamp resolution).</summary>
     public int EndBar => m_EndBar;
+
+    /// <summary>Number of replay steps (pivot frames) available for the active range.</summary>
+    public int TotalSteps => m_Initialized ? Math.Max(0, m_Pivots!.Count - 1) : 0;
+
+    /// <summary>Price decimal places detected in the loaded CSV (drives chart precision).</summary>
+    public int PriceDecimals => m_BarsProvider.PriceDecimals;
+
+    /// <summary>Symbol name of the loaded data.</summary>
+    public string Symbol => m_BarsProvider.BarSymbol.Name;
+
+    /// <summary>Timeframe name of the loaded data.</summary>
+    public string Timeframe => m_BarsProvider.TimeFrame.Name;
 
     /// <summary>Whether there are more pivot-frames to process.</summary>
     public bool HasMoreSteps => m_Initialized && m_CurrentStep <= m_Pivots!.Count;
@@ -137,6 +151,8 @@ public sealed class ReplayEngine
 
         m_StartBar = startBar;
         m_EndBar = endBar;
+        m_LastRevealedBar = startBar - 1;
+        m_AllCandles = m_BarsProvider.GetAllCandles();
         m_Pivots = m_FullMarkup.Pivots;
         m_PrevState = new Dictionary<string, string>();
         m_CurrentStep = 2; // need at least 2 pivots for the first frame
@@ -157,7 +173,45 @@ public sealed class ReplayEngine
     /// Advances the replay by one pivot, re-parsing the growing prefix, and returns
     /// the delta frame (<c>null</c> when all pivots have been consumed).
     /// </summary>
-    public EwReplayFrameDto? StepForward(int deadDepth = 1)
+    public EwReplayFrameDto? StepForward(int deadDepth = 1) => StepCore(deadDepth)?.Frame;
+
+    /// <summary>
+    /// Advances the replay by exactly one zigzag segment (one pivot) and returns the
+    /// delta frame, the full tree snapshot at this step, and the candles that make up
+    /// the newly added segment. Returns <c>null</c> once the range is exhausted.
+    /// </summary>
+    public ReplayStepResult? Step(int deadDepth = 1)
+    {
+        StepCoreResult? core = StepCore(deadDepth);
+        if (core == null)
+            return null;
+
+        StepCoreResult c = core.Value;
+        EwTreeSnapshotDto snapshot = EwMarkupTreeExporter.BuildSnapshot(c.Sub, c.Result, deadDepth);
+
+        // Reveal all bars composing the new segment: (lastRevealed .. newPivotBar].
+        int newPivotBar = c.Frame.NewPivot?.BarIndex ?? m_LastRevealedBar;
+        var newCandles = new List<CandleBar>();
+        if (m_AllCandles != null)
+        {
+            for (int b = m_LastRevealedBar + 1; b <= newPivotBar && b < m_AllCandles.Count; b++)
+                newCandles.Add(m_AllCandles[b]);
+        }
+        m_LastRevealedBar = Math.Max(m_LastRevealedBar, newPivotBar);
+
+        return new ReplayStepResult
+        {
+            Frame = c.Frame,
+            Snapshot = snapshot,
+            NewCandles = newCandles
+        };
+    }
+
+    /// <summary>
+    /// Core single-step parse: re-parses the growing pivot prefix and builds the delta
+    /// frame, returning the markup and search result so callers can also export a snapshot.
+    /// </summary>
+    private StepCoreResult? StepCore(int deadDepth)
     {
         if (!m_Initialized || m_CurrentStep > m_Pivots!.Count)
             return null;
@@ -233,7 +287,7 @@ public sealed class ReplayEngine
         };
 
         m_PrevState = cur;
-        return frame;
+        return new StepCoreResult { Frame = frame, Sub = sub, Result = r };
     }
 
     /// <summary>Runs the full bar-by-bar replay over <c>[startBar..endBar]</c>.</summary>
@@ -332,6 +386,27 @@ public sealed class ReplayEngine
         bool firstSegUp = markup.Segments[0].IsUp;
         return firstSegUp ? index % 2 == 1 : index % 2 == 0;
     }
+}
+
+/// <summary>Internal result of a single parse step (frame + markup for snapshot export).</summary>
+internal readonly struct StepCoreResult
+{
+    public EwReplayFrameDto Frame { get; init; }
+    public ElliottWaveExactMarkupV2 Sub { get; init; }
+    public MarkupSearchResult Result { get; init; }
+}
+
+/// <summary>Result of one on-demand replay step (§17.1) for the interactive viewer.</summary>
+public sealed class ReplayStepResult
+{
+    /// <summary>The delta frame for this step (new pivot, events, alive ids, best id).</summary>
+    public EwReplayFrameDto Frame { get; set; } = null!;
+
+    /// <summary>The full tree snapshot at this step (nodes + zigzag so far).</summary>
+    public EwTreeSnapshotDto Snapshot { get; set; } = null!;
+
+    /// <summary>The candles composing the newly added segment (to append to the chart).</summary>
+    public IReadOnlyList<CandleBar> NewCandles { get; set; } = Array.Empty<CandleBar>();
 }
 
 // ---- DTOs ----

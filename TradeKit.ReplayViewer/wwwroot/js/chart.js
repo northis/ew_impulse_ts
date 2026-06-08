@@ -44,10 +44,22 @@ const MODEL_COLORS = {
 
 // ── Helpers ──
 
-/** Convert bar index → unix timestamp (seconds) */
-function barTime(candles, barIndex) {
-    if (barIndex < 0 || !candles || barIndex >= candles.length) return null;
-    return Math.floor(new Date(candles[barIndex].time).getTime() / 1000);
+// Absolute bar index → unix time (seconds). Rebuilt by setCandles so wave/pivot
+// drawing works regardless of how the candle array is sliced.
+let barTimeMap = new Map();
+
+/** Unix timestamp (seconds) for an absolute bar index, or null if not revealed yet. */
+function barTimeFor(barIndex) {
+    const t = barTimeMap.get(barIndex);
+    return t === undefined ? null : t;
+}
+
+/** Apply the price-axis precision detected from the CSV. */
+function setPricePrecision(decimals) {
+    const d = Math.max(0, Math.min(8, decimals | 0));
+    candleSeries.applyOptions({
+        priceFormat: { type: 'price', precision: d, minMove: Math.pow(10, -d) }
+    });
 }
 
 /** Parse hex colour → rgba */
@@ -66,12 +78,16 @@ function clearMarkup() {
     layers = [];
 }
 
-/** Set candles */
+/** Replace the chart's candles from an accumulated, absolute-bar-indexed array. */
 function setCandles(candles) {
-    const data = candles.map(c => ({
-        time: barTime(candles, c.barIndex),
-        open: c.open, high: c.high, low: c.low, close: c.close
-    }));
+    barTimeMap = new Map();
+    const data = [];
+    for (const c of candles) {
+        const t = Math.floor(new Date(c.time).getTime() / 1000);
+        barTimeMap.set(c.barIndex, t);
+        data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
+    }
+    data.sort((a, b) => a.time - b.time);
     candleSeries.setData(data);
     chart.timeScale().fitContent();
 }
@@ -91,6 +107,13 @@ function zzPrice(snapshot, pivotIdx) {
     if (!snapshot || !snapshot.zigzag || pivotIdx < 0 || pivotIdx >= snapshot.zigzag.length)
         return null;
     return snapshot.zigzag[pivotIdx].price;
+}
+
+/** Absolute bar index of a zigzag pivot (by pivot index). */
+function zzBar(snapshot, pivotIdx) {
+    if (!snapshot || !snapshot.zigzag || pivotIdx < 0 || pivotIdx >= snapshot.zigzag.length)
+        return -1;
+    return snapshot.zigzag[pivotIdx].barIndex;
 }
 
 /**
@@ -148,8 +171,8 @@ function drawNodeTree(node, nm, candles, snapshot) {
 }
 
 function addWaveLine(node, candles, snapshot, color, isConfirmed) {
-    const t1 = barTime(candles, node.startPivot);
-    const t2 = barTime(candles, node.endPivot);
+    const t1 = barTimeFor(zzBar(snapshot, node.startPivot));
+    const t2 = barTimeFor(zzBar(snapshot, node.endPivot));
     if (!t1 || !t2) return;
 
     const p1 = zzPrice(snapshot, node.startPivot);
@@ -168,8 +191,8 @@ function addWaveLine(node, candles, snapshot, color, isConfirmed) {
 }
 
 function addProjectionLine(fromPivot, toPivot, candles, snapshot, color) {
-    const t1 = barTime(candles, fromPivot);
-    const t2 = barTime(candles, toPivot);
+    const t1 = barTimeFor(zzBar(snapshot, fromPivot));
+    const t2 = barTimeFor(zzBar(snapshot, toPivot));
     if (!t1 || !t2) return;
 
     const p1 = zzPrice(snapshot, fromPivot);
@@ -189,7 +212,7 @@ function drawPivotMarkers(zz, candles) {
     if (!zz || zz.length === 0) return;
     const data = [];
     for (const p of zz) {
-        const t = barTime(candles, p.barIndex);
+        const t = barTimeFor(p.barIndex);
         if (!t) continue;
         data.push({
             time: t,

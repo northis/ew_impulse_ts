@@ -156,6 +156,66 @@ app.MapPost("/api/replay/stream", async (HttpContext ctx) =>
     }
 });
 
+// Interactive replay — initialise a stepping session for the selected range.
+app.MapPost("/api/replay/init", (ReplayRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.File))
+        return Results.BadRequest(new { error = "File name is required" });
+
+    string path = Path.Combine(dataDir, req.File);
+    if (!File.Exists(path))
+        return Results.NotFound(new { error = "File not found" });
+
+    try
+    {
+        EnsureProvider(path);
+        if (!string.IsNullOrWhiteSpace(req.FromDate) || !string.IsNullOrWhiteSpace(req.ToDate))
+            engine!.InitializeForDates(path, req.FromDate, req.ToDate, deviationPercent: null);
+        else
+            engine!.Initialize(path, req.StartBar, req.EndBar, deviationPercent: null);
+
+        return Results.Ok(new
+        {
+            symbol = engine.Symbol,
+            timeframe = engine.Timeframe,
+            priceDecimals = engine.PriceDecimals,
+            startBar = engine.StartBar,
+            endBar = engine.EndBar,
+            totalSteps = engine.TotalSteps
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString(), statusCode: 500, title: ex.Message);
+    }
+});
+
+// Interactive replay — advance one zigzag segment and return the per-step state.
+app.MapPost("/api/replay/step", (StepRequest req) =>
+{
+    if (engine == null || !engine.IsInitialized)
+        return Results.BadRequest(new { error = "Replay not initialised. Call /api/replay/init first." });
+
+    try
+    {
+        ReplayStepResult? step = engine.Step(req.DeadDepth);
+        if (step == null)
+            return Results.Ok(new { done = true });
+
+        return Results.Ok(new
+        {
+            done = false,
+            frame = step.Frame,
+            snapshot = step.Snapshot,
+            newCandles = step.NewCandles
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString(), statusCode: 500, title: ex.Message);
+    }
+});
+
 app.Run();
 
 // ── helpers ──────────────────────────────────────────
@@ -206,3 +266,5 @@ record ReplayRequest(
     int DeadDepth = 1,
     string? FromDate = null,
     string? ToDate = null);
+
+record StepRequest(int DeadDepth = 1);
