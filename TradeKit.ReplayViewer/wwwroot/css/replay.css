@@ -70,15 +70,38 @@ body {
 
 /* Node card */
 .node-card {
-  margin: 2px 6px; padding: 6px 10px; border-radius: 6px;
+  margin: 1px 8px 1px 6px; padding: 5px 10px; border-radius: 6px;
   cursor: pointer; border: 1px solid transparent; transition: 0.15s;
   font-size: 12px; line-height: 1.5;
+  position: relative;
 }
 .node-card:hover { background: #2a2f3b; }
 .node-card.selected { border-color: #3D85C6; background: #25374d; }
 .node-card .node-model { font-weight: 700; }
 .node-card .node-meta { font-size: 11px; color: #8892a0; }
 .node-card .node-waves { font-size: 11px; margin-top: 2px; }
+
+/* Tree hierarchy */
+.node-root { margin-top: 4px; }
+.node-root:first-child { margin-top: 0; }
+.tree-toggle {
+  display: inline-block; width: 12px; font-size: 10px; color: #8892a0;
+  cursor: pointer; user-select: none; vertical-align: middle;
+  margin-right: 2px; padding: 1px 0; border-radius: 2px;
+  transition: color 0.15s, background 0.15s;
+}
+.tree-toggle:hover { color: #d1d5db; background: #333840; }
+.tree-toggle.collapsed { transform: none; } /* glyph ▸ already conveys state */
+.tree-toggle.leaf { visibility: hidden; cursor: default; }
+.tree-toggle.leaf:hover { background: transparent; }
+.tree-guide {
+  position: absolute; top: 0; width: 1px;
+  background: linear-gradient(to bottom, #444a55 50%, transparent 50%);
+  pointer-events: none;
+}
+/* Subtree-hidden: used both during initial render (ancestor collapsed) and
+   during in-place collapse after a chevron click. */
+.node-card.node-hidden { display: none; }
 
 /* Status badges */
 .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }

@@ -89,7 +89,26 @@ function setCandles(candles) {
     }
     data.sort((a, b) => a.time - b.time);
     candleSeries.setData(data);
-    chart.timeScale().fitContent();
+
+    // Right-side padding: extend the visible logical range by RIGHT_PADDING_BARS
+    // bars so the last candle isn't glued to the right edge of the chart.
+    // Lightweight-Charts v4.1 doesn't expose a `setRightOffset` shortcut, so we
+    // achieve the same effect by setting a logical range whose `to` is past the
+    // last data point. Falls back silently if the chart has no data yet.
+    if (data.length > 0) {
+        try {
+            chart.timeScale().setVisibleLogicalRange({
+                from: 0,
+                to: data.length - 1 + RIGHT_PADDING_BARS
+            });
+        } catch (_) {
+            // setVisibleLogicalRange can throw before the chart is fully mounted;
+            // fitContent() still gives a usable view.
+            chart.timeScale().fitContent();
+        }
+    } else {
+        chart.timeScale().fitContent();
+    }
 }
 
 // ── Draw from snapshot ──
@@ -232,3 +251,6 @@ function drawPivotMarkers(zz, candles) {
         layers.push(s);
     }
 }
+
+/** Number of bars worth of empty space shown to the right of the last candle. */
+const RIGHT_PADDING_BARS = 12;

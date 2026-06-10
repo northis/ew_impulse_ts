@@ -8,6 +8,8 @@ let playing = false;         // continuous play in progress
 let pauseRequested = false;  // finish current segment, then stop
 let priceDecimals = 5;
 let fileInfo = null;         // { barCount, firstBarTime, lastBarTime }
+/** IDs of tree nodes the user has collapsed in the panel — preserved across re-renders. */
+const collapsedNodeIds = new Set();
 const PLAY_DELAY = 150;      // ms between auto steps
 
 // ── DOM refs ──
@@ -281,21 +283,50 @@ async function togglePlay() {
 function renderTree(snapshot, bestNodeId) {
     if (!snapshot || !snapshot.nodes) return;
 
-    const aliveNodes = [];
-    const deadNodes = [];
-    for (const n of snapshot.nodes) {
-        if (n.status === 'DEAD') deadNodes.push(n);
-        else aliveNodes.push(n);
-    }
+    // Build id→node map for fast lookup
+    const nodeMap = {};
+    for (const n of snapshot.nodes) nodeMap[n.id] = n;
+
+    // Roots: nodes with no parent (parentId === null)
+    const roots = snapshot.nodes.filter(n => n.parentId === null);
+    // Also include orphans whose parent isn't in the snapshot (defensive)
+    const orphans = snapshot.nodes.filter(n =>
+        n.parentId !== null && !nodeMap[n.parentId] && n.parentId !== 'root');
+    const allRoots = [...roots, ...orphans];
+
+    // Separate alive/dead roots for ordering
+    const aliveRoots = allRoots.filter(n => n.status !== 'DEAD');
+    const deadRoots = allRoots.filter(n => n.status === 'DEAD');
 
     let html = '';
-    if (aliveNodes.length === 0 && deadNodes.length === 0) {
-        html = '<em style="color:#666;padding:12px;display:block">No nodes yet</em>';
+
+    /**
+     * Render a node and (when not collapsed by the user) its descendants.
+     * `ancestorCollapsed` propagates the hidden state down so collapsed subtrees
+     * never have to re-check every ancestor on every redraw.
+     */
+    function renderSubtree(n, depth, ancestorCollapsed) {
+        const collapsed = collapsedNodeIds.has(n.id);
+        const hidden = ancestorCollapsed;
+        html += nodeHtml(snapshot, n, n.status !== 'DEAD', depth, collapsed, hidden);
+        if (!collapsed) {
+            const childIds = n.children || [];
+            for (const cid of childIds) {
+                const child = nodeMap[cid];
+                if (child) renderSubtree(child, depth + 1, ancestorCollapsed);
+            }
+        }
     }
-    for (const n of aliveNodes) html += nodeHtml(snapshot, n, true);
-    if (deadNodes.length > 0) {
-        html += `<div style="padding:6px 12px;font-size:11px;color:#666;border-top:1px solid #333840;margin-top:4px">Dead / pruned</div>`;
-        for (const n of deadNodes) html += nodeHtml(snapshot, n, false);
+
+    if (aliveRoots.length === 0 && deadRoots.length === 0) {
+        html = '<em style="color:#666;padding:12px;display:block">No nodes yet</em>';
+    } else {
+        for (const r of aliveRoots) renderSubtree(r, 0);
+
+        if (deadRoots.length > 0) {
+            html += `<div style="padding:6px 12px;font-size:11px;color:#666;border-top:1px solid #333840;margin-top:4px">Dead / pruned</div>`;
+            for (const r of deadRoots) renderSubtree(r, 0);
+        }
     }
 
     el.nodeList.innerHTML = html;
@@ -311,10 +342,26 @@ function renderTree(snapshot, bestNodeId) {
         });
     });
 
-    // Auto-select the best node (default: first/"n0") and draw it
-    const pick = (bestNodeId && snapshot.nodes.some(n => n.id === bestNodeId))
+    // Toggle handlers — clicking the chevron (▸/▾) collapses/expands a subtree.
+    // stopPropagation prevents the card's own select-handler from firing.
+    el.nodeList.querySelectorAll('.tree-toggle[data-collapse-id]').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const nid = btn.dataset.collapseId;
+            if (collapsedNodeIds.has(nid)) collapsedNodeIds.delete(nid);
+            else collapsedNodeIds.add(nid);
+            // Update the affected card's class in place — no full re-render needed.
+            const card = el.nodeList.querySelector(`.node-card[data-node-id="${CSS.escape(nid)}"]`);
+            if (card) applyCollapsedClass(card, collapsedNodeIds.has(nid));
+            // Hide/show direct descendants.
+            toggleDescendants(nid, collapsedNodeIds.has(nid));
+        });
+    });
+
+    // Auto-select the best node (default: first alive root) and draw it
+    const pick = (bestNodeId && nodeMap[bestNodeId])
         ? bestNodeId
-        : (snapshot.nodes[0] ? snapshot.nodes[0].id : null);
+        : (aliveRoots[0] ? aliveRoots[0].id : (allRoots[0] ? allRoots[0].id : null));
     if (pick) {
         const card = el.nodeList.querySelector(`[data-node-id="${CSS.escape(pick)}"]`);
         if (card) card.classList.add('selected');
@@ -326,7 +373,7 @@ function renderTree(snapshot, bestNodeId) {
     el.nodeList.scrollTop = el.nodeList.scrollHeight;
 }
 
-function nodeHtml(snapshot, n, alive) {
+function nodeHtml(snapshot, n, alive, depth, collapsed, hidden) {
     const statusClass = n.status === 'COMPLETE' ? 'badge-complete'
         : n.status === 'PROJECTED' ? 'badge-projected'
         : n.status === 'DEAD' ? 'badge-dead'
@@ -345,9 +392,32 @@ function nodeHtml(snapshot, n, alive) {
         ? zz[n.endPivot].price : null;
     const px = v => v != null ? v.toFixed(priceDecimals) : '?';
 
+    const hasKids = (n.children || []).length > 0;
+    const indent = depth * 14;
+    const isRoot = n.wavePos === 'root' || n.parentId === null;
+
+    // Chevron: ▾ (down) when expanded, ▸ (right) when collapsed. The toggle
+    // is rendered for any node that has children — clicking it folds/unfolds
+    // the subtree. Leaves get a hidden placeholder so the badge column aligns.
+    let toggleHtml;
+    if (hasKids) {
+        const glyph = collapsed ? '▸' : '▾';
+        toggleHtml = `<span class="tree-toggle${collapsed ? ' collapsed' : ''}" data-collapse-id="${escHtml(n.id)}" title="Collapse/expand children">${glyph}</span>`;
+    } else {
+        toggleHtml = '<span class="tree-toggle leaf" aria-hidden="true">·</span>';
+    }
+
+    const hiddenAttr = hidden ? ' node-hidden' : '';
+    const collapsedAttr = collapsed ? ' node-collapsed' : '';
+
     return `
-    <div class="node-card ${alive ? '' : 'node-dead'}" data-node-id="${escHtml(n.id)}">
+    <div class="node-card ${alive ? '' : 'node-dead'}${isRoot ? ' node-root' : ''}${collapsedAttr}${hiddenAttr}"
+         data-node-id="${escHtml(n.id)}"
+         data-parent-id="${n.parentId ? escHtml(n.parentId) : ''}"
+         style="margin-left:${indent}px">
+      ${depth > 0 ? `<div class="tree-guide" style="left:${-indent - 2}px;height:${hasKids ? '100%' : '50%'}"></div>` : ''}
       <div>
+        ${toggleHtml}
         <span class="badge ${statusClass}">${statusLabel}</span>
         <span class="node-model">${escHtml(n.model)}</span>
         <span style="color:#8892a0;font-size:11px">${n.wavePos === 'root' ? 'root' : escHtml(n.wavePos)}</span>
@@ -363,5 +433,62 @@ function nodeHtml(snapshot, n, alive) {
 function escHtml(s) {
     if (!s) return '';
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/** Apply/unapply the visual + state class to a node card. */
+function applyCollapsedClass(card, collapsed) {
+    card.classList.toggle('node-collapsed', collapsed);
+    const btn = card.querySelector('.tree-toggle[data-collapse-id]');
+    if (btn) {
+        btn.classList.toggle('collapsed', collapsed);
+        btn.textContent = collapsed ? '▸' : '▾';
+    }
+}
+
+/**
+ * Walk forward in DOM order toggling `node-hidden` on direct children of `parentId`.
+ * Uses a depth counter: a hidden parent's grandchildren stay hidden when it
+ * re-expands (so we only flip cards whose nearest non-hidden ancestor changes).
+ */
+function toggleDescendants(parentId, hide) {
+    let node = el.nodeList.querySelector(`.node-card[data-node-id="${CSS.escape(parentId)}"]`);
+    if (!node) return;
+    let cursor = node.nextElementSibling;
+    while (cursor && cursor.classList.contains('node-card')) {
+        // Stop walking once we leave this subtree. We check by walking the
+        // parentId chain: if the cursor's nearest ancestor is no longer
+        // `parentId` (or anything under it), we've stepped out.
+        if (!isStrictDescendantOf(parentId, cursor, el.nodeList)) break;
+
+        cursor.classList.toggle('node-hidden', hide);
+        // When hiding, also hide its own descendants so the collapse is recursive.
+        // When showing, we leave nested collapsed-state intact (user's choice).
+        if (hide) hideAllDescendants(cursor);
+        cursor = cursor.nextElementSibling;
+    }
+}
+
+function hideAllDescendants(card) {
+    let cursor = card.nextElementSibling;
+    while (cursor && cursor.classList.contains('node-card')) {
+        if (!isStrictDescendantOf(card.dataset.nodeId, cursor, el.nodeList)) break;
+        cursor.classList.add('node-hidden');
+        cursor = cursor.nextElementSibling;
+    }
+}
+
+/**
+ * True if `cursor` (a card) sits in the subtree rooted at the card with id
+ * `ancestorId`. Walks the parentId chain via the rendered cards' data attrs.
+ */
+function isStrictDescendantOf(ancestorId, cursor, root) {
+    let pid = cursor.dataset.parentId;
+    while (pid) {
+        if (pid === ancestorId) return true;
+        const parent = root.querySelector(`.node-card[data-node-id="${CSS.escape(pid)}"]`);
+        if (!parent) return false;
+        pid = parent.dataset.parentId;
+    }
+    return false;
 }
 
