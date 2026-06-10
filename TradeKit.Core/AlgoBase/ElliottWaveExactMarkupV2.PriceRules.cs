@@ -135,6 +135,11 @@ namespace TradeKit.Core.AlgoBase
                 // W5 must make a new extreme beyond the end of W4.
                 if (s * (w[4].End.Value - w[3].End.Value) < -tol)
                     return DeathReason.PRICE_BREACH;
+
+                // W5 must exceed the end of W3 — truncation is forbidden in v2
+                // (Frost & Prechter allow truncations; this version excludes them).
+                if (s * (w[4].End.Value - w[2].End.Value) < -tol)
+                    return DeathReason.PRICE_BREACH;
             }
 
             return DeathReason.NONE;

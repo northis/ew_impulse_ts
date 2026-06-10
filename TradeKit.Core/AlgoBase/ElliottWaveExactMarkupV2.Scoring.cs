@@ -20,8 +20,10 @@ namespace TradeKit.Core.AlgoBase
     /// a sub-model appearing at a given parent position (§16.2/§16.3), applied by the
     /// parent when it combines its children; root models use the position-free base
     /// coefficient.</item>
-    /// <item><c>softPenalties</c> — overshoot, time-window and truncation factors in
-    /// (0,1] that demote (but never kill) structurally weak fits (§16.1).</item>
+    /// <item><c>softPenalties</c> — overshoot and time-window factors in
+    /// (0,1] that demote (but never kill) structurally weak fits (§16.1). Truncation
+    /// is excluded here: W5 failing to exceed W3 is a structural violation that kills
+    /// the node via hard-price rule (§7.1).</item>
     /// </list>
     /// </summary>
     public partial class ElliottWaveExactMarkupV2
@@ -51,9 +53,6 @@ namespace TradeKit.Core.AlgoBase
 
         /// <summary>Smallest factor the overshoot soft penalty may reach.</summary>
         private const double OVERSHOOT_FLOOR = 0.7;
-
-        /// <summary>Score multiplier for a truncated IMPULSE (W5 fails to exceed W3).</summary>
-        private const double SOFT_TRUNCATION_PENALTY = 0.3;
 
         /// <summary>
         /// Empirically-calibrated conditional probabilities <c>P(child | parent, wavePos)</c>
@@ -216,18 +215,18 @@ namespace TradeKit.Core.AlgoBase
         private static double StructuralScore(ElliottModelType model, IReadOnlyList<Segment> waves)
         {
             double fibo = ElliottWaveExactMarkup.CalculatePureFiboScore(model, waves);
-            return fibo * SoftPenalties(model, waves);
+            return fibo * SoftPenalties(waves);
         }
 
         /// <summary>
-        /// Product of the §16.1 soft penalties — overshoot, time-window and truncation.
+        /// Product of the §16.1 soft penalties — overshoot and time-window.
         /// Each is in (0,1]; together they demote weak fits without killing them.
+        /// Truncation is no longer a soft penalty; it is a hard-price rule (§7.1).
         /// </summary>
-        private static double SoftPenalties(ElliottModelType model, IReadOnlyList<Segment> waves)
+        private static double SoftPenalties(IReadOnlyList<Segment> waves)
         {
             return OvershootPenalty(waves)
-                   * TimeWindowPenalty(waves)
-                   * TruncationPenalty(model, waves);
+                   * TimeWindowPenalty(waves);
         }
 
         /// <summary>
@@ -320,23 +319,6 @@ namespace TradeKit.Core.AlgoBase
 
             t = Math.Clamp(t, 0.0, 1.0);
             return TIME_PENALTY_FLOOR + (1.0 - TIME_PENALTY_FLOOR) * t;
-        }
-
-        /// <summary>
-        /// Truncation penalty (§16.1): an IMPULSE whose wave 5 fails to exceed wave 3's
-        /// extreme is a rare, weak formation and is demoted below comparable impulses.
-        /// </summary>
-        private static double TruncationPenalty(ElliottModelType model, IReadOnlyList<Segment> waves)
-        {
-            if (model != ElliottModelType.IMPULSE || waves.Count < 5)
-                return 1.0;
-
-            bool trendUp = waves[0].IsUp;
-            bool truncated = trendUp
-                ? waves[4].End.Value < waves[2].End.Value
-                : waves[4].End.Value > waves[2].End.Value;
-
-            return truncated ? SOFT_TRUNCATION_PENALTY : 1.0;
         }
 
         /// <summary>

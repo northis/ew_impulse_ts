@@ -307,14 +307,6 @@ namespace TradeKit.Core.AlgoBase
             if (m_BarsProvider != null)
             {
                 results = results.Where(n => RepairSimpleImpulseLeaves(n)).ToList();
-
-                // Final safety pass: synchronize adjacent SIMPLE_IMPULSE leaf
-                // boundaries at shared bar indices. This catches any remaining
-                // discontinuities that the recursive repair did not fully resolve
-                // (e.g. when a leaf endpoint was set to the range-wide extremum
-                // instead of the OHLC value at the actual bar).
-                results.ForEach(n => SyncLeafBoundaries(n));
-
                 results = results.Where(n => n.GetDepth() >= m_MaxMarkupDepth / 2).ToList();
             }
             return results;
@@ -345,11 +337,6 @@ namespace TradeKit.Core.AlgoBase
                 // Only apply repair/depth filter to complete candidates
                 results = results.Where(n =>
                     n.ActiveFromWaveIndex >= 0 || RepairSimpleImpulseLeaves(n)).ToList();
-                results.ForEach(n =>
-                {
-                    if (n.ActiveFromWaveIndex < 0)
-                        SyncLeafBoundaries(n);
-                });
                 results = results.Where(n =>
                     n.ActiveFromWaveIndex >= 0 || n.GetDepth() >= m_MaxMarkupDepth / 2).ToList();
             }
@@ -515,15 +502,6 @@ namespace TradeKit.Core.AlgoBase
         private static (double ratio, double weight) GetBestFibRatio(
             ElliottModelType model, int waveIndex,
             ExactParsedNode[] subWaves, int confirmedCount)
-            => GetBestFibRatio(model, waveIndex);
-
-        /// <summary>
-        /// Shared projection helper: returns the best (highest-weight) Fibonacci ratio for
-        /// projecting wave <paramref name="waveIndex"/> (0-based) of <paramref name="model"/>.
-        /// Reused by the v2 markup engine's prediction mode (EW_MARKUP_v2.md §13).
-        /// </summary>
-        public static (double ratio, double weight) GetBestFibRatio(
-            ElliottModelType model, int waveIndex)
         {
             var map = GetProjectionFibMap(model, waveIndex);
             if (map == null || map.Length <= 1) return (0.618, 0.5);
@@ -546,9 +524,8 @@ namespace TradeKit.Core.AlgoBase
 
         /// <summary>
         /// Returns the appropriate Fibonacci map for projecting a given wave index.
-        /// Shared with the v2 markup engine's prediction mode (EW_MARKUP_v2.md §13).
         /// </summary>
-        public static (byte weight, double ratio)[] GetProjectionFibMap(
+        private static (byte weight, double ratio)[] GetProjectionFibMap(
             ElliottModelType model, int waveIndex)
         {
             switch (model)
@@ -674,9 +651,8 @@ namespace TradeKit.Core.AlgoBase
 
         /// <summary>
         /// Finds cluster zones where multiple projections converge within a tolerance.
-        /// Public helper usable by both v1 and v2 consumers.
         /// </summary>
-        public static List<ClusterZone> CalculateClusterZones(List<WaveProjection> projections)
+        private static List<ClusterZone> CalculateClusterZones(List<WaveProjection> projections)
         {
             var clusters = new List<ClusterZone>();
             if (projections == null || projections.Count < 2) return clusters;
@@ -959,8 +935,7 @@ namespace TradeKit.Core.AlgoBase
                             // Leaf-level breaches represent intra-candle noise below
                             // the zigzag deviation threshold.  Keep the structural
                             // model but repair each child's boundaries to the true
-                            // OHLC value at the actual bar (not the range-wide
-                            // extremum, which may belong to a completely different bar).
+                            // OHLC corridor so containment invariant holds.
                             if (m_BarsProvider != null)
                             {
                                 for (int k = 0; k < sw.WaveCount; k++)
@@ -970,55 +945,29 @@ namespace TradeKit.Core.AlgoBase
                                         continue;
 
                                     bool leafUp = leaf.IsUp;
-                                    int startBar = leaf.StartPoint.BarIndex;
-                                    int endBar   = leaf.EndPoint.BarIndex;
+                                    int fBar = Math.Min(leaf.StartPoint.BarIndex, leaf.EndPoint.BarIndex);
+                                    int tBar = Math.Max(leaf.StartPoint.BarIndex, leaf.EndPoint.BarIndex);
 
-                                    // Repair start: use OHLC at the actual start bar
-                                    if (startBar >= 0 && startBar < m_BarsProvider.Count)
+                                    double minLow = double.MaxValue;
+                                    double maxHigh = double.MinValue;
+                                    for (int b = fBar; b <= tBar; b++)
                                     {
-                                        double trueStart = leafUp
-                                            ? m_BarsProvider.GetLowPrice(startBar)
-                                            : m_BarsProvider.GetHighPrice(startBar);
-                                        if (Math.Abs(trueStart - leaf.StartPoint.Value) > 1e-10)
-                                            leaf.StartPoint = new BarPoint(trueStart, startBar, m_BarsProvider);
+                                        if (b < 0 || b >= m_BarsProvider.Count) continue;
+                                        double lo = m_BarsProvider.GetLowPrice(b);
+                                        double hi = m_BarsProvider.GetHighPrice(b);
+                                        if (lo < minLow) minLow = lo;
+                                        if (hi > maxHigh) maxHigh = hi;
                                     }
 
-                                    // Repair end: use OHLC at the actual end bar
-                                    if (endBar >= 0 && endBar < m_BarsProvider.Count)
-                                    {
-                                        double trueEnd = leafUp
-                                            ? m_BarsProvider.GetHighPrice(endBar)
-                                            : m_BarsProvider.GetLowPrice(endBar);
-                                        if (Math.Abs(trueEnd - leaf.EndPoint.Value) > 1e-10)
-                                            leaf.EndPoint = new BarPoint(trueEnd, endBar, m_BarsProvider);
-                                    }
-                                }
+                                    // Upward: start <= all Lows, end >= all Highs
+                                    // Downward: start >= all Highs, end <= all Lows
+                                    double reqStart = leafUp ? minLow : maxHigh;
+                                    double reqEnd = leafUp ? maxHigh : minLow;
 
-                                // Synchronize adjacent leaf boundaries at shared bars:
-                                // when leaf[i].EndPoint.BarIndex == leaf[i+1].StartPoint.BarIndex,
-                                // the two BarPoints must carry the same value. Use the OHLC
-                                // extremum appropriate for the transition direction:
-                                //   UP→DOWN boundary: High of the bar
-                                //   DOWN→UP boundary: Low of the bar
-                                for (int k = 0; k < sw.WaveCount - 1; k++)
-                                {
-                                    ExactParsedNode left  = sw.SubWaves[k];
-                                    ExactParsedNode right = sw.SubWaves[k + 1];
-                                    if (left == null || right == null) continue;
-                                    if (left.EndPoint.BarIndex != right.StartPoint.BarIndex) continue;
-
-                                    int boundaryBar = left.EndPoint.BarIndex;
-                                    if (boundaryBar < 0 || boundaryBar >= m_BarsProvider.Count) continue;
-
-                                    // UP→DOWN: boundary is a local peak → use High
-                                    // DOWN→UP: boundary is a local trough → use Low
-                                    double boundaryVal = left.IsUp
-                                        ? m_BarsProvider.GetHighPrice(boundaryBar)
-                                        : m_BarsProvider.GetLowPrice(boundaryBar);
-
-                                    var syncPoint = new BarPoint(boundaryVal, boundaryBar, m_BarsProvider);
-                                    left.EndPoint    = syncPoint;
-                                    right.StartPoint = syncPoint;
+                                    if (Math.Abs(reqStart - leaf.StartPoint.Value) > 1e-10)
+                                        leaf.StartPoint = new BarPoint(reqStart, leaf.StartPoint.BarIndex, m_BarsProvider);
+                                    if (Math.Abs(reqEnd - leaf.EndPoint.Value) > 1e-10)
+                                        leaf.EndPoint = new BarPoint(reqEnd, leaf.EndPoint.BarIndex, m_BarsProvider);
                                 }
                             }
                         }
@@ -1701,7 +1650,7 @@ namespace TradeKit.Core.AlgoBase
             int to   = waves[^1].End.BarIndex;
 
             // Start from from + 1: the start bar belongs to the opposite extremum
-            // side (an UP wave starts at a LOW, a DOWN wave at a HIGH), so its
+            // side (an UP wave starts at a Low, a DOWN wave at a High), so its
             // opposite-side OHLC price should not count against the endpoint check.
             // This aligns with the §4.2-endpoint-repair scan range.
             for (int i = from + 1; i <= to; i++)
@@ -2481,20 +2430,30 @@ namespace TradeKit.Core.AlgoBase
                     ? m_BarsProvider.GetHighPrice(boundaryBar)
                     : m_BarsProvider.GetLowPrice(boundaryBar);
 
-                System.Diagnostics.Debug.WriteLine(
-                    $"[SyncLeaf] bar={boundaryBar} a.end={a.EndPoint.Value:F5} " +
-                    $"b.start={b.StartPoint.Value:F5} boundaryVal={boundaryVal:F5} " +
-                    $"a.IsUp={a.IsUp}");
-
-                // Force sync: use the more extreme value that satisfies containment
-                // for BOTH adjacent leaves. For up→down transition, use the OHLC High;
-                // for down→up, use the OHLC Low.
-                if (Math.Abs(a.EndPoint.Value - boundaryVal) > boundaryVal * 1e-10
-                    || Math.Abs(b.StartPoint.Value - boundaryVal) > boundaryVal * 1e-10)
+                bool changed = false;
+                if (Math.Abs(a.EndPoint.Value - boundaryVal) > boundaryVal * 1e-10)
                 {
                     var bp = new BarPoint(boundaryVal, boundaryBar, m_BarsProvider);
                     a.EndPoint = bp;
+                    changed = true;
+                }
+                if (Math.Abs(b.StartPoint.Value - boundaryVal) > boundaryVal * 1e-10)
+                {
+                    var bp = new BarPoint(boundaryVal, boundaryBar, m_BarsProvider);
                     b.StartPoint = bp;
+                    changed = true;
+                }
+
+                // Also push to the earlier sibling's parent boundary if needed
+                // (the ZIGZAG/D_ZIGZAG parent's end point at this bar).
+                if (changed && i == 0 && a.StartPoint.BarIndex == node.StartPoint.BarIndex)
+                {
+                    node.StartPoint = a.StartPoint;
+                }
+                if (changed && i == node.WaveCount - 2
+                    && b.EndPoint.BarIndex == node.EndPoint.BarIndex)
+                {
+                    node.EndPoint = b.EndPoint;
                 }
             }
         }
