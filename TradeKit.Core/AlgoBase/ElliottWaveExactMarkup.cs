@@ -499,7 +499,7 @@ namespace TradeKit.Core.AlgoBase
         /// <summary>
         /// Returns the best (highest-weight) Fibonacci ratio for projecting a specific wave.
         /// </summary>
-        private static (double ratio, double weight) GetBestFibRatio(
+        public static (double ratio, double weight) GetBestFibRatio(
             ElliottModelType model, int waveIndex,
             ExactParsedNode[] subWaves, int confirmedCount)
         {

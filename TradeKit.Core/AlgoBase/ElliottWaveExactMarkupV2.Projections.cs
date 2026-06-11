@@ -217,7 +217,8 @@ namespace TradeKit.Core.AlgoBase
 
                 if (proj == null)
                 {
-                    (double ratio, double weight) = ElliottWaveExactMarkup.GetBestFibRatio(model, w);
+                    (double ratio, double weight) = ElliottWaveExactMarkup.GetBestFibRatio(
+                        model, w, Array.Empty<ExactParsedNode>(), confirmed);
                     if (ratio <= 0) ratio = 0.618;
                     if (weight <= 0) weight = 0.1;
 
