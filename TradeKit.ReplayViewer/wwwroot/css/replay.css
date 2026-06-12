@@ -48,6 +48,13 @@ body {
 #btnPlay:disabled, #btnStep:disabled { opacity: 0.35; cursor: default; }
 #btnPlay.playing { background: #4d3b00; color: #f0c040; border-color: #6b5400; }
 
+#btnDownload {
+  background: #2a5a2a; color: #d1d5db; border: 1px solid #3a7a3a;
+  border-radius: 4px; padding: 5px 12px; font-size: 13px; cursor: pointer; font-weight: 600;
+}
+#btnDownload:hover { background: #367a36; }
+#btnDownload:disabled { opacity: 0.35; cursor: default; }
+
 /* Main pane */
 #main { display: flex; flex: 1; overflow: hidden; }
 

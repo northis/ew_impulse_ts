@@ -82,8 +82,10 @@ namespace TradeKit.Core.AlgoBase
                     return CheckZigzag(waves, s, start, tol);
 
                 case ElliottModelType.FLAT_EXTENDED:
+                    return CheckFlatOvershoot(waves, s, start, tol, running: false);
+
                 case ElliottModelType.FLAT_RUNNING:
-                    return CheckFlatOvershoot(waves, s, start, tol);
+                    return CheckFlatOvershoot(waves, s, start, tol, running: true);
 
                 case ElliottModelType.FLAT_REGULAR:
                     return CheckFlatRegular(waves, s, start, tol);
@@ -202,13 +204,43 @@ namespace TradeKit.Core.AlgoBase
             return DeathReason.NONE;
         }
 
+        /// <summary>
+        /// Extended / running flat: B is obliged to overshoot the pattern origin,
+        /// i.e. end on the far side of start relative to A's direction.
+        /// Additionally:
+        ///   • <c>FLAT_RUNNING</c> — total correction (C-wave retracement from
+        ///     start) must be at least 38.2 % of wave A (EW_MARKUP_v2 §7.2).
+        ///   • <c>FLAT_EXTENDED</c> — wave C must break beyond the start of
+        ///     wave A, i.e. the impulse C extends past the pattern origin.
+        /// </summary>
         private static DeathReason CheckFlatOvershoot(
-            IReadOnlyList<Segment> w, double s, double start, double tol)
+            IReadOnlyList<Segment> w, double s, double start, double tol,
+            bool running)
         {
-            // Extended / running flat: B is obliged to overshoot the pattern origin,
-            // i.e. end on the far side of start relative to A's direction.
+            // B must overshoot the pattern origin (applies to both extended and running).
             if (w.Count >= 2 && s * (w[1].End.Value - start) > tol)
                 return DeathReason.PRICE_BREACH;
+
+            if (w.Count >= 3)
+            {
+                if (running)
+                {
+                    // FLAT_RUNNING §7.2: total correction must be ≥ 38.2 % of wave A.
+                    // |Start(A) − End(C)| < 0.382 · |A|  ⇒  correction too shallow → DEAD.
+                    double waveALen = w[0].Length;          // |A|
+                    double totalCorrection = Math.Abs(w[2].End.Value - start); // |Start(A) − End(C)|
+                    double minRequired = 0.382 * waveALen;
+                    if (totalCorrection < minRequired - tol)
+                        return DeathReason.PRICE_BREACH;
+                }
+                else
+                {
+                    // FLAT_EXTENDED §7.2: wave C must break beyond the start of wave A.
+                    // C is the impulse that extends past the pattern origin.
+                    if (s * (w[2].End.Value - start) > tol)
+                        return DeathReason.PRICE_BREACH;
+                }
+            }
 
             return DeathReason.NONE;
         }

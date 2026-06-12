@@ -19,7 +19,7 @@ const el = {
     btnFull: $('btnFull'), rangeInfo: $('rangeInfo'),
     inpDead: $('inpDead'), btnLoad: $('btnLoad'), status: $('status'),
     nodeList: $('nodeList'), treeBarLabel: $('treeBarLabel'),
-    btnPlay: $('btnPlay'), btnStep: $('btnStep'),
+    btnPlay: $('btnPlay'), btnStep: $('btnStep'), btnDownload: $('btnDownload'),
     stepCounter: $('stepCounter'), progress: $('progress'), barDate: $('barDate')
 };
 
@@ -100,6 +100,7 @@ el.btnLoad.addEventListener('click', loadReplay);
 el.btnFull.addEventListener('click', resetRange);
 el.btnPlay.addEventListener('click', togglePlay);
 el.btnStep.addEventListener('click', () => { if (!playing) doStep(); });
+el.btnDownload.addEventListener('click', downloadSnapshot);
 
 el.inpFrom.addEventListener('change', updateRangeInfo);
 el.inpTo.addEventListener('change', updateRangeInfo);
@@ -184,6 +185,7 @@ async function loadReplay() {
         el.stepCounter.textContent = `0 / ${session.totalSteps}`;
         el.btnPlay.disabled = false;
         el.btnStep.disabled = false;
+        el.btnDownload.disabled = false;
     } catch (e) {
         el.status.textContent = 'Error: ' + e.message;
     } finally {
@@ -241,6 +243,30 @@ async function doStep() {
         el.status.textContent = 'Error: ' + e.message;
         return false;
     }
+}
+
+// ── Download snapshot ──
+function downloadSnapshot() {
+    if (!currentSnapshot) {
+        el.status.textContent = 'No snapshot to download. Run a step first.';
+        return;
+    }
+    const json = JSON.stringify(currentSnapshot, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const symbol = (session?.symbol || 'unknown').replace(/[^a-zA-Z0-9]/g, '_');
+    const tf = session?.timeframe || '';
+    const bar = currentSnapshot.zigzag?.length
+        ? currentSnapshot.zigzag[currentSnapshot.zigzag.length - 1].barIndex
+        : (allCandles.length ? allCandles[allCandles.length - 1].barIndex : '');
+    a.download = `ew_v2_snapshot_${symbol}_${tf}_bar${bar}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    el.status.textContent = 'Snapshot downloaded.';
 }
 
 // ── Play / pause ──
