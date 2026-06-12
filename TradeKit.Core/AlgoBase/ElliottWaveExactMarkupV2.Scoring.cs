@@ -30,12 +30,6 @@ namespace TradeKit.Core.AlgoBase
     {
         // ───────────────────────── §16.4 calibrated thresholds ─────────────────────────
 
-        /// <summary>Hard lower bound on adjacent-wave bar-duration ratio (§8, k_min).</summary>
-        private const double K_MIN_TIME = 0.3;
-
-        /// <summary>Hard upper bound on adjacent-wave bar-duration ratio (§8, k_max).</summary>
-        private const double K_MAX_TIME = 3.0;
-
         /// <summary>Lower edge of the unpenalised time-ratio comfort zone.</summary>
         private const double TIME_COMFORT_LOW = 0.6;
 
@@ -215,7 +209,7 @@ namespace TradeKit.Core.AlgoBase
         private static double StructuralScore(ElliottModelType model, IReadOnlyList<Segment> waves)
         {
             double fibo = ElliottWaveExactMarkup.CalculatePureFiboScore(model, waves);
-            return fibo * SoftPenalties(waves);
+            return fibo * SoftPenalties(model, waves);
         }
 
         /// <summary>
@@ -223,17 +217,23 @@ namespace TradeKit.Core.AlgoBase
         /// Each is in (0,1]; together they demote weak fits without killing them.
         /// Truncation is no longer a soft penalty; it is a hard-price rule (§7.1).
         /// </summary>
-        private static double SoftPenalties(IReadOnlyList<Segment> waves)
+        private static double SoftPenalties(ElliottModelType model, IReadOnlyList<Segment> waves)
         {
-            return OvershootPenalty(waves)
+            return OvershootPenalty(model, waves)
                    * TimeWindowPenalty(waves);
         }
 
         /// <summary>
         /// Geometric-mean penalty over the corrective (counter-trend) waves, demoting
         /// retracements that approach the structural cancellation boundary (§16.1 overshoot).
+        /// <para>
+        /// Flat models (<see cref="ElliottModelType.FLAT_EXTENDED"/>,
+        /// <see cref="ElliottModelType.FLAT_RUNNING"/>, <see cref="ElliottModelType.FLAT_REGULAR"/>)
+        /// and <see cref="ElliottModelType.TRIANGLE_RUNNING"/> expect wave B to retrace >100 %
+        /// of wave A by definition, so position 1 is exempt from the overshoot penalty.
+        /// </para>
         /// </summary>
-        private static double OvershootPenalty(IReadOnlyList<Segment> waves)
+        private static double OvershootPenalty(ElliottModelType model, IReadOnlyList<Segment> waves)
         {
             if (waves.Count < 2)
                 return 1.0;
@@ -242,10 +242,22 @@ namespace TradeKit.Core.AlgoBase
             double product = 1.0;
             int count = 0;
 
+            // Models where wave B is expected to exceed wave A by definition:
+            // flat extensions/running/regular and running triangles.
+            bool skipB = model == ElliottModelType.FLAT_EXTENDED
+                      || model == ElliottModelType.FLAT_RUNNING
+                      || model == ElliottModelType.FLAT_REGULAR
+                      || model == ElliottModelType.TRIANGLE_RUNNING;
+
             for (int i = 1; i < waves.Count; i++)
             {
                 if (waves[i].IsUp == trendUp)
                     continue; // not a counter-trend (corrective) wave
+
+                // Wave B of a flat / running triangle is expected to overshoot
+                // the origin — a deep retracement is the rule, not a warning sign.
+                if (skipB && i == 1)
+                    continue;
 
                 double prev = waves[i - 1].Length;
                 if (prev <= 0)
@@ -273,6 +285,8 @@ namespace TradeKit.Core.AlgoBase
         /// <summary>
         /// Geometric-mean penalty over adjacent waves whose bar-duration ratio drifts
         /// toward the hard time-window edges (§16.1 time-window).
+        /// Uses <see cref="BarSpan"/> for consistency
+        /// with the hard-time rules (§8).
         /// </summary>
         private static double TimeWindowPenalty(IReadOnlyList<Segment> waves)
         {
@@ -284,8 +298,8 @@ namespace TradeKit.Core.AlgoBase
 
             for (int i = 1; i < waves.Count; i++)
             {
-                int prevBars = waves[i - 1].BarsCount;
-                int curBars = waves[i].BarsCount;
+                int prevBars = BarSpan(waves[i - 1]);
+                int curBars = BarSpan(waves[i]);
                 if (prevBars <= 0 || curBars <= 0)
                     continue;
 
@@ -298,7 +312,9 @@ namespace TradeKit.Core.AlgoBase
 
         /// <summary>
         /// Maps a bar-duration ratio to a [<see cref="TIME_PENALTY_FLOOR"/>, 1] factor:
-        /// 1.0 inside the comfort zone, decaying linearly toward the hard k_min/k_max edges.
+        /// 1.0 inside the comfort zone, decaying linearly toward the hard k_min/k_max edges
+        /// (see <see cref="ElliottWaveExactMarkupV2.TIME_WINDOW_K_MIN"/> /
+        /// <see cref="ElliottWaveExactMarkupV2.TIME_WINDOW_K_MAX"/>).
         /// </summary>
         private static double TimeWindowFactor(double ratio)
         {
@@ -308,13 +324,13 @@ namespace TradeKit.Core.AlgoBase
             double t;
             if (ratio < TIME_COMFORT_LOW)
             {
-                double span = TIME_COMFORT_LOW - K_MIN_TIME;
-                t = span <= 0 ? 0.0 : (ratio - K_MIN_TIME) / span;
+                double span = TIME_COMFORT_LOW - TIME_WINDOW_K_MIN;
+                t = span <= 0 ? 0.0 : (ratio - TIME_WINDOW_K_MIN) / span;
             }
             else
             {
-                double span = K_MAX_TIME - TIME_COMFORT_HIGH;
-                t = span <= 0 ? 0.0 : (K_MAX_TIME - ratio) / span;
+                double span = TIME_WINDOW_K_MAX - TIME_COMFORT_HIGH;
+                t = span <= 0 ? 0.0 : (TIME_WINDOW_K_MAX - ratio) / span;
             }
 
             t = Math.Clamp(t, 0.0, 1.0);

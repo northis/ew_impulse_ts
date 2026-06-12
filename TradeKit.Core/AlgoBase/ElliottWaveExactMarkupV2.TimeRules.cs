@@ -144,7 +144,7 @@ namespace TradeKit.Core.AlgoBase
         /// Duration of a segment in bars (span between its endpoints), matching
         /// v1's duration semantics used in the hard rules.
         /// </summary>
-        private static int BarSpan(Segment seg) =>
+        internal static int BarSpan(Segment seg) =>
             Math.Abs(seg.End.BarIndex - seg.Start.BarIndex);
     }
 }

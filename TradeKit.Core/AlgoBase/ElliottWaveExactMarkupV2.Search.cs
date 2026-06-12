@@ -341,8 +341,8 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Runs the incremental hard-price (§7) and hard-time (§8) checks against
-        /// the waves gathered so far for <paramref name="model"/>.
+        /// Runs the incremental hard-price (§7), hard-time (§8) and cross-level
+        /// duration-order (§9) checks against the waves gathered so far.
         /// </summary>
         private DeathReason CheckIncremental(ElliottModelType model, List<Candidate> chosen)
         {
@@ -357,13 +357,37 @@ namespace TradeKit.Core.AlgoBase
             if (price != DeathReason.NONE)
                 return price;
 
-            return CheckTimeWindow(model, waves);
+            DeathReason time = CheckTimeWindow(model, waves);
+            if (time != DeathReason.NONE)
+                return time;
+
+            // §9 cross-level duration-order: wave x of DOUBLE_ZIGZAG must be at least
+            // 90 % of wave b of the first zigzag (w).  (See §11.2 time-based
+            // cancellation and §9 x ↔ b_of_w rule.)
+            if (model == ElliottModelType.DOUBLE_ZIGZAG
+                && chosen.Count == 2
+                && chosen[0].Model == ElliottModelType.ZIGZAG
+                && chosen[0].Children.Count >= 2)
+            {
+                Candidate bOfW = chosen[0].Children[1];
+                int bBars = Math.Abs(Pivots[bOfW.EndSeg + 1].BarIndex
+                                   - Pivots[bOfW.StartSeg].BarIndex);
+                Candidate waveX = chosen[1];
+                int xBars = Math.Abs(Pivots[waveX.EndSeg + 1].BarIndex
+                                   - Pivots[waveX.StartSeg].BarIndex);
+                DeathReason dur = CheckDurationOrder(xBars, bBars);
+                if (dur != DeathReason.NONE)
+                    return dur;
+            }
+
+            return DeathReason.NONE;
         }
 
         /// <summary>
         /// Keeps the top <see cref="BEAM_WIDTH"/> candidates by score while
         /// guaranteeing at least <see cref="MIN_PER_MODEL"/> per model type (§14.2).
-        /// Ordering is fully deterministic for the determinism invariant (T-MK-4).
+        /// Per-model minima are reserved first, then the remaining slots are filled
+        /// from the best-scoring rest.  Ordering is fully deterministic (T-MK-4).
         /// </summary>
         private static List<Candidate> Beam(List<Candidate> candidates)
         {
@@ -372,9 +396,9 @@ namespace TradeKit.Core.AlgoBase
 
             candidates.Sort(CompareCandidates);
 
-            var kept = new List<Candidate>(Math.Min(BEAM_WIDTH, candidates.Count));
+            var kept = new List<Candidate>();
             var perModel = new Dictionary<ElliottModelType, int>();
-            var overflow = new List<Candidate>();
+            var rest = new List<Candidate>();
 
             foreach (Candidate c in candidates)
             {
@@ -386,20 +410,14 @@ namespace TradeKit.Core.AlgoBase
                 }
                 else
                 {
-                    overflow.Add(c);
+                    rest.Add(c);
                 }
             }
 
-            foreach (Candidate c in overflow)
-            {
-                if (kept.Count >= BEAM_WIDTH)
-                    break;
-                kept.Add(c);
-            }
-
-            kept.Sort(CompareCandidates);
-            if (kept.Count > BEAM_WIDTH)
-                kept.RemoveRange(BEAM_WIDTH, kept.Count - BEAM_WIDTH);
+            // Fill remaining slots from the best-scoring rest (already sorted).
+            int slots = BEAM_WIDTH - kept.Count;
+            if (slots > 0 && rest.Count > 0)
+                kept.AddRange(rest.Take(slots));
 
             return kept;
         }

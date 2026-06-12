@@ -12,13 +12,20 @@ namespace TradeKit.Core.AlgoBase
         /// </summary>
         private const double TRUNCATION_SCORE_PENALTY = 0.3;
 
-        // Fibonacci ratio maps — aligned with PatternGenerator's generation maps
-        // Format: (cumulative-weight-byte, ratio)  — weight=0 is sentinel
-        // Weights are cumulative percentiles: (w, r) means w% of samples have ratio ≤ r.
+        // Fibonacci ratio maps — aligned with PatternGenerator's generation maps.
+        // Format: (density-weight-byte, ratio) — weight=0 is sentinel.
+        // Weights are selection-probability densities (key / sum-of-keys gives the
+        // normalised probability for that Fibonacci level, per EW_RULES §4).
         // No duplicate 0.786: second entry merged into the first (25+35=60 kept as 60)
         private static readonly (byte weight, double ratio)[] ZIGZAG_C_TO_A =
         {
             (0, 0), (5, 0.618), (60, 0.786), (75, 1.0), (85, 1.618), (90, 2.618), (95, 3.618)
+        };
+
+        // TRIPLE_ZIGZAG Z/W ratio (EW_RULES §4.7 / PatternGenerator ZIGZAG_X_Z_TO_W).
+        private static readonly (byte weight, double ratio)[] ZIGZAG_X_Z_TO_W =
+        {
+            (0, 0), (5, 1.0), (25, 1.618), (50, 2.618), (80, 3.618), (90, 4.236)
         };
 
         private static readonly (byte weight, double ratio)[] CONTRACTING_DIAGONAL_3_TO_1 =
@@ -65,9 +72,11 @@ namespace TradeKit.Core.AlgoBase
             (0, 0), (5, 0.236), (35, 0.382), (85, 0.5)
         };
 
+        // Per Prechter: C = 1.618 × A is the most typical extended-flat ratio.
+        // Aligned with PatternGenerator MAP_EX_FLAT_WAVE_C_TO_A (EW_RULES §4.8).
         private static readonly (byte weight, double ratio)[] MAP_EX_FLAT_WAVE_C_TO_A =
         {
-            (0, 0), (20, 1.618), (80, 2.618), (95, 3.618)
+            (0, 0), (75, 1.618), (90, 2.618), (99, 3.618)
         };
 
         private static readonly (byte weight, double ratio)[] MAP_RUNNING_FLAT_WAVE_C_TO_A =
@@ -333,6 +342,28 @@ namespace TradeKit.Core.AlgoBase
                     if (lenW <= 0) return (0.0, 0);
                     product *= GetCorrectionFiboWeight(lenX / lenW); numRatios++;
                     product *= GetFiboWeight(ZIGZAG_C_TO_A, lenY / lenW); numRatios++;
+                    break;
+                }
+
+                case ElliottModelType.TRIPLE_ZIGZAG:
+                {
+                    // EW_RULES §11: 5-wave structure W·X·Y·XX·Z.
+                    // Z/W uses ZIGZAG_X_Z_TO_W (1.0–4.236); intermediate retracements
+                    // (X/W, XX/Y) use correction fibo; Y/W uses ZIGZAG_C_TO_A.
+                    double lenW = w[0].Length;
+                    double lenX = w[1].Length;
+                    double lenY = w[2].Length;
+                    double lenXx = w[3].Length;
+                    double lenZ = w[4].Length;
+
+                    if (lenW <= 0) return (0.0, 0);
+                    product *= GetCorrectionFiboWeight(lenX / lenW);   numRatios++;
+                    product *= GetFiboWeight(ZIGZAG_C_TO_A, lenY / lenW); numRatios++;
+                    if (lenY > 0)
+                    {
+                        product *= GetCorrectionFiboWeight(lenXx / lenY); numRatios++;
+                        product *= GetFiboWeight(ZIGZAG_X_Z_TO_W, lenZ / lenW); numRatios++;
+                    }
                     break;
                 }
 

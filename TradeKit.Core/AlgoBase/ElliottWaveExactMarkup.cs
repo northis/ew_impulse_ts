@@ -220,6 +220,8 @@ namespace TradeKit.Core.AlgoBase
                 return waveNum == 1 ? "a" : (waveNum == 2 ? "b" : "c");
             if (type == ElliottModelType.DOUBLE_ZIGZAG)
                 return waveNum == 1 ? "w" : (waveNum == 2 ? "x" : "y");
+            if (type == ElliottModelType.TRIPLE_ZIGZAG)
+                return waveNum switch { 1 => "w", 2 => "x", 3 => "y", 4 => "xx", 5 => "z", _ => "" };
             if (type == ElliottModelType.TRIANGLE_CONTRACTING ||
                 type == ElliottModelType.TRIANGLE_RUNNING)
                 return ((char)('a' + waveNum - 1)).ToString();
@@ -234,6 +236,7 @@ namespace TradeKit.Core.AlgoBase
             if (type == ElliottModelType.IMPULSE ||
                 type == ElliottModelType.TRIANGLE_CONTRACTING ||
                 type == ElliottModelType.TRIANGLE_RUNNING ||
+                type == ElliottModelType.TRIPLE_ZIGZAG ||
                 type == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL ||
                 type == ElliottModelType.DIAGONAL_CONTRACTING_ENDING) return 5;
             if (type == ElliottModelType.SIMPLE_IMPULSE) return 1;

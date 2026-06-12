@@ -226,9 +226,10 @@ namespace TradeKit.Core.AlgoBase
                 if (running)
                 {
                     // FLAT_RUNNING §7.2: total correction must be ≥ 38.2 % of wave A.
-                    // |Start(A) − End(C)| < 0.382 · |A|  ⇒  correction too shallow → DEAD.
-                    double waveALen = w[0].Length;          // |A|
-                    double totalCorrection = Math.Abs(w[2].End.Value - start); // |Start(A) − End(C)|
+                    // Use signed distance in A's direction — a C that ends on the
+                    // "wrong" side of start is not a valid correction at all.
+                    double waveALen = w[0].Length;                // |A|
+                    double totalCorrection = s * (start - w[2].End.Value); // signed
                     double minRequired = 0.382 * waveALen;
                     if (totalCorrection < minRequired - tol)
                         return DeathReason.PRICE_BREACH;
@@ -237,7 +238,9 @@ namespace TradeKit.Core.AlgoBase
                 {
                     // FLAT_EXTENDED §7.2: wave C must break beyond the start of wave A.
                     // C is the impulse that extends past the pattern origin.
-                    if (s * (w[2].End.Value - start) > tol)
+                    // Death when C.End is NOT past start in A's direction
+                    // (s * (C.End - start) < 0 means C is on the non-A side of start).
+                    if (s * (w[2].End.Value - start) < -tol)
                         return DeathReason.PRICE_BREACH;
                 }
             }
