@@ -1,3 +1,4 @@
+using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 
 namespace TradeKit.Core.AlgoBase
@@ -272,6 +273,73 @@ namespace TradeKit.Core.AlgoBase
 
             // Wave C (or Y) must make a new extreme beyond the end of A (or W).
             if (w.Count >= 3 && s * (w[2].End.Value - w[0].End.Value) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            return DeathReason.NONE;
+        }
+
+        /// <summary>
+        /// §7.2 zigzag rule: wave C (or Y in double/triple zigzag) must break
+        /// beyond the <b>extreme</b> of wave B (or X), not just beyond A's (or
+        /// W's) endpoint.
+        /// <para>
+        /// If B is a flat whose internal wave-b temporarily exceeds A.End, C
+        /// must still exceed that level.  Otherwise the zigzag's corrective
+        /// wave overextended and the pattern is structurally incomplete.
+        /// </para>
+        /// <para>
+        /// The extreme is the maximum (up-zigzag) or minimum (down-zigzag)
+        /// pivot value within B's segment range.
+        /// </para>
+        /// </summary>
+        /// <param name="model">ZIGZAG / DOUBLE_ZIGZAG / TRIPLE_ZIGZAG.</param>
+        /// <param name="chosen">The assembled child candidates (A,B,C or W,X,Y…).</param>
+        /// <param name="waves">Segment view of <paramref name="chosen"/>.</param>
+        /// <param name="pivots">All zigzag pivots.</param>
+        private static DeathReason CheckZigzagMustBreakB(
+            ElliottModelType model,
+            IReadOnlyList<Candidate> chosen,
+            IReadOnlyList<Segment> waves,
+            IReadOnlyList<BarPoint> pivots)
+        {
+            // Determine the corrective wave index and the final wave index.
+            int corIdx, finalIdx;
+            switch (model)
+            {
+                case ElliottModelType.ZIGZAG:
+                    corIdx = 1; finalIdx = 2; break;
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                    corIdx = 1; finalIdx = 2; break;
+                case ElliottModelType.TRIPLE_ZIGZAG:
+                    corIdx = 3; finalIdx = 4; break;
+                default:
+                    return DeathReason.NONE;
+            }
+
+            if (chosen.Count <= finalIdx)
+                return DeathReason.NONE;
+
+            Candidate cor = chosen[corIdx];
+            Candidate fin = chosen[finalIdx];
+
+            // Is the zigzag moving up or down?
+            double s = waves[0].IsUp ? 1.0 : -1.0;
+
+            // B/X extreme: the pivot within [cor.StartSeg, cor.EndSeg+1] that
+            // is furthest in the zigzag direction.
+            double corExtreme = pivots[cor.StartSeg].Value;
+            for (int k = cor.StartSeg + 1; k <= cor.EndSeg + 1; k++)
+            {
+                double v = pivots[k].Value;
+                if (s > 0 && v > corExtreme) corExtreme = v;
+                if (s < 0 && v < corExtreme) corExtreme = v;
+            }
+
+            // Final wave endpoint.
+            double finalEnd = pivots[fin.EndSeg + 1].Value;
+
+            // Final wave must break beyond corrective wave's extreme.
+            if (s * (finalEnd - corExtreme) < 0)
                 return DeathReason.PRICE_BREACH;
 
             return DeathReason.NONE;

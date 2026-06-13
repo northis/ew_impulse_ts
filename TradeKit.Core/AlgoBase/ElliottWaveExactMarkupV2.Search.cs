@@ -361,6 +361,21 @@ namespace TradeKit.Core.AlgoBase
             if (time != DeathReason.NONE)
                 return time;
 
+            // §7.2 new rule: for zigzags, wave C (or Y in double/triple) must
+            // break beyond the extreme of wave B (or X), not just beyond A's (or
+            // W's) end.  If B's internal waves (e.g. a flat) went further in the
+            // zigzag direction than A, C must still exceed them — otherwise C
+            // didn't fully correct.
+            if (model == ElliottModelType.ZIGZAG
+                || model == ElliottModelType.DOUBLE_ZIGZAG
+                || model == ElliottModelType.TRIPLE_ZIGZAG)
+            {
+                DeathReason mustBreak = CheckZigzagMustBreakB(
+                    model, chosen, waves, Pivots);
+                if (mustBreak != DeathReason.NONE)
+                    return mustBreak;
+            }
+
             // §9 cross-level duration-order: wave x of DOUBLE_ZIGZAG must be at least
             // 90 % of wave b of the first zigzag (w).  (See §11.2 time-based
             // cancellation and §9 x ↔ b_of_w rule.)
