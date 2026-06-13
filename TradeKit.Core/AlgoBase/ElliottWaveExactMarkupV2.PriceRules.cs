@@ -61,7 +61,7 @@ namespace TradeKit.Core.AlgoBase
             double scale = 0;
             foreach (Segment seg in waves)
                 if (seg.Length > scale) scale = seg.Length;
-            double tol = MAIN_ALLOWANCE_MAX_RATIO * scale;
+            double tol = double.Epsilon;
 
             bool isUp = waves[0].IsUp;
             double s = isUp ? 1.0 : -1.0;
@@ -210,8 +210,8 @@ namespace TradeKit.Core.AlgoBase
         /// Additionally:
         ///   • <c>FLAT_RUNNING</c> — total correction (C-wave retracement from
         ///     start) must be at least 38.2 % of wave A (EW_MARKUP_v2 §7.2).
-        ///   • <c>FLAT_EXTENDED</c> — wave C must break beyond the start of
-        ///     wave A, i.e. the impulse C extends past the pattern origin.
+        ///   • <c>FLAT_EXTENDED</c> — wave C must break beyond the end of
+        ///     wave A (classical rule C/A ≥ 1.618, see EW_RULES §12).
         /// </summary>
         private static DeathReason CheckFlatOvershoot(
             IReadOnlyList<Segment> w, double s, double start, double tol,
@@ -236,11 +236,12 @@ namespace TradeKit.Core.AlgoBase
                 }
                 else
                 {
-                    // FLAT_EXTENDED §7.2: wave C must break beyond the start of wave A.
-                    // C is the impulse that extends past the pattern origin.
-                    // Death when C.End is NOT past start in A's direction
-                    // (s * (C.End - start) < 0 means C is on the non-A side of start).
-                    if (s * (w[2].End.Value - start) < -tol)
+                    // FLAT_EXTENDED §7.2: wave C must break beyond the end of wave A.
+                    // Classical rule: C/A ≥ 1.618 (EW_RULES §12).
+                    // Death when C.End is NOT past A.End in A's direction
+                    // (s * (C.End - A.End) < 0 means C is on the non-A side of A.End).
+                    double aEnd = w[0].End.Value;
+                    if (s * (w[2].End.Value - aEnd) < -tol)
                         return DeathReason.PRICE_BREACH;
                 }
             }
