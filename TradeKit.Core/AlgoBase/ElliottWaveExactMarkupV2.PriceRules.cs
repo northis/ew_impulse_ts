@@ -57,7 +57,12 @@ namespace TradeKit.Core.AlgoBase
             if (waves == null || waves.Count == 0)
                 return DeathReason.NONE;
 
-            // Pattern-scale tolerance: 5 % of the largest gathered amplitude.
+            // Pattern-scale tolerance: 5 % of the largest gathered amplitude (§7.3).
+            // NOTE: kept at zero for now — a symmetric tolerance of 5%·scale
+            // would weaken directional "must cross" checks (e.g. C must break
+            // beyond A.End, W5 must exceed W3.End) by allowing near-misses.
+            // The tolerance is computed but not yet applied to individual checks;
+            // if re-enabled, it must be directional (sign-dependent).
             double scale = 0;
             foreach (Segment seg in waves)
                 if (seg.Length > scale) scale = seg.Length;
@@ -82,19 +87,24 @@ namespace TradeKit.Core.AlgoBase
                     return CheckZigzag(waves, s, start, tol);
 
                 case ElliottModelType.FLAT_EXTENDED:
-                    return CheckFlatOvershoot(waves, s, start, tol, running: false);
+                    return Worst(CheckFlatOvershoot(waves, s, start, tol, running: false),
+                                 CheckCorrectionMustCorrect(waves, s, start, tol, model));
 
                 case ElliottModelType.FLAT_RUNNING:
-                    return CheckFlatOvershoot(waves, s, start, tol, running: true);
+                    return Worst(CheckFlatOvershoot(waves, s, start, tol, running: true),
+                                 CheckCorrectionMustCorrect(waves, s, start, tol, model));
 
                 case ElliottModelType.FLAT_REGULAR:
-                    return CheckFlatRegular(waves, s, start, tol);
+                    return Worst(CheckFlatRegular(waves, s, start, tol),
+                                 CheckCorrectionMustCorrect(waves, s, start, tol, model));
 
                 case ElliottModelType.TRIANGLE_CONTRACTING:
-                    return CheckTriangle(waves, s, start, tol, running: false);
+                    return Worst(CheckTriangle(waves, s, start, tol, running: false),
+                                 CheckCorrectionMustCorrect(waves, s, start, tol, model));
 
                 case ElliottModelType.TRIANGLE_RUNNING:
-                    return CheckTriangle(waves, s, start, tol, running: true);
+                    return Worst(CheckTriangle(waves, s, start, tol, running: true),
+                                 CheckCorrectionMustCorrect(waves, s, start, tol, model));
 
                 default:
                     // Atomic leaves (SIMPLE_IMPULSE) and models without dedicated
@@ -122,9 +132,12 @@ namespace TradeKit.Core.AlgoBase
                 if (s * (w[3].End.Value - start) < -tol)
                     return DeathReason.PRICE_BREACH;
 
-                // W4 must not enter the W1 price zone when W4 is a simple wave
-                // (§6.3 grants triangles/flats an exception).
-                if (wave4Simple && s * (w[3].End.Value - w[0].End.Value) < -tol)
+                // W4 end must not enter the W1 price zone.
+                // §6.3: triangles/flats may dip into W1 zone during their
+                // formation (intermediate body), but the END of W4 must still
+                // be outside (the word "can end outside" in §6.3 is aspirational,
+                // not permissive — if it DOES end inside, the impulse dies).
+                if (s * (w[3].End.Value - w[0].End.Value) < -tol)
                     return DeathReason.PRICE_BREACH;
             }
 
@@ -190,6 +203,66 @@ namespace TradeKit.Core.AlgoBase
             return DeathReason.NONE;
         }
 
+        /// <summary>
+        /// Universal correction rule (§7.2): for flats and triangles, the final
+        /// endpoint must lie on the <i>correction</i> side of the origin —
+        /// otherwise the pattern didn't actually correct.
+        /// <para>
+        /// For a flat in an uptrend (correcting a prior down move by going UP):
+        /// the final wave C must end above start; if C ends below start, the
+        /// correction failed.  Vice versa for a downtrend flat.
+        /// </para>
+        /// <para>
+        /// Zigzags are excluded: their impulse character already guarantees
+        /// C makes a new extreme beyond A.End (checked in <see cref="CheckZigzag"/>).
+        /// </para>
+        /// </summary>
+        private static DeathReason CheckCorrectionMustCorrect(
+            IReadOnlyList<Segment> w, double s, double start, double tol,
+            ElliottModelType model)
+        {
+            int finalIdx = model switch
+            {
+                ElliottModelType.FLAT_EXTENDED => 2,
+                ElliottModelType.FLAT_RUNNING => 2,
+                ElliottModelType.FLAT_REGULAR => 2,
+                ElliottModelType.TRIANGLE_CONTRACTING => 4,
+                ElliottModelType.TRIANGLE_RUNNING => 4,
+                _ => -1
+            };
+
+            if (finalIdx < 0 || w.Count <= finalIdx)
+                return DeathReason.NONE;
+
+            double finalEnd = w[finalIdx].End.Value;
+
+            // For flats/triangles, the correction direction is OPPOSITE to the
+            // larger trend.  A goes in the correction direction (counter-trend).
+            // s*(finalEnd - start) < 0 means finalEnd is on the NON-correction
+            // side of start — the pattern didn't correct.
+            // Example: uptrend flat s=1, start=0, C.End=-5: pattern went DOWN
+            // past start — correction happened ✓.
+            // Counter-example: uptrend flat s=1, start=0, C.End=-5 is a
+            // correction... wait.
+            //
+            // For an uptrend correction (A down, s=-1): finalEnd should be
+            // BELOW start (correction went down). s*(finalEnd-start) > 0.
+            // For a downtrend correction (A up, s=1): finalEnd should be
+            // ABOVE start (correction went up). s*(finalEnd-start) > 0.
+            //
+            // So: correction happened when s*(finalEnd - start) > 0.
+            // Death when s*(finalEnd - start) < -tol (finalEnd is on the
+            // non-correction side by more than tolerance).
+            if (s * (finalEnd - start) < -tol)
+                return DeathReason.PRICE_BREACH;
+
+            return DeathReason.NONE;
+        }
+
+        /// <summary>Returns the first non-NONE death reason, or NONE.</summary>
+        private static DeathReason Worst(DeathReason a, DeathReason b) =>
+            a != DeathReason.NONE ? a : b;
+
         private static DeathReason CheckZigzag(
             IReadOnlyList<Segment> w, double s, double start, double tol)
         {
@@ -252,9 +325,20 @@ namespace TradeKit.Core.AlgoBase
         private static DeathReason CheckFlatRegular(
             IReadOnlyList<Segment> w, double s, double start, double tol)
         {
-            // Regular flat: B retraces close to origin but must NOT overshoot it.
-            if (w.Count >= 2 && s * (w[1].End.Value - start) < -tol)
-                return DeathReason.PRICE_BREACH;
+            if (w.Count >= 2)
+            {
+                // B must retrace at least 90 % of A (EW_RULES §13: B ≈ 90–100 % A).
+                // B.End must be on the A side of start, i.e. s*(B.End - start) > 0 means
+                // B went past origin — that's overshoot, forbidden for regular flat.
+                double bRetrace = s * (w[1].End.Value - start);
+                if (bRetrace < -tol)
+                    return DeathReason.PRICE_BREACH; // overshoot past origin
+
+                // Lower bound: B must reach at least 90 % of A's amplitude.
+                double minB = 0.9 * w[0].Length;
+                if (w[1].Length < minB - tol)
+                    return DeathReason.PRICE_BREACH; // too shallow for regular flat
+            }
 
             return DeathReason.NONE;
         }

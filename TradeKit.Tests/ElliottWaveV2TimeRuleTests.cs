@@ -112,6 +112,29 @@ namespace TradeKit.Tests
                 Is.EqualTo(DeathReason.NONE));
         }
 
+        // ----- diagonals (soft timing only per §8.5) --------------------------
+
+        [Test]
+        public void DiagonalContractingInit_TimingIsSoft_NotKilled()
+        {
+            // W2 short, W4 very long — but diagonals get no hard time window.
+            var w = Waves((0, 0), (10, 10), (14, 4), (40, 24), (80, 16));
+            Assert.That(
+                ElliottWaveExactMarkupV2.CheckTimeWindow(
+                    ElliottModelType.DIAGONAL_CONTRACTING_INITIAL, w),
+                Is.EqualTo(DeathReason.NONE));
+        }
+
+        [Test]
+        public void DiagonalContractingEnding_TimingIsSoft_NotKilled()
+        {
+            var w = Waves((0, 0), (10, 10), (16, 4), (24, 16));
+            Assert.That(
+                ElliottWaveExactMarkupV2.CheckTimeWindow(
+                    ElliottModelType.DIAGONAL_CONTRACTING_ENDING, w),
+                Is.EqualTo(DeathReason.NONE));
+        }
+
         // ----- soft-timing models are not killed here --------------------------
 
         [Test]

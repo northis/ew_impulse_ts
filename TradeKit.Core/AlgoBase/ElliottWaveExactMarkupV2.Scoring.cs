@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 
 namespace TradeKit.Core.AlgoBase
@@ -30,14 +31,11 @@ namespace TradeKit.Core.AlgoBase
     {
         // ───────────────────────── §16.4 calibrated thresholds ─────────────────────────
 
-        /// <summary>Lower edge of the unpenalised time-ratio comfort zone.</summary>
-        private const double TIME_COMFORT_LOW = 0.6;
-
-        /// <summary>Upper edge of the unpenalised time-ratio comfort zone.</summary>
-        private const double TIME_COMFORT_HIGH = 1.7;
-
         /// <summary>Smallest factor the time-window soft penalty may reach.</summary>
         private const double TIME_PENALTY_FLOOR = 0.6;
+
+        /// <summary>Smallest factor the trendline overshoot penalty may reach.</summary>
+        private const double TRENDLINE_PENALTY_FLOOR = 0.7;
 
         /// <summary>Retracement ratio below which no overshoot penalty applies.</summary>
         private const double OVERSHOOT_COMFORT = 0.9;
@@ -220,7 +218,71 @@ namespace TradeKit.Core.AlgoBase
         private static double SoftPenalties(ElliottModelType model, IReadOnlyList<Segment> waves)
         {
             return OvershootPenalty(model, waves)
-                   * TimeWindowPenalty(waves);
+                   * TimeWindowPenalty(model, waves)
+                   * TrendlinePenalty(model, waves);
+        }
+
+        /// <summary>
+        /// §8.5 trendline-geometry penalty for <b>completed</b> 5-wave triangles
+        /// and diagonals.  Builds the two converging trendlines from same-direction
+        /// endpoints (A–C / B–D for triangles, 1–3 / 2–4 for diagonals) and checks
+        /// that the final wave's end lies within the corridor.  Overshoot draws a
+        /// soft penalty proportional to the channel width.
+        /// </summary>
+        private static double TrendlinePenalty(
+            ElliottModelType model, IReadOnlyList<Segment> waves)
+        {
+            if (waves.Count < 5)
+                return 1.0;
+
+            bool isTriangle = model == ElliottModelType.TRIANGLE_CONTRACTING
+                           || model == ElliottModelType.TRIANGLE_RUNNING;
+            bool isDiagonal = model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL
+                           || model == ElliottModelType.DIAGONAL_CONTRACTING_ENDING;
+
+            if (!isTriangle && !isDiagonal)
+                return 1.0;
+
+            Segment w0 = waves[0], w1 = waves[1], w2 = waves[2],
+                     w3 = waves[3], w4 = waves[4];
+
+            // Line 1: endpoints of waves 0 & 2 (A–C / 1–3)
+            double price1 = Extrapolate(w0.End, w2.End, w4.End.BarIndex);
+            // Line 2: endpoints of waves 1 & 3 (B–D / 2–4)
+            double price2 = Extrapolate(w1.End, w3.End, w4.End.BarIndex);
+
+            double upper = Math.Max(price1, price2);
+            double lower = Math.Min(price1, price2);
+            double channelWidth = upper - lower;
+
+            if (channelWidth <= 0)
+                return 1.0; // degenerate — parallel or diverging at target bar
+
+            double finalPrice = w4.End.Value;
+
+            if (finalPrice >= lower && finalPrice <= upper)
+                return 1.0; // within corridor
+
+            // Overshoot relative to channel width, capped at 1× width.
+            double overshoot = finalPrice < lower
+                ? (lower - finalPrice) / channelWidth
+                : (finalPrice - upper) / channelWidth;
+            overshoot = Math.Min(overshoot, 1.0);
+
+            return TRENDLINE_PENALTY_FLOOR
+                   + (1.0 - TRENDLINE_PENALTY_FLOOR) * (1.0 - overshoot);
+        }
+
+        /// <summary>
+        /// Linear extrapolation: returns Y at <paramref name="xTarget"/> on the
+        /// line through two <see cref="BarPoint"/>s.
+        /// </summary>
+        private static double Extrapolate(BarPoint p1, BarPoint p2, int xTarget)
+        {
+            if (p2.BarIndex == p1.BarIndex)
+                return p2.Value;
+            double slope = (p2.Value - p1.Value) / (p2.BarIndex - p1.BarIndex);
+            return p2.Value + slope * (xTarget - p2.BarIndex);
         }
 
         /// <summary>
@@ -283,27 +345,44 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Geometric-mean penalty over adjacent waves whose bar-duration ratio drifts
-        /// toward the hard time-window edges (§16.1 time-window).
-        /// Uses <see cref="BarSpan"/> for consistency
-        /// with the hard-time rules (§8).
+        /// §8.4 directional time penalty: corrections are statistically longer than
+        /// impulses, so we only penalise when the <b>impulse</b> is longer than the
+        /// following <b>correction</b> (ratio correction/impulse &lt; 1).
+        /// The reverse — correction 2–3× longer than impulse — is healthy and
+        /// draws <b>no</b> penalty.
+        /// <para>
+        /// §8.5: diagonals are exempt (geometry is primary).
+        /// </para>
         /// </summary>
-        private static double TimeWindowPenalty(IReadOnlyList<Segment> waves)
+        private static double TimeWindowPenalty(
+            ElliottModelType model, IReadOnlyList<Segment> waves)
         {
-            if (waves.Count < 2)
+            // §8.5: diagonals get no time penalty — trendline geometry is primary.
+            if (model == ElliottModelType.DIAGONAL_CONTRACTING_INITIAL ||
+                model == ElliottModelType.DIAGONAL_CONTRACTING_ENDING)
+                return 1.0;
+
+            var pairs = GetImpulseCorrectionPairs(model);
+            if (pairs == null || pairs.Count == 0)
                 return 1.0;
 
             double product = 1.0;
             int count = 0;
 
-            for (int i = 1; i < waves.Count; i++)
+            foreach ((int impIdx, int corIdx) in pairs)
             {
-                int prevBars = BarSpan(waves[i - 1]);
-                int curBars = BarSpan(waves[i]);
-                if (prevBars <= 0 || curBars <= 0)
+                if (corIdx >= waves.Count)
                     continue;
 
-                product *= TimeWindowFactor((double)curBars / prevBars);
+                int impBars = BarSpan(waves[impIdx]);
+                int corBars = BarSpan(waves[corIdx]);
+                if (impBars <= 0 || corBars <= 0)
+                    continue;
+
+                // §8.4: correction ≥ impulse is healthy (ratio ≥ 1).
+                // Penalise only when impulse > correction (ratio < 1).
+                double ratio = (double)corBars / impBars;
+                product *= CorrectionTimeFactor(ratio);
                 count++;
             }
 
@@ -311,28 +390,53 @@ namespace TradeKit.Core.AlgoBase
         }
 
         /// <summary>
-        /// Maps a bar-duration ratio to a [<see cref="TIME_PENALTY_FLOOR"/>, 1] factor:
-        /// 1.0 inside the comfort zone, decaying linearly toward the hard k_min/k_max edges
-        /// (see <see cref="ElliottWaveExactMarkupV2.TIME_WINDOW_K_MIN"/> /
-        /// <see cref="ElliottWaveExactMarkupV2.TIME_WINDOW_K_MAX"/>).
+        /// Returns the (impulse, correction) index pairs for the given model
+        /// (§8.4).  Flats and triangles have no impulse sub-waves so the rule
+        /// does not apply.
         /// </summary>
-        private static double TimeWindowFactor(double ratio)
+        private static List<(int Impulse, int Correction)>? GetImpulseCorrectionPairs(
+            ElliottModelType model)
         {
-            if (ratio >= TIME_COMFORT_LOW && ratio <= TIME_COMFORT_HIGH)
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                    // W1→W2 (0,1), W3→W4 (2,3)
+                    return new List<(int, int)> { (0, 1), (2, 3) };
+
+                case ElliottModelType.ZIGZAG:
+                    // A→B (0,1)
+                    return new List<(int, int)> { (0, 1) };
+
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                    // W→X (0,1)
+                    return new List<(int, int)> { (0, 1) };
+
+                case ElliottModelType.TRIPLE_ZIGZAG:
+                    // W→X (0,1), Y→XX (2,3)
+                    return new List<(int, int)> { (0, 1), (2, 3) };
+
+                default:
+                    // Flats, triangles — all sub-waves are corrective.
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// Maps correction/impulse duration ratio to a
+        /// [<see cref="TIME_PENALTY_FLOOR"/>, 1] factor.  1.0 when correction ≥
+        /// impulse (ratio ≥ 1, healthy per §8.4); ramps linearly down to
+        /// <see cref="TIME_PENALTY_FLOOR"/> as the ratio approaches
+        /// <see cref="ElliottWaveExactMarkupV2.TIME_WINDOW_K_MIN"/> (0.3).
+        /// </summary>
+        private static double CorrectionTimeFactor(double ratio)
+        {
+            // ratio = correction / impulse.  ≥1 → healthy, no penalty.
+            if (ratio >= 1.0)
                 return 1.0;
 
-            double t;
-            if (ratio < TIME_COMFORT_LOW)
-            {
-                double span = TIME_COMFORT_LOW - TIME_WINDOW_K_MIN;
-                t = span <= 0 ? 0.0 : (ratio - TIME_WINDOW_K_MIN) / span;
-            }
-            else
-            {
-                double span = TIME_WINDOW_K_MAX - TIME_COMFORT_HIGH;
-                t = span <= 0 ? 0.0 : (TIME_WINDOW_K_MAX - ratio) / span;
-            }
-
+            // ratio in (k_min, 1).  Linear ramp: 1.0 at ratio=1, FLOOR at ratio=k_min.
+            double span = 1.0 - TIME_WINDOW_K_MIN;
+            double t = span <= 0 ? 0.0 : (ratio - TIME_WINDOW_K_MIN) / span;
             t = Math.Clamp(t, 0.0, 1.0);
             return TIME_PENALTY_FLOOR + (1.0 - TIME_PENALTY_FLOOR) * t;
         }

@@ -96,13 +96,14 @@ namespace TradeKit.Tests
         }
 
         [Test]
-        public void Impulse_Wave4OverlapsWave1_ComplexW4_Survives()
+        public void Impulse_Wave4OverlapsWave1_ComplexW4_Dies()
         {
-            // Same overlap, but W4 is a triangle/flat (§6.3 exception) → allowed.
+            // B6: W4 end inside W1 zone — even a triangle/flat W4 must not
+            // end there.  §6.3 excuses intermediate dips, not the final endpoint.
             var w = Waves(0, 10, 4, 24, 8, 30);
             Assert.That(
                 ElliottWaveExactMarkupV2.CheckPriceRules(ElliottModelType.IMPULSE, w, wave4Simple: false),
-                Is.EqualTo(DeathReason.NONE));
+                Is.EqualTo(DeathReason.PRICE_BREACH));
         }
 
         [Test]

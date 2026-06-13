@@ -68,12 +68,18 @@ namespace TradeKit.Core.AlgoBase
             switch (model)
             {
                 case ElliottModelType.IMPULSE:
-                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
-                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
                     // Hard same-rank pair: W4 (index 3) ↔ W2 (index 1).
                     // W1/W3/W5 timing is soft (§8.3) — handled by scoring.
                     if (waves.Count >= 4)
                         return Window(waves[3], waves[1], kMin, kMax);
+                    return DeathReason.NONE;
+
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                    // §8.5: diagonals get reduced weight on time — geometry
+                    // (trendlines) is the primary criterion.  No hard time
+                    // window here; soft penalty is applied via TimeWindowPenalty
+                    // in scoring.
                     return DeathReason.NONE;
 
                 case ElliottModelType.ZIGZAG:

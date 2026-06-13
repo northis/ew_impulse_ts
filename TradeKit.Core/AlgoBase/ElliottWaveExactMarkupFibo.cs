@@ -103,10 +103,11 @@ namespace TradeKit.Core.AlgoBase
             (0, 0), (5, 0.786), (15, 1.0), (50, 1.236), (85, 1.382), (95, 1.618)
         };
 
-        // Regular flat: B ≈ 90–105 % of A, peak at 1.0.
+        // Regular flat: B ≈ 90–100 % of A (EW_RULES §13).  B does NOT overshoot A's
+        // origin and stays strictly within A's amplitude.
         private static readonly (byte weight, double ratio)[] MAP_FLAT_REGULAR_B_TO_A =
         {
-            (0, 0), (5, 0.618), (15, 0.786), (80, 1.0), (95, 1.1)
+            (0, 0), (70, 0.9), (90, 0.95), (99, 1.0)
         };
 
         private static readonly (byte weight, double ratio)[] MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV =
