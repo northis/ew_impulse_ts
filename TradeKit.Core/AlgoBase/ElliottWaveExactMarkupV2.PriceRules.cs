@@ -18,13 +18,6 @@ namespace TradeKit.Core.AlgoBase
     public partial class ElliottWaveExactMarkupV2
     {
         /// <summary>
-        /// Tolerance applied when comparing a pivot against a boundary level so
-        /// that "almost touches" are not rejected (EW_MARKUP_v2 §7.3).  Expressed
-        /// as a fraction of the pattern scale (largest gathered wave amplitude).
-        /// </summary>
-        public const double MAIN_ALLOWANCE_MAX_RATIO = 0.05;
-
-        /// <summary>
         /// Minimum fraction of the reference wave's length by which a diagonal's
         /// next same-direction wave must exceed the reference endpoint, so that a
         /// W3 that barely touches W1 is not accepted (mirrors v1).

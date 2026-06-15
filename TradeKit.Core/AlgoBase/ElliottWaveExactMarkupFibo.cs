@@ -126,14 +126,24 @@ namespace TradeKit.Core.AlgoBase
         };
 
         /// <summary>
-        /// Returns a score [0,1] based on how well the given ratio matches the fibo map.
-        /// Uses exponential penalty: score = weight * exp(-k * |ratio - nearest| / nearest).
-        /// Normalizes by the maximum weight in the map so every map's best-fit scores 1.0.
+        /// Returns a score [0,1] based on how well the given ratio fits the Fibo map.
+        /// <para>
+        /// <b>Asymmetric rule (§7.3):</b> a Fibonacci level must be <i>reached or
+        /// exceeded</i> to earn its reward.  An "almost-touch" (ratio below a level)
+        /// earns <b>zero</b> from that level.  The score is taken from the
+        /// <b>highest</b> level the ratio has attained and decays exponentially with
+        /// relative overshoot: <c>w · exp(−k · (ratio − r) / r)</c>.  For the last
+        /// (highest) level in the map, decay continues naturally until the model's
+        /// cancellation boundary.
+        /// </para>
+        /// <para>
+        /// The result is normalised by the maximum weight in the map so that a
+        /// perfect hit at the most-probable level scores 1.0.
+        /// </para>
         /// </summary>
         private static double GetFiboWeight((byte weight, double ratio)[] map, double ratio)
         {
-            // Find best-fit entry (nearest ratio in map)
-            double bestRaw = 0.0;
+            double bestScore = 0.0;
             double maxWeight = 0.0;
             const double k = 5.0;
 
@@ -143,14 +153,20 @@ namespace TradeKit.Core.AlgoBase
                 double w = map[i].weight / 100.0;
                 if (r <= 0) continue;
                 if (w > maxWeight) maxWeight = w;
-                double dist = Math.Abs(ratio - r) / r;
-                double s = w * Math.Exp(-k * dist);
-                if (s > bestRaw) bestRaw = s;
+
+                // §7.3: reward only when the level is reached or exceeded.
+                // "Almost-touch" (ratio < r) → no credit from this level.
+                if (ratio >= r)
+                {
+                    double overshoot = (ratio - r) / r;
+                    double s = w * Math.Exp(-k * overshoot);
+                    if (s > bestScore) bestScore = s;
+                }
             }
 
             if (maxWeight <= 0) return 0.001;
-            // Normalize so that a perfect match at the highest-weight entry scores ~1.0
-            return Math.Max(0.001, bestRaw / maxWeight);
+            // Normalise: perfect hit at the highest-weight level → 1.0.
+            return Math.Max(0.001, bestScore / maxWeight);
         }
 
         private static double GetCorrectionFiboWeight(double ratio)
