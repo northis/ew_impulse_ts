@@ -262,6 +262,194 @@ namespace TradeKit.Core.AlgoBase
             return Math.Pow(product, 1.0 / numRatios);
         }
 
+        // ---- Fibo out-of-range hard rule (§16) ----
+
+        /// <summary>Maximum overshoot the largest Fibo level tolerates before the
+        /// model is rejected with <see cref="DeathReason.RATIO_OUT_OF_RANGE"/>.</summary>
+        private const double FIBO_MAX_OVERSHOOT = 1.1; // 10 % beyond the last level
+
+        /// <summary>
+        /// <b>Hard</b> Fibo-range check (§16): if any price ratio exceeds the
+        /// largest ratio in its map by more than <see cref="FIBO_MAX_OVERSHOOT"/>
+        /// (10 %) — or falls entirely below the first meaningful map entry
+        /// (0 %-weight zone) — the model hypothesis must die immediately with
+        /// <see cref="DeathReason.RATIO_OUT_OF_RANGE"/>.
+        /// </summary>
+        public static DeathReason CheckFiboRatioOutOfRange(
+            ElliottModelType model,
+            IReadOnlyList<ElliottWaveExactMarkupV2.Segment> waves)
+        {
+            if (waves == null || waves.Count == 0)
+                return DeathReason.NONE;
+
+            // Only validate when the model has all expected waves.
+            int expected = ElliottWaveExactMarkup.GetExpectedWaves(model);
+            if (expected < 0 || waves.Count < expected)
+                return DeathReason.NONE;
+
+            var w = new Segment[waves.Count];
+            for (int i = 0; i < waves.Count; i++)
+                w[i] = new Segment { Start = waves[i].Start, End = waves[i].End };
+
+            return CheckBounds(model, w);
+        }
+
+        private static DeathReason CheckBounds(ElliottModelType model, Segment[] w)
+        {
+            switch (model)
+            {
+                case ElliottModelType.IMPULSE:
+                {
+                    double len1 = w[0].Length;
+                    double len2 = w[1].Length;
+                    double len3 = w[2].Length;
+                    double len4 = w[3].Length;
+                    double len5 = w[4].Length;
+                    if (len1 <= 0 || len3 <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len2 / len1, CORRECTION_MIN, CORRECTION_MAX)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len3 / len1, IMPULSE_3_TO_1)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len4 / len3, IMPULSE_4_TO_3)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len5 / len1, IMPULSE_5_TO_1)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    break;
+                }
+
+                case ElliottModelType.DIAGONAL_CONTRACTING_INITIAL:
+                case ElliottModelType.DIAGONAL_CONTRACTING_ENDING:
+                {
+                    double len1 = w[0].Length;
+                    double len2 = w[1].Length;
+                    double len3 = w[2].Length;
+                    double len4 = w[3].Length;
+                    double len5 = w[4].Length;
+                    if (len1 <= 0 || len3 <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len2 / len1, MAP_DIAGONAL_CORRECTION)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len3 / len1, CONTRACTING_DIAGONAL_3_TO_1)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len4 / len3, MAP_DIAGONAL_CORRECTION)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(len5 / len3, MAP_DIAGONAL_5_TO_3)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    break;
+                }
+
+                case ElliottModelType.ZIGZAG:
+                {
+                    double lenA = w[0].Length;
+                    double lenB = w[1].Length;
+                    double lenC = w[2].Length;
+                    if (lenA <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenB / lenA, CORRECTION_MIN, CORRECTION_MAX)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenC / lenA, ZIGZAG_C_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    break;
+                }
+
+                case ElliottModelType.DOUBLE_ZIGZAG:
+                {
+                    double lenW = w[0].Length;
+                    double lenX = w[1].Length;
+                    double lenY = w[2].Length;
+                    if (lenW <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenX / lenW, CORRECTION_MIN, CORRECTION_MAX)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenY / lenW, ZIGZAG_C_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    break;
+                }
+
+                case ElliottModelType.TRIPLE_ZIGZAG:
+                {
+                    double lenW = w[0].Length;
+                    double lenX = w[1].Length;
+                    double lenY = w[2].Length;
+                    double lenXx = w[3].Length;
+                    double lenZ = w[4].Length;
+                    if (lenW <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenX / lenW, CORRECTION_MIN, CORRECTION_MAX)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenY / lenW, ZIGZAG_C_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (lenY > 0)
+                    {
+                        if (Fail(lenXx / lenY, CORRECTION_MIN, CORRECTION_MAX)) return DeathReason.RATIO_OUT_OF_RANGE;
+                        if (Fail(lenZ / lenW, ZIGZAG_X_Z_TO_W)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    }
+                    break;
+                }
+
+                case ElliottModelType.FLAT_EXTENDED:
+                {
+                    double lenA = w[0].Length;
+                    double lenB = w[1].Length;
+                    double lenC = w[2].Length;
+                    if (lenA <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenB / lenA, MAP_FLAT_EXTENDED_B_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenC / lenA, MAP_EX_FLAT_WAVE_C_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    break;
+                }
+
+                case ElliottModelType.FLAT_RUNNING:
+                {
+                    double lenA = w[0].Length;
+                    double lenB = w[1].Length;
+                    double lenC = w[2].Length;
+                    if (lenA <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenB / lenA, MAP_FLAT_RUNNING_B_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenC / lenA, MAP_RUNNING_FLAT_WAVE_C_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    break;
+                }
+
+                case ElliottModelType.FLAT_REGULAR:
+                {
+                    double lenA = w[0].Length;
+                    double lenB = w[1].Length;
+                    double lenC = w[2].Length;
+                    if (lenA <= 0) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenB / lenA, MAP_FLAT_REGULAR_B_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    if (Fail(lenC / lenA, MAP_REG_FLAT_WAVE_C_TO_A)) return DeathReason.RATIO_OUT_OF_RANGE;
+                    break;
+                }
+
+                case ElliottModelType.TRIANGLE_CONTRACTING:
+                case ElliottModelType.TRIANGLE_RUNNING:
+                {
+                    for (int i = 1; i < w.Length; i++)
+                    {
+                        double prev = w[i - 1].Length;
+                        double curr = w[i].Length;
+                        if (prev <= 0) continue;
+                        if (Fail(curr / prev, MAP_CONTRACTING_TRIANGLE_WAVE_NEXT_TO_PREV))
+                            return DeathReason.RATIO_OUT_OF_RANGE;
+                    }
+                    break;
+                }
+
+                default:
+                    // SIMPLE_IMPULSE — no ratios to check.
+                    return DeathReason.NONE;
+            }
+
+            return DeathReason.NONE;
+        }
+
+        /// <summary>First meaningful entry in a ratio map (skip sentinel at [0]).</summary>
+        private static double FirstRatio((byte weight, double ratio)[] map) => map[1].ratio;
+
+        /// <summary>Largest ratio entry in a map.</summary>
+        private static double MaxRatio((byte weight, double ratio)[] map) => map[^1].ratio;
+
+        /// <summary>
+        /// Returns <c>true</c> when <paramref name="ratio"/> either
+        /// (a) exceeds <c>maxRatio · <see cref="FIBO_MAX_OVERSHOOT"/></c>, or
+        /// (b) lies below the first meaningful map entry (0 %-weight zone).
+        /// </summary>
+        private static bool Fail(double ratio, (byte weight, double ratio)[] map)
+        {
+            double first = FirstRatio(map);
+            double max = MaxRatio(map);
+            return ratio < first || ratio > max * FIBO_MAX_OVERSHOOT;
+        }
+
+        /// <summary>Correction maps share a combined range (deep + shallow).</summary>
+        private static readonly double CORRECTION_MIN = FirstRatio(MAP_SHALLOW_CORRECTION);  // 0.236
+        private static readonly double CORRECTION_MAX =
+            Math.Max(MaxRatio(MAP_DEEP_CORRECTION), MaxRatio(MAP_SHALLOW_CORRECTION));       // 0.95
+
+        private static bool Fail(double ratio, double min, double max) =>
+            ratio < min || ratio > max * FIBO_MAX_OVERSHOOT;
+
         /// <summary>
         /// Collects the per-model Fibonacci ratio weights into a running product and a
         /// ratio counter (shared by the v1 <see cref="CalculateFiboScore"/> and the v2

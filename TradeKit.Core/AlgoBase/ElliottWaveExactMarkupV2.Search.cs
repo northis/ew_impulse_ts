@@ -357,6 +357,10 @@ namespace TradeKit.Core.AlgoBase
             if (price != DeathReason.NONE)
                 return price;
 
+            DeathReason fiboRange = ElliottWaveExactMarkup.CheckFiboRatioOutOfRange(model, waves);
+            if (fiboRange != DeathReason.NONE)
+                return fiboRange;
+
             DeathReason time = CheckTimeWindow(model, waves);
             if (time != DeathReason.NONE)
                 return time;

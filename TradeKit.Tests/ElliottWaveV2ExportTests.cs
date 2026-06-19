@@ -101,8 +101,10 @@ namespace TradeKit.Tests
             // An extended-W3 impulse (W3 = a 5-segment sub-impulse). Over its nine segments
             // the top-level search tries several wave splits, the wrong ones die on hard
             // rules and are captured as dead alternatives of the live root (§17 debug).
+            // Pivots chosen so that all fibo ratios stay within allowed maps
+            // (IMPULSE_3_TO_1 max = 4.236·1.1 = 4.66; W3/W1 = 28/10 = 2.8 ✓).
             var markup = new ElliottWaveExactMarkupV2(
-                null, Pivots(0, 10, 4, 30, 22, 50, 40, 60, 35, 70));
+                null, Pivots(0, 10, 4, 28, 20, 38, 32, 42, 30, 50));
 
             MarkupSearchResult plain = markup.Parse();
             Assert.That(plain.Roots, Is.Not.Empty, "The extended impulse must be marked up.");
