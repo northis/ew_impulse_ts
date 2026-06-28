@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Импульсы — тренажёр входов</title>
+  <link rel="stylesheet" href="/css/replay.css">
+  <link rel="stylesheet" href="/css/impulse.css">
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+<div id="app">
+  <!-- Top bar -->
+  <div id="topbar">
+    <a class="navlink" href="/index.html" title="Разметка волн Эллиотта">↩ Разметка</a>
+    <span class="ctrl-sep"></span>
+    <label>CSV:</label>
+    <select id="selFile"><option>-- загрузка файлов... --</option></select>
+    <label>С:</label>
+    <input type="text" id="inpFromDate" placeholder="dd.mm.yyyy" maxlength="10" inputmode="numeric" autocomplete="off">
+    <label>По:</label>
+    <input type="text" id="inpToDate" placeholder="dd.mm.yyyy" maxlength="10" inputmode="numeric" autocomplete="off">
+    <span id="rangeInfo"></span>
+
+    <!-- Main impulse filters -->
+    <span class="param"><label title="Минимальный размер импульса, % от канала">Размер %</label>
+      <input type="number" id="pMinSize" value="0.13" step="0.01" min="0"></span>
+    <span class="param"><label title="Максимальная глубина перекрытия волн, %">Перекр. %</label>
+      <input type="number" id="pOverlap" value="35" step="1" min="0"></span>
+    <span class="param"><label title="Максимальная дистанция (изломанность), %">Дист. %</label>
+      <input type="number" id="pDistance" value="35" step="1" min="0"></span>
+    <span class="param"><label title="Максимальная площадь отклонения, %">Площ. %</label>
+      <input type="number" id="pArea" value="35" step="1" min="0"></span>
+    <span class="param"><label title="Минимальное количество баров в импульсе">Баров</label>
+      <input type="number" id="pBars" value="15" step="1" min="1"></span>
+    <span class="param"><label title="Глубина коррекции для входа (0..1)">Вход</label>
+      <input type="number" id="pEnter" value="0.35" step="0.05" min="0.05" max="1"></span>
+
+    <details id="advanced">
+      <summary title="Доп. параметры">⚙</summary>
+      <div class="adv-grid">
+        <span class="param"><label title="Период зигзага (DeviationExtremumFinder)">Период</label>
+          <input type="number" id="pPeriod" value="20" step="1" min="1"></span>
+        <span class="param"><label title="Множитель тейк-профита от длины импульса">Тейк</label>
+          <input type="number" id="pTake" value="1.6" step="0.1" min="0.1"></span>
+        <span class="param"><label title="Брейк-ивен (0 = выкл)">Б/У</label>
+          <input type="number" id="pBreakEven" value="0" step="0.1" min="0" max="1"></span>
+        <span class="param"><label title="Макс. зигзаг, % (для статистики)">Зигзаг %</label>
+          <input type="number" id="pZigzag" value="20" step="1" min="0"></span>
+        <span class="param"><label title="Макс. неоднородность">Гетер.</label>
+          <input type="number" id="pHetero" value="20" step="1" min="0"></span>
+      </div>
+    </details>
+
+    <button id="btnScan">🔍 Сканировать</button>
+    <span id="status">Готов</span>
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+    <div id="chartContainer"></div>
+
+    <div id="gamePanel">
+      <div id="gameEmpty"><em>Выберите файл и диапазон, затем «Сканировать»</em></div>
+
+      <div id="gameCard" style="display:none">
+        <div class="setup-head">
+          <span id="setupCounter">0 / 0</span>
+          <span id="dirBadge" class="dir-badge"></span>
+        </div>
+
+        <!-- Question phase -->
+        <div id="phaseQuestion">
+          <p class="prompt">Импульс отработан, цена откатилась к уровню входа.<br>
+            Входить в позицию?</p>
+          <div class="levels">
+            <div><span class="lvl-name tp">Тейк</span><span id="qTp">—</span></div>
+            <div><span class="lvl-name entry">Вход</span><span id="qEntry">—</span></div>
+            <div><span class="lvl-name sl">Стоп</span><span id="qSl">—</span></div>
+            <div><span class="lvl-name rr">R:R</span><span id="qRr">—</span></div>
+          </div>
+          <div class="decide-btns">
+            <button id="btnEnter" class="btn-enter">✔ Войти</button>
+            <button id="btnSkip" class="btn-skip">✘ Пропустить</button>
+          </div>
+        </div>
+
+        <!-- Answer phase -->
+        <div id="phaseAnswer" style="display:none">
+          <div id="verdict" class="verdict"></div>
+          <div class="answer-detail">
+            <div>Ваш выбор: <span id="aDecision">—</span></div>
+            <div>Результат: <span id="aOutcome">—</span></div>
+          </div>
+          <button id="btnNext" class="btn-next">Следующий ▶</button>
+        </div>
+      </div>
+
+      <!-- Running statistics -->
+      <div id="statsBox">
+        <h4>📊 Статистика</h4>
+        <div class="stat-row"><span>Решений</span><span id="stTotal">0</span></div>
+        <div class="stat-row"><span>Точность</span><span id="stAcc">—</span></div>
+        <div class="stat-row good"><span>Вход → Тейк</span><span id="stWin">0</span></div>
+        <div class="stat-row bad"><span>Вход → Стоп</span><span id="stLoss">0</span></div>
+        <div class="stat-row good"><span>Пропуск → Стоп</span><span id="stGoodSkip">0</span></div>
+        <div class="stat-row bad"><span>Пропуск → Тейк</span><span id="stMissed">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="playback">
+    <span id="stepCounter">0 / 0</span>
+    <progress id="progress" max="100" value="0"></progress>
+    <span id="barDate">—</span>
+  </div>
+</div>
+
+<script src="/js/impulse.js"></script>
+</body>
+</html>

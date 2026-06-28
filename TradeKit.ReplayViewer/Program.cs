@@ -216,6 +216,30 @@ app.MapPost("/api/replay/step", (StepRequest req) =>
     }
 });
 
+// ── Impulse training game ────────────────────────────
+// Scans a file/date-range for entry-impulse setups (same logic as the cTrader bot)
+// and returns each setup with its eventual TP/SL outcome for the quiz UI.
+var impulseScanEngine = new ImpulseScanEngine();
+app.MapPost("/api/impulse/scan", (ImpulseScanRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.File))
+        return Results.BadRequest(new { error = "File name is required" });
+
+    string path = Path.Combine(dataDir, req.File);
+    if (!File.Exists(path))
+        return Results.NotFound(new { error = "File not found" });
+
+    try
+    {
+        ImpulseScanResult result = impulseScanEngine.Scan(path, req);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString(), statusCode: 500, title: ex.Message);
+    }
+});
+
 app.Run();
 
 // ── helpers ──────────────────────────────────────────
