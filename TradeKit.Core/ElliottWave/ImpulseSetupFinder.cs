@@ -274,7 +274,8 @@ namespace TradeKit.Core.ElliottWave
             ExactParsedNode markupNode = null;
             if (!checkSignalArgs.HasInCache)
             {
-                if (stats.CandlesCount < m_ImpulseParams.BarsCount)
+                if (stats.CandlesCount < m_ImpulseParams.BarsCount /* || 
+                    FlatDetector.IsFlatWaveC(BarsProvider, checkSignalArgs.StartItem, checkSignalArgs.EndItem, edgeExtremum, out _)*/)
                 {
                     m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
                     return false;
