@@ -11,6 +11,9 @@
 #topbar .param label { font-size: 10px; color: #6a7280; margin-bottom: 1px; }
 #topbar .param input[type=number] { width: 58px; }
 
+/* Native date pickers: dark theme + visible calendar icon */
+#topbar input[type=date] { color-scheme: dark; width: 130px; }
+
 #advanced { position: relative; }
 #advanced > summary {
   list-style: none; cursor: pointer; font-size: 16px; color: #8892a0;

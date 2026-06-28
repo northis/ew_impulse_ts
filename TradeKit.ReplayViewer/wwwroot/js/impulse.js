@@ -182,9 +182,10 @@ function renderAnswer(s, decision) {
 
 function renderStats() {
     $('stTotal').textContent = stats.total;
-    const correct = stats.win + stats.goodSkip;
-    $('stAcc').textContent = stats.total > 0
-        ? `${Math.round(correct / stats.total * 100)}% (${correct}/${stats.total})` : '—';
+    // Accuracy counts entries only (Войти): win / (win + loss). Skips are ignored.
+    const entries = stats.win + stats.loss;
+    $('stAcc').textContent = entries > 0
+        ? `${Math.round(stats.win / entries * 100)}% (${stats.win}/${entries})` : '—';
     $('stWin').textContent = stats.win;
     $('stLoss').textContent = stats.loss;
     $('stGoodSkip').textContent = stats.goodSkip;
@@ -328,6 +329,12 @@ function dateInputToIso(s) {
     return null;
 }
 
+/** ISO instant → "yyyy-mm-dd" value for a native <input type="date">. */
+function isoToDateValue(iso) {
+    const m = iso ? String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
 function formatDateTime(iso) {
     const dt = new Date(iso);
     if (isNaN(dt)) return '—';
@@ -369,6 +376,11 @@ async function onFileSelected() {
             const f = formatDateTime(info.firstBarTime).slice(0, 10);
             const t = formatDateTime(info.lastBarTime).slice(0, 10);
             $('rangeInfo').textContent = `${f} … ${t} (${info.barCount} баров)`;
+            // Auto-fill the date pickers with the file's full range (like the markup page).
+            $('inpFromDate').value = isoToDateValue(info.firstBarTime);
+            $('inpToDate').value = isoToDateValue(info.lastBarTime);
+            $('inpFromDate').min = $('inpToDate').min = isoToDateValue(info.firstBarTime);
+            $('inpFromDate').max = $('inpToDate').max = isoToDateValue(info.lastBarTime);
         } else {
             $('rangeInfo').textContent = '';
         }
