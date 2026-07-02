@@ -129,10 +129,17 @@ public sealed class ImpulseScanEngine
             kept[i].Id = i;
 
         // ── 5. Slice candles to only the region the UI actually draws ──
+        // The UI shows extra left context equal to the entry-window span, so include
+        // those leading bars too (left edge = ViewStartBar - (EntryBar - ViewStartBar)).
         var candles = new List<CandleBar>();
         if (kept.Count > 0)
         {
-            int minBar = kept.Min(s => Math.Min(s.ViewStartBar, s.ImpulseStartBar));
+            int minBar = kept.Min(s =>
+            {
+                int span = Math.Max(0, s.EntryBar - s.ViewStartBar);
+                int left = s.ViewStartBar - span;
+                return Math.Min(left, s.ImpulseStartBar);
+            });
             int maxBar = kept.Max(s => s.OutcomeBar);
             minBar = Math.Max(0, minBar);
             maxBar = Math.Min(n - 1, maxBar + RIGHT_PADDING_BARS);

@@ -14,19 +14,28 @@
 /* Native date pickers: dark theme + visible calendar icon */
 #topbar input[type=date] { color-scheme: dark; width: 130px; }
 
-#advanced { position: relative; }
-#advanced > summary {
-  list-style: none; cursor: pointer; font-size: 16px; color: #8892a0;
-  padding: 4px 6px; border: 1px solid #444a55; border-radius: 4px; user-select: none;
+/* Random-start-date button */
+#btnRandom {
+  background: #2a2e37; color: #c2c8d0; border: 1px solid #444a55; border-radius: 4px;
+  padding: 4px 8px; font-size: 14px; cursor: pointer; line-height: 1;
 }
-#advanced > summary::-webkit-details-marker { display: none; }
-#advanced[open] > summary { background: #333840; }
-.adv-grid {
-  position: absolute; top: 110%; left: 0; z-index: 30;
-  background: #242730; border: 1px solid #444a55; border-radius: 6px;
-  padding: 10px; display: flex; gap: 10px; flex-wrap: wrap; width: 360px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+#btnRandom:hover { background: #333840; }
+
+/* Advanced params, now always visible in the bottom playback bar */
+#advParams { display: flex; gap: 10px; align-items: flex-end; flex-wrap: nowrap; }
+#advParams .param { display: inline-flex; flex-direction: column; line-height: 1.1; }
+#advParams .param label { font-size: 10px; color: #6a7280; margin-bottom: 1px; white-space: nowrap; }
+#advParams .param input[type=number] {
+  width: 56px; background: #1a1d23; color: #d1d5db; border: 1px solid #3a3f49;
+  border-radius: 4px; padding: 3px 5px; font-size: 12px;
 }
+
+/* Fibonacci overlay toggle */
+#fibToggle {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+  color: #c2c8d0; cursor: pointer; white-space: nowrap; user-select: none;
+}
+#fibToggle input { cursor: pointer; }
 
 #btnScan {
   background: #3D85C6; color: #fff; border: none; border-radius: 4px;

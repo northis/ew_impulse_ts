@@ -20,11 +20,12 @@
     <input type="date" id="inpFromDate" autocomplete="off">
     <label>По:</label>
     <input type="date" id="inpToDate" autocomplete="off">
+    <button id="btnRandom" type="button" title="Случайная дата старта в пределах диапазона">🎲</button>
     <span id="rangeInfo"></span>
 
     <!-- Main impulse filters -->
     <span class="param"><label title="Минимальный размер импульса, % от канала">Размер %</label>
-      <input type="number" id="pMinSize" value="0.13" step="0.01" min="0"></span>
+      <input type="number" id="pMinSize" value="0.1" step="0.01" min="0"></span>
     <span class="param"><label title="Максимальная глубина перекрытия волн, %">Перекр. %</label>
       <input type="number" id="pOverlap" value="35" step="1" min="0"></span>
     <span class="param"><label title="Максимальная дистанция (изломанность), %">Дист. %</label>
@@ -34,23 +35,7 @@
     <span class="param"><label title="Минимальное количество баров в импульсе">Баров</label>
       <input type="number" id="pBars" value="15" step="1" min="1"></span>
     <span class="param"><label title="Глубина коррекции для входа (0..1)">Вход</label>
-      <input type="number" id="pEnter" value="0.35" step="0.05" min="0.05" max="1"></span>
-
-    <details id="advanced">
-      <summary title="Доп. параметры">⚙</summary>
-      <div class="adv-grid">
-        <span class="param"><label title="Период зигзага (DeviationExtremumFinder)">Период</label>
-          <input type="number" id="pPeriod" value="20" step="1" min="1"></span>
-        <span class="param"><label title="Множитель тейк-профита от длины импульса">Тейк</label>
-          <input type="number" id="pTake" value="1.6" step="0.1" min="0.1"></span>
-        <span class="param"><label title="Брейк-ивен (0 = выкл)">Б/У</label>
-          <input type="number" id="pBreakEven" value="0" step="0.1" min="0" max="1"></span>
-        <span class="param"><label title="Макс. зигзаг, % (для статистики)">Зигзаг %</label>
-          <input type="number" id="pZigzag" value="20" step="1" min="0"></span>
-        <span class="param"><label title="Макс. неоднородность">Гетер.</label>
-          <input type="number" id="pHetero" value="20" step="1" min="0"></span>
-      </div>
-    </details>
+      <input type="number" id="pEnter" value="0.4" step="0.05" min="0.05" max="1"></span>
 
     <button id="btnScan">🔍 Сканировать</button>
     <span id="status">Готов</span>
@@ -114,6 +99,25 @@
     <span id="stepCounter">0 / 0</span>
     <progress id="progress" max="100" value="0"></progress>
     <span id="barDate">—</span>
+    <span class="ctrl-sep"></span>
+    <!-- Advanced params (always visible) -->
+    <div id="advParams">
+      <span class="param"><label title="Период зигзага (DeviationExtremumFinder)">Период</label>
+        <input type="number" id="pPeriod" value="40" step="1" min="1"></span>
+      <span class="param"><label title="Множитель тейк-профита от длины импульса">Тейк</label>
+        <input type="number" id="pTake" value="1" step="0.1" min="0.1"></span>
+      <span class="param"><label title="Брейк-ивен (0 = выкл)">Б/У</label>
+        <input type="number" id="pBreakEven" value="0" step="0.1" min="0" max="1"></span>
+      <span class="param"><label title="Макс. зигзаг, % (для статистики)">Зигзаг %</label>
+        <input type="number" id="pZigzag" value="40" step="1" min="0"></span>
+      <span class="param"><label title="Макс. неоднородность">Гетер.</label>
+        <input type="number" id="pHetero" value="40" step="1" min="0"></span>
+    </div>
+    <span class="ctrl-sep"></span>
+    <button id="btnFit" type="button" title="Автоформат: подогнать график под данные">Автоформат</button>
+    <label id="fibToggle" title="Уровни Фибоначчи (откат + расширение) по импульсу">
+      <input type="checkbox" id="chkFib"> Fib
+    </label>
   </div>
 </div>
 

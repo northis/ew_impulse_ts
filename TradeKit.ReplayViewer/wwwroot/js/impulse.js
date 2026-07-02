@@ -16,13 +16,18 @@ const chart = LightweightCharts.createChart(
 const candleSeries = chart.addCandlestickSeries({
     upColor: '#26a69a', downColor: '#ef5350',
     borderUpColor: '#26a69a', borderDownColor: '#ef5350',
-    wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+    wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+    // Keep the visible candles vertically in view regardless of overlays/fib lines.
+    autoscaleInfoProvider: () => visiblePriceRange
+        ? { priceRange: { minValue: visiblePriceRange.min, maxValue: visiblePriceRange.max } }
+        : null
 });
 
 const RIGHT_PADDING_BARS = 8;
 let barTimeMap = new Map();   // absolute barIndex → unix seconds
 let priceDecimals = 5;
 let overlays = [];            // line series + price lines drawn per setup
+let visiblePriceRange = null; // { min, max } of currently shown candles (drives vertical autoscale)
 
 window.addEventListener('resize', () => {
     chart.applyOptions({}); // lightweight-charts auto-resizes its container
@@ -31,8 +36,9 @@ window.addEventListener('resize', () => {
 // ── State ──
 let scan = null;              // last scan result
 let candleByBar = new Map();  // absolute barIndex → candle DTO
-let idx = -1;                 // current setup index
+let currentFileInfo = null;   // { firstBarTime, lastBarTime, barCount } of selected filelet idx = -1;                 // current setup index
 let phase = 'idle';          // 'question' | 'answer'
+let currentDecision = null;   // last decision in answer phase ('enter' | 'skip')
 const decided = new Set();    // setup ids already scored
 const stats = { total: 0, win: 0, loss: 0, goodSkip: 0, missed: 0 };
 
@@ -74,7 +80,20 @@ function showCandles(fromBar, toBar) {
         data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
     }
     data.sort((a, b) => a.time - b.time);
+    // Compute the vertical range of the visible candles so the price scale
+    // always scrolls to fit them (with a small margin).
+    let lo = Infinity, hi = -Infinity;
+    for (const d of data) { if (d.low < lo) lo = d.low; if (d.high > hi) hi = d.high; }
+    if (isFinite(lo) && isFinite(hi)) {
+        const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.001;
+        visiblePriceRange = { min: lo - pad, max: hi + pad };
+    } else {
+        visiblePriceRange = null;
+    }
     candleSeries.setData(data);
+    // Re-enable vertical auto-scaling: dragging/zooming the price axis turns it
+    // off, which otherwise leaves later charts off-screen (empty space).
+    try { candleSeries.priceScale().applyOptions({ autoScale: true }); } catch (_) { /* ignore */ }
     if (data.length > 0) {
         try {
             chart.timeScale().setVisibleLogicalRange(
@@ -88,7 +107,8 @@ function addLine(bar1, p1, bar2, p2, color, width, style) {
     if (t1 == null || t2 == null) return;
     const s = chart.addLineSeries({
         color, lineWidth: width, lineStyle: style,
-        lastValueVisible: false, priceLineVisible: false
+        lastValueVisible: false, priceLineVisible: false,
+        autoscaleInfoProvider: () => null   // don't let overlay lines push the price scale
     });
     s.setData([{ time: t1, value: p1 }, { time: t2, value: p2 }]);
     overlays.push({ kind: 'line', ref: s });
@@ -113,12 +133,34 @@ function drawSetupBase(s) {
     addPriceLine(s.takeProfit, '#6AA84F', 'TP');
     addPriceLine(s.entryPrice, '#d1d5db', 'Вход');
     addPriceLine(s.stopLoss, '#ef5350', 'SL');
+    // Optional Fibonacci levels (retracement + extension of the impulse leg)
+    if ($('chkFib').checked) drawFib(s);
+}
+
+/** Fibonacci retracement + extension levels measured on the impulse leg. */
+const FIB_RETRACEMENT = [0.236, 0.382, 0.5, 0.618, 0.786];
+const FIB_EXTENSION = [1.272, 1.618, 2.618];
+function drawFib(s) {
+    const a = s.impulseStartPrice;     // Wave0
+    const b = s.impulseEndPrice;       // Wave5
+    const diff = b - a;
+    if (!isFinite(diff) || diff === 0) return;
+    for (const r of FIB_RETRACEMENT)   // retrace from the impulse end back toward its start
+        addPriceLine(b - diff * r, '#c98a3a', `R ${r}`);
+    for (const r of FIB_EXTENSION)     // project beyond the impulse end
+        addPriceLine(a + diff * r, '#7b6cd9', `E ${r}`);
+}
+
+/** Left edge of the view, extended by the same span currently shown (extra context). */
+function viewLeftBar(s) {
+    const span = Math.max(0, s.entryBar - s.viewStartBar);
+    return s.viewStartBar - span;
 }
 
 function renderQuestion(s) {
     phase = 'question';
     drawSetupBase(s);
-    showCandles(s.viewStartBar, s.entryBar);
+    showCandles(viewLeftBar(s), s.entryBar);
 
     $('setupCounter').textContent = `${idx + 1} / ${scan.setups.length}`;
     const badge = $('dirBadge');
@@ -139,8 +181,9 @@ function renderQuestion(s) {
 
 function renderAnswer(s, decision) {
     phase = 'answer';
+    currentDecision = decision;
     drawSetupBase(s);
-    showCandles(s.viewStartBar, s.outcomeBar);
+    showCandles(viewLeftBar(s), s.outcomeBar);
 
     // Outcome marker
     const t = barTimeFor(s.outcomeBar);
@@ -219,6 +262,18 @@ $('btnSkip').addEventListener('click', () => {
 $('btnNext').addEventListener('click', () => {
     if (idx + 1 < scan.setups.length) goTo(idx + 1);
     else $('status').textContent = 'Все сетапы пройдены';
+});
+
+// Auto-format the chart (fit all visible data) on demand.
+$('btnFit').addEventListener('click', () => {
+    try { chart.timeScale().fitContent(); } catch (_) { /* ignore */ }
+});
+
+// Re-draw the current setup when the Fibonacci toggle changes.
+$('chkFib').addEventListener('change', () => {
+    if (!scan || idx < 0) return;
+    if (phase === 'answer') renderAnswer(scan.setups[idx], currentDecision);
+    else renderQuestion(scan.setups[idx]);
 });
 
 // ── Scan ──
@@ -372,6 +427,7 @@ async function onFileSelected() {
     try {
         const res = await fetch('/api/replay/files/' + encodeURIComponent(name));
         const info = await res.json();
+        currentFileInfo = info;
         if (info.firstBarTime && info.lastBarTime) {
             const f = formatDateTime(info.firstBarTime).slice(0, 10);
             const t = formatDateTime(info.lastBarTime).slice(0, 10);
@@ -387,6 +443,21 @@ async function onFileSelected() {
     } catch (_) { $('rangeInfo').textContent = ''; }
 }
 
+/** Jump the "from" date to a random day within the file's full range. */
+function randomStartDate() {
+    if (!currentFileInfo || !currentFileInfo.firstBarTime || !currentFileInfo.lastBarTime) return;
+    const first = Date.parse(currentFileInfo.firstBarTime);
+    const last = Date.parse(currentFileInfo.lastBarTime);
+    if (isNaN(first) || isNaN(last) || last <= first) return;
+    // Pick a random day in [first, last); keep "to" at the file end.
+    const rnd = first + Math.random() * (last - first);
+    const iso = new Date(rnd).toISOString();
+    $('inpFromDate').value = isoToDateValue(iso);
+    $('inpToDate').value = isoToDateValue(currentFileInfo.lastBarTime);
+    $('status').textContent = `Старт: ${isoToDateValue(iso)} — нажмите «Сканировать»`;
+}
+
 $('selFile').addEventListener('change', onFileSelected);
+$('btnRandom').addEventListener('click', randomStartDate);
 
 loadFiles();
