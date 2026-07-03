@@ -474,7 +474,8 @@ namespace TradeKit.Core.ElliottWave
                     ? m_ImpulseParams.BreakEvenRatio
                     : null,
                 signalArgs.UseLimit,
-                signalArgs.MarkupNode);
+                signalArgs.MarkupNode,
+                signalArgs.Stats);
 
             //if (signalArgs.MarkupNode != null)
             //{

@@ -88,6 +88,8 @@ public sealed class ImpulseScanEngine
                 ViewStartBar = viewBar >= 0 ? viewBar : impulseStartBar,
                 EntryTime = args.Level.OpenTime.ToString("o"),
                 Comment = args.Comment ?? string.Empty,
+                RatioZigzag = args.Stats?.RatioZigzag ?? 0,
+                Area = args.Stats?.Area ?? 0,
                 Outcome = "NONE"
             };
         };
@@ -230,6 +232,12 @@ public sealed class ImpulseSetupDto
     public int ViewStartBar { get; set; }
     public string EntryTime { get; set; } = string.Empty;
     public string Comment { get; set; } = string.Empty;
+
+    /// <summary>Ratio-zigzag score of the impulse movement (0..1).</summary>
+    public double RatioZigzag { get; set; }
+
+    /// <summary>Envelope-area score of the impulse movement (0..1).</summary>
+    public double Area { get; set; }
 
     /// <summary>"TP", "SL", "CANCELED" or "NONE".</summary>
     public string Outcome { get; set; } = "NONE";

@@ -76,6 +76,7 @@
 .lvl-name.entry { background: #2a2e36; color: #d1d5db; }
 .lvl-name.sl { background: #3a2222; color: #ef5350; }
 .lvl-name.rr { background: #2a2640; color: #9a8cdf; }
+.lvl-name.stat { background: #23323a; color: #6fb7c7; }
 
 .decide-btns { display: flex; gap: 10px; }
 .btn-enter, .btn-skip, .btn-next {

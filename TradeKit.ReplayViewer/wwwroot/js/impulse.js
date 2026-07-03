@@ -47,6 +47,7 @@ const $ = id => document.getElementById(id);
 
 // ── Helpers ──
 function fmtPrice(v) { return v == null ? '—' : Number(v).toFixed(priceDecimals); }
+function fmtPct(v) { return v == null ? '—' : (Number(v) * 100).toFixed(1) + '%'; }
 
 function barTimeFor(barIndex) {
     const t = barTimeMap.get(barIndex);
@@ -172,6 +173,8 @@ function renderQuestion(s) {
     $('qEntry').textContent = fmtPrice(s.entryPrice);
     $('qSl').textContent = fmtPrice(s.stopLoss);
     $('qRr').textContent = isFinite(rr) ? rr.toFixed(2) : '—';
+    $('qRz').textContent = fmtPct(s.ratioZigzag);
+    $('qArea').textContent = fmtPct(s.area);
 
     $('phaseQuestion').style.display = '';
     $('phaseAnswer').style.display = 'none';
