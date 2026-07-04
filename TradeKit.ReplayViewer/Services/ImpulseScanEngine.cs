@@ -56,7 +56,8 @@ public sealed class ImpulseScanEngine
             HeterogeneityMax: req.HeterogeneityMax,
             MinSizePercent: req.MinSizePercent,
             AreaPercent: req.AreaPercent,
-            BarsCount: req.BarsCount);
+            BarsCount: req.BarsCount,
+            MaxCorrectionRatioPercent: req.MaxCorrectionRatioPercent);
 
         var tradeView = new ReplayTradeViewManager(provider);
         var finder = new ImpulseSetupFinder(provider, tradeView, impulseParams);
@@ -90,6 +91,7 @@ public sealed class ImpulseScanEngine
                 Comment = args.Comment ?? string.Empty,
                 RatioZigzag = args.Stats?.RatioZigzag ?? 0,
                 Area = args.Stats?.Area ?? 0,
+                CorrectionRatio = args.Stats?.CorrectionRatio ?? 0,
                 Outcome = "NONE"
             };
         };
@@ -210,7 +212,8 @@ public sealed record ImpulseScanRequest(
     int Period = 20,
     double BreakEvenRatio = 0,
     double MaxZigzagPercent = 20,
-    double HeterogeneityMax = 20);
+    double HeterogeneityMax = 20,
+    double MaxCorrectionRatioPercent = 50);
 
 /// <summary>A single detected impulse setup with its resolved TP/SL outcome.</summary>
 public sealed class ImpulseSetupDto
@@ -238,6 +241,9 @@ public sealed class ImpulseSetupDto
 
     /// <summary>Envelope-area score of the impulse movement (0..1).</summary>
     public double Area { get; set; }
+
+    /// <summary>Correction bars / impulse candidate bars ratio (may exceed 1).</summary>
+    public double CorrectionRatio { get; set; }
 
     /// <summary>"TP", "SL", "CANCELED" or "NONE".</summary>
     public string Outcome { get; set; } = "NONE";

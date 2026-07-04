@@ -18,6 +18,7 @@ namespace TradeKit.Core.ElliottWave
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly double m_MaxZigzagRatio;
         private readonly double m_MaxOverlapseLengthRatio;
+        private readonly double m_MaxCorrectionRatio;
         private readonly ElliottWaveExactMarkup m_Markup;
 
         private readonly Dictionary<DeviationExtremumFinder, Dictionary<DateTime, ImpulseResult>> m_ImpulseCache = new();
@@ -66,6 +67,7 @@ namespace TradeKit.Core.ElliottWave
 
             m_MaxZigzagRatio = impulseParams.MaxZigzagPercent / 100;
             m_MaxOverlapseLengthRatio = impulseParams.MaxOverlapseLengthPercent / 100;
+            m_MaxCorrectionRatio = impulseParams.MaxCorrectionRatioPercent / 100;
             m_Markup = new ElliottWaveExactMarkup(mainBarsProvider);
         }
 
@@ -271,6 +273,20 @@ namespace TradeKit.Core.ElliottWave
                ? m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime]
                : MovementStatistic.GetMovementStatistic(
                    checkSignalArgs.StartItem, checkSignalArgs.EndItem, BarsProvider, m_MaxOverlapseLengthRatio, m_MaxZigzagRatio);
+
+            // Correction length relative to the impulse candidate length (bars in correction / bars in impulse).
+            // This value may exceed 100%. Setups with a too-long correction are filtered out.
+            int correctionBars = checkSignalArgs.Index - checkSignalArgs.EndItem.BarIndex;
+            double correctionRatio = stats.CandlesCount > 0
+                ? (double)correctionBars / stats.CandlesCount
+                : 0;
+            stats.CorrectionRatio = correctionRatio;
+            if (correctionRatio > m_MaxCorrectionRatio)
+            {
+                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
+                return false;
+            }
+
             ExactParsedNode markupNode = null;
             if (!checkSignalArgs.HasInCache)
             {

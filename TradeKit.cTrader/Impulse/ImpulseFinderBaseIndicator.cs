@@ -42,7 +42,7 @@ namespace TradeKit.CTrader.Impulse
             return new ImpulseParams(
                 Period, EnterRatio, TakeRatio, 0, MaxZigzagPercent,
                 MaxOverlapseLengthPercent, MaxDistancePercent,
-                HeterogeneityMaxPercent, MinSizePercent, AreaPercent, BarsCount);
+                HeterogeneityMaxPercent, MinSizePercent, AreaPercent, BarsCount, MaxCorrectionRatioPercent);
         }
 
         #region Input parameters
@@ -103,6 +103,13 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         [Parameter(nameof(MaxOverlapseLengthPercent), DefaultValue = Helper.MAX_OVERLAPSE_LENGTH_PERCENT, MinValue = 0.01, MaxValue = 90, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxOverlapseLengthPercent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum correction-to-impulse bars ratio in percent
+        /// (correction bars / impulse candidate bars). Setups above this value are filtered out.
+        /// </summary>
+        [Parameter(nameof(MaxCorrectionRatioPercent), DefaultValue = 50, MinValue = 1, MaxValue = 500, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxCorrectionRatioPercent { get; set; }
         #endregion
 
         /// <summary>

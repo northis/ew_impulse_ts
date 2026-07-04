@@ -18,7 +18,7 @@ namespace TradeKit.CTrader.Impulse
             return new ImpulseParams(
                 Period, EnterRatio, TakeRatio, BreakEvenRatio, MaxZigzagPercent, MaxOverlapseLengthPercent,
                 MaxDistancePercent,
-                HeterogeneityMaxPercent, MinSizePercent, AreaPercent, BarsCount);
+                HeterogeneityMaxPercent, MinSizePercent, AreaPercent, BarsCount, MaxCorrectionRatioPercent);
         }
 
         #region Input parameters
@@ -28,6 +28,13 @@ namespace TradeKit.CTrader.Impulse
         /// </summary>
         [Parameter(nameof(MaxDistancePercent), DefaultValue = 20, MinValue = 1, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxDistancePercent { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the maximum correction-to-impulse bars ratio in percent
+        /// (correction bars / impulse candidate bars). Setups above this value are filtered out.
+        /// </summary>
+        [Parameter(nameof(MaxCorrectionRatioPercent), DefaultValue = 50, MinValue = 1, MaxValue = 500, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxCorrectionRatioPercent { get; set; }
         
         /// <summary>
         /// Gets or sets the minimum size of the impulse in percent.

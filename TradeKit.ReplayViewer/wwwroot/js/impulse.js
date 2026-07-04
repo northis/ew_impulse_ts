@@ -175,6 +175,7 @@ function renderQuestion(s) {
     $('qRr').textContent = isFinite(rr) ? rr.toFixed(2) : '—';
     $('qRz').textContent = fmtPct(s.ratioZigzag);
     $('qArea').textContent = fmtPct(s.area);
+    $('qCorr').textContent = fmtPct(s.correctionRatio);
 
     $('phaseQuestion').style.display = '';
     $('phaseAnswer').style.display = 'none';
@@ -298,6 +299,7 @@ async function runScan() {
         maxDistance: numVal('pDistance', 35),
         areaPercent: numVal('pArea', 35),
         barsCount: numVal('pBars', 15),
+        maxCorrectionRatioPercent: numVal('pCorr', 50),
         enterRatio: numVal('pEnter', 0.35),
         takeRatio: numVal('pTake', 1.6),
         period: numVal('pPeriod', 20),

@@ -33,7 +33,9 @@
     <span class="param"><label title="Максимальная площадь отклонения, %">Площ. %</label>
       <input type="number" id="pArea" value="35" step="1" min="0"></span>
     <span class="param"><label title="Минимальное количество баров в импульсе">Баров</label>
-      <input type="number" id="pBars" value="15" step="1" min="1"></span>
+      <input type="number" id="pBars" value="30" step="1" min="1"></span>
+    <span class="param"><label title="Макс. отношение баров коррекции к барам импульса, % (может быть >100%)">Корр. %</label>
+      <input type="number" id="pCorr" value="50" step="1" min="1"></span>
     <span class="param"><label title="Глубина коррекции для входа (0..1)">Вход</label>
       <input type="number" id="pEnter" value="0.4" step="0.05" min="0.05" max="1"></span>
 
@@ -65,6 +67,7 @@
             <div><span class="lvl-name rr">R:R</span><span id="qRr">—</span></div>
             <div><span class="lvl-name stat">Зигзаг</span><span id="qRz">—</span></div>
             <div><span class="lvl-name stat">Площадь</span><span id="qArea">—</span></div>
+            <div><span class="lvl-name stat">Коррекция</span><span id="qCorr">—</span></div>
           </div>
           <div class="decide-btns">
             <button id="btnEnter" class="btn-enter">✔ Войти</button>

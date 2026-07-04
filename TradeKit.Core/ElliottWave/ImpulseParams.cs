@@ -14,7 +14,8 @@
         double HeterogeneityMax,
         double MinSizePercent,
         double AreaPercent,
-        int BarsCount) : EWParams(Period, MinSizePercent, BarsCount)
+        int BarsCount,
+        double MaxCorrectionRatioPercent = 50) : EWParams(Period, MinSizePercent, BarsCount)
     {
     }
 }
