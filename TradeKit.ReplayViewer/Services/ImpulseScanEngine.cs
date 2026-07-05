@@ -92,6 +92,7 @@ public sealed class ImpulseScanEngine
                 RatioZigzag = args.Stats?.RatioZigzag ?? 0,
                 Area = args.Stats?.Area ?? 0,
                 CorrectionRatio = args.Stats?.CorrectionRatio ?? 0,
+                OverlapDegree = args.Stats?.OverlapDegree ?? 0,
                 Outcome = "NONE"
             };
         };
@@ -244,6 +245,9 @@ public sealed class ImpulseSetupDto
 
     /// <summary>Correction bars / impulse candidate bars ratio (may exceed 1).</summary>
     public double CorrectionRatio { get; set; }
+
+    /// <summary>Overlap degree of the impulse candles (0..1).</summary>
+    public double OverlapDegree { get; set; }
 
     /// <summary>"TP", "SL", "CANCELED" or "NONE".</summary>
     public string Outcome { get; set; } = "NONE";

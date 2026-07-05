@@ -176,6 +176,7 @@ function renderQuestion(s) {
     $('qRz').textContent = fmtPct(s.ratioZigzag);
     $('qArea').textContent = fmtPct(s.area);
     $('qCorr').textContent = fmtPct(s.correctionRatio);
+    $('qOverlap').textContent = fmtPct(s.overlapDegree);
 
     $('phaseQuestion').style.display = '';
     $('phaseAnswer').style.display = 'none';

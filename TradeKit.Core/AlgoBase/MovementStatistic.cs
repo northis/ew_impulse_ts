@@ -81,11 +81,12 @@ namespace TradeKit.Core.AlgoBase
             //    heterogeneityMax, end.BarIndex - start.BarIndex, size, singleCandle, rateZigzag);
 
             double area = GetEnvelopeAreaScore(start, end, barsProvider);
+            double overlapDegree = GetOverlapDegreeScore(start, end, barsProvider);
 
             //double priceCorrection = end > start ? start.Value : end.Value;
             //double profileArea = profiles.Sum(a => a.Value * Math.Abs(a.Key - priceCorrection))
             //                     / (10 * count * Math.Abs(start - end));
-            return new ImpulseResult(overlapseMaxDepth, count, size, rz, uni, area, maxDev);
+            return new ImpulseResult(overlapseMaxDepth, count, size, rz, uni, area, maxDev, overlapDegree);
         }
 
         public static double GetEntropy(List<double> values)
@@ -682,6 +683,94 @@ namespace TradeKit.Core.AlgoBase
                 overlapseIndex = 1;
 
             return (profile, overlapseIndex, singleCandle);
+        }
+
+        /// <summary>
+        /// Gets the overlap degree of the movement candles, from 0 to 1.
+        /// 1 (100%) corresponds to the case when every candle of the movement spans the whole price range
+        /// (maximum overlap); 0 (0%) corresponds to the case when each price increment of the movement is
+        /// produced by a single candle only (or an uncovered gap), i.e. there is no overlap at all.
+        /// </summary>
+        /// <param name="start">The start point.</param>
+        /// <param name="end">The end point.</param>
+        /// <param name="barsProvider">The bars provider.</param>
+        /// <returns>Overlap degree from 0 to 1.</returns>
+        public static double GetOverlapDegreeScore(
+            BarPoint start, BarPoint end, IBarsProvider barsProvider)
+        {
+            var candles = new List<ICandle>();
+            for (int i = start.BarIndex; i <= end.BarIndex; i++)
+            {
+                Candle cdl = Candle.FromIndex(barsProvider, i);
+                if (cdl != null)
+                    candles.Add(cdl);
+            }
+
+            return GetOverlapDegreeScore(candles);
+        }
+
+        /// <summary>
+        /// Gets the overlap degree for a set of candles, from 0 to 1.
+        /// Each price sub-segment (between consecutive candle extrema) is weighted by its relative height and
+        /// scored by how many candles fully span it, normalized so that coverage by all candles gives 1 and
+        /// coverage by a single candle (or an uncovered gap) gives 0.
+        /// </summary>
+        /// <param name="candles">The candles.</param>
+        /// <returns>Overlap degree from 0 to 1.</returns>
+        public static double GetOverlapDegreeScore(IReadOnlyList<ICandle> candles)
+        {
+            if (candles == null || candles.Count < 2)
+                return 0;
+
+            int n = candles.Count;
+            double min = double.MaxValue;
+            double max = double.MinValue;
+            var points = new List<double>(n * 2);
+
+            foreach (ICandle candle in candles)
+            {
+                points.Add(candle.H);
+                points.Add(candle.L);
+                min = Math.Min(min, candle.L);
+                max = Math.Max(max, candle.H);
+            }
+
+            double length = max - min;
+            if (length < double.Epsilon)
+                return 0;
+
+            points.Sort();
+
+            double degree = 0;
+            for (int i = 1; i < points.Count; i++)
+            {
+                double lo = points[i - 1];
+                double hi = points[i];
+                double segLength = hi - lo;
+                if (segLength <= double.Epsilon)
+                    continue;
+
+                int coverage = 0;
+                for (int j = 0; j < n; j++)
+                {
+                    if (candles[j].L <= lo && candles[j].H >= hi)
+                        coverage++;
+                }
+
+                // Normalize coverage [1..n] -> [0..1]; a single candle (or a gap, coverage 0) scores 0.
+                double normalized = (coverage - 1) / (double)(n - 1);
+                if (normalized <= 0)
+                    continue;
+
+                degree += segLength / length * normalized;
+            }
+
+            if (degree < 0)
+                return 0;
+            if (degree > 1)
+                return 1;
+
+            return degree;
         }
 
         /// <summary>

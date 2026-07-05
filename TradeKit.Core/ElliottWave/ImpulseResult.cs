@@ -9,7 +9,8 @@ namespace TradeKit.Core.ElliottWave
         double RatioZigzag,
         double HeterogeneityMax,
         double Area,
-        double MaxDistance)
+        double MaxDistance,
+        double OverlapDegree = 0)
     {
         /// <summary>
         /// Gets or sets the Start candle we want to see this impulse.
@@ -25,7 +26,7 @@ namespace TradeKit.Core.ElliottWave
         public override string ToString()
         {
             return
-                $"h{HeterogeneityMax.ToPercent()};o{OverlapseMaxDepth.ToPercent()};c{CandlesCount};s{Size:F4};rz{RatioZigzag.ToPercent()};a{Area.ToPercent()};d{MaxDistance.ToPercent()};cr{CorrectionRatio.ToPercent()}";
+                $"h{HeterogeneityMax.ToPercent()};o{OverlapseMaxDepth.ToPercent()};c{CandlesCount};s{Size:F4};rz{RatioZigzag.ToPercent()};a{Area.ToPercent()};d{MaxDistance.ToPercent()};cr{CorrectionRatio.ToPercent()};od{OverlapDegree.ToPercent()}";
             //return
             //    $"h{HeterogeneityMax.ToPercent()}%;o{OverlapseMaxDepth.ToPercent()}";
         }
