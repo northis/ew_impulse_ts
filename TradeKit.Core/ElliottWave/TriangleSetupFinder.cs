@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -133,15 +132,6 @@ namespace TradeKit.Core.ElliottWave
             BarPoint point0 = null;
             bool isUp = waveD > waveE;
 
-            if (waveE.OpenTime is
-                { Day: 12, Month: 9, Hour: 0, Minute: 30 } &&
-                waveD.OpenTime is
-                    { Day: 11, Month: 9, Hour: 22, Minute: 20 })
-            {
-                Logger.Write("Gotcha.");
-                Debugger.Launch();
-            }
-
             for (int i = finder.Extrema.Count - 4;
                  i > Math.Max(0, finder.Extrema.Count - MAX_EXTREMA_DEPTH);
                  i--)
@@ -258,20 +248,69 @@ namespace TradeKit.Core.ElliottWave
                         return false;
                     }
 
-                    //int waveADuration = waveA.BarIndex - point0.BarIndex;
-                    //int waveBDuration = waveB.BarIndex - waveA.BarIndex;
-                    // int waveCDuration = waveC.BarIndex - waveB.BarIndex;
-                    // int waveDDuration = waveD.BarIndex - waveC.BarIndex;
-                    // int waveEDuration = waveE.BarIndex - waveD.BarIndex;
-                    //if (waveBDuration > waveADuration)
-                    //{
-                    //    return false;
-                    //}
+                    BarPoint[] wavePoints = { point0, waveA, waveB, waveC, waveD, waveE };
 
-                    CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(level, point0,
-                        waveA,
-                        new[] { point0, waveA, waveB, waveC, waveD, waveE },
-                        point0.OpenTime, null);
+                    // Hard v2 validation (EW_MARKUP_v2 §7.2): the ABCDE candidate must
+                    // satisfy the triangle price rules — contracting or running.
+                    if (!TryValidateTriangleV2(wavePoints,
+                            out ElliottModelType modelType, out double fiboScore))
+                    {
+                        return false;
+                    }
+
+                    // Size / duration filters from the EW params.
+                    int triangleBars = waveE.BarIndex - point0.BarIndex;
+                    if (triangleBars < m_EwParams.BarsCount)
+                        return false;
+
+                    double sizePercent =
+                        Math.Abs(point0.Value - waveA.Value) / level.Value * 100;
+                    if (sizePercent < m_EwParams.MinSizePercent)
+                        return false;
+
+                    // TP at the triangle origin (thrust target), SL beyond wave A —
+                    // both with allowances and rounded to symbol digits (as in
+                    // ImpulseSetupFinder).
+                    double tpAllowance = Math.Abs(level.Value - point0.Value) *
+                                         Helper.PERCENT_ALLOWANCE_TP / 100;
+                    double slAllowance = Math.Abs(level.Value - waveA.Value) *
+                                         Helper.PERCENT_ALLOWANCE_SL / 100;
+
+                    double tpPrice, slPrice;
+                    if (isUp)
+                    {
+                        tpPrice = Math.Round(point0.Value - tpAllowance,
+                            Symbol.Digits, MidpointRounding.ToZero);
+                        slPrice = Math.Round(waveA.Value - slAllowance,
+                            Symbol.Digits, MidpointRounding.ToZero);
+                    }
+                    else
+                    {
+                        tpPrice = Math.Round(point0.Value + tpAllowance,
+                            Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                        slPrice = Math.Round(waveA.Value + slAllowance,
+                            Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                    }
+
+                    // TP or SL is already hit — the signal cannot be used.
+                    if (isUp && (level.Value >= tpPrice || level.Value <= slPrice) ||
+                        !isUp && (level.Value <= tpPrice || level.Value >= slPrice))
+                    {
+                        return false;
+                    }
+
+                    var tpPoint = new BarPoint(
+                        tpPrice, point0.OpenTime, point0.BarTimeFrame, point0.BarIndex);
+                    var slPoint = new BarPoint(
+                        slPrice, waveA.OpenTime, waveA.BarTimeFrame, waveA.BarIndex);
+
+                    CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(level,
+                        tpPoint,
+                        slPoint,
+                        wavePoints,
+                        point0.OpenTime,
+                        string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                            $"{modelType} fibo={fiboScore:F2}"));
                     
                     
                     // Check if this signal combination has already been processed
@@ -311,6 +350,40 @@ namespace TradeKit.Core.ElliottWave
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Validates the ABCDE candidate against the v2 hard price rules
+        /// (EW_MARKUP_v2 §7.2): contracting first, then running. When valid,
+        /// returns the matched model and its pure Fibonacci score (§16.1).
+        /// </summary>
+        /// <param name="points">Six pivots: 0, A, B, C, D, E (alternating).</param>
+        /// <param name="modelType">The matched triangle model.</param>
+        /// <param name="fiboScore">Pure fibo geometric-mean score (0..1].</param>
+        private static bool TryValidateTriangleV2(
+            BarPoint[] points, out ElliottModelType modelType, out double fiboScore)
+        {
+            modelType = ElliottModelType.TRIANGLE_CONTRACTING;
+            fiboScore = 0;
+
+            var waves = new List<ElliottWaveExactMarkupV2.Segment>(points.Length - 1);
+            for (int i = 0; i < points.Length - 1; i++)
+                waves.Add(new ElliottWaveExactMarkupV2.Segment(points[i], points[i + 1]));
+
+            if (ElliottWaveExactMarkupV2.CheckPriceRules(
+                    ElliottModelType.TRIANGLE_CONTRACTING, waves) != DeathReason.NONE)
+            {
+                if (ElliottWaveExactMarkupV2.CheckPriceRules(
+                        ElliottModelType.TRIANGLE_RUNNING, waves) != DeathReason.NONE)
+                {
+                    return false;
+                }
+
+                modelType = ElliottModelType.TRIANGLE_RUNNING;
+            }
+
+            fiboScore = ElliottWaveExactMarkup.CalculatePureFiboScore(modelType, waves);
+            return true;
         }
 
         private bool IsTrendRatioEnough(ElliottWaveSignalEventArgs args)

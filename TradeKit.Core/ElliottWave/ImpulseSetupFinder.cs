@@ -235,15 +235,18 @@ namespace TradeKit.Core.ElliottWave
 
         private bool IsSmoothImpulse(ImpulseResult stats)
         {
-            bool rzz = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 && stats.RatioZigzag >= 0.01;
+            //bool rzz = stats.RatioZigzag <= m_ImpulseParams.MaxZigzagPercent / 100 && stats.RatioZigzag >= 0.01;
+            
             //bool hm = stats.HeterogeneityMax <= m_ImpulseParams.MaxZigzagPercent / 100;
             //bool om = stats.OverlapseMaxDepth <= m_ImpulseParams.MaxOverlapseLengthPercent / 100;
             //bool md = stats.MaxDistance <= m_ImpulseParams.MaxDistance / 100;
             //bool a = stats.Area <= m_ImpulseParams.AreaPercent / 100;
-            bool s = stats.Size >= m_ImpulseParams.MinSizePercent / 100;
+            //bool s = stats.Size >= m_ImpulseParams.MinSizePercent / 100;
 
-            bool res = s && (/*rzz && hm &&*/ rzz /*|| stats.RatioZigzag<0.2 && stats.OverlapseMaxDepth < 0.2*/);
-            return res;
+            //bool res = s && (/*rzz && hm &&*/ rzz /*|| stats.RatioZigzag<0.2 && stats.OverlapseMaxDepth < 0.2*/);
+            bool res = stats.OverlapDegree > 0.15;
+
+            return true;
         }
 
         private bool CheckForSignal(CheckSignalArgs checkSignalArgs)
@@ -281,11 +284,11 @@ namespace TradeKit.Core.ElliottWave
                 ? (double)correctionBars / stats.CandlesCount
                 : 0;
             stats.CorrectionRatio = correctionRatio;
-            if (correctionRatio > m_MaxCorrectionRatio)
-            {
-                m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
-                return false;
-            }
+            //if (correctionRatio > m_MaxCorrectionRatio)
+            //{
+            //    m_ImpulseCache[checkSignalArgs.Finder][checkSignalArgs.EndItem.OpenTime] = null;
+            //    return false;
+            //}
 
             ExactParsedNode markupNode = null;
             if (!checkSignalArgs.HasInCache)
