@@ -268,6 +268,24 @@ namespace TradeKit.Core.ElliottWave
                     if (sizePercent < m_EwParams.MinSizePercent)
                         return false;
 
+                    // Adjacent-wave duration sanity: the backward scan may stitch
+                    // pivots across skipped extrema, producing a wave (typically E)
+                    // that lasts many times longer than its neighbours — such
+                    // structures are not real triangles.
+                    if (!AreWaveDurationsSane(wavePoints))
+                        return false;
+
+                    // I2 containment (EW_MARKUP_v2 §2.1/§10): within each wave the
+                    // price must not break beyond the wave's own endpoints. The pivot
+                    // walk only compares pivot values, so a wave picked across a
+                    // large gap can hide bars that pierce wave C / wave A levels —
+                    // those candidates must die here.
+                    for (int w = 0; w + 1 < wavePoints.Length; w++)
+                    {
+                        if (!IsWaveContained(wavePoints[w], wavePoints[w + 1]))
+                            return false;
+                    }
+
                     // TP at the triangle origin (thrust target), SL beyond wave A —
                     // both with allowances and rounded to symbol digits (as in
                     // ImpulseSetupFinder).
@@ -383,6 +401,50 @@ namespace TradeKit.Core.ElliottWave
             }
 
             fiboScore = ElliottWaveExactMarkup.CalculatePureFiboScore(modelType, waves);
+            return true;
+        }
+
+        /// <summary>
+        /// Checks that no wave lasts disproportionally longer than the wave before
+        /// it (bar duration ratio ≤ <see cref="MAX_WAVE_RATIO"/>). Triangle waves
+        /// of the same rank are comparable in time (EW_MARKUP_v2 §8.3).
+        /// </summary>
+        /// <param name="points">Six pivots: 0, A, B, C, D, E (chronological).</param>
+        private static bool AreWaveDurationsSane(BarPoint[] points)
+        {
+            for (int w = 2; w < points.Length; w++)
+            {
+                double prevBars = points[w - 1].BarIndex - points[w - 2].BarIndex;
+                double curBars = points[w].BarIndex - points[w - 1].BarIndex;
+                if (prevBars > 0 && curBars / prevBars > MAX_WAVE_RATIO)
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> when every bar between the two pivots stays inside the
+        /// price range of the pivots themselves — the wave's extremes lie on its
+        /// endpoints (invariant I2). A breach means the picked pivots skipped a real
+        /// counter-move and the wave is fictitious.
+        /// </summary>
+        private bool IsWaveContained(BarPoint start, BarPoint end)
+        {
+            double max = Math.Max(start.Value, end.Value);
+            double min = Math.Min(start.Value, end.Value);
+
+            // Interior bars only (T-ZZ-2 convention): the pivot bars themselves may
+            // be wide and legitimately poke past the opposite boundary.
+            for (int i = start.BarIndex + 1; i < end.BarIndex; i++)
+            {
+                if (BarsProvider.GetHighPrice(i) > max ||
+                    BarsProvider.GetLowPrice(i) < min)
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
 
