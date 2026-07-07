@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
@@ -129,6 +130,8 @@ public sealed class TriangleScanEngine
             Symbol = symbolName,
             Timeframe = tf.Name,
             PriceDecimals = digits,
+            UsedPeriod = finder.ZigzagPeriod,
+            MedianBarBps = AutoPeriodEstimator.MedianBarBps(provider),
             StartBar = startBar,
             EndBar = endBar,
             Candles = candles,
@@ -172,7 +175,7 @@ public sealed record TriangleScanRequest(
     string? File,
     string? FromDate = null,
     string? ToDate = null,
-    int Period = Helper.MIN_IMPULSE_PERIOD,
+    int Period = 0,
     double MinSizePercent = 0.3,
     int BarsCount = (int)Helper.MINIMUM_BARS_IN_IMPULSE);
 
@@ -216,6 +219,13 @@ public sealed class TriangleScanResult
     public string Symbol { get; set; } = string.Empty;
     public string Timeframe { get; set; } = string.Empty;
     public int PriceDecimals { get; set; } = 5;
+
+    /// <summary>The zigzag period actually used (auto-detected when the request period was 0).</summary>
+    public int UsedPeriod { get; set; }
+
+    /// <summary>Median bar range (bps) of the instrument — the volatility the auto-period is based on.</summary>
+    public double MedianBarBps { get; set; }
+
     public int StartBar { get; set; }
     public int EndBar { get; set; }
     public IReadOnlyList<CandleBar> Candles { get; set; } = Array.Empty<CandleBar>();

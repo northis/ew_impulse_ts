@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
@@ -157,6 +158,8 @@ public sealed class ImpulseScanEngine
             Symbol = symbolName,
             Timeframe = tf.Name,
             PriceDecimals = digits,
+            UsedPeriod = finder.ZigzagPeriod,
+            MedianBarBps = AutoPeriodEstimator.MedianBarBps(provider),
             StartBar = startBar,
             EndBar = endBar,
             Candles = candles,
@@ -210,7 +213,7 @@ public sealed record ImpulseScanRequest(
     double EnterRatio = 0.35,
     double TakeRatio = 1.6,
     // ── advanced (defaulted) ──
-    int Period = 20,
+    int Period = 0,
     double BreakEvenRatio = 0,
     double MaxZigzagPercent = 20,
     double HeterogeneityMax = 20,
@@ -261,6 +264,13 @@ public sealed class ImpulseScanResult
     public string Symbol { get; set; } = string.Empty;
     public string Timeframe { get; set; } = string.Empty;
     public int PriceDecimals { get; set; } = 5;
+
+    /// <summary>The zigzag period actually used (auto-detected when the request period was 0).</summary>
+    public int UsedPeriod { get; set; }
+
+    /// <summary>Median bar range (bps) of the instrument — the volatility the auto-period is based on.</summary>
+    public double MedianBarBps { get; set; }
+
     public int StartBar { get; set; }
     public int EndBar { get; set; }
     public IReadOnlyList<CandleBar> Candles { get; set; } = Array.Empty<CandleBar>();

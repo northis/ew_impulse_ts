@@ -303,7 +303,7 @@ async function runScan() {
         maxCorrectionRatioPercent: numVal('pCorr', 50),
         enterRatio: numVal('pEnter', 0.35),
         takeRatio: numVal('pTake', 1.6),
-        period: numVal('pPeriod', 20),
+        period: numVal('pPeriod', 0),
         breakEvenRatio: numVal('pBreakEven', 0),
         maxZigzagPercent: numVal('pZigzag', 20),
         heterogeneityMax: numVal('pHetero', 20)
@@ -348,9 +348,10 @@ function onScanLoaded() {
     renderStats();
 
     const n = scan.setups.length;
+    const periodInfo = `период ${scan.usedPeriod} (bps ${(scan.medianBarBps || 0).toFixed(1)})`;
     $('status').textContent =
         `${scan.symbol} ${scan.timeframe}: сетапов — ${n} ` +
-        `(найдено импульсов ${scan.enterCount}, c исходом TP/SL ${scan.resolvedCount})`;
+        `(найдено импульсов ${scan.enterCount}, c исходом TP/SL ${scan.resolvedCount}) · ${periodInfo}`;
 
     if (n === 0) {
         $('gameEmpty').style.display = '';

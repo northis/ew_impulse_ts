@@ -44,6 +44,13 @@ namespace TradeKit.Core.ElliottWave
         internal ImpulseSignalEventArgs CurrentSignalEventArgs { get; set; }
 
         /// <summary>
+        /// Gets the effective zigzag period (scale rate) actually used — either the
+        /// requested <see cref="ImpulseParams.Period"/> or, when that is 0, the value
+        /// auto-detected from the instrument's volatility (see <see cref="AutoPeriodEstimator"/>).
+        /// </summary>
+        public int ZigzagPeriod { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="ImpulseSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bar provider.</param>
@@ -58,7 +65,13 @@ namespace TradeKit.Core.ElliottWave
             m_TradeViewManager = tradeViewManager;
             m_ImpulseParams = impulseParams;
 
-            foreach (int p in new List<int> { impulseParams.Period })
+            // Period == 0 (or negative) → auto-detect from the instrument's percentage
+            // volatility and timeframe (see AutoPeriodEstimator / reports/period_sweep.md).
+            ZigzagPeriod = impulseParams.Period > 0
+                ? impulseParams.Period
+                : AutoPeriodEstimator.EstimateImpulsePeriod(BarsProvider);
+
+            foreach (int p in new List<int> { ZigzagPeriod })
             {
                 var localFinder = new DeviationExtremumFinder(p, BarsProvider);
                 m_ImpulseCache.Add(localFinder, new Dictionary<DateTime, ImpulseResult>());

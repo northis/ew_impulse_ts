@@ -59,7 +59,7 @@ namespace TradeKit.CTrader.Impulse
         /// <summary>
         /// Gets or sets the zigzag period.
         /// </summary>
-        [Parameter(nameof(Period), DefaultValue = Helper.MIN_IMPULSE_PERIOD, MinValue = 1, MaxValue = 200, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(Period), DefaultValue = 0, MinValue = 0, MaxValue = 200, Group = Helper.TRADE_SETTINGS_NAME)]
         public int Period { get; set; }
 
         /// <summary>

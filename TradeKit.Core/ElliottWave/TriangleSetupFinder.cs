@@ -25,6 +25,14 @@ namespace TradeKit.Core.ElliottWave
         
         internal ElliottWaveSignalEventArgs CurrentSignalEventArgs { get; set; }
 
+        /// <summary>
+        /// Gets the effective triangle base zigzag period (scale rate) actually used —
+        /// either the requested <see cref="EWParams.Period"/> or, when that is 0, the value
+        /// auto-detected from the instrument's volatility (see <see cref="AutoPeriodEstimator"/>).
+        /// The finder additionally sweeps a +50 band above this base.
+        /// </summary>
+        public int ZigzagPeriod { get; }
+
         private const double RATIO_ALLOWANCE = 0.1;
         private const double MAX_WAVE_RATIO = 1.5 + RATIO_ALLOWANCE;
         // private const double MAX_C_TO_E_RATIO = 2.618 + RATIO_ALLOWANCE;
@@ -39,7 +47,15 @@ namespace TradeKit.Core.ElliottWave
         {
             m_EwParams = ewParams;
 
-            for (int i = ewParams.Period; i <= ewParams.Period + 50; i += 5)
+            // Period == 0 (or negative) → auto-detect a fine base period from the
+            // instrument's percentage volatility (see AutoPeriodEstimator /
+            // reports/triangle_period_sweep.md). Triangles resolve only at a fine
+            // deviation, and the band below sweeps +50 above this base.
+            ZigzagPeriod = ewParams.Period > 0
+                ? ewParams.Period
+                : AutoPeriodEstimator.EstimateTrianglePeriod(BarsProvider);
+
+            for (int i = ZigzagPeriod; i <= ZigzagPeriod + 50; i += 5)
             {
                 var localFinder = new DeviationExtremumFinder(i, BarsProvider);
                 m_ExtremumFinders.Add(localFinder);

@@ -313,7 +313,7 @@ async function runScan() {
         file,
         fromDate: dateInputToIso($('inpFromDate').value),
         toDate: dateInputToIso($('inpToDate').value),
-        period: numVal('pPeriod', 5),
+        period: numVal('pPeriod', 0),
         minSizePercent: numVal('pMinSize', 0.3),
         barsCount: numVal('pBars', 20)
     };
@@ -355,9 +355,10 @@ function onScanLoaded() {
     renderStats();
 
     const n = scan.setups.length;
+    const periodInfo = `период ${scan.usedPeriod} (bps ${(scan.medianBarBps || 0).toFixed(1)})`;
     $('status').textContent =
         `${scan.symbol} ${scan.timeframe}: сетапов — ${n} ` +
-        `(найдено треугольников ${scan.enterCount}, c исходом TP/SL ${scan.resolvedCount})`;
+        `(найдено треугольников ${scan.enterCount}, c исходом TP/SL ${scan.resolvedCount}) · ${periodInfo}`;
 
     if (n === 0) {
         $('gameEmpty').style.display = '';
