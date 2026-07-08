@@ -130,6 +130,60 @@ namespace TradeKit.Tests
         };
 
         [Test]
+        public void DiagnoseTriangleRejections()
+        {
+            string dataDir = FindDataDir();
+            var sb = new StringBuilder();
+            sb.AppendLine("# Triangle rejection diagnostics");
+            sb.AppendLine();
+            sb.AppendLine($"Bars per file: up to {TRIANGLE_MAX_BARS}. Filters: MinSize=0.1%, Bars=10, period=0 (auto).");
+            sb.AppendLine("Counts = how many assembled ABCDE candidates die at each gate (or enter).");
+            sb.AppendLine();
+
+            string[] order =
+            {
+                "assembled", "notInitialMove", "triangleInvalidated", "priceRulesFail",
+                "tooFewBars", "tooSmall", "durationInsane", "notContained", "tpSlHit",
+                "tooCloseToSl", "duplicate", "weakTrend", "entered"
+            };
+
+            foreach (string file in TRIANGLE_FILES)
+            {
+                string path = Path.Combine(dataDir, file);
+                if (!File.Exists(path)) { TestContext.WriteLine($"MISSING: {file}"); continue; }
+
+                bool isM15 = file.Contains("_m15_");
+                ITimeFrame tf = isM15 ? TimeFrameHelper.Minute15 : TimeFrameHelper.Hour1;
+                var provider = new TestBarsProvider(tf);
+                provider.LoadCandles(path);
+                int n = Math.Min(provider.Count, TRIANGLE_MAX_BARS);
+
+                var ewParams = new EWParams(0, 0.1, 10);
+                var finder = new TriangleSetupFinder(provider, provider.BarSymbol, ewParams);
+                finder.MarkAsInitialized();
+                for (int bar = 0; bar < n; bar++)
+                    finder.CheckBar(provider.GetOpenTime(bar));
+
+                sb.AppendLine($"## {file} ({(isM15 ? "m15" : "h1")}, basePeriod={finder.ZigzagPeriod})");
+                sb.AppendLine();
+                sb.AppendLine("| gate | count |");
+                sb.AppendLine("|---|---|");
+                foreach (string k in order)
+                    sb.AppendLine($"| {k} | {finder.Diag.GetValueOrDefault(k)} |");
+                sb.AppendLine();
+
+                TestContext.WriteLine($"{file}: " +
+                    string.Join(" ", order.Select(k => $"{k}={finder.Diag.GetValueOrDefault(k)}")));
+            }
+
+            string reportsDir = Path.Combine(FindRepoRoot(), "reports");
+            Directory.CreateDirectory(reportsDir);
+            string outPath = Path.Combine(reportsDir, "triangle_rejections.md");
+            File.WriteAllText(outPath, sb.ToString());
+            TestContext.WriteLine($"Wrote {outPath}");
+        }
+
+        [Test]
         public void SweepTrianglePeriods_Focused()
         {
             string dataDir = FindDataDir();
