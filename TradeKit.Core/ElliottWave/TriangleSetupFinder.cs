@@ -590,7 +590,7 @@ namespace TradeKit.Core.ElliottWave
         /// many triangle ranges. 1× is a modest-but-real trend; the former 3× combined
         /// with a strict fresh-extreme test rejected nearly every triangle.
         /// </summary>
-        private const double TRIANGLE_TREND_RATIO = 1;
+        private const double TRIANGLE_TREND_RATIO = 2;
         private const double MIN_TO_SL_RATIO = 0.4;
 
         /// <summary>
