@@ -66,6 +66,7 @@
     <Compile Include="Signals\SignalsCTraderBaseRobot.cs" />
     <Compile Include="Signals\SignalsCheckBaseIndicator.cs" />
     <Compile Include="Triangle\TriangleFinderBaseIndicator.cs" />
+    <Compile Include="Triangle\RunningTriangleFinderBaseIndicator.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TradeKit.Core\TradeKit.Core.csproj" />

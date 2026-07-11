@@ -265,6 +265,31 @@ app.MapPost("/api/triangle/scan", (TriangleScanRequest req) =>
     }
 });
 
+// ── Running-triangle training game ───────────────────
+// Scans a file/date-range for RUNNING ABCDE-triangle setups (trend → triangle
+// correction with wave B breaking point 0 → thrust; see EW_R_TRIANGLE.md) and
+// returns each setup with its eventual TP/SL outcome for the quiz UI.
+var runningTriangleScanEngine = new RunningTriangleScanEngine();
+app.MapPost("/api/rtriangle/scan", (RunningTriangleScanRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.File))
+        return Results.BadRequest(new { error = "File name is required" });
+
+    string path = Path.Combine(dataDir, req.File);
+    if (!File.Exists(path))
+        return Results.NotFound(new { error = "File not found" });
+
+    try
+    {
+        TriangleScanResult result = runningTriangleScanEngine.Scan(path, req);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString(), statusCode: 500, title: ex.Message);
+    }
+});
+
 app.Run();
 
 // ── helpers ──────────────────────────────────────────
