@@ -40,7 +40,7 @@ namespace TradeKit.Core.ElliottWave
     public class RunningTriangleSetupFinder : SingleSetupFinder<ElliottWaveSignalEventArgs>
     {
         private readonly EWParams m_EwParams;
-        private readonly DeviationExtremumFinder m_ExtremumFinder;
+        private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly HashSet<SignalKey> m_ProcessedSignals = new();
         private readonly HashSet<DateTime> m_SignaledPoint0 = new();
 
@@ -50,8 +50,19 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         public readonly Dictionary<string, int> Diag = new();
 
-        private void Bump(string key) =>
+        /// <summary>
+        /// Diagnostic hook: invoked with (point0, gateKey) for every candidate outcome —
+        /// lets tests observe which validation gate each build reaches. Optional.
+        /// </summary>
+        public Action<BarPoint, string> OnGate { get; set; }
+
+        private BarPoint m_DbgPoint0;
+
+        private void Bump(string key)
+        {
             Diag[key] = Diag.TryGetValue(key, out int v) ? v + 1 : 1;
+            OnGate?.Invoke(m_DbgPoint0, key);
+        }
 
         internal ElliottWaveSignalEventArgs CurrentSignalEventArgs { get; set; }
 
@@ -90,6 +101,16 @@ namespace TradeKit.Core.ElliottWave
         private const double WAVE_PULLBACK_TOL = 0.5;
 
         /// <summary>
+        /// Geometric scale ladder (ratios relative to the base period), stepped by √φ ≈ 1.272
+        /// — finer than <see cref="TriangleSetupFinder"/>'s φ ladder so that macro running
+        /// triangles (whose waves each contain many sub-pivots at the fine base scale) resolve
+        /// cleanly at one of the coarser rungs. Duplicates across rungs are collapsed by the
+        /// TP/SL signature and point-0 de-duplication.
+        /// </summary>
+        private static readonly double[] LADDER_RATIOS =
+            { 1.0, 1.272, 1.618, 2.058, 2.618, 3.330, 4.236, 5.388, 6.854 };
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="RunningTriangleSetupFinder"/> class.
         /// </summary>
         /// <param name="mainBarsProvider">The main bars provider.</param>
@@ -115,7 +136,32 @@ namespace TradeKit.Core.ElliottWave
                 ? ewParams.Period
                 : AutoPeriodEstimator.EstimateTrianglePeriod(BarsProvider);
 
-            m_ExtremumFinder = new DeviationExtremumFinder(ZigzagPeriod, BarsProvider);
+            // A running triangle spans several scales at once (its waves are large while its
+            // sub-waves are small): a single fine zigzag fragments each wave into many pivots,
+            // a single coarse one hides the sub-structure. We scan a geometric ladder of
+            // scales above the base so a triangle of any degree resolves at one rung; the
+            // running rules (§4) are applied to the assembled pivots regardless of scale, and
+            // duplicates are collapsed by TP/SL + point 0 (§7.2).
+            foreach (int period in BuildPeriodLadder(ZigzagPeriod))
+                m_ExtremumFinders.Add(new DeviationExtremumFinder(period, BarsProvider));
+        }
+
+        /// <summary>
+        /// Builds the de-duplicated geometric period ladder from the base (finest) period,
+        /// using <see cref="LADDER_RATIOS"/>.
+        /// </summary>
+        private static List<int> BuildPeriodLadder(int basePeriod)
+        {
+            var ladder = new List<int>(LADDER_RATIOS.Length);
+            var seen = new HashSet<int>();
+            foreach (double ratio in LADDER_RATIOS)
+            {
+                int period = Math.Max(1, (int)Math.Round(basePeriod * ratio));
+                if (seen.Add(period))
+                    ladder.Add(period);
+            }
+
+            return ladder;
         }
 
         /// <summary>
@@ -161,11 +207,18 @@ namespace TradeKit.Core.ElliottWave
             if (IsInSetup)
                 return;
 
-            m_ExtremumFinder.OnCalculate(openDateTime);
-            if (!IsInitialized)
-                return;
+            // Scan the scale ladder coarsest-first: a macro running triangle resolves at a
+            // coarse rung, a small one at a fine rung. First valid setup wins.
+            foreach (DeviationExtremumFinder finder in m_ExtremumFinders
+                         .OrderByDescending(a => a.ScaleRate))
+            {
+                finder.OnCalculate(openDateTime);
+                if (!IsInitialized)
+                    continue;
 
-            IsSetup(openDateTime);
+                if (IsSetup(openDateTime, finder))
+                    return;
+            }
         }
         /// <summary>
         /// Whether <paramref name="current"/> lies farther in the thrust direction than
@@ -176,11 +229,11 @@ namespace TradeKit.Core.ElliottWave
             return isUp && current > compare || !isUp && current < compare;
         }
 
-        private void IsSetup(DateTime openDateTime)
+        private bool IsSetup(DateTime openDateTime, DeviationExtremumFinder finder)
         {
-            SortedList<DateTime, BarPoint> extrema = m_ExtremumFinder.Extrema;
+            SortedList<DateTime, BarPoint> extrema = finder.Extrema;
             if (extrema.Count < MIN_EXTREMUM_COUNT)
-                return;
+                return false;
 
             IList<BarPoint> piv = extrema.Values;
 
@@ -208,8 +261,10 @@ namespace TradeKit.Core.ElliottWave
                     continue;
 
                 if (TryEmit(openDateTime, p0, a, b, c, d, waveE, isUp))
-                    return;
+                    return true;
             }
+
+            return false;
         }
 
         /// <summary>
@@ -286,6 +341,7 @@ namespace TradeKit.Core.ElliottWave
         private bool TryEmit(DateTime openDateTime, BarPoint point0, BarPoint waveA,
             BarPoint waveB, BarPoint waveC, BarPoint waveD, BarPoint waveE, bool isUp)
         {
+            m_DbgPoint0 = point0;
             Bump("assembled");
 
             var level = new BarPoint(BarsProvider.GetClosePrice(openDateTime), openDateTime, BarsProvider);
@@ -320,6 +376,14 @@ namespace TradeKit.Core.ElliottWave
                 IsMovementForward(isUp, waveE, waveD))
             {
                 Bump("waveEFail");
+                return false;
+            }
+
+            // R-E-0 (§4/§6): wave E must cross back BEYOND point 0 (onto the counter-thrust
+            // side) — that is what makes the whole ABCDE a genuine correction of the trend.
+            if (!IsMovementForward(isUp, point0, waveE))
+            {
+                Bump("eNotBeyond0");
                 return false;
             }
 
