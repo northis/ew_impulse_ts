@@ -45,6 +45,18 @@ namespace TradeKit.Core.ElliottWave
         private readonly HashSet<DateTime> m_SignaledPoint0 = new();
 
         /// <summary>
+        /// Tracks the previous number of confirmed extrema per finder so triangle
+        /// detection only runs when a NEW extremum has been set (SetExtremum)
+        /// rather than on every bar when the floating extremum is moved (MoveExtremum).
+        /// <para>
+        /// MoveExtremum removes-then-adds (Count stays the same) and destroys the
+        /// prior extremum's record; SetExtremum adds a new entry (Count increases),
+        /// which is the moment where the just-completed wave E is at [^1].
+        /// </para>
+        /// </summary>
+        private readonly Dictionary<DeviationExtremumFinder, int> m_PrevExtremaCount = new();
+
+        /// <summary>
         /// Diagnostic tally of how many assembled ABCDE candidates die at each validation
         /// gate (keyed by reason). Used by research tests to locate the dominant filter.
         /// </summary>
@@ -235,12 +247,23 @@ namespace TradeKit.Core.ElliottWave
             if (extrema.Count < MIN_EXTREMUM_COUNT)
                 return false;
 
+            // Only run detection when a NEW extremum has been confirmed (SetExtremum
+            // increased Count). MoveExtremum (Count unchanged) replaces the floating
+            // extremum and destroys the E pivot — detecting on those bars would see a
+            // wrong/vanished waveE.
+            if (!m_PrevExtremaCount.TryGetValue(finder, out int prevCount))
+                prevCount = 0;
+            if (extrema.Count <= prevCount)
+                return false;
+            m_PrevExtremaCount[finder] = extrema.Count;
+
             IList<BarPoint> piv = extrema.Values;
 
-            // E = last CONFIRMED pivot (piv[^1] is the still-floating current extremum —
-            // the thrust in progress). Thrust direction from D→E: for an up-thrust E is a
-            // low (D above it), for a down-thrust E is a high (D below it).
-            int eIdx = piv.Count - 2;
+            // E is the freshly-set extremum at [^1] — this is the wave that just
+            // completed the triangle (SetExtremum just added it). [^2] is the prior
+            // confirmed extremum (wave D). At the next bar MoveExtremum will
+            // replace [^1] with the thrust-in-progress, so we must detect HERE.
+            int eIdx = piv.Count - 1;
             BarPoint waveE = piv[eIdx];
             bool isUp = piv[eIdx - 1] > waveE;
 
