@@ -511,6 +511,29 @@ namespace TradeKit.Core.ElliottWave
                 }
             }
 
+            // --- D-integrity check (§6): the entry bar (where E was confirmed) must not
+            // have already breached wave D. When the current bar's extreme (high for
+            // up-thrust, low for down-thrust) has gone past D, the triangle structure is
+            // stale — the thrust has already eaten into the corrective pattern, and the
+            // whole D→E→thrust sequence needs to rebuild. In that case we reject the
+            // signal and let the candidate wait for a fresh wave E (§7.3 rebuild).
+            // ---
+            {
+                int idx = BarsProvider.GetIndexByTime(openDateTime);
+                double barDbreach = isUp
+                    ? BarsProvider.GetHighPrice(idx)
+                    : BarsProvider.GetLowPrice(idx);
+                bool dBreached = isUp
+                    ? barDbreach > waveD.Value
+                    : barDbreach < waveD.Value;
+                if (dBreached)
+                {
+                    OnWaveGate?.Invoke(point0, "waveDBreached", waveA, waveB, waveC, waveD, waveE);
+                    Bump("waveDBreached");
+                    return false;
+                }
+            }
+
             // TP at wave B (running thrust target) or point 0; SL beyond wave A —
             // with allowances and rounded to symbol digits (as in ImpulseSetupFinder).
             BarPoint tpTarget =

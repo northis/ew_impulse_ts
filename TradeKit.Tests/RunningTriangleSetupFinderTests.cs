@@ -137,6 +137,115 @@ namespace TradeKit.Tests
             }
         }
 
+        /// <summary>
+        /// Shows ABCDE wave values at entry for every emitted signal, and flags cases
+        /// where the entry bar's price has already broken past wave D (making the
+        /// triangle D-breached). Test for the Jun 22 04:00 issue.
+        /// </summary>
+        [Test]
+        public void Diag_EnteredSignals_CheckWaveDBreach()
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
+            provider.LoadCandles(Path.Combine(FindDataDir(), REFERENCE_FILE));
+
+            var finder = new RunningTriangleSetupFinder(
+                provider, provider.BarSymbol, new EWParams(5, 0.1, 15));
+            var entries = new List<(BarPoint P0, BarPoint A, BarPoint B, BarPoint C, BarPoint D, BarPoint E, bool IsUp, double Level, DateTime LevelTime, double BarHigh, double BarLow)>();
+            finder.OnEnter += (_, args) =>
+            {
+                var pts = args.WavePoints;
+                int barIdx = provider.GetIndexByTime(args.Level.OpenTime); // entry bar, not point0!
+                double barHigh = provider.GetHighPrice(barIdx);
+                double barLow = provider.GetLowPrice(barIdx);
+                entries.Add((pts[0], pts[1], pts[2], pts[3], pts[4], pts[5],
+                    args.TakeProfit.Value > args.StopLoss.Value,
+                    args.Level.Value, args.Level.OpenTime, barHigh, barLow));
+            };
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            Console.WriteLine($"=== Entered signals: {entries.Count} total (period=5 minBars=15) ===");
+            int breached = 0, ok = 0;
+            foreach (var e in entries.OrderBy(e => e.P0.OpenTime))
+            {
+                bool barPastD = e.IsUp ? e.BarHigh > e.D.Value : e.BarLow < e.D.Value;
+                if (barPastD) breached++; else ok++;
+                string flag = barPastD ? " *** BREACH: bar extreme past D! ***" : "  OK";
+                Console.WriteLine(
+                    $"  p0={e.P0.OpenTime:u} lvl={e.Level:F6}@{e.LevelTime:HH:mm} barH={e.BarHigh:F6} barL={e.BarLow:F6} " +
+                    $"A={e.A.Value:F6} B={e.B.Value:F6} C={e.C.Value:F6} " +
+                    $"D={e.D.Value:F6} E={e.E.Value:F6}  {flag}");
+            }
+            Console.WriteLine($"  OK={ok}  breached={breached}");
+
+            Console.WriteLine("\n=== Diag ===");
+            foreach (var kv in finder.Diag.OrderByDescending(kv => kv.Value))
+                Console.WriteLine($"  {kv.Key}: {kv.Value}");
+        }
+
+        /// <summary>
+        /// Verifies that the Jul 2–6 running triangle (the second one the user asked about)
+        /// IS detected by the finder and passes all structural gates. The triangle:
+        /// point0≈Jul3 06:30, A≈Jul2 21:00 low, B≈Jul2 12:30 spike high, thrust down
+        /// to ~0.6866 by Jul6-7.
+        /// </summary>
+        [Test]
+        public void RunningTriangle_Jul2ToJul6_IsDetected()
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
+            provider.LoadCandles(Path.Combine(FindDataDir(), REFERENCE_FILE));
+
+            // The triangle has several potential point0 locations depending on scale.
+            // We target the one at Jul 3 06:30 which the sweep showed as "entered".
+            var refP0 = new DateTime(2026, 7, 3, 6, 30, 0, DateTimeKind.Utc);
+            var refGates = new HashSet<string>();
+
+            var finder = new RunningTriangleSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.OnGate = (p0, key) =>
+            {
+                if (p0 != null && p0.OpenTime == refP0)
+                    refGates.Add(key);
+            };
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            Assert.That(signals, Is.Not.Empty,
+                "No running-triangle setups detected at all.");
+
+            // Verify the Jul 2-6 triangle was structurally recognized.
+            var structural = new[]
+                { "entered", "tpSlHit", "tooCloseToSl", "duplicate", "duplicatePoint0" };
+            Assert.That(refGates.Overlaps(structural), Is.True,
+                "The Jul 2-6 running triangle (point 0 = 2026-07-03T06:30) " +
+                "was not recognized as a structurally valid running triangle. " +
+                "Gates seen: " + string.Join(",", refGates));
+
+            // Also verify that at least one signal in the Jul 2-6 window is present.
+            var julStart = new DateTime(2026, 7, 2, 0, 0, 0, DateTimeKind.Utc);
+            var julEnd   = new DateTime(2026, 7, 7, 0, 0, 0, DateTimeKind.Utc);
+            var inWindow = signals.Where(s => s.WavePoints[0].OpenTime >= julStart &&
+                                              s.WavePoints[0].OpenTime <= julEnd).ToList();
+            Assert.That(inWindow, Is.Not.Empty,
+                "No running-triangle signals in the Jul 2-7 window.");
+
+            Console.WriteLine($"=== Jul 2-7 signals: {inWindow.Count} ===");
+            foreach (var s in inWindow)
+            {
+                double p0Val = s.WavePoints[0].Value, aVal = s.WavePoints[1].Value,
+                       bVal = s.WavePoints[2].Value, cVal = s.WavePoints[3].Value,
+                       dVal = s.WavePoints[4].Value, eVal = s.WavePoints[5].Value;
+                bool isUp = s.TakeProfit.Value > s.StopLoss.Value;
+                Console.WriteLine($"  p0={s.WavePoints[0].OpenTime:u} isUp={isUp} " +
+                                  $"A={aVal:F6} B={bVal:F6} C={cVal:F6} D={dVal:F6} E={eVal:F6} " +
+                                  $"TP={s.TakeProfit.Value:F6} SL={s.StopLoss.Value:F6}");
+            }
+        }
+
         [Test]
         public void Diag_July2ToJuly6_Gates()
         {
