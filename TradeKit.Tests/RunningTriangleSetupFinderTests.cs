@@ -99,5 +99,102 @@ namespace TradeKit.Tests
             throw new DirectoryNotFoundException(
                 "Could not locate the repo 'data' folder above the test directory.");
         }
+
+        [Test]
+        public void Diag_ScaleSweep_ReferenceTriangle()
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
+            provider.LoadCandles(Path.Combine(FindDataDir(), REFERENCE_FILE));
+
+            var refP0 = new DateTime(2026, 7, 3, 6, 30, 0, DateTimeKind.Utc);
+
+            Console.WriteLine("=== Period sweep: wave values for refP0=Jul3 06:30 ===");
+            for (int period = 2; period <= 34; period++)
+            {
+                var finder = new RunningTriangleSetupFinder(
+                    provider, provider.BarSymbol, new EWParams(period, 0.1, 10));
+                bool found = false;
+                finder.OnWaveGate = (p0, gate, a, b, c, d, e) =>
+                {
+                    if (p0?.OpenTime == refP0 && gate != "duplicatePoint0" && gate != "duplicate")
+                    {
+                        found = true;
+                        if (gate == "entered" || gate == "assembled" || gate == "notRunning" ||
+                            gate == "waveCFail" || gate == "waveDFail" || gate == "assembled")
+                        Console.WriteLine($"  p={period,2} gate={gate,-22} " +
+                                          $"A={a.Value:F6}@{a.OpenTime:HH:mm} " +
+                                          $"B={b.Value:F6}@{b.OpenTime:HH:mm} " +
+                                          $"C={c.Value:F6}@{c.OpenTime:HH:mm} " +
+                                          $"D={d.Value:F6}@{d.OpenTime:HH:mm} " +
+                                          $"E={e.Value:F6}@{e.OpenTime:HH:mm}");
+                    }
+                };
+                finder.MarkAsInitialized();
+                for (int i = 0; i < provider.Count; i++)
+                    finder.CheckBar(provider.GetOpenTime(i));
+                if (!found)
+                    Console.WriteLine($"  p={period,2}  (no assembled candidates)");
+            }
+        }
+
+        [Test]
+        public void Diag_July2ToJuly6_Gates()
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
+            provider.LoadCandles(Path.Combine(FindDataDir(), REFERENCE_FILE));
+
+            var wStart = new DateTime(2026, 7, 2, 14, 15, 0, DateTimeKind.Utc);
+            var wEnd   = new DateTime(2026, 7, 6, 13, 0, 0, DateTimeKind.Utc);
+            var perP0 = new Dictionary<DateTime, List<string>>();
+            var dGate = new DateTime(2026, 7, 6, 8, 0, 0, DateTimeKind.Utc);
+
+            var finder = new RunningTriangleSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+
+            var zigzagField = typeof(RunningTriangleSetupFinder)
+                .GetField("m_ExtremumFinders",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            finder.OnWaveGate = (p0, gate, a, b, c, d, e) =>
+            {
+                if (d?.OpenTime == dGate)
+                    Console.WriteLine($"  WAVE_D_08:00: p0={p0.OpenTime:u} gate={gate} D={d.Value:F6} C={c.Value:F6} B={b.Value:F6} E={e.Value:F6}");
+                if (p0?.OpenTime >= wStart && p0?.OpenTime <= wEnd && gate == "assembled")
+                    Console.WriteLine($"  ASSEMBLED: p0={p0.OpenTime:u} A={a.Value:F6}@{a.OpenTime:u} B={b.Value:F6}@{b.OpenTime:u} C={c.Value:F6}@{c.OpenTime:u} D={d.Value:F6}@{d.OpenTime:u} E={e.Value:F6}@{e.OpenTime:u}");
+            };
+
+            finder.OnGate = (p0, key) =>
+            {
+                if (p0 == null) return;
+                if (!perP0.ContainsKey(p0.OpenTime))
+                    perP0[p0.OpenTime] = new List<string>();
+                perP0[p0.OpenTime].Add(key);
+            };
+
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            Console.WriteLine($"\n=== Scale sweep: period ladder & Diag ===");
+            if (zigzagField?.GetValue(finder) is System.Collections.IList finders)
+            {
+                foreach (var f in finders)
+                {
+                    if (f is TradeKit.Core.Indicators.DeviationExtremumFinder df)
+                        Console.WriteLine($"  period={df.ScaleRate,3}  extrema={df.Extrema.Count,4}");
+                }
+            }
+
+            Console.WriteLine("\n=== Diag ===");
+            foreach (var kv in finder.Diag.OrderByDescending(kv => kv.Value))
+                Console.WriteLine($"  {kv.Key}: {kv.Value}");
+
+            Console.WriteLine($"\n=== All assembled in window ({wStart:u}..{wEnd:u}) ===");
+            foreach (var kv in perP0.Where(kv => kv.Key >= wStart && kv.Key <= wEnd).OrderBy(kv => kv.Key))
+            {
+                var gates = kv.Value.Distinct().ToList();
+                Console.WriteLine($"  p0={kv.Key:u}  -> {gates.Last()}  [{string.Join(",", gates)}]");
+            }
+        }
     }
 }

@@ -68,6 +68,12 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         public Action<BarPoint, string> OnGate { get; set; }
 
+        /// <summary>
+        /// Diagnostic hook: invoked with full ABCDE wave values for every assembled candidate
+        /// so tests can trace individual gate failures. Optional.
+        /// </summary>
+        public Action<BarPoint, string, BarPoint, BarPoint, BarPoint, BarPoint, BarPoint> OnWaveGate { get; set; }
+
         private BarPoint m_DbgPoint0;
 
         private void Bump(string key)
@@ -113,14 +119,37 @@ namespace TradeKit.Core.ElliottWave
         private const double WAVE_PULLBACK_TOL = 0.5;
 
         /// <summary>
-        /// Geometric scale ladder (ratios relative to the base period), stepped by √φ ≈ 1.272
-        /// — finer than <see cref="TriangleSetupFinder"/>'s φ ladder so that macro running
-        /// triangles (whose waves each contain many sub-pivots at the fine base scale) resolve
-        /// cleanly at one of the coarser rungs. Duplicates across rungs are collapsed by the
-        /// TP/SL signature and point-0 de-duplication.
+        /// Geometric scale ladder (ratios relative to the base period), covering ~2×…≈7×
+        /// of the auto-detected fine base. Three sub-base rungs (∛φ, 1/φ, 1/√φ) catch
+        /// triangles whose sub-waves are visible only below the base deviation; a dense
+        /// ∜φ-stepped range 1.0…2.321 samples the 5–12 period band (where most tradable
+        /// triangles resolve); coarser φ-stepped tail 2.618…6.854 covers macro triangles.
+        /// Duplicates across rungs are collapsed by the TP/SL signature and point-0
+        /// de-duplication.
         /// </summary>
         private static readonly double[] LADDER_RATIOS =
-            { 1.0, 1.272, 1.618, 2.058, 2.618, 3.330, 4.236, 5.388, 6.854 };
+        {
+            // Sub-base: catch triangles whose waves fragment only below the auto-estimated
+            // base deviation.
+            0.382,   // ∛φ  — base=5 → period 2
+            0.618,   // 1/φ
+            0.786,   // 1/√φ
+            // Fine ∜φ-stepped: 9 rungs in the 5…12 period band where most triangles resolve.
+            1.000,   // φ^0
+            1.127,   // φ^¼
+            1.272,   // φ^½ (√φ)
+            1.434,   // φ^¾
+            1.618,   // φ^1
+            1.826,   // φ^1·¼
+            2.058,   // φ^1·½
+            2.321,   // φ^1·¾
+            // Coarse tail: macro triangles.
+            2.618,   // φ^2
+            3.330,   // φ^2·½
+            4.236,   // φ^3
+            5.388,   // φ^3·½
+            6.854,   // φ^4
+        };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RunningTriangleSetupFinder"/> class.
@@ -374,6 +403,7 @@ namespace TradeKit.Core.ElliottWave
             // this is what makes the triangle "running" and is the whole premise.
             if (!IsMovementForward(isUp, waveB, point0))
             {
+                OnWaveGate?.Invoke(point0, "notRunning", waveA, waveB, waveC, waveD, waveE);
                 Bump("notRunning");
                 return false;
             }
@@ -382,6 +412,7 @@ namespace TradeKit.Core.ElliottWave
             if (IsMovementForward(isUp, waveC, point0) ||
                 !IsMovementForward(isUp, waveC, waveA))
             {
+                OnWaveGate?.Invoke(point0, "waveCFail", waveA, waveB, waveC, waveD, waveE);
                 Bump("waveCFail");
                 return false;
             }
@@ -390,6 +421,7 @@ namespace TradeKit.Core.ElliottWave
             if (IsMovementForward(isUp, waveD, waveB) ||
                 !IsMovementForward(isUp, waveD, waveC))
             {
+                OnWaveGate?.Invoke(point0, "waveDFail", waveA, waveB, waveC, waveD, waveE);
                 Bump("waveDFail");
                 return false;
             }
@@ -398,6 +430,7 @@ namespace TradeKit.Core.ElliottWave
             if (!IsMovementForward(isUp, waveE, waveA) ||
                 IsMovementForward(isUp, waveE, waveD))
             {
+                OnWaveGate?.Invoke(point0, "waveEFail", waveA, waveB, waveC, waveD, waveE);
                 Bump("waveEFail");
                 return false;
             }
@@ -406,6 +439,7 @@ namespace TradeKit.Core.ElliottWave
             // side) — that is what makes the whole ABCDE a genuine correction of the trend.
             if (!IsMovementForward(isUp, point0, waveE))
             {
+                OnWaveGate?.Invoke(point0, "eNotBeyond0", waveA, waveB, waveC, waveD, waveE);
                 Bump("eNotBeyond0");
                 return false;
             }
@@ -414,6 +448,7 @@ namespace TradeKit.Core.ElliottWave
             if (waveDLen <= 0 ||
                 Math.Abs(waveD.Value - waveE.Value) < E_RETRACE_MIN_RATIO * waveDLen)
             {
+                OnWaveGate?.Invoke(point0, "eRetraceTooShallow", waveA, waveB, waveC, waveD, waveE);
                 Bump("eRetraceTooShallow");
                 return false;
             }
@@ -422,6 +457,7 @@ namespace TradeKit.Core.ElliottWave
             // (the same "line-back" / initiality test used for impulses).
             if (!IsInitialMovement(point0.Value, waveA.Value, point0.BarIndex, BarsProvider, out _))
             {
+                OnWaveGate?.Invoke(point0, "waveANotContained", waveA, waveB, waveC, waveD, waveE);
                 Bump("waveANotContained");
                 return false;
             }
@@ -433,6 +469,7 @@ namespace TradeKit.Core.ElliottWave
             double trendStart = isUp ? point0.Value - waveBLen : point0.Value + waveBLen;
             if (!IsInitialMovement(point0.Value, trendStart, point0.BarIndex, BarsProvider, out _))
             {
+                OnWaveGate?.Invoke(point0, "weakTrend", waveA, waveB, waveC, waveD, waveE);
                 Bump("weakTrend");
                 return false;
             }
@@ -441,6 +478,7 @@ namespace TradeKit.Core.ElliottWave
             int triangleBars = waveE.BarIndex - point0.BarIndex;
             if (triangleBars < m_EwParams.BarsCount)
             {
+                OnWaveGate?.Invoke(point0, "tooFewBars", waveA, waveB, waveC, waveD, waveE);
                 Bump("tooFewBars");
                 return false;
             }
@@ -448,6 +486,7 @@ namespace TradeKit.Core.ElliottWave
             double sizePercent = Math.Abs(point0.Value - waveA.Value) / level.Value * 100;
             if (sizePercent < m_EwParams.MinSizePercent)
             {
+                OnWaveGate?.Invoke(point0, "tooSmall", waveA, waveB, waveC, waveD, waveE);
                 Bump("tooSmall");
                 return false;
             }
@@ -455,6 +494,7 @@ namespace TradeKit.Core.ElliottWave
             // Adjacent-wave duration sanity — reject gap-stitched fictitious waves.
             if (!AreWaveDurationsSane(wavePoints))
             {
+                OnWaveGate?.Invoke(point0, "durationInsane", waveA, waveB, waveC, waveD, waveE);
                 Bump("durationInsane");
                 return false;
             }
@@ -465,6 +505,7 @@ namespace TradeKit.Core.ElliottWave
             {
                 if (!IsWaveContained(wavePoints[w], wavePoints[w + 1]))
                 {
+                    OnWaveGate?.Invoke(point0, "notContained", waveA, waveB, waveC, waveD, waveE);
                     Bump("notContained");
                     return false;
                 }
@@ -495,6 +536,7 @@ namespace TradeKit.Core.ElliottWave
             if (isUp && (level.Value >= tpPrice || level.Value <= slPrice) ||
                 !isUp && (level.Value <= tpPrice || level.Value >= slPrice))
             {
+                OnWaveGate?.Invoke(point0, "tpSlHit", waveA, waveB, waveC, waveD, waveE);
                 Bump("tpSlHit");
                 return false;
             }
@@ -505,6 +547,7 @@ namespace TradeKit.Core.ElliottWave
             // RR guard: TP must be sufficiently far from the entry relative to the risk.
             if (Math.Abs(level.Value - tpPrice) / Math.Abs(tpPrice - slPrice) < MIN_TO_SL_RATIO)
             {
+                OnWaveGate?.Invoke(point0, "tooCloseToSl", waveA, waveB, waveC, waveD, waveE);
                 Bump("tooCloseToSl");
                 return false;
             }
@@ -513,6 +556,7 @@ namespace TradeKit.Core.ElliottWave
             // EmitRebuildSignals allows repeats on sideways rebuilds (§6.1).
             if (!EmitRebuildSignals && m_SignaledPoint0.Contains(point0.OpenTime))
             {
+                OnWaveGate?.Invoke(point0, "duplicatePoint0", waveA, waveB, waveC, waveD, waveE);
                 Bump("duplicatePoint0");
                 return false;
             }
@@ -521,6 +565,7 @@ namespace TradeKit.Core.ElliottWave
             var signalKey = new SignalKey(tpPoint.OpenTime, tpPoint.Value, slPoint.OpenTime, slPoint.Value);
             if (!m_ProcessedSignals.Add(signalKey))
             {
+                OnWaveGate?.Invoke(point0, "duplicate", waveA, waveB, waveC, waveD, waveE);
                 Bump("duplicate");
                 return false;
             }
@@ -531,6 +576,7 @@ namespace TradeKit.Core.ElliottWave
                     $"{ElliottModelType.TRIANGLE_RUNNING} run={waveBLen / Math.Max(1e-9, Math.Abs(point0.Value - waveA.Value)):F2}"));
 
             m_SignaledPoint0.Add(point0.OpenTime);
+            OnWaveGate?.Invoke(point0, "entered", waveA, waveB, waveC, waveD, waveE);
             Bump("entered");
             OnEnterInvoke(CurrentSignalEventArgs);
             IsInSetup = true;
