@@ -107,6 +107,14 @@ namespace TradeKit.Core.ElliottWave
 
         /// <summary>Minimum retrace of wave E relative to wave D (EW_R_TRIANGLE.md §6, R-E).</summary>
         private const double E_RETRACE_MIN_RATIO = 0.5;
+
+        /// <summary>
+        /// How many wave-B lengths to require in the prior trend (R-TREND, §5.1). A value
+        /// of 2 means the trend into point 0 must be at least twice as long as wave B.
+        /// This filters out weak trends where a running triangle lookalike is just sideways
+        /// consolidation.
+        /// </summary>
+        private const double TREND_B_MULT = 2;
         private const double MIN_TO_SL_RATIO = 0.4;
         private const double MAX_WAVE_DURATION_RATIO = 4.0;
         private const int MAX_EXTREMA_DEPTH = 400;
@@ -309,8 +317,32 @@ namespace TradeKit.Core.ElliottWave
                     continue;
 
                 if (!TryBuildForward(piv, k, eIdx, isUp,
-                        out BarPoint p0, out BarPoint a, out BarPoint b, out BarPoint c, out BarPoint d))
+                        out BarPoint p0, out BarPoint a, out BarPoint b, out BarPoint c, out BarPoint d,
+                        out int bIdx, out int cIdx, out int dIdx))
                     continue;
+
+                // §4 R-D-B post-hoc fix: when the zigzag on this scale misses the
+                // internal pullback after the true D peak, greedy ExtendWave may
+                // overshoot past B. Walk back along the pivot list from the over-
+                // extended D to find the last pivot between C and E which is still
+                // inside B (≤ B for isUp, ≥ B for !isUp), and use that as D.
+                bool dNeedsCap = bIdx < dIdx && cIdx < dIdx &&
+                    (isUp ? d.Value > b.Value : d.Value < b.Value);
+                if (dNeedsCap)
+                {
+                    Bump("dCapNeeded");
+                    for (int dd = dIdx; dd > cIdx; dd--)
+                    {
+                        bool inBound = isUp ? piv[dd].Value <= b.Value
+                                            : piv[dd].Value >= b.Value;
+                        if (inBound)
+                        {
+                            d = piv[dd];
+                            Bump("dCapped");
+                            break;
+                        }
+                    }
+                }
 
                 if (TryEmit(openDateTime, p0, a, b, c, d, waveE, isUp))
                     return true;
@@ -327,17 +359,18 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         private static bool TryBuildForward(IList<BarPoint> piv, int k, int eIdx, bool isUp,
             out BarPoint point0, out BarPoint waveA, out BarPoint waveB, out BarPoint waveC,
-            out BarPoint waveD)
+            out BarPoint waveD, out int bEnd, out int cEnd, out int dEnd)
         {
             point0 = waveA = waveB = waveC = waveD = null;
+            bEnd = cEnd = dEnd = -1;
 
             int aEnd = ExtendWave(piv, k, eIdx, isUp, wantVHigh: false);
             if (aEnd >= eIdx) return false;
-            int bEnd = ExtendWave(piv, aEnd, eIdx, isUp, wantVHigh: true);
+            bEnd = ExtendWave(piv, aEnd, eIdx, isUp, wantVHigh: true);
             if (bEnd >= eIdx) return false;
-            int cEnd = ExtendWave(piv, bEnd, eIdx, isUp, wantVHigh: false);
+            cEnd = ExtendWave(piv, bEnd, eIdx, isUp, wantVHigh: false);
             if (cEnd >= eIdx) return false;
-            int dEnd = ExtendWave(piv, cEnd, eIdx, isUp, wantVHigh: true);
+            dEnd = ExtendWave(piv, cEnd, eIdx, isUp, wantVHigh: true);
             if (dEnd >= eIdx) return false;
             int eEnd = ExtendWave(piv, dEnd, eIdx, isUp, wantVHigh: false);
 
@@ -360,9 +393,14 @@ namespace TradeKit.Core.ElliottWave
         /// counter-moves (sub-waves) are absorbed until a pullback from the running extreme
         /// exceeds <see cref="WAVE_PULLBACK_TOL"/> of the wave's amplitude so far — that
         /// deeper counter-move is where the next wave begins.
+        /// <para>
+        /// When <paramref name="boundValue"/> is non-null, the wave extreme is never allowed
+        /// to reach or exceed it (in v-space). This is used to cap wave D at B's level
+        /// (R-D-B, §4) on coarse scales where the zigzag misses the intermediate pullback.
+        /// </para>
         /// </summary>
         private static int ExtendWave(IList<BarPoint> piv, int startIdx, int endLimit,
-            bool isUp, bool wantVHigh)
+            bool isUp, bool wantVHigh, double? boundValue = null)
         {
             int sgn = isUp ? 1 : -1;
             double vStart = sgn * piv[startIdx].Value;
@@ -377,11 +415,19 @@ namespace TradeKit.Core.ElliottWave
                 double vi = sgn * piv[i].Value;
                 if (wantVHigh)
                 {
+                    // Bound: e.g. wave D (v-high) must not extend past B's v-level (§4 R-D-B).
+                    // Once we reach/exceed the bound, stop extending — the current extreme
+                    // is the last valid pivot before the breach.
+                    if (boundValue.HasValue && vi >= boundValue.Value)
+                        break;
                     if (vi > vExt) { vExt = vi; extreme = i; }
                     else if (vExt - vi > WAVE_PULLBACK_TOL * Math.Max(1e-12, vExt - vStart)) break;
                 }
                 else
                 {
+                    // Bound: e.g. wave D (v-low for !isUp) must not go below B's v-level.
+                    if (boundValue.HasValue && vi <= boundValue.Value)
+                        break;
                     if (vi < vExt) { vExt = vi; extreme = i; }
                     else if (vi - vExt > WAVE_PULLBACK_TOL * Math.Max(1e-12, vStart - vExt)) break;
                 }
@@ -453,6 +499,22 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
+            // §7.3 rebuild gate: when wave E has gone past the old wave C (but stays
+            // inside A), the triangle has "grown sideways" and the D→E structure is
+            // stale. Rather than emit a signal with an invalid D, we reject the candidate
+            // here and let the next zigzag extremum trigger a fresh TryBuildForward that
+            // will naturally treat the old C/D/E area as a new, wider wave C, then wait
+            // for a properly formed D→E.
+            {
+                bool ePastC = isUp ? waveE.Value < waveC.Value : waveE.Value > waveC.Value;
+                if (ePastC)
+                {
+                    OnWaveGate?.Invoke(point0, "ePastC", waveA, waveB, waveC, waveD, waveE);
+                    Bump("ePastC");
+                    return false;
+                }
+            }
+
             // R-A-INIT (§5.3): wave A is an initial correction contained inside the trend
             // (the same "line-back" / initiality test used for impulses).
             if (!IsInitialMovement(point0.Value, waveA.Value, point0.BarIndex, BarsProvider, out _))
@@ -462,11 +524,13 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
-            // R-TREND (§5.1/§8): the trend into point 0 must be at least the length of
-            // wave B. Measured by distance only (O-1): price had to reach trendStart —
-            // point 0 offset against the thrust by |wave B| — inside the fresh trend.
+            // R-TREND (§5.1/§8): the trend into point 0 must be at least TREND_B_MULT ×
+            // the length of wave B. The multiplier (2) requires a substantial prior trend,
+            // filtering out weak-trend false positives where what looks like a running
+            // triangle is actually just a sideways chop.
             double waveBLen = Math.Abs(waveB.Value - waveA.Value);
-            double trendStart = isUp ? point0.Value - waveBLen : point0.Value + waveBLen;
+            double trendStart = isUp ? point0.Value - TREND_B_MULT * waveBLen
+                                     : point0.Value + TREND_B_MULT * waveBLen;
             if (!IsInitialMovement(point0.Value, trendStart, point0.BarIndex, BarsProvider, out _))
             {
                 OnWaveGate?.Invoke(point0, "weakTrend", waveA, waveB, waveC, waveD, waveE);

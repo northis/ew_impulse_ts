@@ -154,7 +154,7 @@ namespace TradeKit.Tests
             finder.OnEnter += (_, args) =>
             {
                 var pts = args.WavePoints;
-                int barIdx = provider.GetIndexByTime(args.Level.OpenTime); // entry bar, not point0!
+                int barIdx = provider.GetIndexByTime(args.Level.OpenTime);
                 double barHigh = provider.GetHighPrice(barIdx);
                 double barLow = provider.GetLowPrice(barIdx);
                 entries.Add((pts[0], pts[1], pts[2], pts[3], pts[4], pts[5],
@@ -166,18 +166,25 @@ namespace TradeKit.Tests
                 finder.CheckBar(provider.GetOpenTime(i));
 
             Console.WriteLine($"=== Entered signals: {entries.Count} total (period=5 minBars=15) ===");
-            int breached = 0, ok = 0;
+            int breached = 0, ok = 0, ePastC = 0;
             foreach (var e in entries.OrderBy(e => e.P0.OpenTime))
             {
                 bool barPastD = e.IsUp ? e.BarHigh > e.D.Value : e.BarLow < e.D.Value;
-                if (barPastD) breached++; else ok++;
-                string flag = barPastD ? " *** BREACH: bar extreme past D! ***" : "  OK";
+                // §7.3: E past C (but not past A) = sideways rebuild needed
+                bool isEPastC = e.IsUp ? e.E.Value < e.C.Value : e.E.Value > e.C.Value;
+                if (barPastD) breached++;
+                if (isEPastC) ePastC++;
+                if (!barPastD) ok++;
+                string flags = "";
+                if (barPastD) flags += " [D-BREACH]";
+                if (isEPastC) flags += " [E-PAST-C: rebuild needed §7.3]";
                 Console.WriteLine(
                     $"  p0={e.P0.OpenTime:u} lvl={e.Level:F6}@{e.LevelTime:HH:mm} barH={e.BarHigh:F6} barL={e.BarLow:F6} " +
+                    $"isUp={e.IsUp} p0Val={e.P0.Value:F6} " +
                     $"A={e.A.Value:F6} B={e.B.Value:F6} C={e.C.Value:F6} " +
-                    $"D={e.D.Value:F6} E={e.E.Value:F6}  {flag}");
+                    $"D={e.D.Value:F6} E={e.E.Value:F6}{flags}");
             }
-            Console.WriteLine($"  OK={ok}  breached={breached}");
+            Console.WriteLine($"  OK={ok}  D-breached={breached}  E-past-C={ePastC}");
 
             Console.WriteLine("\n=== Diag ===");
             foreach (var kv in finder.Diag.OrderByDescending(kv => kv.Value))
@@ -247,63 +254,49 @@ namespace TradeKit.Tests
         }
 
         [Test]
-        public void Diag_July2ToJuly6_Gates()
+        public void Diag_July2ToJuly6_D_Dump()
         {
             var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
             provider.LoadCandles(Path.Combine(FindDataDir(), REFERENCE_FILE));
 
-            var wStart = new DateTime(2026, 7, 2, 14, 15, 0, DateTimeKind.Utc);
-            var wEnd   = new DateTime(2026, 7, 6, 13, 0, 0, DateTimeKind.Utc);
-            var perP0 = new Dictionary<DateTime, List<string>>();
-            var dGate = new DateTime(2026, 7, 6, 8, 0, 0, DateTimeKind.Utc);
-
+            // Dump extrema on period 4 around Jul6 
             var finder = new RunningTriangleSetupFinder(
-                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
-
-            var zigzagField = typeof(RunningTriangleSetupFinder)
-                .GetField("m_ExtremumFinders",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-            finder.OnWaveGate = (p0, gate, a, b, c, d, e) =>
-            {
-                if (d?.OpenTime == dGate)
-                    Console.WriteLine($"  WAVE_D_08:00: p0={p0.OpenTime:u} gate={gate} D={d.Value:F6} C={c.Value:F6} B={b.Value:F6} E={e.Value:F6}");
-                if (p0?.OpenTime >= wStart && p0?.OpenTime <= wEnd && gate == "assembled")
-                    Console.WriteLine($"  ASSEMBLED: p0={p0.OpenTime:u} A={a.Value:F6}@{a.OpenTime:u} B={b.Value:F6}@{b.OpenTime:u} C={c.Value:F6}@{c.OpenTime:u} D={d.Value:F6}@{d.OpenTime:u} E={e.Value:F6}@{e.OpenTime:u}");
-            };
-
-            finder.OnGate = (p0, key) =>
-            {
-                if (p0 == null) return;
-                if (!perP0.ContainsKey(p0.OpenTime))
-                    perP0[p0.OpenTime] = new List<string>();
-                perP0[p0.OpenTime].Add(key);
-            };
-
+                provider, provider.BarSymbol, new EWParams(4, 0.1, 10));
             finder.MarkAsInitialized();
             for (int i = 0; i < provider.Count; i++)
                 finder.CheckBar(provider.GetOpenTime(i));
 
-            Console.WriteLine($"\n=== Scale sweep: period ladder & Diag ===");
-            if (zigzagField?.GetValue(finder) is System.Collections.IList finders)
+            var zigzagField = typeof(RunningTriangleSetupFinder)
+                .GetField("m_ExtremumFinders",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (zigzagField?.GetValue(finder) is System.Collections.IList finders && finders.Count > 0)
             {
-                foreach (var f in finders)
+                var df = (TradeKit.Core.Indicators.DeviationExtremumFinder)finders[0];
+                var extrema = df.Extrema;
+                Console.WriteLine($"\n=== Period=4 extrema near Jul6 03:15 - Jul7 05:00 ===");
+                var from = new DateTime(2026, 7, 5, 21, 0, 0, DateTimeKind.Utc);
+                var to   = new DateTime(2026, 7, 7, 6, 0, 0, DateTimeKind.Utc);
+                int idx = 0;
+                foreach (var kv in extrema.Where(kv => kv.Key >= from && kv.Key <= to))
                 {
-                    if (f is TradeKit.Core.Indicators.DeviationExtremumFinder df)
-                        Console.WriteLine($"  period={df.ScaleRate,3}  extrema={df.Extrema.Count,4}");
+                    var bp = kv.Value;
+                    Console.WriteLine($"  [{idx,3}] {kv.Key:u} val={bp.Value:F6}");
+                    idx++;
                 }
             }
 
-            Console.WriteLine("\n=== Diag ===");
-            foreach (var kv in finder.Diag.OrderByDescending(kv => kv.Value))
-                Console.WriteLine($"  {kv.Key}: {kv.Value}");
-
-            Console.WriteLine($"\n=== All assembled in window ({wStart:u}..{wEnd:u}) ===");
-            foreach (var kv in perP0.Where(kv => kv.Key >= wStart && kv.Key <= wEnd).OrderBy(kv => kv.Key))
+            // Now also check: does ExtendWave for D on period=4 stop at Jul6 08:00?
+            Console.WriteLine("\n=== Now building D on period=4 for p0=Jul2 14:15 ===");
+            var f2 = new RunningTriangleSetupFinder(
+                provider, provider.BarSymbol, new EWParams(4, 0.1, 10));
+            f2.OnWaveGate = (p0, gate, a, b, c, d, e) =>
             {
-                var gates = kv.Value.Distinct().ToList();
-                Console.WriteLine($"  p0={kv.Key:u}  -> {gates.Last()}  [{string.Join(",", gates)}]");
-            }
+                if (p0?.OpenTime == new DateTime(2026, 7, 2, 14, 15, 0, DateTimeKind.Utc))
+                    Console.WriteLine($"  gate={gate} D={d.Value:F6}@{d.OpenTime:u}");
+            };
+            f2.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                f2.CheckBar(provider.GetOpenTime(i));
         }
     }
 }
