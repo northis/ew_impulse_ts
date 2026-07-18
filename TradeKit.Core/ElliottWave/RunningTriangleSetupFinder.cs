@@ -115,6 +115,22 @@ namespace TradeKit.Core.ElliottWave
         /// consolidation.
         /// </summary>
         private const double TREND_B_MULT = 2;
+
+        /// <summary>
+        /// Minimum ratio |B-A| / |0-A| for a valid ABCDE wave-B extension (§4 R-B-RUN
+        /// relaxation). Values below 1 accept triangles where B does not fully break
+        /// beyond point 0 (contracting-ish), and TP is then set to point 0 rather than
+        /// wave B.
+        /// </summary>
+        private const double B_A_RATIO_MIN = 0.8;
+
+        /// <summary>
+        /// Maximum ratio |B-A| / |0-A|. Triangles with a wave B that extends too far
+        /// beyond point 0 (ratio > 1.5) are suspect — they either belong to a higher
+        /// degree pattern or the "running" label is a misread.
+        /// </summary>
+        private const double B_A_RATIO_MAX = 1.3;
+
         private const double MIN_TO_SL_RATIO = 0.4;
         private const double MAX_WAVE_DURATION_RATIO = 4.0;
         private const int MAX_EXTREMA_DEPTH = 400;
@@ -445,14 +461,21 @@ namespace TradeKit.Core.ElliottWave
             var level = new BarPoint(BarsProvider.GetClosePrice(openDateTime), openDateTime, BarsProvider);
             BarPoint[] wavePoints = { point0, waveA, waveB, waveC, waveD, waveE };
 
-            // R-B-RUN (§4): wave B must break BEYOND point 0 in the thrust direction —
-            // this is what makes the triangle "running" and is the whole premise.
-            if (!IsMovementForward(isUp, waveB, point0))
+            // R-B-RUN relaxation: instead of requiring strict B > point 0 (§4), accept
+            // triangles whose wave-B amplitude |B-A| is within [B_A_RATIO_MIN…MAX] ×
+            // |0-A|. When the ratio is below 1 (B does not reach point 0), the
+            // triangle is "contracting-ish" — still tradable, but TP is placed at
+            // point 0 rather than at wave B.
+            double waveBLen = Math.Abs(waveB.Value - waveA.Value);
+            double baRatio = waveBLen / Math.Max(1e-12, Math.Abs(point0.Value - waveA.Value));
+            if (baRatio < B_A_RATIO_MIN || baRatio > B_A_RATIO_MAX)
             {
-                OnWaveGate?.Invoke(point0, "notRunning", waveA, waveB, waveC, waveD, waveE);
-                Bump("notRunning");
+                OnWaveGate?.Invoke(point0, "baRatioOutOfRange", waveA, waveB, waveC, waveD, waveE);
+                Bump("baRatioOutOfRange");
                 return false;
             }
+
+            bool isRunning = IsMovementForward(isUp, waveB, point0);
 
             // R-C-0 (§4): C returns to the correction side of point 0 but does not break A.
             if (IsMovementForward(isUp, waveC, point0) ||
@@ -528,7 +551,6 @@ namespace TradeKit.Core.ElliottWave
             // the length of wave B. The multiplier (2) requires a substantial prior trend,
             // filtering out weak-trend false positives where what looks like a running
             // triangle is actually just a sideways chop.
-            double waveBLen = Math.Abs(waveB.Value - waveA.Value);
             double trendStart = isUp ? point0.Value - TREND_B_MULT * waveBLen
                                      : point0.Value + TREND_B_MULT * waveBLen;
             if (!IsInitialMovement(point0.Value, trendStart, point0.BarIndex, BarsProvider, out _))
@@ -598,10 +620,16 @@ namespace TradeKit.Core.ElliottWave
                 }
             }
 
-            // TP at wave B (running thrust target) or point 0; SL beyond wave A —
-            // with allowances and rounded to symbol digits (as in ImpulseSetupFinder).
-            BarPoint tpTarget =
-                TakeProfitMode == RunningTriangleTakeProfitMode.WAVE_B ? waveB : point0;
+            // TP: wave B when the triangle is truly running (B beyond point 0),
+            // point 0 when it is contracting-ish (B within the A→0 leg).
+            // The explicit TakeProfitMode overrides this automatic choice.
+            BarPoint tpTarget;
+            if (TakeProfitMode == RunningTriangleTakeProfitMode.WAVE_B)
+                tpTarget = waveB;
+            else if (TakeProfitMode == RunningTriangleTakeProfitMode.POINT_0)
+                tpTarget = point0;
+            else
+                tpTarget = isRunning ? waveB : point0;
             double tpAllowance = Math.Abs(level.Value - tpTarget.Value) *
                                  Helper.PERCENT_ALLOWANCE_TP / 100;
             double slAllowance = Math.Abs(level.Value - waveA.Value) *
