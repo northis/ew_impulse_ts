@@ -80,6 +80,20 @@ namespace TradeKit.Core.Indicators
         }
 
         /// <summary>
+        /// Returns the extrema ordered chronologically by their actual bar time
+        /// (<see cref="BarPoint.OpenTime"/>). The underlying <see cref="SortedList{TKey,TValue}"/>
+        /// is keyed by a collision-shifted timestamp (see <see cref="SetExtremumInner"/> —
+        /// a duplicate key is moved +1 second), so <see cref="SortedList{TKey,TValue}.Values"/>
+        /// is NOT in chronological order whenever a pivot got re-set on the same bar
+        /// (e.g. a thrust that re-breaks the prior extreme after a shallow pullback).
+        /// Wave assembly must iterate this chronological view, not the key order.
+        /// </summary>
+        public List<BarPoint> ToChronologicalExtremaList()
+        {
+            return Result.Values.OrderBy(v => v.OpenTime).ThenBy(v => v.BarIndex).ToList();
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="ExtremumFinderBase"/> class.
         /// </summary>
         /// <param name="barsProvider">The source bars provider.</param>

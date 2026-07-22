@@ -114,7 +114,7 @@ namespace TradeKit.Core.ElliottWave
         /// This filters out weak trends where a running triangle lookalike is just sideways
         /// consolidation.
         /// </summary>
-        private const double TREND_B_MULT = 2;
+        private const double TREND_B_MULT = 1;
 
         /// <summary>
         /// Minimum ratio |B-A| / |0-A| for a valid ABCDE wave-B extension (§4 R-B-RUN
@@ -267,6 +267,36 @@ namespace TradeKit.Core.ElliottWave
                     CurrentSignalEventArgs = null;
                     return;
                 }
+
+                // §7.3 rebuild applied post-signal: if price breaks the open setup's
+                // wave E (below for an up-thrust, above for a down-thrust) before TP/SL,
+                // the ABCDE read was premature — E was supposed to END the correction,
+                // so a new extreme past it means the triangle is still building sideways
+                // (the whole former C…E area becomes a new, wider wave C). Release the
+                // setup AND its point-0 / TP-SL de-duplication so the rebuilt triangle
+                // can be detected and signaled afresh; the trade itself is left to the
+                // trader (no SL/TP event is fired by the invalidation).
+                BarPoint[] openWaves = CurrentSignalEventArgs.WavePoints;
+                if (openWaves != null && openWaves.Length >= 6)
+                {
+                    BarPoint openE = openWaves[5];
+                    bool eBroken = isUpSetup
+                        ? low < openE.Value
+                        : high > openE.Value;
+                    if (eBroken)
+                    {
+                        m_DbgPoint0 = openWaves[0];
+                        Bump("invalidatedE");
+                        m_SignaledPoint0.Remove(openWaves[0].OpenTime);
+                        m_ProcessedSignals.Remove(new SignalKey(
+                            CurrentSignalEventArgs.TakeProfit.OpenTime,
+                            CurrentSignalEventArgs.TakeProfit.Value,
+                            CurrentSignalEventArgs.StopLoss.OpenTime,
+                            CurrentSignalEventArgs.StopLoss.Value));
+                        CurrentSignalEventArgs = null;
+                        IsInSetup = false;
+                    }
+                }
             }
 
             if (IsInSetup)
@@ -364,7 +394,138 @@ namespace TradeKit.Core.ElliottWave
                     return true;
             }
 
+            // §7.6 cross-scale fallback: this rung's fresh pivot may be the wave E of a
+            // triangle whose 0/A/B/C are clean only on a coarser rung (a deep internal
+            // bounce inside wave A fragments the fine scales, while the shallow D/E
+            // reversals are invisible to the coarse ones — the windows can be mutually
+            // exclusive, so NO single scale resolves such triangles at all).
+            return TryCrossScale(openDateTime, finder, waveE, isUp);
+        }
+
+        /// <summary>
+        /// Cross-scale assembly (§7.6): takes the freshly-confirmed pivot on
+        /// <paramref name="fineFinder"/> as the candidate wave E, assembles waves 0/A/B/C
+        /// on every coarser rung (greedy sub-wave merging, same as the single-scale path)
+        /// and resolves waves D/E from this rung's own pivots after wave C. Wave D is
+        /// capped inside wave B (R-D-B, §4) via the <see cref="ExtendWave"/> bound; wave E
+        /// must resolve exactly on the freshly-confirmed pivot, so the signal fires on E's
+        /// confirmation bar — before the thrust has run (a late entry has no profit left
+        /// to the TP at wave B). All §4-§6 rules are re-validated by <see cref="TryEmit"/>.
+        /// </summary>
+        private bool TryCrossScale(DateTime openDateTime, DeviationExtremumFinder fineFinder,
+            BarPoint waveE, bool isUp)
+        {
+            foreach (DeviationExtremumFinder coarse in m_ExtremumFinders
+                         .Where(f => f.ScaleRate > fineFinder.ScaleRate)
+                         .OrderByDescending(f => f.ScaleRate))
+            {
+                List<BarPoint> cp = coarse.ToChronologicalExtremaList();
+                if (cp.Count < MIN_EXTREMUM_COUNT)
+                    continue;
+
+                int from = Math.Max(0, cp.Count - 1 - MAX_EXTREMA_DEPTH);
+                for (int k = from; k < cp.Count - 3; k++)
+                {
+                    bool isVHigh = isUp ? cp[k] > cp[k + 1] : cp[k] < cp[k + 1];
+                    if (!isVHigh)
+                        continue;
+
+                    if (!TryBuildAbc(cp, k, isUp,
+                            out BarPoint p0, out BarPoint a, out BarPoint b, out BarPoint c))
+                        continue;
+
+                    // Wave E (the fresh fine pivot) must come after wave C.
+                    if (c.BarIndex >= waveE.BarIndex)
+                        continue;
+
+                    // Resolve waves D and E from RAW BARS, not the zigzag pivot list.
+                    // The production finder replays full history before MarkAsInitialized,
+                    // and the resulting MoveExtremum/SetExtremum sequence overwrites the
+                    // shallow intra-wave pivots (the true D peak is absorbed into the
+                    // recovery leg and never survives to E's confirmation bar). Raw bars
+                    // are deterministic and replay-independent.
+                    //
+                    // Wave D: the highest high (up-thrust) between wave C's bar and wave
+                    // E's bar that still stays inside wave B (R-D-B, §4). Capped at B.
+                    int sgn = isUp ? 1 : -1;
+                    int dBar = -1;
+                    double vD = 0;
+                    for (int bi = c.BarIndex + 1; bi < waveE.BarIndex; bi++)
+                    {
+                        double hv = BarsProvider.GetHighPrice(bi);
+                        double lv = BarsProvider.GetLowPrice(bi);
+                        double vi = sgn * (isUp ? hv : lv);
+                        if (isUp ? hv >= b.Value : lv <= b.Value)
+                            break; // D must stay inside B; stop at the first B breach.
+                        if (dBar < 0 || vi > vD)
+                        {
+                            vD = vi;
+                            dBar = bi;
+                        }
+                    }
+
+                    if (dBar < 0)
+                        continue;
+
+                    double dPrice = isUp ? BarsProvider.GetHighPrice(dBar)
+                                         : BarsProvider.GetLowPrice(dBar);
+                    var waveD = new BarPoint(dPrice, dBar, BarsProvider);
+
+                    // Wave E: the deepest counter-extreme between D's bar and the current
+                    // bar. It must resolve on the freshly-confirmed pivot's bar (so the
+                    // signal fires on E's confirmation bar, before the thrust runs).
+                    int eBar = -1;
+                    double vE = 0;
+                    for (int bi = dBar + 1; bi <= waveE.BarIndex; bi++)
+                    {
+                        double vi = sgn * (isUp ? BarsProvider.GetLowPrice(bi)
+                                                : BarsProvider.GetHighPrice(bi));
+                        if (eBar < 0 || vi < vE)
+                        {
+                            vE = vi;
+                            eBar = bi;
+                        }
+                    }
+
+                    if (eBar != waveE.BarIndex)
+                        continue;
+
+                    m_DbgPoint0 = p0;
+                    Bump("xScaleAssembled");
+                    if (TryEmit(openDateTime, p0, a, b, c, waveD, waveE, isUp))
+                        return true;
+                }
+            }
+
             return false;
+        }
+
+        /// <summary>
+        /// Builds only waves A, B and C forward from a candidate point 0 (the same greedy
+        /// sub-wave merging as <see cref="TryBuildForward"/>), leaving D/E to be resolved
+        /// on a finer scale (cross-scale assembly, §7.6).
+        /// </summary>
+        private static bool TryBuildAbc(IList<BarPoint> piv, int k, bool isUp,
+            out BarPoint point0, out BarPoint waveA, out BarPoint waveB, out BarPoint waveC)
+        {
+            point0 = waveA = waveB = waveC = null;
+            int last = piv.Count - 1;
+
+            int aEnd = ExtendWave(piv, k, last, isUp, wantVHigh: false);
+            if (aEnd >= last) return false;
+            int bEnd = ExtendWave(piv, aEnd, last, isUp, wantVHigh: true);
+            if (bEnd >= last) return false;
+            // Wave C may legitimately be the LAST (still floating) pivot: at the moment
+            // wave E confirms on the fine scale, the coarse scale has not yet seen the
+            // counter-move that would confirm C — its value/time are final all the same
+            // (any later drift only extends C further, which the gates would reject).
+            int cEnd = ExtendWave(piv, bEnd, last, isUp, wantVHigh: false);
+
+            point0 = piv[k];
+            waveA = piv[aEnd];
+            waveB = piv[bEnd];
+            waveC = piv[cEnd];
+            return true;
         }
 
         /// <summary>
@@ -476,6 +637,16 @@ namespace TradeKit.Core.ElliottWave
             }
 
             bool isRunning = IsMovementForward(isUp, waveB, point0);
+            if (!isRunning)
+            {
+                // The RunningTriangle finder emits only genuine running triangles
+                // (wave B breaks beyond point 0, §4 R-B-RUN). Contracting lookalikes
+                // (B below point 0) are rejected here so every emitted signal is a
+                // valid running triangle (see the structural invariants the tests assert).
+                OnWaveGate?.Invoke(point0, "notRunning", waveA, waveB, waveC, waveD, waveE);
+                Bump("notRunning");
+                return false;
+            }
 
             // R-C-0 (§4): C returns to the correction side of point 0 but does not break A.
             if (IsMovementForward(isUp, waveC, point0) ||
