@@ -53,6 +53,10 @@
     <Compile Include="Indicators\BollingerBandsIndicator.cs" />
     <Compile Include="Indicators\PivotPointsIndicator.cs" />
     <Compile Include="Gartley\GartleyFinderBaseIndicator.cs" />
+    <Compile Include="Harmonic\HarmonicParamsMapper.cs" />
+    <Compile Include="Harmonic\HarmonicFinderBaseIndicator.cs" />
+    <Compile Include="Harmonic\HarmonicCTraderBaseRobot.cs" />
+    <Compile Include="Harmonic\HarmonicSignalerAlgoRobot.cs" />
     <Compile Include="PriceAction\PriceActionCTraderBaseRobot.cs" />
     <Compile Include="PriceAction\PriceActionAlgoRobot.cs" />
     <Compile Include="PriceAction\PriceActionBaseIndicator.cs" />

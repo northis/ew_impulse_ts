@@ -1,0 +1,175 @@
+namespace TradeKit.Core.Harmonic;
+
+/// <summary>
+/// Search and setup settings of <see cref="HarmonicSetupFinder"/>.
+/// The defaults reproduce the reference Pine indicator with every TradeKit-specific filter
+/// turned off, so a base run can be compared with Pine directly.
+/// </summary>
+public class HarmonicParams
+{
+    /// <summary>
+    /// How many bars back the search may look. 500 matches <c>max_bars_back</c> of the Pine indicator.
+    /// </summary>
+    public int BarsDepth { get; set; } = 500;
+
+    /// <summary>
+    /// The smallest pivot period used to detect the X/A/B/C points.
+    /// </summary>
+    public int MinPivotPeriod { get; set; } = 3;
+
+    /// <summary>
+    /// The largest pivot period used to detect the X/A/B/C points.
+    /// </summary>
+    public int MaxPivotPeriod { get; set; } = 20;
+
+    /// <summary>
+    /// The number of trailing bars required to confirm the point D.
+    /// </summary>
+    public int DConfirmationBars { get; set; } = 1;
+
+    /// <summary>
+    /// The number of bars before the point D that must not break it.
+    /// </summary>
+    public int MinBarsBeforePivot { get; set; } = 3;
+
+    /// <summary>
+    /// The allowed Fibonacci ratio error, in percent.
+    /// </summary>
+    public double FibErrorPercent { get; set; } = 15d;
+
+    /// <summary>
+    /// The allowed leg duration asymmetry, in percent.
+    /// </summary>
+    public double LegAsymmetryPercent { get; set; } = 250d;
+
+    /// <summary>
+    /// The minimum total score a pattern must reach to produce a setup, from 0 to 1.
+    /// </summary>
+    public double MinimumScore { get; set; }
+
+    /// <summary>
+    /// The weight of the average Fibonacci ratio error in the total score.
+    /// </summary>
+    public double FibErrorWeight { get; set; } = 4d;
+
+    /// <summary>
+    /// The weight of the PRZ level confluence in the total score.
+    /// </summary>
+    public double PrzWeight { get; set; } = 2d;
+
+    /// <summary>
+    /// The weight of the point D / PRZ confluence in the total score.
+    /// </summary>
+    public double DConfluenceWeight { get; set; } = 3d;
+
+    /// <summary>
+    /// The models to search for.
+    /// </summary>
+    public ISet<HarmonicPatternType> Patterns { get; set; } =
+        new SortedSet<HarmonicPatternType>(HarmonicPatternDefinition.All.Select(a => a.PatternType));
+
+    /// <summary>
+    /// Search for bullish patterns.
+    /// </summary>
+    public bool UseBullish { get; set; } = true;
+
+    /// <summary>
+    /// Search for bearish patterns.
+    /// </summary>
+    public bool UseBearish { get; set; } = true;
+
+    /// <summary>
+    /// Per-model overrides of the first Fibonacci target.
+    /// </summary>
+    public IDictionary<HarmonicPatternType, HarmonicTarget> TakeProfit1Overrides { get; } =
+        new Dictionary<HarmonicPatternType, HarmonicTarget>();
+
+    /// <summary>
+    /// Per-model overrides of the second Fibonacci target.
+    /// </summary>
+    public IDictionary<HarmonicPatternType, HarmonicTarget> TakeProfit2Overrides { get; } =
+        new Dictionary<HarmonicPatternType, HarmonicTarget>();
+
+    /// <summary>
+    /// Which of the two Fibonacci targets becomes the working take profit of the setup.
+    /// </summary>
+    public HarmonicTakeProfitTarget TakeProfitTarget { get; set; } = HarmonicTakeProfitTarget.TAKE_PROFIT_1;
+
+    /// <summary>
+    /// The stop loss mode.
+    /// </summary>
+    public HarmonicStopMode StopMode { get; set; } = HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY;
+
+    /// <summary>
+    /// The stop loss percent used by <see cref="StopMode"/>.
+    /// </summary>
+    public double StopPercent { get; set; } = 75d;
+
+    /// <summary>
+    /// The minimum risk/reward ratio of a setup. 0 disables the filter.
+    /// </summary>
+    public double MinimumRiskReward { get; set; }
+
+    /// <summary>
+    /// The minimum X-to-D duration of a pattern, in bars.
+    /// </summary>
+    public int MinPatternBars { get; set; }
+
+    /// <summary>
+    /// The maximum X-to-D duration of a pattern, in bars.
+    /// </summary>
+    public int MaxPatternBars { get; set; } = int.MaxValue;
+
+    /// <summary>
+    /// Use only the patterns positioned against an overbought/oversold RSI reading.
+    /// </summary>
+    public bool FilterByRsi { get; set; }
+
+    /// <summary>
+    /// The RSI period used by <see cref="FilterByRsi"/>.
+    /// </summary>
+    public int RsiPeriod { get; set; } = 14;
+
+    /// <summary>
+    /// Use only the patterns confirmed by an oscillator divergence.
+    /// </summary>
+    public bool FilterByDivergence { get; set; }
+
+    /// <summary>
+    /// Use only the patterns aligned with the trend.
+    /// </summary>
+    public bool FilterByTrend { get; set; }
+
+    /// <summary>
+    /// Use only the patterns confirmed by a price action candle pattern.
+    /// </summary>
+    public bool FilterByPriceAction { get; set; }
+
+    /// <summary>
+    /// A value between 0 (entry) and 1 (take profit) that defines the breakeven level,
+    /// or <c>null</c> when the breakeven should not be used.
+    /// </summary>
+    public double? BreakevenRatio { get; set; }
+
+    /// <summary>
+    /// Gets the first Fibonacci target of the model.
+    /// </summary>
+    /// <param name="patternType">The model.</param>
+    public HarmonicTarget GetTakeProfit1(HarmonicPatternType patternType)
+    {
+        return TakeProfit1Overrides.TryGetValue(patternType, out HarmonicTarget target)
+            ? target
+            : HarmonicTarget.DefaultTakeProfit1[patternType];
+    }
+
+    /// <summary>
+    /// Gets the second Fibonacci target of the model.
+    /// </summary>
+    /// <param name="patternType">The model.</param>
+    public HarmonicTarget GetTakeProfit2(HarmonicPatternType patternType)
+    {
+        return TakeProfit2Overrides.TryGetValue(patternType, out HarmonicTarget target)
+            ? target
+            : HarmonicTarget.DefaultTakeProfit2[patternType];
+    }
+}
