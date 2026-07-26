@@ -37,6 +37,11 @@ namespace TradeKit.Tests.Mocks
         /// <param name="pathToFile">The path to the file containing the data to load.</param>
         /// <param name="from">Optional UTC start time filter (inclusive).</param>
         /// <param name="to">Optional UTC end time filter (inclusive).</param>
+        /// <remarks>
+        /// Both the semicolon-separated archive format of <c>data/</c> and the comma-separated
+        /// TradingView "Export chart data" format are accepted; extra columns after Close are
+        /// ignored, so a Pine reference export can be replayed as a plain candle series.
+        /// </remarks>
         public void LoadCandles(string pathToFile, DateTime? from = null, DateTime? to = null)
         {
             if (string.IsNullOrEmpty(pathToFile))
@@ -46,36 +51,61 @@ namespace TradeKit.Tests.Mocks
                 throw new FileNotFoundException("Candle data file not found", pathToFile);
         
             using var reader = new StreamReader(pathToFile);
-            string? line = reader.ReadLine(); // Skip header
+            string? line = reader.ReadLine();
             
             if (line == null)
                 return;
-                
-            // Check if the first line is a header
-            bool hasHeader = line.StartsWith("Time") || line.Contains($"Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close");
-            
+
+            char separator = DetectSeparator(line);
+            bool hasHeader = line.StartsWith("time", StringComparison.OrdinalIgnoreCase);
+
             int index = 0;
             if (!hasHeader)
             {
-                ProcessCandleLine(line, index, from, to, ref index);
+                ProcessCandleLine(line, separator, from, to, ref index);
             }
 
             while ((line = reader.ReadLine()) != null)
             {
-                ProcessCandleLine(line, index, from, to, ref index);
+                ProcessCandleLine(line, separator, from, to, ref index);
             }
         }
-        
-        private void ProcessCandleLine(string line, int currentIndex, DateTime? from, DateTime? to, ref int addedIndex)
+
+        /// <summary>
+        /// Detects the column separator of the file from its first line.
+        /// </summary>
+        /// <param name="firstLine">The first line of the file.</param>
+        public static char DetectSeparator(string firstLine)
         {
-            string[] parts = line.Split(Helper.CSV_SEPARATOR);
+            if (firstLine.Contains(Helper.CSV_SEPARATOR))
+                return Helper.CSV_SEPARATOR;
+
+            return firstLine.Contains(',') ? ',' : Helper.CSV_SEPARATOR;
+        }
+
+        /// <summary>
+        /// Parses a UTC timestamp of the candle file. A value without a time zone suffix is
+        /// treated as UTC; a value with one (for example the trailing <c>Z</c> of a TradingView
+        /// export) is converted to UTC instead of the machine local time.
+        /// </summary>
+        /// <param name="value">The raw timestamp.</param>
+        /// <param name="openTime">The parsed UTC time.</param>
+        public static bool TryParseUtc(string value, out DateTime openTime)
+        {
+            return DateTime.TryParse(value, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out openTime);
+        }
+        
+        private void ProcessCandleLine(
+            string line, char separator, DateTime? from, DateTime? to, ref int addedIndex)
+        {
+            string[] parts = line.Split(separator);
             if (parts.Length < 5)
                 return;
         
-            if (!DateTime.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime openTime))
+            if (!TryParseUtc(parts[0], out DateTime openTime))
                 return;
 
-            // Treat CSV timestamps as UTC (no timezone info in file = UTC by convention)
             openTime = DateTime.SpecifyKind(openTime, DateTimeKind.Utc);
 
             if (from.HasValue && openTime < from.Value) return;

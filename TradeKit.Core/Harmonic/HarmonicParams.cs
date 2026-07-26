@@ -43,6 +43,29 @@ public class HarmonicParams
     public double LegAsymmetryPercent { get; set; } = 250d;
 
     /// <summary>
+    /// Validate the leg duration asymmetry when the point D is confirmed.
+    /// <para>
+    /// The reference Pine indicator effectively performs no symmetry check at all: it passes the
+    /// still empty D bar index into the test, so every comparison degrades to <c>na</c> and the
+    /// test always succeeds. Set this to <c>false</c> to reproduce that behaviour when comparing
+    /// against a Pine reference export.
+    /// </para>
+    /// </summary>
+    public bool CheckLegSymmetry { get; set; } = true;
+
+    /// <summary>
+    /// Drop an XABC candidate whose incomplete score reaches this value once the price enters
+    /// its Potential Reversal Zone, before the point D is confirmed.
+    /// <para>
+    /// This reproduces the after-C entry of the reference Pine indicator, which consumes such a
+    /// candidate and completes it at the entry price instead of waiting for a real pivot D. The
+    /// first TradeKit version has no after-C entry, so the filter is disabled by default and is
+    /// only switched on when comparing against a Pine reference export.
+    /// </para>
+    /// </summary>
+    public double? AfterCEntryScore { get; set; }
+
+    /// <summary>
     /// The minimum total score a pattern must reach to produce a setup, from 0 to 1.
     /// </summary>
     public double MinimumScore { get; set; }

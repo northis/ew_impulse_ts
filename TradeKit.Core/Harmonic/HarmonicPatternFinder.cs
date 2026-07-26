@@ -31,7 +31,7 @@ public class HarmonicPatternFinder
 
     private readonly SortedDictionary<HarmonicCandidateKey, HarmonicPatternCandidate> m_Candidates = new();
     private readonly SortedDictionary<HarmonicCandidateKey, int> m_Completed = new();
-    private readonly Dictionary<(HarmonicPatternType, bool), (int X, int A, int B)> m_LastCompleted = new();
+    private readonly Dictionary<(HarmonicPatternType, bool), CompletedPattern> m_LastCompleted = new();
 
     private readonly List<HarmonicCandidateKey> m_KeyBuffer = new();
     private readonly Dictionary<int, (double High, double Low)> m_RangeCache = new();
@@ -81,6 +81,12 @@ public class HarmonicPatternFinder
 
     #region Candidate pool
 
+    /// <summary>
+    /// The X/A/B identity of the newest completed pattern of a model and direction. The
+    /// reference indicator refuses to re-open a figure that repeats it.
+    /// </summary>
+    private readonly record struct CompletedPattern(int XIndex, int AIndex, int BIndex);
+
     private void InvalidateCandidates(int index)
     {
         double high = m_BarsProvider.GetHighPrice(index);
@@ -103,7 +109,7 @@ public class HarmonicPatternFinder
                 ? high > candidate.ItemC.Value || low < candidate.Prz.Lower
                 : low < candidate.ItemC.Value || high > candidate.Prz.Upper;
 
-            if (expired || tooOld || broken)
+            if (expired || tooOld || broken || IsTakenByAfterCEntry(candidate, low, high))
                 m_KeyBuffer.Add(pair.Key);
         }
 
@@ -121,6 +127,26 @@ public class HarmonicPatternFinder
             m_Completed.Remove(key);
 
         m_KeyBuffer.Clear();
+    }
+
+    /// <summary>
+    /// Whether the reference indicator would have consumed the candidate with an after-C entry
+    /// at the nearest confluent PRZ level, which prevents it from ever completing on a real
+    /// pivot D. Disabled unless <see cref="HarmonicParams.AfterCEntryScore"/> is set.
+    /// </summary>
+    private bool IsTakenByAfterCEntry(HarmonicPatternCandidate candidate, double low, double high)
+    {
+        if (!m_Params.AfterCEntryScore.HasValue ||
+            candidate.Score.Total < m_Params.AfterCEntryScore.Value)
+        {
+            return false;
+        }
+
+        double entry = Math.Max(0d, candidate.IsBull
+            ? candidate.Prz.ConfluentHigh
+            : candidate.Prz.ConfluentLow);
+
+        return candidate.IsBull ? low <= entry : high >= entry;
     }
 
     private void RegisterCandidates(int index, bool isBull)
@@ -192,8 +218,8 @@ public class HarmonicPatternFinder
 
             // The reference indicator does not re-open a figure identical to the last
             // completed pattern of the same model and direction.
-            if (m_LastCompleted.TryGetValue((definition.PatternType, isBull), out (int X, int A, int B) last) &&
-                last.X == xIndex && last.A == aIndex && last.B == bIndex)
+            if (m_LastCompleted.TryGetValue((definition.PatternType, isBull), out CompletedPattern last) &&
+                last.XIndex == xIndex && last.AIndex == aIndex && last.BIndex == bIndex)
             {
                 continue;
             }
@@ -359,13 +385,14 @@ public class HarmonicPatternFinder
             results ??= new List<HarmonicItem>();
             results.Add(BuildItem(candidate, dIndex, dValue));
             m_KeyBuffer.Add(pair.Key);
+            m_LastCompleted[(candidate.PatternType, candidate.IsBull)] = new CompletedPattern(
+                candidate.ItemX.BarIndex, candidate.ItemA.BarIndex, candidate.ItemB.BarIndex);
         }
 
         foreach (HarmonicCandidateKey key in m_KeyBuffer)
         {
             m_Candidates.Remove(key);
             m_Completed[key] = key.CIndex;
-            m_LastCompleted[(key.PatternType, key.IsBull)] = (key.XIndex, key.AIndex, key.BIndex);
         }
 
         m_KeyBuffer.Clear();
@@ -382,7 +409,8 @@ public class HarmonicPatternFinder
         int bIndex = candidate.ItemB.BarIndex;
         int cIndex = candidate.ItemC.BarIndex;
 
-        if (!HarmonicMath.TestSymmetry(aIndex - xIndex, bIndex - aIndex, cIndex - bIndex,
+        if (m_Params.CheckLegSymmetry &&
+            !HarmonicMath.TestSymmetry(aIndex - xIndex, bIndex - aIndex, cIndex - bIndex,
                 dIndex - cIndex, m_Params.LegAsymmetryPercent))
         {
             return false;
@@ -497,6 +525,11 @@ public class HarmonicPatternFinder
         return isBull ? m_BarsProvider.GetLowPrice(index) : m_BarsProvider.GetHighPrice(index);
     }
 
+    /// <summary>
+    /// Whether the bar is an "up" pivot in the direction-normalized space. A neighbouring bar
+    /// with an equal extremum does not disqualify the pivot, which is the rule the reference
+    /// indicator applies to the point D as well.
+    /// </summary>
     private bool IsPivotUp(int index, int left, int right, bool isBull)
     {
         int from = index - left;
@@ -514,6 +547,9 @@ public class HarmonicPatternFinder
         return true;
     }
 
+    /// <summary>
+    /// Whether the bar is a "down" pivot in the direction-normalized space.
+    /// </summary>
     private bool IsPivotDn(int index, int left, int right, bool isBull)
     {
         int from = index - left;
