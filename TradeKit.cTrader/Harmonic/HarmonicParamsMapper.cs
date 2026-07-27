@@ -90,7 +90,7 @@ namespace TradeKit.CTrader.Harmonic
         /// <summary>The largest pivot period.</summary>
         public int MaxPivotPeriod { get; set; } = 20;
 
-        /// <summary>Trailing bars required to confirm the point D.</summary>
+        /// <summary>Trailing bars required to confirm the point D. 0 enters on the D bar itself.</summary>
         public int DConfirmationBars { get; set; } = 1;
 
         /// <summary>The allowed Fibonacci ratio error, in percent.</summary>

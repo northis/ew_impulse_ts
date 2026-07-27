@@ -19,6 +19,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SignalForwarder", "SignalFo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GartleyFinderIndicator", "GartleyFinderIndicator\GartleyFinderIndicator.csproj", "{6D08FCB0-2173-4293-86CD-74397C7A22FA}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HarmonicIndicator", "HarmonicIndicator\HarmonicIndicator.csproj", "{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GartleySignalerBot", "GartleySignalerBot\GartleySignalerBot.csproj", "{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PriceActionIndicator", "PriceActionIndicator\PriceActionIndicator.csproj", "{D6736E3D-160E-4B2B-B02E-5069CDD7B098}"
@@ -153,6 +155,18 @@ Global
 		{6D08FCB0-2173-4293-86CD-74397C7A22FA}.Release|x64.Build.0 = Release|Any CPU
 		{6D08FCB0-2173-4293-86CD-74397C7A22FA}.Release|x86.ActiveCfg = Release|Any CPU
 		{6D08FCB0-2173-4293-86CD-74397C7A22FA}.Release|x86.Build.0 = Release|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Debug|x64.Build.0 = Debug|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Debug|x86.Build.0 = Debug|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Release|x64.ActiveCfg = Release|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Release|x64.Build.0 = Release|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Release|x86.ActiveCfg = Release|Any CPU
+		{7B3E9A21-4C58-4E1D-9F2A-58D4C1E70B33}.Release|x86.Build.0 = Release|Any CPU
 		{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F31F6C88-C29C-4A69-94C3-AB003B84DBAE}.Debug|x64.ActiveCfg = Debug|Any CPU

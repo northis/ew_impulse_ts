@@ -24,6 +24,13 @@ public class HarmonicParams
 
     /// <summary>
     /// The number of trailing bars required to confirm the point D.
+    /// <para>
+    /// 0 means no waiting: the point D is taken on the bar that made the extremum and the setup
+    /// enters at the close of that same bar. The point is then only known to be the lowest low
+    /// (or the highest high) since the point C and over <see cref="MinBarsBeforePivot"/>
+    /// preceding bars - a later bar may still go deeper, so an immediate entry trades a better
+    /// fill for more false positives.
+    /// </para>
     /// </summary>
     public int DConfirmationBars { get; set; } = 1;
 

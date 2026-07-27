@@ -86,7 +86,7 @@ namespace TradeKit.CTrader.Harmonic
         public int MaxPivotPeriod { get; set; }
 
         /// <summary>Gets or sets the trailing bars required to confirm the point D.</summary>
-        [Parameter(nameof(DConfirmationBars), DefaultValue = 1, MinValue = 1, MaxValue = 20, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(DConfirmationBars), DefaultValue = 1, MinValue = 0, MaxValue = 20, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
         public int DConfirmationBars { get; set; }
 
         /// <summary>Gets or sets the allowed Fibonacci ratio error, in percent.</summary>
@@ -98,7 +98,7 @@ namespace TradeKit.CTrader.Harmonic
         public double LegAsymmetryPercent { get; set; }
 
         /// <summary>Gets or sets the minimum total score, from 0 to 1.</summary>
-        [Parameter(nameof(MinimumScore), DefaultValue = 0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
+        [Parameter(nameof(MinimumScore), DefaultValue = 0.9, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
         public double MinimumScore { get; set; }
 
         /// <summary>Gets or sets a value indicating whether the second target is the working TP.</summary>

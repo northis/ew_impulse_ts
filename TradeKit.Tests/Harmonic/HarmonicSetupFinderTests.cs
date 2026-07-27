@@ -270,6 +270,31 @@ namespace TradeKit.Tests.Harmonic
         }
 
         [Test]
+        public void ZeroConfirmationBars_EnterOnThePointDBar()
+        {
+            TestBarsProvider provider = HarmonicTestBars.Build(Points(60, 190d));
+            HarmonicParams parameters = GartleyOnly();
+            parameters.DConfirmationBars = 0;
+
+            (Recorder recorder, _) = Run(provider, parameters);
+
+            Assert.That(recorder.Enters, Has.Count.EqualTo(1));
+            HarmonicSignalEventArgs args = recorder.Enters[0];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(args.Level.BarIndex, Is.EqualTo(args.HarmonicItem.ItemD.BarIndex),
+                    "Without trailing bars the entry is the close of the point D bar itself.");
+                Assert.That(args.Level.Value,
+                    Is.EqualTo(provider.GetClosePrice(args.Level.BarIndex)).Within(1e-12));
+                Assert.That(args.Level.BarIndex, Is.LessThan(ENTRY_BAR),
+                    "An immediate entry must happen earlier than a confirmed one.");
+                Assert.That(args.TakeProfit.Value, Is.GreaterThan(args.Level.Value));
+                Assert.That(args.StopLoss.Value, Is.LessThan(args.Level.Value));
+            });
+        }
+
+        [Test]
         public void ManualClose_DropsTheSetup()
         {
             var points = new List<(int, double)>

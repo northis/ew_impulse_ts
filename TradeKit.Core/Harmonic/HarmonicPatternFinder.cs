@@ -343,7 +343,7 @@ public class HarmonicPatternFinder
             return Array.Empty<HarmonicItem>();
 
         int dIndex = index - m_Params.DConfirmationBars;
-        if (dIndex - m_Params.MinBarsBeforePivot < 0)
+        if (dIndex > index || dIndex - m_Params.MinBarsBeforePivot < 0)
             return Array.Empty<HarmonicItem>();
 
         double dLow = m_BarsProvider.GetLowPrice(dIndex);
@@ -408,6 +408,11 @@ public class HarmonicPatternFinder
         int aIndex = candidate.ItemA.BarIndex;
         int bIndex = candidate.ItemB.BarIndex;
         int cIndex = candidate.ItemC.BarIndex;
+
+        // The CD leg must exist. Without trailing confirmation bars the point D lands on the
+        // current bar, which can be the very bar the point C was confirmed on.
+        if (dIndex <= cIndex)
+            return false;
 
         if (m_Params.CheckLegSymmetry &&
             !HarmonicMath.TestSymmetry(aIndex - xIndex, bIndex - aIndex, cIndex - bIndex,

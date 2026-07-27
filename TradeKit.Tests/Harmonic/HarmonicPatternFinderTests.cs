@@ -127,6 +127,37 @@ namespace TradeKit.Tests.Harmonic
         }
 
         [Test]
+        public void PointD_CanBeConfirmedWithoutTrailingBars()
+        {
+            TestBarsProvider provider = HarmonicTestBars.Build(BullPoints());
+
+            HarmonicParams waiting = GartleyOnly();
+            HarmonicParams immediate = GartleyOnly();
+            immediate.DConfirmationBars = 0;
+
+            List<(int Index, IReadOnlyList<HarmonicItem> Items)> withWait = Run(provider, waiting);
+            List<(int Index, IReadOnlyList<HarmonicItem> Items)> withoutWait = Run(provider, immediate);
+
+            Assert.That(withWait, Has.Count.EqualTo(1));
+            Assert.That(withoutWait, Has.Count.EqualTo(1));
+
+            HarmonicItem item = withoutWait[0].Items.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(withoutWait[0].Index, Is.EqualTo(item.ItemD.BarIndex),
+                    "Without trailing bars the pattern is reported on the point D bar itself.");
+                Assert.That(item.ItemD.Value,
+                    Is.EqualTo(provider.GetLowPrice(item.ItemD.BarIndex)).Within(1e-12));
+
+                // The price is still falling towards the deepest low, so an immediate point D
+                // is taken on the first bar that makes a new extreme and passes the ratios.
+                Assert.That(withoutWait[0].Index, Is.LessThan(withWait[0].Index),
+                    "An immediate point D must be reported earlier than a confirmed one.");
+                Assert.That(item.ItemC.BarIndex, Is.LessThan(item.ItemD.BarIndex));
+            });
+        }
+
+        [Test]
         public void EqualLowOnATrailingBar_DoesNotInvalidateThePointD()
         {
             var overrides = new Dictionary<int, (double High, double Low)>

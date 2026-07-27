@@ -19,6 +19,7 @@ namespace TradeKit.CTrader.Harmonic
         private IBarsProvider m_BarsProvider;
         private Color m_SlColor;
         private Color m_TpColor;
+        private Color m_TpLineColor;
         private Color m_PrzColor;
         private Color m_BearColorFill;
         private Color m_BullColorFill;
@@ -76,7 +77,7 @@ namespace TradeKit.CTrader.Harmonic
         public int MaxPivotPeriod { get; set; }
 
         /// <summary>Gets or sets the trailing bars required to confirm the point D.</summary>
-        [Parameter("Point D confirmation bars", DefaultValue = 1, MinValue = 1, MaxValue = 20, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Point D confirmation bars", DefaultValue = 1, MinValue = 0, MaxValue = 20, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
         public int DConfirmationBars { get; set; }
 
         /// <summary>Gets or sets the allowed Fibonacci ratio error, in percent.</summary>
@@ -88,7 +89,7 @@ namespace TradeKit.CTrader.Harmonic
         public double LegAsymmetryPercent { get; set; }
 
         /// <summary>Gets or sets the minimum total score, from 0 to 1.</summary>
-        [Parameter("Min score", DefaultValue = 0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
+        [Parameter("Min score", DefaultValue = 0.9, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
         public double MinimumScore { get; set; }
 
         /// <summary>Gets or sets the minimum risk/reward ratio.</summary>
@@ -133,6 +134,7 @@ namespace TradeKit.CTrader.Harmonic
             base.Initialize();
             m_SlColor = Color.FromHex("#50F00000");
             m_TpColor = Color.FromHex("#5000F000");
+            m_TpLineColor = Color.FromHex("#A000C000");
             m_PrzColor = Color.FromHex("#40FFFF00");
             m_BearColorFill = Color.FromHex("#50F08080");
             m_BullColorFill = Color.FromHex("#5090EE90");
@@ -262,17 +264,28 @@ namespace TradeKit.CTrader.Harmonic
 
             if (ShowSetups)
             {
-                double levelValue = e.Level.Value;
+                double entry = e.Level.Value;
+                int setupEnd = levelIndex + SETUP_WIDTH;
 
-                Chart.DrawRectangle($"SL{name}", levelIndex, levelValue,
-                        levelIndex + SETUP_WIDTH, e.StopLoss.Value, m_SlColor, LINE_WIDTH)
+                // The risk and the working reward of the setup.
+                Chart.DrawRectangle($"SL{name}", levelIndex, entry,
+                        setupEnd, e.StopLoss.Value, m_SlColor, LINE_WIDTH)
                     .SetFilled();
-                Chart.DrawRectangle($"TP1{name}", levelIndex, levelValue,
-                        levelIndex + SETUP_WIDTH, item.TakeProfit1, m_TpColor, LINE_WIDTH)
+                Chart.DrawRectangle($"TP{name}", levelIndex, entry,
+                        setupEnd, e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
                     .SetFilled();
-                Chart.DrawRectangle($"TP2{name}", levelIndex, levelValue,
-                        levelIndex + SETUP_WIDTH, item.TakeProfit2, m_TpColor, LINE_WIDTH)
-                    .SetFilled();
+
+                // Both Fibonacci targets, so the one that is not traded stays visible.
+                Chart.DrawTrendLine($"TP1{name}", levelIndex, item.TakeProfit1,
+                    setupEnd, item.TakeProfit1, m_TpLineColor, LINE_WIDTH, LineStyle.DotsRare);
+                Chart.DrawTrendLine($"TP2{name}", levelIndex, item.TakeProfit2,
+                    setupEnd, item.TakeProfit2, m_TpLineColor, LINE_WIDTH, LineStyle.DotsRare);
+
+                Chart.DrawTrendLine($"E{name}", levelIndex, entry, setupEnd, entry,
+                        colorBorder, LINE_WIDTH)
+                    .TextForLine(Chart,
+                        $"{entry.ToString($"F{Symbol.Digits}")}  R:R {e.RiskReward:F2}",
+                        isBull, levelIndex, setupEnd);
             }
 
             string priceFormatted = e.Level.Value.ToString($"F{Symbol.Digits}");
