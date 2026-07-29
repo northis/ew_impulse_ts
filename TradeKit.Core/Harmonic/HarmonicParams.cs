@@ -121,9 +121,36 @@ public class HarmonicParams
         new Dictionary<HarmonicPatternType, HarmonicTarget>();
 
     /// <summary>
+    /// A single first target used by every model, or <c>null</c> to keep the model defaults.
+    /// <para>
+    /// This is the research knob: a target such as
+    /// <c>new HarmonicTarget(HarmonicTargetBasis.PATTERN_HEIGHT, 0.5)</c> makes every model aim
+    /// at the same fraction of the pattern size, so the archive sweep can compare the take
+    /// profit distances on equal terms. <see cref="TakeProfit1Overrides"/> still wins for the
+    /// models listed there.
+    /// </para>
+    /// </summary>
+    public HarmonicTarget TakeProfit1Override { get; set; }
+
+    /// <summary>
+    /// A single second target used by every model, or <c>null</c> to keep the model defaults.
+    /// </summary>
+    public HarmonicTarget TakeProfit2Override { get; set; }
+
+    /// <summary>
     /// Which of the two Fibonacci targets becomes the working take profit of the setup.
     /// </summary>
     public HarmonicTakeProfitTarget TakeProfitTarget { get; set; } = HarmonicTakeProfitTarget.TAKE_PROFIT_1;
+
+    /// <summary>
+    /// The price the relative targets are projected from.
+    /// <para>
+    /// <see cref="HarmonicTargetAnchor.POINT_D"/> reproduces the reference Pine indicator;
+    /// <see cref="HarmonicTargetAnchor.ENTRY"/> projects the very same ratio from the real
+    /// entry price, so the declared distance is the one actually traded.
+    /// </para>
+    /// </summary>
+    public HarmonicTargetAnchor TargetAnchor { get; set; } = HarmonicTargetAnchor.POINT_D;
 
     /// <summary>
     /// The stop loss mode.
@@ -187,9 +214,10 @@ public class HarmonicParams
     /// <param name="patternType">The model.</param>
     public HarmonicTarget GetTakeProfit1(HarmonicPatternType patternType)
     {
-        return TakeProfit1Overrides.TryGetValue(patternType, out HarmonicTarget target)
-            ? target
-            : HarmonicTarget.DefaultTakeProfit1[patternType];
+        if (TakeProfit1Overrides.TryGetValue(patternType, out HarmonicTarget target))
+            return target;
+
+        return TakeProfit1Override ?? HarmonicTarget.DefaultTakeProfit1[patternType];
     }
 
     /// <summary>
@@ -198,8 +226,9 @@ public class HarmonicParams
     /// <param name="patternType">The model.</param>
     public HarmonicTarget GetTakeProfit2(HarmonicPatternType patternType)
     {
-        return TakeProfit2Overrides.TryGetValue(patternType, out HarmonicTarget target)
-            ? target
-            : HarmonicTarget.DefaultTakeProfit2[patternType];
+        if (TakeProfit2Overrides.TryGetValue(patternType, out HarmonicTarget target))
+            return target;
+
+        return TakeProfit2Override ?? HarmonicTarget.DefaultTakeProfit2[patternType];
     }
 }

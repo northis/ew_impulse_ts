@@ -45,6 +45,11 @@ namespace TradeKit.CTrader.Harmonic
                 TakeProfitTarget = inputs.UseSecondTarget
                     ? HarmonicTakeProfitTarget.TAKE_PROFIT_2
                     : HarmonicTakeProfitTarget.TAKE_PROFIT_1,
+                TakeProfit1Override = HarmonicTarget.FromMode(
+                    inputs.TakeProfit1Mode, inputs.TakeProfit1Ratio),
+                TakeProfit2Override = HarmonicTarget.FromMode(
+                    inputs.TakeProfit2Mode, inputs.TakeProfit2Ratio),
+                TargetAnchor = inputs.TargetAnchor,
                 StopMode = inputs.StopMode,
                 StopPercent = inputs.StopPercent,
                 MinimumRiskReward = inputs.MinimumRiskReward,
@@ -113,6 +118,21 @@ namespace TradeKit.CTrader.Harmonic
 
         /// <summary>Use the second Fibonacci target as the working take profit.</summary>
         public bool UseSecondTarget { get; set; }
+
+        /// <summary>What the first target is measured against. The model default is kept as is.</summary>
+        public HarmonicTargetMode TakeProfit1Mode { get; set; } = HarmonicTargetMode.MODEL_DEFAULT;
+
+        /// <summary>The ratio of the first target. Used only when the mode is not the default.</summary>
+        public double TakeProfit1Ratio { get; set; } = HarmonicFib.F618;
+
+        /// <summary>What the second target is measured against. The model default is kept as is.</summary>
+        public HarmonicTargetMode TakeProfit2Mode { get; set; } = HarmonicTargetMode.MODEL_DEFAULT;
+
+        /// <summary>The ratio of the second target. Used only when the mode is not the default.</summary>
+        public double TakeProfit2Ratio { get; set; } = HarmonicFib.F1272;
+
+        /// <summary>The price the relative targets are projected from.</summary>
+        public HarmonicTargetAnchor TargetAnchor { get; set; } = HarmonicTargetAnchor.POINT_D;
 
         /// <summary>The stop loss mode.</summary>
         public HarmonicStopMode StopMode { get; set; } = HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY;

@@ -18,5 +18,11 @@ public enum HarmonicStopMode
     TARGET_DISTANCE_BEYOND_ENTRY,
 
     /// <summary>A percent beyond the farthest PRZ level.</summary>
-    PERCENT_BEYOND_FARTHEST_PRZ
+    PERCENT_BEYOND_FARTHEST_PRZ,
+
+    /// <summary>A percent of the pattern height, beyond the point D.</summary>
+    PATTERN_PERCENT_BEYOND_D,
+
+    /// <summary>A percent of the pattern height, beyond the entry price.</summary>
+    PATTERN_PERCENT_BEYOND_ENTRY
 }

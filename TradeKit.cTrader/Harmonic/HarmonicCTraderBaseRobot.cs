@@ -35,6 +35,11 @@ namespace TradeKit.CTrader.Harmonic
                 LegAsymmetryPercent = LegAsymmetryPercent,
                 MinimumScore = MinimumScore,
                 UseSecondTarget = UseSecondTarget,
+                TakeProfit1Mode = TakeProfit1Mode,
+                TakeProfit1Ratio = TakeProfit1Ratio,
+                TakeProfit2Mode = TakeProfit2Mode,
+                TakeProfit2Ratio = TakeProfit2Ratio,
+                TargetAnchor = TargetAnchor,
                 StopMode = StopMode,
                 StopPercent = StopPercent,
                 MinimumRiskReward = MinimumRiskReward,
@@ -104,6 +109,26 @@ namespace TradeKit.CTrader.Harmonic
         /// <summary>Gets or sets a value indicating whether the second target is the working TP.</summary>
         [Parameter(nameof(UseSecondTarget), DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool UseSecondTarget { get; set; }
+
+        /// <summary>Gets or sets what the first target is measured against.</summary>
+        [Parameter(nameof(TakeProfit1Mode), DefaultValue = HarmonicTargetMode.MODEL_DEFAULT, Group = Helper.TRADE_SETTINGS_NAME)]
+        public HarmonicTargetMode TakeProfit1Mode { get; set; }
+
+        /// <summary>Gets or sets the ratio of the first target.</summary>
+        [Parameter(nameof(TakeProfit1Ratio), DefaultValue = HarmonicFib.F618, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
+        public double TakeProfit1Ratio { get; set; }
+
+        /// <summary>Gets or sets what the second target is measured against.</summary>
+        [Parameter(nameof(TakeProfit2Mode), DefaultValue = HarmonicTargetMode.MODEL_DEFAULT, Group = Helper.TRADE_SETTINGS_NAME)]
+        public HarmonicTargetMode TakeProfit2Mode { get; set; }
+
+        /// <summary>Gets or sets the ratio of the second target.</summary>
+        [Parameter(nameof(TakeProfit2Ratio), DefaultValue = HarmonicFib.F1272, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
+        public double TakeProfit2Ratio { get; set; }
+
+        /// <summary>Gets or sets the price the relative targets are projected from.</summary>
+        [Parameter(nameof(TargetAnchor), DefaultValue = HarmonicTargetAnchor.POINT_D, Group = Helper.TRADE_SETTINGS_NAME)]
+        public HarmonicTargetAnchor TargetAnchor { get; set; }
 
         /// <summary>Gets or sets the stop loss mode.</summary>
         [Parameter(nameof(StopMode), DefaultValue = HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY, Group = Helper.TRADE_SETTINGS_NAME)]

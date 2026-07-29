@@ -39,6 +39,12 @@ public sealed record HarmonicItem(
     /// </summary>
     public int LengthBars => ItemD.BarIndex - ItemX.BarIndex;
 
+    /// <summary>
+    /// The pattern height - the full price range of the X/A/B/C/D points.
+    /// </summary>
+    public double PatternHeight => HarmonicMath.GetPatternHeight(
+        ItemX.Value, ItemA.Value, ItemB.Value, ItemC.Value, ItemD.Value);
+
     /// <inheritdoc cref="object"/>
     public override int GetHashCode()
     {

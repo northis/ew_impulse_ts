@@ -171,13 +171,28 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
                 return;
         }
 
+        // The targets of the pattern are projected from the point D. The entry happens a few
+        // bars later and is always worse, so the anchor can be moved to the entry price to
+        // keep the traded distance equal to the declared ratio.
+        if (m_Params.TargetAnchor == HarmonicTargetAnchor.ENTRY)
+        {
+            item = item with
+            {
+                TakeProfit1 = ResolveFromEntry(
+                    m_Params.GetTakeProfit1(item.PatternType), item, close),
+                TakeProfit2 = ResolveFromEntry(
+                    m_Params.GetTakeProfit2(item.PatternType), item, close)
+            };
+        }
+
         double takeProfit = m_Params.TakeProfitTarget == HarmonicTakeProfitTarget.TAKE_PROFIT_2
             ? item.TakeProfit2
             : item.TakeProfit1;
 
         double stopLoss = HarmonicMath.CalculateStopLoss(
             m_Params.StopMode, m_Params.StopPercent, isBull,
-            item.ItemX.Value, item.ItemD.Value, item.Prz, item.TakeProfit1, close);
+            item.ItemX.Value, item.ItemD.Value, item.Prz, item.TakeProfit1, close,
+            item.PatternHeight);
 
         double? riskReward = HarmonicMath.GetRiskReward(isBull, close, takeProfit, stopLoss);
         if (!riskReward.HasValue || riskReward.Value < m_Params.MinimumRiskReward)
@@ -196,6 +211,12 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
 
         m_SetupsMap[item] = args;
         OnEnterInvoke(args);
+    }
+
+    private static double ResolveFromEntry(HarmonicTarget target, HarmonicItem item, double entry)
+    {
+        return target.Resolve(item.ItemX.Value, item.ItemA.Value, item.ItemB.Value,
+            item.ItemC.Value, item.ItemD.Value, entry);
     }
 
     #endregion

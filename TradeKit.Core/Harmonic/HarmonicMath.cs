@@ -305,6 +305,22 @@ public static class HarmonicMath
     }
 
     /// <summary>
+    /// Gets the pattern height - the full price range of the X/A/B/C/D points. It is the
+    /// "pattern size" the pattern-relative targets and stops are measured against.
+    /// </summary>
+    /// <param name="x">The X price.</param>
+    /// <param name="a">The A price.</param>
+    /// <param name="b">The B price.</param>
+    /// <param name="c">The C price.</param>
+    /// <param name="d">The D price.</param>
+    public static double GetPatternHeight(double x, double a, double b, double c, double d)
+    {
+        double high = Math.Max(Math.Max(Math.Max(x, a), Math.Max(b, c)), d);
+        double low = Math.Min(Math.Min(Math.Min(x, a), Math.Min(b, c)), d);
+        return high - low;
+    }
+
+    /// <summary>
     /// Calculates the stop loss price of a harmonic setup.
     /// </summary>
     /// <param name="mode">The stop loss mode.</param>
@@ -315,6 +331,7 @@ public static class HarmonicMath
     /// <param name="prz">The Potential Reversal Zone of the pattern.</param>
     /// <param name="takeProfit1">The first Fibonacci target.</param>
     /// <param name="entry">The entry price.</param>
+    /// <param name="patternHeight">The pattern height, see <see cref="GetPatternHeight"/>.</param>
     public static double CalculateStopLoss(
         HarmonicStopMode mode,
         double stopPercent,
@@ -323,7 +340,8 @@ public static class HarmonicMath
         double d,
         HarmonicPrz prz,
         double takeProfit1,
-        double entry)
+        double entry,
+        double patternHeight)
     {
         double percent = stopPercent / 100d;
         if (isBull)
@@ -334,6 +352,8 @@ public static class HarmonicMath
                 HarmonicStopMode.PERCENT_BEYOND_X_OR_D => Math.Min(x, d) * (1d - percent),
                 HarmonicStopMode.PERCENT_BEYOND_ENTRY => entry * (1d - percent),
                 HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY => entry - percent * (takeProfit1 - entry),
+                HarmonicStopMode.PATTERN_PERCENT_BEYOND_D => d - percent * patternHeight,
+                HarmonicStopMode.PATTERN_PERCENT_BEYOND_ENTRY => entry - percent * patternHeight,
                 _ => prz.Lower * (1d - percent)
             };
 
@@ -346,6 +366,8 @@ public static class HarmonicMath
             HarmonicStopMode.PERCENT_BEYOND_X_OR_D => Math.Max(x, d) * (1d + percent),
             HarmonicStopMode.PERCENT_BEYOND_ENTRY => entry * (1d + percent),
             HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY => entry + percent * (entry - takeProfit1),
+            HarmonicStopMode.PATTERN_PERCENT_BEYOND_D => d + percent * patternHeight,
+            HarmonicStopMode.PATTERN_PERCENT_BEYOND_ENTRY => entry + percent * patternHeight,
             _ => prz.Upper * (1d + percent)
         };
     }

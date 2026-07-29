@@ -38,6 +38,23 @@ namespace TradeKit.Tests.Harmonic
         public static IEnumerable<string> CiFiles => CI_FILES_SOURCE;
 
         /// <summary>
+        /// Every archive file in the root of <c>data/</c>, sorted by name. The sub folders are
+        /// skipped: they hold the golden outputs rather than the price history.
+        /// </summary>
+        public static IReadOnlyList<string> GetAllFiles()
+        {
+            string? dataDir = FindDataDir();
+            if (dataDir == null || !Directory.Exists(dataDir))
+                return Array.Empty<string>();
+
+            return Directory
+                .EnumerateFiles(dataDir, "*.csv", SearchOption.TopDirectoryOnly)
+                .Select(a => Path.GetFileName(a))
+                .OrderBy(a => a, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        /// <summary>
         /// Gets the repo root that holds both <c>data/</c> and <c>TradeKit.sln</c>, searching
         /// upwards from the test directory.
         /// </summary>
@@ -118,9 +135,13 @@ namespace TradeKit.Tests.Harmonic
         /// Loads the archive file, caching the provider between the tests of a run.
         /// </summary>
         /// <param name="fileName">The archive file name.</param>
-        public static TestBarsProvider Load(string fileName)
+        /// <param name="cache">
+        /// <c>False</c> to skip the cache. A sweep over the whole archive must not keep every
+        /// provider alive.
+        /// </param>
+        public static TestBarsProvider Load(string fileName, bool cache = true)
         {
-            if (CACHE.TryGetValue(fileName, out TestBarsProvider? cached))
+            if (cache && CACHE.TryGetValue(fileName, out TestBarsProvider? cached))
                 return cached;
 
             string path = RequireFile(fileName);
@@ -130,7 +151,9 @@ namespace TradeKit.Tests.Harmonic
             var provider = new TestBarsProvider(GetTimeFrame(fileName), symbol);
             provider.LoadCandles(path);
 
-            CACHE[fileName] = provider;
+            if (cache)
+                CACHE[fileName] = provider;
+
             return provider;
         }
     }

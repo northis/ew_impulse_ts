@@ -266,6 +266,84 @@ namespace TradeKit.Tests.Harmonic
         }
 
         [Test]
+        public void Targets_PatternHeightIsMeasuredFromTheWholeFigure()
+        {
+            var target = new HarmonicTarget(HarmonicTargetBasis.PATTERN_HEIGHT, 0.5d);
+
+            // Long: the height is A - X = 100, so the target is 50 above D.
+            Assert.That(target.Resolve(100d, 200d, 140d, 190d, 120d),
+                Is.EqualTo(170d).Within(1e-12));
+
+            // Short: the mirrored figure, the target is 50 below D.
+            Assert.That(target.Resolve(200d, 100d, 160d, 110d, 180d),
+                Is.EqualTo(130d).Within(1e-12));
+        }
+
+        [Test]
+        public void Targets_GlobalOverrideReplacesTheModelDefaults()
+        {
+            var parameters = new HarmonicParams
+            {
+                TakeProfit1Override = new HarmonicTarget(HarmonicTargetBasis.PATTERN_HEIGHT, 0.5d)
+            };
+
+            parameters.TakeProfit1Overrides[HarmonicPatternType.CYPHER] =
+                new HarmonicTarget(HarmonicTargetBasis.CD, 1d);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(parameters.GetTakeProfit1(HarmonicPatternType.GARTLEY).Basis,
+                    Is.EqualTo(HarmonicTargetBasis.PATTERN_HEIGHT));
+                Assert.That(parameters.GetTakeProfit1(HarmonicPatternType.SHARK).Basis,
+                    Is.EqualTo(HarmonicTargetBasis.PATTERN_HEIGHT));
+
+                // A per-model override still wins over the global one.
+                Assert.That(parameters.GetTakeProfit1(HarmonicPatternType.CYPHER).Basis,
+                    Is.EqualTo(HarmonicTargetBasis.CD));
+
+                // The second target keeps the model defaults.
+                Assert.That(parameters.GetTakeProfit2(HarmonicPatternType.SHARK).Basis,
+                    Is.EqualTo(HarmonicTargetBasis.POINT_C));
+            });
+        }
+
+        [Test]
+        public void Targets_ModelDefaultModeKeepsTheModelTarget()
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(HarmonicTarget.FromMode(HarmonicTargetMode.MODEL_DEFAULT, 0.5d),
+                    Is.Null);
+                Assert.That(HarmonicTarget.FromMode(HarmonicTargetMode.PATTERN_HEIGHT, 0.5d),
+                    Is.EqualTo(new HarmonicTarget(HarmonicTargetBasis.PATTERN_HEIGHT, 0.5d)));
+            });
+        }
+
+        [Test]
+        public void Targets_EntryAnchorKeepsTheDeclaredDistance()
+        {
+            var target = new HarmonicTarget(HarmonicTargetBasis.AD, HarmonicFib.F618);
+
+            // Long: D is 120, the entry is 130 - the confirmation bars ate a part of the move.
+            const double entry = 130d;
+            double fromD = target.Resolve(100d, 200d, 140d, 190d, 120d);
+            double fromEntry = target.Resolve(100d, 200d, 140d, 190d, 120d, entry);
+
+            Assert.Multiple(() =>
+            {
+                // The anchored target travels the full ratio from the entry.
+                Assert.That(fromEntry - entry, Is.EqualTo(HarmonicFib.F618 * 80d).Within(1e-12));
+
+                // The point D target is closer than it is declared once the entry is known.
+                Assert.That(fromD - entry, Is.LessThan(fromEntry - entry));
+
+                // An absolute target ignores the anchor.
+                Assert.That(new HarmonicTarget(HarmonicTargetBasis.POINT_C)
+                    .Resolve(100d, 200d, 140d, 190d, 120d, entry), Is.EqualTo(190d));
+            });
+        }
+
+        [Test]
         public void Targets_DefaultsMatchTheReferenceIndicator()
         {
             Assert.Multiple(() =>
@@ -290,6 +368,7 @@ namespace TradeKit.Tests.Harmonic
             const double x = 100d;
             const double d = 120d;
             const double percent = 10d;
+            const double patternHeight = 80d;
 
             Assert.Multiple(() =>
             {
@@ -303,6 +382,10 @@ namespace TradeKit.Tests.Harmonic
                     Is.EqualTo(entry - 0.1 * (takeProfit1 - entry)).Within(1e-12));
                 Assert.That(Bull(HarmonicStopMode.PERCENT_BEYOND_FARTHEST_PRZ),
                     Is.EqualTo(prz.Lower * 0.9).Within(1e-12));
+                Assert.That(Bull(HarmonicStopMode.PATTERN_PERCENT_BEYOND_D),
+                    Is.EqualTo(d - 0.1 * patternHeight).Within(1e-12));
+                Assert.That(Bull(HarmonicStopMode.PATTERN_PERCENT_BEYOND_ENTRY),
+                    Is.EqualTo(entry - 0.1 * patternHeight).Within(1e-12));
             });
 
             // The mirrored short setup: D above the entry, TP below it.
@@ -323,13 +406,18 @@ namespace TradeKit.Tests.Harmonic
                     Is.EqualTo(shortEntry + 0.1 * (shortEntry - shortTakeProfit1)).Within(1e-12));
                 Assert.That(Bear(HarmonicStopMode.PERCENT_BEYOND_FARTHEST_PRZ),
                     Is.EqualTo(prz.Upper * 1.1).Within(1e-12));
+                Assert.That(Bear(HarmonicStopMode.PATTERN_PERCENT_BEYOND_D),
+                    Is.EqualTo(shortD + 0.1 * patternHeight).Within(1e-12));
+                Assert.That(Bear(HarmonicStopMode.PATTERN_PERCENT_BEYOND_ENTRY),
+                    Is.EqualTo(shortEntry + 0.1 * patternHeight).Within(1e-12));
             });
 
             double Bull(HarmonicStopMode mode) => HarmonicMath.CalculateStopLoss(
-                mode, percent, true, x, d, prz, takeProfit1, entry);
+                mode, percent, true, x, d, prz, takeProfit1, entry, patternHeight);
 
             double Bear(HarmonicStopMode mode) => HarmonicMath.CalculateStopLoss(
-                mode, percent, false, shortX, shortD, prz, shortTakeProfit1, shortEntry);
+                mode, percent, false, shortX, shortD, prz, shortTakeProfit1, shortEntry,
+                patternHeight);
         }
 
         [Test]
