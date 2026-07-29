@@ -3,7 +3,9 @@ namespace TradeKit.Core.Harmonic;
 /// <summary>
 /// Search and setup settings of <see cref="HarmonicSetupFinder"/>.
 /// The defaults reproduce the reference Pine indicator with every TradeKit-specific filter
-/// turned off, so a base run can be compared with Pine directly.
+/// turned off, so a base run can be compared with Pine directly. The single exception is
+/// <see cref="MinimumStopAtr"/>, which the archive sweep showed to be the difference between
+/// a losing and a profitable grid; set it to 0 for a Pine comparison.
 /// </summary>
 public class HarmonicParams
 {
@@ -166,6 +168,25 @@ public class HarmonicParams
     /// The minimum risk/reward ratio of a setup. 0 disables the filter.
     /// </summary>
     public double MinimumRiskReward { get; set; }
+
+    /// <summary>
+    /// The minimum stop loss distance, in average true ranges of the entry bar.
+    /// 0 disables the filter.
+    /// <para>
+    /// A stop placed inside the noise of its own market is taken out by that noise alone, and
+    /// the fixed cost of a round trip eats a bigger share of a shorter stop. On the archive
+    /// the whole grid of targets and stops is negative without this filter and turns positive
+    /// around four average true ranges; the threshold was chosen on the first half of every
+    /// file and holds on the second one, so the filter is on by default. Being measured in
+    /// ATRs, it depends neither on the instrument nor on the broker.
+    /// </para>
+    /// </summary>
+    public double MinimumStopAtr { get; set; } = 4d;
+
+    /// <summary>
+    /// The period of the average true range used by <see cref="MinimumStopAtr"/>.
+    /// </summary>
+    public int StopAtrPeriod { get; set; } = 14;
 
     /// <summary>
     /// The minimum X-to-D duration of a pattern, in bars.

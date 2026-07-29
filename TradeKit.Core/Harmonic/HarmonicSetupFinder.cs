@@ -29,6 +29,7 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
     private readonly HarmonicParams m_Params;
     private readonly HarmonicPatternFinder m_PatternFinder;
     private readonly RelativeStrengthIndexFinder m_RelativeStrengthIndexFinder;
+    private readonly TrueRangeMovingAverageFinder m_TrueRangeFinder;
     private readonly AwesomeOscillatorFinder m_AwesomeOscillator;
     private readonly ZoneAlligatorFinder m_ZoneAlligatorFinder;
     private readonly CandlePatternFinder m_CandlePatternFinder;
@@ -54,6 +55,10 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
         if (m_Params.FilterByRsi)
             m_RelativeStrengthIndexFinder =
                 new RelativeStrengthIndexFinder(mainBarsProvider, m_Params.RsiPeriod);
+
+        if (m_Params.MinimumStopAtr > 0)
+            m_TrueRangeFinder = new TrueRangeMovingAverageFinder(
+                mainBarsProvider, m_Params.StopAtrPeriod);
 
         if (m_Params.FilterByDivergence)
             m_AwesomeOscillator = new AwesomeOscillatorFinder(mainBarsProvider);
@@ -86,6 +91,7 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
             return;
 
         m_RelativeStrengthIndexFinder?.OnCalculate(openDateTime);
+        m_TrueRangeFinder?.OnCalculate(openDateTime);
         m_ZoneAlligatorFinder?.OnCalculate(openDateTime);
 
         // The setups opened on the previous bars are processed first, so a setup can never
@@ -193,6 +199,19 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
             m_Params.StopMode, m_Params.StopPercent, isBull,
             item.ItemX.Value, item.ItemD.Value, item.Prz, item.TakeProfit1, close,
             item.PatternHeight);
+
+        // A stop that fits inside the daily noise of its own market is taken out by that
+        // noise alone, whatever the pattern says, so the distance is judged in average true
+        // ranges of the entry bar rather than in points.
+        if (m_TrueRangeFinder != null)
+        {
+            double averageTrueRange = m_TrueRangeFinder.GetResultValue(index);
+            if (averageTrueRange > 0 &&
+                Math.Abs(close - stopLoss) < m_Params.MinimumStopAtr * averageTrueRange)
+            {
+                return;
+            }
+        }
 
         double? riskReward = HarmonicMath.GetRiskReward(isBull, close, takeProfit, stopLoss);
         if (!riskReward.HasValue || riskReward.Value < m_Params.MinimumRiskReward)

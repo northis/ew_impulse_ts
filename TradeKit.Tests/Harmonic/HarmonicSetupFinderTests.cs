@@ -48,7 +48,12 @@ namespace TradeKit.Tests.Harmonic
         {
             return new HarmonicParams
             {
-                Patterns = new SortedSet<HarmonicPatternType> { HarmonicPatternType.GARTLEY }
+                Patterns = new SortedSet<HarmonicPatternType> { HarmonicPatternType.GARTLEY },
+
+                // The lifecycle tests are about the events, not about the volatility of the
+                // synthetic bars, so the stop distance filter is switched off here and is
+                // covered by a test of its own.
+                MinimumStopAtr = 0d
             };
         }
 
@@ -221,6 +226,22 @@ namespace TradeKit.Tests.Harmonic
 
             (Recorder recorder, _) = Run(provider, parameters);
             Assert.That(recorder.Enters, Is.Empty);
+        }
+
+        [Test]
+        public void MinimumStopAtr_BlocksTheSetup()
+        {
+            TestBarsProvider provider = HarmonicTestBars.Build(Points(60, 190d));
+            HarmonicParams parameters = GartleyOnly();
+
+            parameters.MinimumStopAtr = 0d;
+            (Recorder unfiltered, _) = Run(provider, parameters);
+            Assert.That(unfiltered.Enters, Has.Count.EqualTo(1));
+
+            // No stop can be a hundred average true ranges away, so nothing survives.
+            parameters.MinimumStopAtr = 100d;
+            (Recorder filtered, _) = Run(provider, parameters);
+            Assert.That(filtered.Enters, Is.Empty);
         }
 
         [Test]

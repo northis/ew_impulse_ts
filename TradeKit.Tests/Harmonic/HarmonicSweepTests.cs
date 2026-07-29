@@ -37,12 +37,35 @@ namespace TradeKit.Tests.Harmonic
         private const double COST_RATE = 0.0002d;
 
         /// <summary>
-        /// The minimum stop distance filters, in basis points of the price. A setup whose stop
-        /// sits closer than the threshold is dropped: the cost is a fixed share of the price,
-        /// so a stop of a few basis points spends the whole edge on the spread. The thresholds
-        /// are cumulative - a setup is counted in every filter it passes.
+        /// The smallest number of trades a cell has to hold before it can be called the best
+        /// one. Without it the ranking by the average result always lands on a cell of a
+        /// handful of trades, where a single winner decides everything.
         /// </summary>
-        private static readonly double[] FILTERS = { 0d, 25d, 50d, 75d, 100d, 150d };
+        private const int MIN_SAMPLE = 100;
+
+        /// <summary>
+        /// The halves of the archive. Every cell is searched on the first half of every file
+        /// only, and the answer is then read off the second half, which the search never saw.
+        /// The grid holds 204 cells on 8 thresholds, so a winner picked on the whole archive
+        /// is a winner of a beauty contest of 1632 candidates and means nothing by itself.
+        /// </summary>
+        private const int IN_SAMPLE = 0;
+
+        private const int OUT_OF_SAMPLE = 1;
+        private const int SPLITS = 2;
+
+        /// <summary>
+        /// The minimum stop distance filters, as a multiple of the average true range of the
+        /// entry bar. A setup whose stop sits closer than that is dropped. The measure does
+        /// not depend on the instrument or on the broker, and unlike the length of the pattern
+        /// it says what actually decides the outcome - whether the stop can survive the noise
+        /// of the market it trades. The thresholds are cumulative: a setup is counted in every
+        /// filter it passes.
+        /// </summary>
+        private static readonly double[] FILTERS = { 0d, 2d, 2.5d, 3d, 3.5d, 4d, 5d, 7d };
+
+        /// <summary>The averaging period of the true range.</summary>
+        private const int ATR_PERIODS = 14;
 
         /// <summary>
         /// The models to research. The Crab is excluded: it loses on every cell of the grid.
@@ -81,6 +104,7 @@ namespace TradeKit.Tests.Harmonic
             public double ResultSum;
             public double CostSum;
             public double StopDistanceSum;
+            public double StopAtrSum;
             public int ResultCount;
 
             public double WinRate => TakeProfits + StopLosses == 0
@@ -92,6 +116,9 @@ namespace TradeKit.Tests.Harmonic
             /// <summary>The average stop distance in basis points of the entry price.</summary>
             public double AverageStopDistance =>
                 Trades == 0 ? 0d : 1e4 * StopDistanceSum / Trades;
+
+            /// <summary>The average stop distance in average true ranges of the entry bar.</summary>
+            public double AverageStopAtr => Trades == 0 ? 0d : StopAtrSum / Trades;
 
             /// <summary>The average cost of a closed trade, in R.</summary>
             public double AverageCost => ResultCount == 0 ? 0d : CostSum / ResultCount;
@@ -195,20 +222,23 @@ namespace TradeKit.Tests.Harmonic
                 StopMode = HarmonicStopMode.PATTERN_PERCENT_BEYOND_D,
                 StopPercent = 10d,
                 MinimumRiskReward = 0d,
+                MinimumStopAtr = 0d,
 
                 // The research measures what the trade really has to travel.
                 TargetAnchor = HarmonicTargetAnchor.ENTRY
             };
 
-            var overall = new Stats[TARGETS.Length, STOPS.Length, FILTERS.Length];
-            var perModel = new Stats[TARGETS.Length, STOPS.Length, MODELS.Length, FILTERS.Length];
+            var overall = new Stats[TARGETS.Length, STOPS.Length, FILTERS.Length, SPLITS];
+            var perModel =
+                new Stats[TARGETS.Length, STOPS.Length, MODELS.Length, FILTERS.Length, SPLITS];
             for (int t = 0; t < TARGETS.Length; t++)
             for (int s = 0; s < STOPS.Length; s++)
             for (int f = 0; f < FILTERS.Length; f++)
+            for (int p = 0; p < SPLITS; p++)
             {
-                overall[t, s, f] = new Stats();
+                overall[t, s, f, p] = new Stats();
                 for (int m = 0; m < MODELS.Length; m++)
-                    perModel[t, s, m, f] = new Stats();
+                    perModel[t, s, m, f, p] = new Stats();
             }
 
             int totalTrades = 0;
@@ -239,14 +269,18 @@ namespace TradeKit.Tests.Harmonic
                     replay.Run(provider, trade);
                     int model = Array.IndexOf(MODELS, trade.Item.PatternType);
 
+                    // Every file is cut in half by time, so both halves hold every symbol and
+                    // every model: the second one is never touched by the search.
+                    int split = 2 * trade.EntryIndex < provider.Count ? IN_SAMPLE : OUT_OF_SAMPLE;
+
                     for (int s = 0; s < STOPS.Length; s++)
                     {
                         int last = replay.GetLastFilter(s);
                         for (int t = 0; t < TARGETS.Length; t++)
                         for (int f = 0; f <= last; f++)
                         {
-                            replay.Score(t, s, overall[t, s, f]);
-                            replay.Score(t, s, perModel[t, s, model, f]);
+                            replay.Score(t, s, overall[t, s, f, split]);
+                            replay.Score(t, s, perModel[t, s, model, f, split]);
                         }
                     }
                 }
@@ -281,6 +315,7 @@ namespace TradeKit.Tests.Harmonic
             private readonly bool[] m_StopLossValid;
             private readonly double[] m_StopDistances;
             private readonly double[] m_Costs;
+            private readonly double[] m_StopAtrs;
             private readonly double[,] m_RiskRewards;
 
             public Replay(int targetCount, int stopCount)
@@ -293,6 +328,7 @@ namespace TradeKit.Tests.Harmonic
                 m_StopLossValid = new bool[stopCount];
                 m_StopDistances = new double[stopCount];
                 m_Costs = new double[stopCount];
+                m_StopAtrs = new double[stopCount];
                 m_RiskRewards = new double[targetCount, stopCount];
             }
 
@@ -300,6 +336,7 @@ namespace TradeKit.Tests.Harmonic
             {
                 bool isBull = trade.IsBull;
                 double entry = trade.Entry;
+                double atr = GetAverageTrueRange(provider, trade.EntryIndex);
 
                 for (int t = 0; t < m_TakeProfits.Length; t++)
                 {
@@ -322,6 +359,9 @@ namespace TradeKit.Tests.Harmonic
                     double distance = Math.Abs(entry - level);
                     m_StopDistances[s] = m_StopLossValid[s] ? distance / entry : 0d;
                     m_Costs[s] = m_StopLossValid[s] ? entry * COST_RATE / distance : 0d;
+
+                    // A stop inside a single bar of noise is not a stop, whatever the symbol.
+                    m_StopAtrs[s] = m_StopLossValid[s] && atr > 0d ? distance / atr : 0d;
 
                     if (m_StopLossValid[s])
                         pending++;
@@ -377,6 +417,7 @@ namespace TradeKit.Tests.Harmonic
                 stats.Trades++;
                 stats.RiskRewardSum += riskReward;
                 stats.StopDistanceSum += m_StopDistances[stop];
+                stats.StopAtrSum += m_StopAtrs[stop];
 
                 int takeProfitHit = m_TakeProfitHits[target];
                 int stopLossHit = m_StopLossHits[stop];
@@ -403,39 +444,63 @@ namespace TradeKit.Tests.Harmonic
             }
 
             /// <summary>
-            /// The index of the widest minimum stop distance filter the stop passes. The
-            /// filters are ascending, so the stop is counted by every filter up to it.
+            /// The index of the widest minimum stop filter the stop passes. The filters are
+            /// ascending, so the stop is counted by every filter up to it.
             /// </summary>
             public int GetLastFilter(int stop)
             {
-                double basisPoints = 1e4 * m_StopDistances[stop];
+                double atrs = m_StopAtrs[stop];
                 int last = 0;
-                for (int f = 1; f < FILTERS.Length && basisPoints >= FILTERS[f]; f++)
+                for (int f = 1; f < FILTERS.Length && atrs >= FILTERS[f]; f++)
                     last = f;
 
                 return last;
             }
+
+            /// <summary>
+            /// The average true range of the bar the trade was entered on. The first bars of a
+            /// file have no history to average, so the range is taken over what there is.
+            /// </summary>
+            private static double GetAverageTrueRange(TestBarsProvider provider, int index)
+            {
+                int first = Math.Max(1, index - ATR_PERIODS + 1);
+                if (index < first)
+                    return 0d;
+
+                double sum = 0d;
+                for (int i = first; i <= index; i++)
+                {
+                    double close = provider.GetClosePrice(i - 1);
+                    sum += Math.Max(provider.GetHighPrice(i), close) -
+                           Math.Min(provider.GetLowPrice(i), close);
+                }
+
+                return sum / (index - first + 1);
+            }
         }
 
         private static string BuildReport(
-            Stats[,,] overall, Stats[,,,] perModel, int totalTrades, int fileCount)
+            Stats[,,,] overall, Stats[,,,,] perModel, int totalTrades, int fileCount)
         {
             var cells = new List<(int Target, int Stop)>();
             for (int t = 0; t < TARGETS.Length; t++)
             for (int s = 0; s < STOPS.Length; s++)
                 cells.Add((t, s));
 
+            // The cell of a filter is chosen on the first half of the archive alone.
             (int Target, int Stop) Best(int filter) => cells
-                .OrderByDescending(c => overall[c.Target, c.Stop, filter].NetTotalR)
+                .OrderByDescending(c =>
+                    overall[c.Target, c.Stop, filter, IN_SAMPLE].Trades >= MIN_SAMPLE)
+                .ThenByDescending(c => overall[c.Target, c.Stop, filter, IN_SAMPLE].NetAverageR)
                 .First();
 
-            (int Target, int Stop) best = Best(FILTERS.Length - 1);
-            int bestFilter = FILTERS.Length - 1;
+            (int Target, int Stop) best = Best(0);
+            int bestFilter = 0;
             for (int f = 0; f < FILTERS.Length; f++)
             {
                 (int Target, int Stop) candidate = Best(f);
-                if (overall[candidate.Target, candidate.Stop, f].NetAverageR >
-                    overall[best.Target, best.Stop, bestFilter].NetAverageR)
+                if (overall[candidate.Target, candidate.Stop, f, IN_SAMPLE].NetAverageR >
+                    overall[best.Target, best.Stop, bestFilter, IN_SAMPLE].NetAverageR)
                 {
                     best = candidate;
                     bestFilter = f;
@@ -458,52 +523,97 @@ namespace TradeKit.Tests.Harmonic
                 "the market even moves. Net R is what is left after that.", 1e4 * COST_RATE));
             builder.AppendLine();
             builder.AppendLine(
-                "`Min SL` is the minimum stop distance filter: a setup whose stop sits closer " +
-                "than that is not traded at all. It is the only way to keep the cost from " +
-                "eating the edge, and it is what the whole report is built around.");
+                "`Min ATR` is the minimum stop distance filter, in average true ranges of the " +
+                $"entry bar (period {ATR_PERIODS}): a setup whose stop sits closer than that " +
+                "is not traded at all. The measure is tied neither to the instrument nor to " +
+                "the broker, and it says whether the stop can survive the noise of the market " +
+                "it trades.");
+            builder.AppendLine();
+            builder.AppendLine(
+                "Every file is cut in half by time. `IS` is the first half, on which every " +
+                "cell below was chosen; `OOS` is the second half, which the search never saw. " +
+                "A cell is only picked once it holds at least " +
+                $"{MIN_SAMPLE} in-sample trades. The whole grid is 204 cells on " +
+                $"{FILTERS.Length} thresholds, so an in-sample winner is the winner of a " +
+                "beauty contest of a few thousand candidates: only the out-of-sample column " +
+                "says anything.");
             builder.AppendLine();
             builder.AppendLine(Format(
-                "Best cell: **{0}** with **{1}**, minimum stop {2:F0} bp - net {3:F3} R over " +
-                "{4} trades.", TARGETS[best.Target].Name, STOPS[best.Stop].Name,
-                FILTERS[bestFilter], overall[best.Target, best.Stop, bestFilter].NetAverageR,
-                overall[best.Target, best.Stop, bestFilter].Trades));
+                "Chosen in sample: **{0}** with **{1}**, minimum stop {2:F1} ATR - net " +
+                "{3:F3} R over {4} trades. Out of sample it makes **{5:F3} R** over {6} " +
+                "trades.", TARGETS[best.Target].Name, STOPS[best.Stop].Name, FILTERS[bestFilter],
+                overall[best.Target, best.Stop, bestFilter, IN_SAMPLE].NetAverageR,
+                overall[best.Target, best.Stop, bestFilter, IN_SAMPLE].Trades,
+                overall[best.Target, best.Stop, bestFilter, OUT_OF_SAMPLE].NetAverageR,
+                overall[best.Target, best.Stop, bestFilter, OUT_OF_SAMPLE].Trades));
             builder.AppendLine();
 
-            builder.AppendLine("## Net R per trade by minimum stop distance");
+            builder.AppendLine("## Out of sample by minimum stop distance");
             builder.AppendLine();
             builder.AppendLine(
-                "The best cell of every filter, and what the filter leaves of the archive. " +
-                "The whole point is whether the surviving setups pay for themselves, so the " +
-                "cells are ranked by net R per trade, not by the total.");
+                "The best in-sample cell of every threshold and what it does on the half it " +
+                "never saw.");
             builder.AppendLine();
             builder.AppendLine(
-                "| Min SL | Target | Stop | Trades | Kept | Win rate | R:R | SL bp | Cost R | Gross avg R | Net avg R | Net R |");
-            builder.AppendLine("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+                "| Min ATR | Target | Stop | IS trades | IS win rate | IS net avg R | OOS trades | OOS win rate | OOS net avg R | OOS net R |");
+            builder.AppendLine("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|");
             for (int f = 0; f < FILTERS.Length; f++)
             {
-                (int Target, int Stop) top = cells
-                    .OrderByDescending(c => overall[c.Target, c.Stop, f].NetAverageR)
-                    .First();
-
-                Stats stats = overall[top.Target, top.Stop, f];
-                double kept = totalTrades == 0 ? 0d : (double)stats.Trades / totalTrades;
+                (int Target, int Stop) top = Best(f);
+                Stats inSample = overall[top.Target, top.Stop, f, IN_SAMPLE];
+                Stats outOfSample = overall[top.Target, top.Stop, f, OUT_OF_SAMPLE];
                 builder.AppendLine(Format(
-                    "| {0:F0} | {1} | {2} | {3} | {4:P1} | {5:P1} | {6:F2} | {7:F1} | {8:F3} | {9:F3} | {10:F3} | {11:F1} |",
-                    FILTERS[f], TARGETS[top.Target].Name, STOPS[top.Stop].Name, stats.Trades,
-                    kept, stats.WinRate, stats.AverageRiskReward, stats.AverageStopDistance,
-                    stats.AverageCost, stats.AverageCost + stats.NetAverageR, stats.NetAverageR,
-                    stats.NetTotalR));
+                    "| {0:F1} | {1} | {2} | {3} | {4:P1} | {5:F3} | {6} | {7:P1} | {8:F3} | {9:F1} |",
+                    FILTERS[f], TARGETS[top.Target].Name, STOPS[top.Stop].Name, inSample.Trades,
+                    inSample.WinRate, inSample.NetAverageR, outOfSample.Trades,
+                    outOfSample.WinRate, outOfSample.NetAverageR, outOfSample.NetTotalR));
             }
 
             builder.AppendLine();
             builder.AppendLine(Format(
-                "## Net R per trade at a {0:F0} bp minimum stop", FILTERS[bestFilter]));
+                "## Top in-sample cells at a {0:F1} ATR minimum stop", FILTERS[bestFilter]));
+            builder.AppendLine();
+
+            List<(int Target, int Stop)> ranked = cells
+                .OrderByDescending(c =>
+                    overall[c.Target, c.Stop, bestFilter, IN_SAMPLE].Trades >= MIN_SAMPLE)
+                .ThenByDescending(c =>
+                    overall[c.Target, c.Stop, bestFilter, IN_SAMPLE].NetAverageR)
+                .Take(20)
+                .ToList();
+
+            int held = ranked.Count(c =>
+                overall[c.Target, c.Stop, bestFilter, OUT_OF_SAMPLE].NetAverageR > 0d);
+            builder.AppendLine(
+                $"{held} of the {ranked.Count} best in-sample cells stay positive out of " +
+                "sample. If the edge is real the ranking has to carry over; if it does not, " +
+                "the grid was only fitting the first half.");
+            builder.AppendLine();
+            builder.AppendLine(
+                "| Target | Stop | IS trades | IS R:R | IS net avg R | OOS trades | OOS win rate | OOS R:R | OOS net avg R | OOS net R |");
+            builder.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+            foreach ((int t, int s) in ranked)
+            {
+                Stats inSample = overall[t, s, bestFilter, IN_SAMPLE];
+                Stats outOfSample = overall[t, s, bestFilter, OUT_OF_SAMPLE];
+                builder.AppendLine(Format(
+                    "| {0} | {1} | {2} | {3:F2} | {4:F3} | {5} | {6:P1} | {7:F2} | {8:F3} | {9:F1} |",
+                    TARGETS[t].Name, STOPS[s].Name, inSample.Trades, inSample.AverageRiskReward,
+                    inSample.NetAverageR, outOfSample.Trades, outOfSample.WinRate,
+                    outOfSample.AverageRiskReward, outOfSample.NetAverageR,
+                    outOfSample.NetTotalR));
+            }
+
+            builder.AppendLine();
+            builder.AppendLine(Format(
+                "## Out-of-sample net R per trade at a {0:F1} ATR minimum stop",
+                FILTERS[bestFilter]));
             builder.AppendLine();
             builder.AppendLine(
                 "Rows are the targets, columns are the stops. `AD` is a fraction of the AD leg, " +
                 "`PH` a fraction of the pattern height, `TP1` the model target. `D-x%` is x% of " +
                 "the pattern height beyond the point D, `E-x%` the same beyond the entry, `D-0%` " +
-                "exactly at the point D.");
+                "exactly at the point D. A real edge shows up as a whole region, not as a cell.");
             builder.AppendLine();
 
             builder.Append("| Target |");
@@ -522,7 +632,8 @@ namespace TradeKit.Tests.Harmonic
                 builder.Append("| ").Append(TARGETS[t].Short).Append(" |");
                 for (int s = 0; s < STOPS.Length; s++)
                 {
-                    string cell = Format("{0:F3}", overall[t, s, bestFilter].NetAverageR);
+                    string cell = Format(
+                        "{0:F3}", overall[t, s, bestFilter, OUT_OF_SAMPLE].NetAverageR);
                     builder.Append(' ')
                         .Append(t == best.Target && s == best.Stop ? $"**{cell}**" : cell)
                         .Append(" |");
@@ -532,25 +643,9 @@ namespace TradeKit.Tests.Harmonic
             }
 
             builder.AppendLine();
-            builder.AppendLine(Format(
-                "## Top cells at a {0:F0} bp minimum stop", FILTERS[bestFilter]));
+            builder.AppendLine("## Best cell per model, out of sample");
             builder.AppendLine();
-            builder.AppendLine(
-                "| Target | Stop | Trades | TP | SL | Open | Skipped | Win rate | R:R | SL bp | Cost R | Net avg R | Gross R | Net R |");
-            builder.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
-
-            foreach ((int t, int s) in cells
-                         .OrderByDescending(c => overall[c.Target, c.Stop, bestFilter].NetAverageR)
-                         .Take(25))
-            {
-                builder.AppendLine(Row(
-                    $"{TARGETS[t].Name} | {STOPS[s].Name}", overall[t, s, bestFilter]));
-            }
-
-            builder.AppendLine();
-            builder.AppendLine("## Best cell per model");
-            builder.AppendLine();
-            builder.AppendLine(Format("{0} with {1}, minimum stop {2:F0} bp.",
+            builder.AppendLine(Format("{0} with {1}, minimum stop {2:F1} ATR.",
                 TARGETS[best.Target].Name, STOPS[best.Stop].Name, FILTERS[bestFilter]));
             builder.AppendLine();
             builder.AppendLine(
@@ -559,15 +654,19 @@ namespace TradeKit.Tests.Harmonic
             for (int m = 0; m < MODELS.Length; m++)
             {
                 builder.AppendLine(Row(MODELS[m].ToString(),
-                    perModel[best.Target, best.Stop, m, bestFilter]));
+                    perModel[best.Target, best.Stop, m, bestFilter, OUT_OF_SAMPLE]));
             }
 
             builder.AppendLine();
             builder.AppendLine("## Best cell of every model");
             builder.AppendLine();
             builder.AppendLine(
-                "| Model | Target | Stop | Min SL | Trades | Win rate | R:R | Net avg R | Net R |");
-            builder.AppendLine("|---|---|---|---:|---:|---:|---:|---:|---:|");
+                "The cell is chosen on the first half of the archive, the result is read off " +
+                "the second one.");
+            builder.AppendLine();
+            builder.AppendLine(
+                "| Model | Target | Stop | Min ATR | IS trades | IS net avg R | OOS trades | OOS win rate | OOS net avg R | OOS net R |");
+            builder.AppendLine("|---|---|---|---:|---:|---:|---:|---:|---:|---:|");
             for (int m = 0; m < MODELS.Length; m++)
             {
                 int model = m;
@@ -575,15 +674,21 @@ namespace TradeKit.Tests.Harmonic
                     .SelectMany(c => Enumerable.Range(0, FILTERS.Length)
                         .Select(f => (c.Target, c.Stop, Filter: f)))
                     .OrderByDescending(c =>
-                        perModel[c.Target, c.Stop, model, c.Filter].NetAverageR)
+                        perModel[c.Target, c.Stop, model, c.Filter, IN_SAMPLE].Trades >=
+                        MIN_SAMPLE)
+                    .ThenByDescending(c =>
+                        perModel[c.Target, c.Stop, model, c.Filter, IN_SAMPLE].NetAverageR)
                     .First();
 
-                Stats stats = perModel[top.Target, top.Stop, model, top.Filter];
+                Stats inSample = perModel[top.Target, top.Stop, model, top.Filter, IN_SAMPLE];
+                Stats outOfSample =
+                    perModel[top.Target, top.Stop, model, top.Filter, OUT_OF_SAMPLE];
                 builder.AppendLine(Format(
-                    "| {0} | {1} | {2} | {3:F0} | {4} | {5:P1} | {6:F2} | {7:F3} | {8:F1} |",
+                    "| {0} | {1} | {2} | {3:F1} | {4} | {5:F3} | {6} | {7:P1} | {8:F3} | {9:F1} |",
                     MODELS[model], TARGETS[top.Target].Name, STOPS[top.Stop].Name,
-                    FILTERS[top.Filter], stats.Trades, stats.WinRate, stats.AverageRiskReward,
-                    stats.NetAverageR, stats.NetTotalR));
+                    FILTERS[top.Filter], inSample.Trades, inSample.NetAverageR,
+                    outOfSample.Trades, outOfSample.WinRate, outOfSample.NetAverageR,
+                    outOfSample.NetTotalR));
             }
 
             return builder.ToString();

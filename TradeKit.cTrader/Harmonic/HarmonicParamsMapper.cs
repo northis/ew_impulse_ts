@@ -17,6 +17,12 @@ namespace TradeKit.CTrader.Harmonic
         public const string SCORE_GROUP = "Score";
 
         /// <summary>
+        /// The default minimum stop distance in average true ranges. The archive sweep is
+        /// negative everywhere below it and positive around it, out of sample as well.
+        /// </summary>
+        public const double DEFAULT_MIN_STOP_ATR = 4d;
+
+        /// <summary>
         /// Builds the algorithm settings from the flat cTrader inputs.
         /// </summary>
         public static HarmonicParams Create(HarmonicInputs inputs)
@@ -53,6 +59,7 @@ namespace TradeKit.CTrader.Harmonic
                 StopMode = inputs.StopMode,
                 StopPercent = inputs.StopPercent,
                 MinimumRiskReward = inputs.MinimumRiskReward,
+                MinimumStopAtr = inputs.MinimumStopAtr,
                 MinPatternBars = inputs.MinPatternSizeBars,
                 FilterByDivergence = inputs.UseDivergences,
                 FilterByTrend = inputs.UseTrendOnly,
@@ -142,6 +149,9 @@ namespace TradeKit.CTrader.Harmonic
 
         /// <summary>The minimum risk/reward ratio.</summary>
         public double MinimumRiskReward { get; set; }
+
+        /// <summary>The minimum stop distance, in average true ranges. 0 disables the filter.</summary>
+        public double MinimumStopAtr { get; set; } = HarmonicParamsMapper.DEFAULT_MIN_STOP_ATR;
 
         /// <summary>The minimum X-to-D duration, in bars.</summary>
         public int MinPatternSizeBars { get; set; }

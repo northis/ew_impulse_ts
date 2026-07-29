@@ -96,6 +96,10 @@ namespace TradeKit.CTrader.Harmonic
         [Parameter("Min risk/reward", DefaultValue = 0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.1)]
         public double MinimumRiskReward { get; set; }
 
+        /// <summary>Gets or sets the minimum stop distance, in average true ranges.</summary>
+        [Parameter("Min stop, ATR", DefaultValue = HarmonicParamsMapper.DEFAULT_MIN_STOP_ATR, MinValue = 0, MaxValue = 20, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.5)]
+        public double MinimumStopAtr { get; set; }
+
         /// <summary>Gets or sets the minimum X-to-D duration, in bars.</summary>
         [Parameter("Min pattern size, bars", DefaultValue = 0, MinValue = 0, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
         public int MinPatternSizeBars { get; set; }
@@ -196,6 +200,7 @@ namespace TradeKit.CTrader.Harmonic
                 StopMode = StopMode,
                 StopPercent = StopPercent,
                 MinimumRiskReward = MinimumRiskReward,
+                MinimumStopAtr = MinimumStopAtr,
                 MinPatternSizeBars = MinPatternSizeBars
             };
         }
