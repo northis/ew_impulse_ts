@@ -50,9 +50,14 @@ namespace TradeKit.Tests.Harmonic
             {
                 Patterns = new SortedSet<HarmonicPatternType> { HarmonicPatternType.GARTLEY },
 
-                // The lifecycle tests are about the events, not about the volatility of the
-                // synthetic bars, so the stop distance filter is switched off here and is
-                // covered by a test of its own.
+                // These tests are about the events of the setup, not about the trading
+                // configuration the library ships, so the levels are pinned to the neutral
+                // variant the synthetic series was built for. The shipped defaults are
+                // exercised by the CSV tests, and each of them has a test of its own.
+                TakeProfit1Override = null,
+                TargetAnchor = HarmonicTargetAnchor.POINT_D,
+                StopMode = HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY,
+                StopPercent = 75d,
                 MinimumStopAtr = 0d
             };
         }

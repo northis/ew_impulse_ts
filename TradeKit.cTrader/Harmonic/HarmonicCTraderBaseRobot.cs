@@ -112,11 +112,11 @@ namespace TradeKit.CTrader.Harmonic
         public bool UseSecondTarget { get; set; }
 
         /// <summary>Gets or sets what the first target is measured against.</summary>
-        [Parameter(nameof(TakeProfit1Mode), DefaultValue = HarmonicTargetMode.MODEL_DEFAULT, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(TakeProfit1Mode), DefaultValue = HarmonicTargetMode.PATTERN_HEIGHT, Group = Helper.TRADE_SETTINGS_NAME)]
         public HarmonicTargetMode TakeProfit1Mode { get; set; }
 
         /// <summary>Gets or sets the ratio of the first target.</summary>
-        [Parameter(nameof(TakeProfit1Ratio), DefaultValue = HarmonicFib.F618, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
+        [Parameter(nameof(TakeProfit1Ratio), DefaultValue = HarmonicParamsMapper.DEFAULT_TP1_RATIO, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME, Step = 0.01)]
         public double TakeProfit1Ratio { get; set; }
 
         /// <summary>Gets or sets what the second target is measured against.</summary>
@@ -128,15 +128,15 @@ namespace TradeKit.CTrader.Harmonic
         public double TakeProfit2Ratio { get; set; }
 
         /// <summary>Gets or sets the price the relative targets are projected from.</summary>
-        [Parameter(nameof(TargetAnchor), DefaultValue = HarmonicTargetAnchor.POINT_D, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(TargetAnchor), DefaultValue = HarmonicTargetAnchor.ENTRY, Group = Helper.TRADE_SETTINGS_NAME)]
         public HarmonicTargetAnchor TargetAnchor { get; set; }
 
         /// <summary>Gets or sets the stop loss mode.</summary>
-        [Parameter(nameof(StopMode), DefaultValue = HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(StopMode), DefaultValue = HarmonicStopMode.PATTERN_PERCENT_BEYOND_D, Group = Helper.TRADE_SETTINGS_NAME)]
         public HarmonicStopMode StopMode { get; set; }
 
         /// <summary>Gets or sets the stop loss percent.</summary>
-        [Parameter(nameof(StopPercent), DefaultValue = 75, MinValue = 0, MaxValue = 500, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
+        [Parameter(nameof(StopPercent), DefaultValue = HarmonicParamsMapper.DEFAULT_STOP_PERCENT, MinValue = 0, MaxValue = 500, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
         public double StopPercent { get; set; }
 
         /// <summary>Gets or sets the minimum risk/reward ratio.</summary>

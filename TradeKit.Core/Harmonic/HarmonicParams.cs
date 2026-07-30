@@ -2,10 +2,15 @@ namespace TradeKit.Core.Harmonic;
 
 /// <summary>
 /// Search and setup settings of <see cref="HarmonicSetupFinder"/>.
-/// The defaults reproduce the reference Pine indicator with every TradeKit-specific filter
-/// turned off, so a base run can be compared with Pine directly. The single exception is
-/// <see cref="MinimumStopAtr"/>, which the archive sweep showed to be the difference between
-/// a losing and a profitable grid; set it to 0 for a Pine comparison.
+/// <para>
+/// The search defaults reproduce the reference Pine indicator, but the trading ones do not:
+/// <see cref="TargetAnchor"/>, <see cref="TakeProfit1Override"/>, <see cref="StopMode"/>,
+/// <see cref="StopPercent"/> and <see cref="MinimumStopAtr"/> carry the only combination the
+/// archive sweep found profitable after costs - a full pattern height target with a stop just
+/// beyond the point D, traded only when that stop is wide enough to survive the noise. The
+/// combination was picked on the first half of every file and holds on the second one. Reset
+/// those five to compare a run with Pine.
+/// </para>
 /// </summary>
 public class HarmonicParams
 {
@@ -125,14 +130,15 @@ public class HarmonicParams
     /// <summary>
     /// A single first target used by every model, or <c>null</c> to keep the model defaults.
     /// <para>
-    /// This is the research knob: a target such as
-    /// <c>new HarmonicTarget(HarmonicTargetBasis.PATTERN_HEIGHT, 0.5)</c> makes every model aim
-    /// at the same fraction of the pattern size, so the archive sweep can compare the take
-    /// profit distances on equal terms. <see cref="TakeProfit1Overrides"/> still wins for the
-    /// models listed there.
+    /// The default is the full height of the pattern projected from the entry. The archive
+    /// sweep is unambiguous about the distance: the closer targets win more often but lose
+    /// the little they win to the cost of a round trip, and the whole far end of the grid is
+    /// better than the whole near end, out of sample as well.
+    /// <see cref="TakeProfit1Overrides"/> still wins for the models listed there.
     /// </para>
     /// </summary>
-    public HarmonicTarget TakeProfit1Override { get; set; }
+    public HarmonicTarget TakeProfit1Override { get; set; } =
+        new(HarmonicTargetBasis.PATTERN_HEIGHT, 1d);
 
     /// <summary>
     /// A single second target used by every model, or <c>null</c> to keep the model defaults.
@@ -149,20 +155,27 @@ public class HarmonicParams
     /// <para>
     /// <see cref="HarmonicTargetAnchor.POINT_D"/> reproduces the reference Pine indicator;
     /// <see cref="HarmonicTargetAnchor.ENTRY"/> projects the very same ratio from the real
-    /// entry price, so the declared distance is the one actually traded.
+    /// entry price, so the declared distance is the one actually traded. The entry happens a
+    /// few bars after the point D and is always the worse price of the two, so anchoring at
+    /// the point D quietly shortens every target.
     /// </para>
     /// </summary>
-    public HarmonicTargetAnchor TargetAnchor { get; set; } = HarmonicTargetAnchor.POINT_D;
+    public HarmonicTargetAnchor TargetAnchor { get; set; } = HarmonicTargetAnchor.ENTRY;
 
     /// <summary>
     /// The stop loss mode.
     /// </summary>
-    public HarmonicStopMode StopMode { get; set; } = HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY;
+    public HarmonicStopMode StopMode { get; set; } = HarmonicStopMode.PATTERN_PERCENT_BEYOND_D;
 
     /// <summary>
     /// The stop loss percent used by <see cref="StopMode"/>.
+    /// <para>
+    /// The default places the stop 5% of the pattern height beyond the point D. The archive
+    /// sweep keeps the whole 1-5% band positive out of sample and degrades from 7.5% on: a
+    /// wider stop buys a slightly better win rate for a much worse reward/risk.
+    /// </para>
     /// </summary>
-    public double StopPercent { get; set; } = 75d;
+    public double StopPercent { get; set; } = 5d;
 
     /// <summary>
     /// The minimum risk/reward ratio of a setup. 0 disables the filter.

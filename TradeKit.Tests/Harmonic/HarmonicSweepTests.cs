@@ -224,6 +224,10 @@ namespace TradeKit.Tests.Harmonic
                 MinimumRiskReward = 0d,
                 MinimumStopAtr = 0d,
 
+                // The `Model TP1` row of the grid must mean the target of the model, not the
+                // single target the library now ships as its default.
+                TakeProfit1Override = null,
+
                 // The research measures what the trade really has to travel.
                 TargetAnchor = HarmonicTargetAnchor.ENTRY
             };

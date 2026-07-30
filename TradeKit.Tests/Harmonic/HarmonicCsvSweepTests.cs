@@ -171,6 +171,21 @@ namespace TradeKit.Tests.Harmonic
                 builder.AppendLine($"| {file} | {bars} | {enters} | {maxCandidates} | {ms} |");
 
             builder.AppendLine();
+            builder.AppendLine("## Per model");
+            builder.AppendLine();
+            builder.AppendLine("| Model | Setups | TP | SL | Open | Win rate | Avg R | Avg R:R |");
+            builder.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|");
+
+            foreach (IGrouping<HarmonicPatternType, Stats> group in perModel.Values
+                         .GroupBy(a => a.PatternType)
+                         .OrderBy(a => (int)a.Key))
+            {
+                builder.AppendLine(Total(group.Key.ToString(), group));
+            }
+
+            builder.AppendLine(Total("**All**", perModel.Values));
+
+            builder.AppendLine();
             builder.AppendLine("## Per file and model");
             builder.AppendLine();
             builder.AppendLine("| File | Model | Setups | TP | SL | Open | Win rate | Avg R | Avg R:R |");
@@ -188,6 +203,24 @@ namespace TradeKit.Tests.Harmonic
             }
 
             return builder.ToString();
+
+            static string Total(string name, IEnumerable<Stats> group)
+            {
+                Stats[] all = group.ToArray();
+                int enters = all.Sum(a => a.Enters);
+                int takeProfits = all.Sum(a => a.TakeProfits);
+                int stopLosses = all.Sum(a => a.StopLosses);
+                int closed = takeProfits + stopLosses;
+                double[] results = all.SelectMany(a => a.Results).ToArray();
+                double[] riskRewards = all.SelectMany(a => a.RiskRewards).ToArray();
+
+                return string.Format(CultureInfo.InvariantCulture,
+                    "| {0} | {1} | {2} | {3} | {4} | {5:P1} | {6:F2} | {7:F2} |",
+                    name, enters, takeProfits, stopLosses, enters - closed,
+                    closed == 0 ? 0d : (double)takeProfits / closed,
+                    results.Length == 0 ? 0d : results.Average(),
+                    riskRewards.Length == 0 ? 0d : riskRewards.Average());
+            }
         }
 
         private sealed class SymbolBaseForFile : Core.Common.SymbolBase

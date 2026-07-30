@@ -23,6 +23,16 @@ namespace TradeKit.CTrader.Harmonic
         public const double DEFAULT_MIN_STOP_ATR = 4d;
 
         /// <summary>
+        /// The default first target: the full height of the pattern projected from the entry.
+        /// </summary>
+        public const double DEFAULT_TP1_RATIO = 1d;
+
+        /// <summary>
+        /// The default stop distance beyond the point D, in percent of the pattern height.
+        /// </summary>
+        public const double DEFAULT_STOP_PERCENT = 5d;
+
+        /// <summary>
         /// Builds the algorithm settings from the flat cTrader inputs.
         /// </summary>
         public static HarmonicParams Create(HarmonicInputs inputs)
@@ -127,10 +137,10 @@ namespace TradeKit.CTrader.Harmonic
         public bool UseSecondTarget { get; set; }
 
         /// <summary>What the first target is measured against. The model default is kept as is.</summary>
-        public HarmonicTargetMode TakeProfit1Mode { get; set; } = HarmonicTargetMode.MODEL_DEFAULT;
+        public HarmonicTargetMode TakeProfit1Mode { get; set; } = HarmonicTargetMode.PATTERN_HEIGHT;
 
         /// <summary>The ratio of the first target. Used only when the mode is not the default.</summary>
-        public double TakeProfit1Ratio { get; set; } = HarmonicFib.F618;
+        public double TakeProfit1Ratio { get; set; } = HarmonicParamsMapper.DEFAULT_TP1_RATIO;
 
         /// <summary>What the second target is measured against. The model default is kept as is.</summary>
         public HarmonicTargetMode TakeProfit2Mode { get; set; } = HarmonicTargetMode.MODEL_DEFAULT;
@@ -139,13 +149,13 @@ namespace TradeKit.CTrader.Harmonic
         public double TakeProfit2Ratio { get; set; } = HarmonicFib.F1272;
 
         /// <summary>The price the relative targets are projected from.</summary>
-        public HarmonicTargetAnchor TargetAnchor { get; set; } = HarmonicTargetAnchor.POINT_D;
+        public HarmonicTargetAnchor TargetAnchor { get; set; } = HarmonicTargetAnchor.ENTRY;
 
         /// <summary>The stop loss mode.</summary>
-        public HarmonicStopMode StopMode { get; set; } = HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY;
+        public HarmonicStopMode StopMode { get; set; } = HarmonicStopMode.PATTERN_PERCENT_BEYOND_D;
 
         /// <summary>The stop loss percent.</summary>
-        public double StopPercent { get; set; } = 75d;
+        public double StopPercent { get; set; } = HarmonicParamsMapper.DEFAULT_STOP_PERCENT;
 
         /// <summary>The minimum risk/reward ratio.</summary>
         public double MinimumRiskReward { get; set; }
