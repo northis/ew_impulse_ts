@@ -83,10 +83,14 @@ namespace TradeKit.Tests.Harmonic
             // The reference indicator runs with every model enabled and a 500 bar history buffer;
             // the export just filters the records by the selected model. Two of its behaviours are
             // reproduced only here: its leg symmetry test is a no-op, and its after-C entry (score
-            // above 90 by default) consumes a candidate before a real point D can confirm it.
+            // above 90 by default) consumes a candidate before a real point D can confirm it. Its
+            // ratio tolerance is 15% and its longest pivot period is 20, while the library ships
+            // the wider values it measured to be worth their cost.
             var parameters = new HarmonicParams
             {
                 BarsDepth = 500,
+                FibErrorPercent = 15d,
+                MaxPivotPeriod = 20,
                 CheckLegSymmetry = false,
                 AfterCEntryScore = 0.9d
             };

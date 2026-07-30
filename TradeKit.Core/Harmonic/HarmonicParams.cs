@@ -3,13 +3,15 @@ namespace TradeKit.Core.Harmonic;
 /// <summary>
 /// Search and setup settings of <see cref="HarmonicSetupFinder"/>.
 /// <para>
-/// The search defaults reproduce the reference Pine indicator, but the trading ones do not:
-/// <see cref="TargetAnchor"/>, <see cref="TakeProfit1Override"/>, <see cref="StopMode"/>,
-/// <see cref="StopPercent"/> and <see cref="MinimumStopAtr"/> carry the only combination the
-/// archive sweep found profitable after costs - a full pattern height target with a stop just
-/// beyond the point D, traded only when that stop is wide enough to survive the noise. The
-/// combination was picked on the first half of every file and holds on the second one. Reset
-/// those five to compare a run with Pine.
+/// The defaults do not reproduce the reference Pine indicator. <see cref="TargetAnchor"/>,
+/// <see cref="TakeProfit1Override"/>, <see cref="StopMode"/>, <see cref="StopPercent"/> and
+/// <see cref="MinimumStopAtr"/> carry the only combination the archive sweep found profitable
+/// after costs - a full pattern height target with a stop just beyond the point D, traded only
+/// when that stop is wide enough to survive the noise. The combination was picked on the first
+/// half of every file and holds on the second one. <see cref="FibErrorPercent"/> and
+/// <see cref="MaxPivotPeriod"/> are the two search settings that also depart from Pine: both
+/// buy more traded setups for almost no loss of net R per trade. Reset those seven to compare
+/// a run with Pine.
 /// </para>
 /// </summary>
 public class HarmonicParams
@@ -26,8 +28,16 @@ public class HarmonicParams
 
     /// <summary>
     /// The largest pivot period used to detect the X/A/B/C points.
+    /// <para>
+    /// The reference Pine indicator stops at 20. The archive sweep finds 28% more traded setups
+    /// at 40 and loses next to nothing per trade (net R per trade 0.214 -> 0.201, total net R
+    /// +20%), and the gain holds at the neighbouring stop distance filters, so the extra
+    /// patterns are real rather than an artefact of one threshold. The price is the search
+    /// itself: every added period is another pass over the bars, and 40 costs about three times
+    /// the CPU of 20. Set this to 20 to compare a run with Pine or to speed up a backtest.
+    /// </para>
     /// </summary>
-    public int MaxPivotPeriod { get; set; } = 20;
+    public int MaxPivotPeriod { get; set; } = 40;
 
     /// <summary>
     /// The number of trailing bars required to confirm the point D.
@@ -48,8 +58,14 @@ public class HarmonicParams
 
     /// <summary>
     /// The allowed Fibonacci ratio error, in percent.
+    /// <para>
+    /// The reference Pine indicator allows 15%. The archive sweep doubles the number of traded
+    /// setups at 20% and keeps almost all of the net R per trade, so the wider tolerance is
+    /// worth its cost; at 25% the extra patterns are no longer patterns and the edge collapses.
+    /// Set this to 15 to compare a run with Pine.
+    /// </para>
     /// </summary>
-    public double FibErrorPercent { get; set; } = 15d;
+    public double FibErrorPercent { get; set; } = 20d;
 
     /// <summary>
     /// The allowed leg duration asymmetry, in percent.

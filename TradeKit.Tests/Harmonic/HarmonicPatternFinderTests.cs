@@ -28,7 +28,13 @@ namespace TradeKit.Tests.Harmonic
         {
             return new HarmonicParams
             {
-                Patterns = new SortedSet<HarmonicPatternType> { HarmonicPatternType.GARTLEY }
+                Patterns = new SortedSet<HarmonicPatternType> { HarmonicPatternType.GARTLEY },
+
+                // The synthetic geometry above is built on the exact Fibonacci ratios and is
+                // read against the strict Pine tolerance: a bar placed just outside a ratio
+                // has to be rejected. The library ships a wider one, which the archive says
+                // pays, but which would accept the deliberately wrong bars of these tests.
+                FibErrorPercent = 15d
             };
         }
 

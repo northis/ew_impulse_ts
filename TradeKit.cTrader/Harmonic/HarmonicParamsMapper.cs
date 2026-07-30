@@ -110,13 +110,13 @@ namespace TradeKit.CTrader.Harmonic
         public int MinPivotPeriod { get; set; } = 3;
 
         /// <summary>The largest pivot period.</summary>
-        public int MaxPivotPeriod { get; set; } = 20;
+        public int MaxPivotPeriod { get; set; } = 40;
 
         /// <summary>Trailing bars required to confirm the point D. 0 enters on the D bar itself.</summary>
         public int DConfirmationBars { get; set; } = 1;
 
         /// <summary>The allowed Fibonacci ratio error, in percent.</summary>
-        public double FibErrorPercent { get; set; } = 15d;
+        public double FibErrorPercent { get; set; } = 20d;
 
         /// <summary>The allowed leg duration asymmetry, in percent.</summary>
         public double LegAsymmetryPercent { get; set; } = 250d;

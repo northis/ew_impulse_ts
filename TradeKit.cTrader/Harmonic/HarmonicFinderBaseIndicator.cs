@@ -73,7 +73,7 @@ namespace TradeKit.CTrader.Harmonic
         public int MinPivotPeriod { get; set; }
 
         /// <summary>Gets or sets the largest pivot period.</summary>
-        [Parameter("Max pivot period", DefaultValue = 20, MinValue = 1, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Max pivot period", DefaultValue = 40, MinValue = 1, MaxValue = 100, Group = Helper.TRADE_SETTINGS_NAME)]
         public int MaxPivotPeriod { get; set; }
 
         /// <summary>Gets or sets the trailing bars required to confirm the point D.</summary>
@@ -81,7 +81,7 @@ namespace TradeKit.CTrader.Harmonic
         public int DConfirmationBars { get; set; }
 
         /// <summary>Gets or sets the allowed Fibonacci ratio error, in percent.</summary>
-        [Parameter("Fib error %", DefaultValue = 15, MinValue = 0, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
+        [Parameter("Fib error %", DefaultValue = 20, MinValue = 0, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME, Step = 1)]
         public double FibErrorPercent { get; set; }
 
         /// <summary>Gets or sets the allowed leg duration asymmetry, in percent.</summary>
