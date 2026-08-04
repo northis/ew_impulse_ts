@@ -290,6 +290,32 @@ app.MapPost("/api/rtriangle/scan", (RunningTriangleScanRequest req) =>
     }
 });
 
+// ── Diagonal training game ───────────────────────────
+// Scans a file/date-range for contracting-diagonal setups (ending/leading diagonal
+// 0-1-2-3-4-5, entry on the wave-5 break of wave 3; see DIAGONAL.md) and returns
+// each setup with its eventual TP/SL outcome for the quiz UI.
+var diagonalScanEngine = new DiagonalScanEngine();
+app.MapPost("/api/diagonal/scan", (DiagonalScanRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.File))
+        return Results.BadRequest(new { error = "File name is required" });
+
+    string fileName = Path.GetFileName(req.File);
+    string path = Path.Combine(dataDir, fileName);
+    if (!File.Exists(path))
+        return Results.NotFound(new { error = "File not found" });
+
+    try
+    {
+        TriangleScanResult result = diagonalScanEngine.Scan(path, req);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString(), statusCode: 500, title: ex.Message);
+    }
+});
+
 app.Run();
 
 // ── helpers ──────────────────────────────────────────

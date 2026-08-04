@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Треугольники — тренажёр входов</title>
+  <title>Диагонали — тренажёр входов</title>
   <link rel="stylesheet" href="/css/replay.css">
   <link rel="stylesheet" href="/css/impulse.css">
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -14,8 +14,8 @@
   <div id="topbar">
     <a class="navlink" href="/index.html" title="Разметка волн Эллиотта">↩ Разметка</a>
     <a class="navlink" href="/impulse.html" title="Тренажёр входов по импульсам">⚡ Импульсы</a>
-    <a class="navlink" href="/rtriangle.html" title="Тренажёр входов по бегущим треугольникам">🏳️ Бегущие</a>
-    <a class="navlink" href="/diagonal.html" title="Тренажёр входов по диагоналям">◺ Диагонали</a>
+    <a class="navlink" href="/triangle.html" title="Тренажёр входов по треугольникам">△ Треугольники</a>
+    <a class="navlink" href="/rtriangle.html" title="Тренажёр входов по бегущим треугольникам">▷ Бегущие</a>
     <span class="ctrl-sep"></span>
     <label>CSV:</label>
     <select id="selFile"><option>-- загрузка файлов... --</option></select>
@@ -26,13 +26,17 @@
     <button id="btnRandom" type="button" title="Случайная дата старта в пределах диапазона">🎲</button>
     <span id="rangeInfo"></span>
 
-    <!-- Triangle filters -->
+    <!-- Diagonal filters -->
     <span class="param"><label title="Период зигзага (0 = авто по волатильности)">Период</label>
       <input type="number" id="pPeriod" value="0" step="1" min="0"></span>
-    <span class="param"><label title="Минимальный размер волны A треугольника, % от цены">Размер %</label>
-      <input type="number" id="pMinSize" value="0.3" step="0.05" min="0"></span>
-    <span class="param"><label title="Минимальное количество баров в треугольнике (0-E)">Баров</label>
-      <input type="number" id="pBars" value="20" step="1" min="3"></span>
+    <span class="param"><label title="Минимальный размер диагонали (0→3), % от цены">Размер %</label>
+      <input type="number" id="pMinSize" value="0.1" step="0.05" min="0"></span>
+    <span class="param"><label title="Минимальное количество баров в диагонали (1-4)">Баров</label>
+      <input type="number" id="pBars" value="10" step="1" min="3"></span>
+    <span class="param"><label title="Тейк-профит как множитель расстояния вход→стоп">R:R</label>
+      <input type="number" id="pRr" value="1.5" step="0.1" min="0.1"></span>
+    <span class="param"><label title="Требовать, чтобы волна 5 была не короче 78.6% волны 3">W5 ≥ 78%</label>
+      <input type="checkbox" id="pW5Ratio"></span>
 
     <button id="btnScan">🔍 Сканировать</button>
     <span id="status">Готов</span>
@@ -53,15 +57,15 @@
 
         <!-- Question phase -->
         <div id="phaseQuestion">
-          <p class="prompt">Треугольник ABCDE в коррекции к тренду завершён.<br>
-            Входить на продолжение тренда?</p>
+          <p class="prompt">Сходящаяся диагональ 0-1-2-3-4-5 завершена: волна 5 пробила
+            волну 3.<br>Входить <b>против</b> диагонали (коррекция или разворот тренда)?</p>
           <div class="levels">
             <div><span class="lvl-name tp">Тейк</span><span id="qTp">—</span></div>
             <div><span class="lvl-name entry">Вход</span><span id="qEntry">—</span></div>
             <div><span class="lvl-name sl">Стоп</span><span id="qSl">—</span></div>
             <div><span class="lvl-name rr">R:R</span><span id="qRr">—</span></div>
             <div><span class="lvl-name stat">Модель</span><span id="qModel">—</span></div>
-            <div><span class="lvl-name stat">Фибо-скор</span><span id="qFibo">—</span></div>
+            <div><span class="lvl-name stat">W5/W3</span><span id="qW5">—</span></div>
           </div>
           <div class="decide-btns">
             <button id="btnEnter" class="btn-enter">✔ Войти</button>
@@ -103,6 +107,6 @@
   </div>
 </div>
 
-<script src="/js/triangle.js"></script>
+<script src="/js/diagonal.js"></script>
 </body>
 </html>
