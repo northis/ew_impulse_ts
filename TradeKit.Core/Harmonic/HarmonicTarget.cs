@@ -46,6 +46,10 @@ public sealed record HarmonicTarget(HarmonicTargetBasis Basis, double Ratio = 0d
                 return b;
             case HarmonicTargetBasis.POINT_C:
                 return c;
+            case HarmonicTargetBasis.STOP_DISTANCE:
+                // The stop loss price is unknown here; the setup finder resolves the real
+                // target once the stop loss is calculated.
+                return anchor;
         }
 
         double basis = Basis switch
@@ -82,6 +86,8 @@ public sealed record HarmonicTarget(HarmonicTargetBasis Basis, double Ratio = 0d
             HarmonicTargetMode.POINT_A => new HarmonicTarget(HarmonicTargetBasis.POINT_A),
             HarmonicTargetMode.POINT_B => new HarmonicTarget(HarmonicTargetBasis.POINT_B),
             HarmonicTargetMode.POINT_C => new HarmonicTarget(HarmonicTargetBasis.POINT_C),
+            HarmonicTargetMode.STOP_DISTANCE => new HarmonicTarget(
+                HarmonicTargetBasis.STOP_DISTANCE, ratio),
             _ => throw new ArgumentOutOfRangeException(nameof(mode))
         };
     }

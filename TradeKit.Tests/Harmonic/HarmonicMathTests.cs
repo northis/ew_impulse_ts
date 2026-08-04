@@ -344,6 +344,41 @@ namespace TradeKit.Tests.Harmonic
         }
 
         [Test]
+        public void Targets_StopDistanceModeProjectsTheRiskRewardFromTheEntry()
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(HarmonicTarget.FromMode(HarmonicTargetMode.STOP_DISTANCE, 1d),
+                    Is.EqualTo(new HarmonicTarget(HarmonicTargetBasis.STOP_DISTANCE, 1d)));
+
+                // The plain resolve has no stop loss yet and keeps the anchor as a placeholder.
+                Assert.That(new HarmonicTarget(HarmonicTargetBasis.STOP_DISTANCE, 1d)
+                    .Resolve(100d, 200d, 140d, 190d, 120d, 130d), Is.EqualTo(130d));
+
+                // Long: entry 125, stop 115, R:R 1 -> 135, R:R 2 -> 145.
+                Assert.That(HarmonicMath.CalculateTargetFromStop(true, 125d, 115d, 1d),
+                    Is.EqualTo(135d));
+                Assert.That(HarmonicMath.CalculateTargetFromStop(true, 125d, 115d, 2d),
+                    Is.EqualTo(145d));
+
+                // Short: entry 125, stop 135, R:R 1 -> 115, R:R 2 -> 105.
+                Assert.That(HarmonicMath.CalculateTargetFromStop(false, 125d, 135d, 1d),
+                    Is.EqualTo(115d));
+                Assert.That(HarmonicMath.CalculateTargetFromStop(false, 125d, 135d, 2d),
+                    Is.EqualTo(105d));
+
+                // The resulting R:R equals the declared ratio exactly.
+                Assert.That(HarmonicMath.GetRiskReward(true, 125d,
+                        HarmonicMath.CalculateTargetFromStop(true, 125d, 115d, 1.5d), 115d),
+                    Is.EqualTo(1.5d).Within(1e-12));
+
+                // A projected target is clamped at zero.
+                Assert.That(HarmonicMath.CalculateTargetFromStop(false, 100d, 110d, 20d),
+                    Is.EqualTo(0d));
+            });
+        }
+
+        [Test]
         public void Targets_DefaultsMatchTheReferenceIndicator()
         {
             Assert.Multiple(() =>

@@ -177,6 +177,16 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
                 return;
         }
 
+        HarmonicTarget takeProfit1Target = m_Params.GetTakeProfit1(item.PatternType);
+        HarmonicTarget takeProfit2Target = m_Params.GetTakeProfit2(item.PatternType);
+        bool tp1ByStop = takeProfit1Target.Basis == HarmonicTargetBasis.STOP_DISTANCE;
+        bool tp2ByStop = takeProfit2Target.Basis == HarmonicTargetBasis.STOP_DISTANCE;
+
+        // A stop measured from the target distance and a target measured from the stop
+        // distance would define each other, so the combination is rejected.
+        if (tp1ByStop && m_Params.StopMode == HarmonicStopMode.TARGET_DISTANCE_BEYOND_ENTRY)
+            return;
+
         // The targets of the pattern are projected from the point D. The entry happens a few
         // bars later and is always worse, so the anchor can be moved to the entry price to
         // keep the traded distance equal to the declared ratio.
@@ -184,21 +194,39 @@ public class HarmonicSetupFinder : BaseSetupFinder<HarmonicSignalEventArgs>
         {
             item = item with
             {
-                TakeProfit1 = ResolveFromEntry(
-                    m_Params.GetTakeProfit1(item.PatternType), item, close),
-                TakeProfit2 = ResolveFromEntry(
-                    m_Params.GetTakeProfit2(item.PatternType), item, close)
+                TakeProfit1 = tp1ByStop
+                    ? item.TakeProfit1
+                    : ResolveFromEntry(takeProfit1Target, item, close),
+                TakeProfit2 = tp2ByStop
+                    ? item.TakeProfit2
+                    : ResolveFromEntry(takeProfit2Target, item, close)
+            };
+        }
+
+        double stopLoss = HarmonicMath.CalculateStopLoss(
+            m_Params.StopMode, m_Params.StopPercent, isBull,
+            item.ItemX.Value, item.ItemD.Value, item.Prz, item.TakeProfit1, close,
+            item.PatternHeight);
+
+        // A stop-based target is anchored at the entry regardless of the target anchor
+        // setting: the ratio is the risk/reward, and the risk/reward is measured from the
+        // price actually traded.
+        if (tp1ByStop || tp2ByStop)
+        {
+            item = item with
+            {
+                TakeProfit1 = tp1ByStop
+                    ? HarmonicMath.CalculateTargetFromStop(isBull, close, stopLoss, takeProfit1Target.Ratio)
+                    : item.TakeProfit1,
+                TakeProfit2 = tp2ByStop
+                    ? HarmonicMath.CalculateTargetFromStop(isBull, close, stopLoss, takeProfit2Target.Ratio)
+                    : item.TakeProfit2
             };
         }
 
         double takeProfit = m_Params.TakeProfitTarget == HarmonicTakeProfitTarget.TAKE_PROFIT_2
             ? item.TakeProfit2
             : item.TakeProfit1;
-
-        double stopLoss = HarmonicMath.CalculateStopLoss(
-            m_Params.StopMode, m_Params.StopPercent, isBull,
-            item.ItemX.Value, item.ItemD.Value, item.Prz, item.TakeProfit1, close,
-            item.PatternHeight);
 
         // A stop that fits inside the daily noise of its own market is taken out by that
         // noise alone, whatever the pattern says, so the distance is judged in average true

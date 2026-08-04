@@ -28,5 +28,11 @@ public enum HarmonicTargetMode
     POINT_B,
 
     /// <summary>Put the target at the price of the point C.</summary>
-    POINT_C
+    POINT_C,
+
+    /// <summary>
+    /// Measure the target from the entry as a ratio of the actual entry-to-stop distance,
+    /// so the ratio is the traded risk/reward (1 means R:R = 1).
+    /// </summary>
+    STOP_DISTANCE
 }

@@ -373,6 +373,24 @@ public static class HarmonicMath
     }
 
     /// <summary>
+    /// Calculates the take profit price as a ratio of the actual entry-to-stop distance:
+    /// <c>entry + ratio * (entry - stopLoss)</c> for a long setup and mirrored for a short
+    /// one. The ratio is therefore the risk/reward the setup trades - 1 means R:R = 1.
+    /// </summary>
+    /// <param name="isBull">Direction of the setup.</param>
+    /// <param name="entry">The entry price.</param>
+    /// <param name="stopLoss">The stop loss price.</param>
+    /// <param name="ratio">The multiple of the stop distance to project from the entry.</param>
+    public static double CalculateTargetFromStop(bool isBull, double entry, double stopLoss, double ratio)
+    {
+        double distance = Math.Abs(entry - stopLoss);
+        double target = isBull ? entry + ratio * distance : entry - ratio * distance;
+
+        // Pine clamps a projected target at zero.
+        return Math.Max(0d, target);
+    }
+
+    /// <summary>
     /// Gets the risk/reward ratio of the levels given, or <c>null</c> when the levels are
     /// ordered incorrectly or the stop distance is zero.
     /// </summary>

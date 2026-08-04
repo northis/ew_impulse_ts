@@ -113,6 +113,47 @@ namespace TradeKit.Tests.Harmonic
         }
 
         [Test]
+        public void Setup_StopDistanceTargetTradesTheDeclaredRiskReward()
+        {
+            HarmonicParams parameters = GartleyOnly();
+            parameters.StopMode = HarmonicStopMode.PERCENT_BEYOND_D;
+            parameters.StopPercent = 5d;
+            parameters.TakeProfit1Override = new HarmonicTarget(HarmonicTargetBasis.STOP_DISTANCE, 1d);
+
+            TestBarsProvider provider = HarmonicTestBars.Build(Points(60, 190d));
+            (Recorder recorder, _) = Run(provider, parameters);
+
+            Assert.That(recorder.Enters, Has.Count.EqualTo(1));
+            HarmonicSignalEventArgs args = recorder.Enters[0];
+
+            double entry = args.Level.Value;
+            Assert.Multiple(() =>
+            {
+                // R:R 1: the take profit mirrors the stop loss around the entry.
+                Assert.That(args.TakeProfit.Value,
+                    Is.EqualTo(entry + (entry - args.StopLoss.Value)).Within(1e-9));
+                Assert.That(args.RiskReward, Is.EqualTo(1d).Within(1e-9));
+                Assert.That(args.HarmonicItem.TakeProfit1,
+                    Is.EqualTo(args.TakeProfit.Value).Within(1e-9),
+                    "The resolved target is stored on the item, so the indicator draws it.");
+            });
+        }
+
+        [Test]
+        public void Setup_StopDistanceTargetRejectsTheStopMeasuredFromTheTarget()
+        {
+            HarmonicParams parameters = GartleyOnly();
+
+            // TARGET_DISTANCE_BEYOND_ENTRY - the stop would need the very target that needs the stop.
+            parameters.TakeProfit1Override = new HarmonicTarget(HarmonicTargetBasis.STOP_DISTANCE, 1d);
+
+            TestBarsProvider provider = HarmonicTestBars.Build(Points(60, 190d));
+            (Recorder recorder, _) = Run(provider, parameters);
+
+            Assert.That(recorder.Enters, Is.Empty);
+        }
+
+        [Test]
         public void Setup_ReachesTheTakeProfit()
         {
             TestBarsProvider provider = HarmonicTestBars.Build(Points(60, 190d));
