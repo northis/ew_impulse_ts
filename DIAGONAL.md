@@ -108,6 +108,11 @@
   делает новый экстремум за волной 1 (минимальный пробой 5% |W1|, как в v2).
 - **D-CONTRACT-3** — `|W3| < |W1|` (сжатие).
 - **D-CONTRACT-4** — `|W4| < |W2|` (сжатие).
+- **D-W4-78** *(опционально, флаг `RequireWave4Ratio`)* — `|W4| ≥ 0.786·|W2|`:
+  вместе с D-CONTRACT-4 даёт коридор `0.786·|W2| ≤ |W4| < |W2|` — клин
+  сжимается равномерно, а не схлопывается крошечной волной 4. По
+  умолчанию **выключено**: на архиве фильтр режет выборку втрое и
+  ухудшает матожидание (§9.4).
 - **D-OVERLAP** — `s·(V(4) − V(1)) < 0`: конец волны 4 **в ценовой зоне
   волны 1** (перекрытие; hard — решение O-2). Без перекрытия это импульс,
   а не диагональ.
@@ -317,6 +322,8 @@ DiagonalCandidate {
 | `TakeProfitRatio` | Множитель TP от дистанции до стопа (R:R). | **1.0** |
 | `RequireWave5Ratio` | Требовать `|W5| ≥ 0.786·|W3|` на сигнале (§6.1). | `false` |
 | `WAVE5_MIN_RATIO` | Порог зрелости волны 5. | 0.786 |
+| `RequireWave4Ratio` | Требовать `|W4| ≥ 0.786·|W2|` (D-W4-78, §4). | `false` |
+| `WAVE4_MIN_RATIO` | Нижняя граница `|W4|/|W2|`. | 0.786 |
 | `MIN_DIAGONAL_PENETRATION` | Мин. пробой W3 за W1 (доля |W1|). | 0.05 (как в v2) |
 | `MIN_RISK_TO_W3_RATIO` | Мин. риск (SL−entry) как доля \|W3\| — отсев вырожденных стопов. | 0.05 |
 | `MAX_WAVE_DURATION_RATIO` | Sanity длительностей соседних волн. | 4.0 |
@@ -347,7 +354,8 @@ DiagonalCandidate {
 - `SL == V(4) ± |W3|` (с точностью до аллоуанса/округления);
 - `TP` соответствует `TakeProfitRatio`;
 - сделка против диагонали (бычья диагональ → TP ниже входа);
-- при `RequireWave5Ratio` — `|W5| ≥ 0.786·|W3|` на триггерном баре.
+- при `RequireWave5Ratio` — `|W5| ≥ 0.786·|W3|` на триггерном баре;
+- при `RequireWave4Ratio` — `|W4| ≥ 0.786·|W2|`.
 
 **Funnel-диагностика**: research-тест `[Explicit, Category("Research")]` (по
 образцу `PeriodSweepTests.DiagnoseTriangleRejections`) гоняет финдер по
@@ -357,10 +365,10 @@ DiagonalCandidate {
 «гейта-убийцы» до какой-либо ручной калибровки (урок треугольников: один
 неуместный гейт убивал 80% кандидатов).
 
-**Сравнение режимов**: тот же research-тест прогоняет оба режима
-`RequireWave5Ratio` (false/true) и оба-три значения `TakeProfitRatio`
-(1.0 / 2.0) и пишет сводку TP/SL-исходов в отчёт — эмпирический выбор
-дефолтов.
+**Сравнение режимов**: тот же research-тест прогоняет все комбинации
+`RequireWave5Ratio` × `RequireWave4Ratio` (false/true) и несколько значений
+`TakeProfitRatio` (1.0 / 1.5 / 2.0 / 3.0) и пишет сводку TP/SL-исходов —
+эмпирический выбор дефолтов.
 
 **Референсный пример** — по образцу EW_R_TRIANGLE.md §12: после первых прогонов
 выбираем на архивном CSV реальную диагональ, фиксируем якоря (точка 0, точка 5,
@@ -378,7 +386,7 @@ DiagonalCandidate {
   срез свечей под отрисовку. DTO переиспользованы без изменений
   (`TriangleScanResult` / `TriangleSetupDto`, 6 wave-точек 0–5); запрос —
   `DiagonalScanRequest { File, FromDate, ToDate, Period, MinSizePercent,
-  BarsCount, TakeProfitRatio, RequireWave5Ratio }`.
+  BarsCount, TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio }`.
 - **`POST /api/diagonal/scan`** в [Program.cs](TradeKit.ReplayViewer/Program.cs) —
   по образцу `/api/rtriangle/scan` (имя файла нормализуется
   `Path.GetFileName`, чтобы запрос не вышел за `dataDir`).
@@ -387,7 +395,7 @@ DiagonalCandidate {
   зигзаг 0-1-2-3-4-5, трендлинии 1-3 и 2-4 (сходящийся клин), уровни
   W3/entry/TP/SL, маркеры волн; пользователь угадывает исход (TP/SL),
   статистика ответов. Параметры: Период (0=авто), Размер %, Баров,
-  R:R, чекбокс «W5 ≥ 78%».
+  R:R, чекбоксы «W5 ≥ 78%» и «W4 ≥ 78%».
 - Ссылка «◺ Диагонали» добавлена в навигацию index/impulse/triangle/rtriangle.
 
 ### 9.3. Критерии приёмки самотеста
@@ -436,6 +444,26 @@ DiagonalCandidate {
 торговая система, а база для тренажёра и дальнейшей фильтрации.
 «Зрелая волна 5» окупается только на R ≥ 1.5.
 
+Добавленный позже фильтр `RequireWave4Ratio` (D-W4-78) на той же выборке
+ухудшает результат во всех комбинациях:
+
+| `RequireWave5Ratio` | `RequireWave4Ratio` | R:R | входов | win% | матожидание |
+|---|---|---:|---:|---:|---:|
+| false | true | 1.0 | 41 | 41.5% | −0.17R |
+| false | true | 1.5 | 55 | 34.5% | −0.14R |
+| false | true | 2.0 | 59 | 25.4% | −0.24R |
+| false | true | 3.0 | 61 | 13.1% | −0.48R |
+| true | true | 1.0 | 23 | 30.4% | −0.39R |
+| true | true | 1.5 | 35 | 37.1% | −0.07R |
+| true | true | 2.0 | 39 | 30.8% | −0.08R |
+| true | true | 3.0 | 43 | 18.6% | −0.26R |
+
+Выборка режется в 2–3 раза, а win% падает сильнее, чем растёт качество:
+на архиве ровное сжатие клина не коррелирует с качеством разворота.
+Поэтому флаг остаётся выключенным по умолчанию — он полезен как
+инструмент отбора «красивых» примеров для тренажёра, но не как торговый
+фильтр. Проверять на других парах до окончательного вывода.
+
 ---
 
 ## 10. Перспектива: cbot и индикатор
@@ -445,7 +473,7 @@ DiagonalCandidate {
 `HarmonicSignalerBot`):
 
 - `TradeKit.cTrader/…/DiagonalFinderBaseIndicator.cs` — параметры
-  `TakeProfitRatio`, `RequireWave5Ratio`, `Period` (0=авто);
+  `TakeProfitRatio`, `RequireWave5Ratio`, `RequireWave4Ratio`, `Period` (0=авто);
   **не забыть** `<Compile Include>` в csproj (`EnableDefaultItems=False`);
 - сигнальный бот по образцу существующих `*SignalerBot`;
 - ядро (`DiagonalSetupFinder`) остаётся в `TradeKit.Core/ElliottWave/` и

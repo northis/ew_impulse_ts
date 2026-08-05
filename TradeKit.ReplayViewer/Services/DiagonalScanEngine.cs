@@ -46,7 +46,8 @@ public sealed class DiagonalScanEngine
         // ── 2. Build the finder from the page inputs ──
         var ewParams = new EWParams(req.Period, req.MinSizePercent, req.BarsCount);
         var finder = new DiagonalSetupFinder(
-            provider, symbol, ewParams, req.TakeProfitRatio, req.RequireWave5Ratio);
+            provider, symbol, ewParams, req.TakeProfitRatio,
+            req.RequireWave5Ratio, req.RequireWave4Ratio);
 
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
@@ -177,4 +178,5 @@ public sealed record DiagonalScanRequest(
     double MinSizePercent = 0.1,
     int BarsCount = (int)Helper.MINIMUM_BARS_IN_IMPULSE,
     double TakeProfitRatio = 1.0,
-    bool RequireWave5Ratio = false);
+    bool RequireWave5Ratio = false,
+    bool RequireWave4Ratio = false);

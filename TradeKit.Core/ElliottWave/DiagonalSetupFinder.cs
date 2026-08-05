@@ -33,6 +33,9 @@ namespace TradeKit.Core.ElliottWave
         /// <summary>Maturity threshold of wave 5 for <see cref="RequireWave5Ratio"/> (D-W5-78).</summary>
         private const double WAVE5_MIN_RATIO = 0.786;
 
+        /// <summary>Lower bound of |W4|/|W2| for <see cref="RequireWave4Ratio"/> (D-W4-78).</summary>
+        private const double WAVE4_MIN_RATIO = 0.786;
+
         /// <summary>
         /// Minimum risk (entry→SL) as a share of |W3|. As wave 5 approaches its |W3| ceiling
         /// the stop degenerates to nothing, which looks like a fantastic R:R on paper and is
@@ -114,6 +117,12 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireWave5Ratio { get; }
 
         /// <summary>
+        /// When set, the wedge additionally has to contract evenly:
+        /// <c>0.786·|W2| ≤ |W4| &lt; |W2|</c> (DIAGONAL.md §4.1).
+        /// </summary>
+        public bool RequireWave4Ratio { get; }
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -127,17 +136,20 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="ewParams">Elliott-wave params; <c>Period == 0</c> → auto.</param>
         /// <param name="takeProfitRatio">TP as a multiple of the risk (R:R).</param>
         /// <param name="requireWave5Ratio">Require <c>|W5| ≥ 0.786·|W3|</c> on the signal.</param>
+        /// <param name="requireWave4Ratio">Require <c>|W4| ≥ 0.786·|W2|</c>.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
             EWParams ewParams,
             double takeProfitRatio = 1.0,
-            bool requireWave5Ratio = false)
+            bool requireWave5Ratio = false,
+            bool requireWave4Ratio = false)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
             TakeProfitRatio = takeProfitRatio;
             RequireWave5Ratio = requireWave5Ratio;
+            RequireWave4Ratio = requireWave4Ratio;
 
             // A diagonal is a motive model, so the impulse volatility estimate applies.
             ZigzagPeriod = ewParams.Period > 0
@@ -392,6 +404,13 @@ namespace TradeKit.Core.ElliottWave
             if (w4 >= w2)
             {
                 Bump("w4NotContracting", p0);
+                return;
+            }
+
+            // D-W4-78 (optional): the wedge contracts evenly rather than collapsing.
+            if (RequireWave4Ratio && w4 < WAVE4_MIN_RATIO * w2)
+            {
+                Bump("w4TooShallow", p0);
                 return;
             }
 

@@ -317,7 +317,8 @@ async function runScan() {
         minSizePercent: numVal('pMinSize', 0.1),
         barsCount: numVal('pBars', 10),
         takeProfitRatio: numVal('pRr', 1.0),
-        requireWave5Ratio: $('pW5Ratio').checked
+        requireWave5Ratio: $('pW5Ratio').checked,
+        requireWave4Ratio: $('pW4Ratio').checked
     };
 
     try {
