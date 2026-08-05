@@ -26,14 +26,15 @@ namespace TradeKit.Tests
 
         private static (DiagonalSetupFinder Finder, List<ElliottWaveSignalEventArgs> Signals)
             Run(string file, ITimeFrame timeFrame, double takeProfitRatio = 1.0,
-                bool requireWave5Ratio = false, bool requireWave4Ratio = false)
+                bool requireWave5Ratio = false, bool requireWave4Ratio = false,
+                bool requireInitialMovement = false)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
 
             var finder = new DiagonalSetupFinder(
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
-                takeProfitRatio, requireWave5Ratio, requireWave4Ratio);
+                takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialMovement);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -44,12 +45,14 @@ namespace TradeKit.Tests
             return (finder, signals);
         }
 
-        [TestCase(M15_FILE, false, false)]
-        [TestCase(H1_FILE, false, false)]
-        [TestCase(H1_FILE, true, false)]
-        [TestCase(H1_FILE, false, true)]
+        [TestCase(M15_FILE, false, false, false)]
+        [TestCase(H1_FILE, false, false, false)]
+        [TestCase(H1_FILE, true, false, false)]
+        [TestCase(H1_FILE, false, true, false)]
+        [TestCase(H1_FILE, false, false, true)]
         public void Diagonal_EmittedSignals_SatisfyHardRules(
-            string file, bool requireWave5Ratio, bool requireWave4Ratio)
+            string file, bool requireWave5Ratio, bool requireWave4Ratio,
+            bool requireInitialMovement)
         {
             ITimeFrame timeFrame = file.Contains("_m15_")
                 ? TimeFrameHelper.Minute15
@@ -57,7 +60,8 @@ namespace TradeKit.Tests
 
             const double takeProfitRatio = 1.5;
             (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) =
-                Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio);
+                Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio,
+                    requireInitialMovement);
 
             Assert.That(signals, Is.Not.Empty,
                 $"No diagonal setups detected in {file}. Funnel: " +
@@ -213,15 +217,15 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
-        /// Compares the option axes (DIAGONAL.md §9.1): the maturity requirement for
-        /// wave 5, the even-contraction requirement for wave 4 and the R:R target.
-        /// Research-only.
+        /// Compares the option axes (DIAGONAL.md §9.1): wave-5 maturity, even contraction of
+        /// wave 4, the "initial movement" test for point 0 and the R:R target. Research-only.
         /// </summary>
         [Test]
         [Explicit]
         [Category("Research")]
         public void Diagonal_ModeComparison_Report()
         {
+            foreach (bool requireInit in new[] { false, true })
             foreach (bool requireW4 in new[] { false, true })
             foreach (bool requireRatio in new[] { false, true })
             {
@@ -232,7 +236,7 @@ namespace TradeKit.Tests
 
                     var finder = new DiagonalSetupFinder(
                         provider, provider.BarSymbol, new EWParams(0, 0.1, 10), ratio,
-                        requireRatio, requireW4);
+                        requireRatio, requireW4, requireInit);
 
                     int enters = 0, tp = 0, sl = 0;
                     finder.OnEnter += (_, _) => enters++;
@@ -246,7 +250,7 @@ namespace TradeKit.Tests
                     double winRate = resolved > 0 ? 100.0 * tp / resolved : 0;
                     double expectancy = resolved > 0 ? (tp * ratio - sl) / resolved : 0;
                     TestContext.Out.WriteLine(
-                        $"requireW5Ratio={requireRatio,-5} requireW4Ratio={requireW4,-5} " +
+                        $"W5={requireRatio,-5} W4={requireW4,-5} init={requireInit,-5} " +
                         $"R:R={ratio:F1} enters={enters,4} tp={tp,4} sl={sl,4} " +
                         $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
                 }

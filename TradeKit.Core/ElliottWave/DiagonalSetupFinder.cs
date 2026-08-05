@@ -123,6 +123,13 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireWave4Ratio { get; }
 
         /// <summary>
+        /// When set, point 0 additionally has to pass the "line-back" test: the move
+        /// <c>V(0) → V(1)</c> must be an initial one (DIAGONAL.md §5.2). Natural for an
+        /// ending diagonal, restrictive for a leading one — hence optional.
+        /// </summary>
+        public bool RequireInitialMovement { get; }
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -137,19 +144,22 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="takeProfitRatio">TP as a multiple of the risk (R:R).</param>
         /// <param name="requireWave5Ratio">Require <c>|W5| ≥ 0.786·|W3|</c> on the signal.</param>
         /// <param name="requireWave4Ratio">Require <c>|W4| ≥ 0.786·|W2|</c>.</param>
+        /// <param name="requireInitialMovement">Require an initial move <c>V(0) → V(1)</c>.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
             EWParams ewParams,
             double takeProfitRatio = 1.0,
             bool requireWave5Ratio = false,
-            bool requireWave4Ratio = false)
+            bool requireWave4Ratio = false,
+            bool requireInitialMovement = false)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
             TakeProfitRatio = takeProfitRatio;
             RequireWave5Ratio = requireWave5Ratio;
             RequireWave4Ratio = requireWave4Ratio;
+            RequireInitialMovement = requireInitialMovement;
 
             // A diagonal is a motive model, so the impulse volatility estimate applies.
             ZigzagPeriod = ewParams.Period > 0
@@ -470,6 +480,16 @@ namespace TradeKit.Core.ElliottWave
             if (sizePercent < m_EwParams.MinSizePercent)
             {
                 Bump("tooSmall", p0);
+                return;
+            }
+
+            // D-W1-INIT (optional): wave 1 starts off a fresh reversal — natural for an
+            // ending diagonal, often false for a leading one (DIAGONAL.md §5.2, O-6).
+            // Last gate: it is the only one that walks bars backwards.
+            if (RequireInitialMovement &&
+                !IsInitialMovement(p0.Value, p1.Value, p0.BarIndex, BarsProvider, out _))
+            {
+                Bump("notInitialMove", p0);
                 return;
             }
 

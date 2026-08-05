@@ -318,7 +318,8 @@ async function runScan() {
         barsCount: numVal('pBars', 10),
         takeProfitRatio: numVal('pRr', 1.0),
         requireWave5Ratio: $('pW5Ratio').checked,
-        requireWave4Ratio: $('pW4Ratio').checked
+        requireWave4Ratio: $('pW4Ratio').checked,
+        requireInitialMovement: $('pInitMove').checked
     };
 
     try {
