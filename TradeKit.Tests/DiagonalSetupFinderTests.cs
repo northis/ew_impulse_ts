@@ -27,14 +27,16 @@ namespace TradeKit.Tests
         private static (DiagonalSetupFinder Finder, List<ElliottWaveSignalEventArgs> Signals)
             Run(string file, ITimeFrame timeFrame, double takeProfitRatio = 1.0,
                 bool requireWave5Ratio = false, bool requireWave4Ratio = false,
-                bool requireInitialMovement = false)
+                bool requireInitialMovement = false,
+                DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
 
             var finder = new DiagonalSetupFinder(
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
-                takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialMovement);
+                takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialMovement,
+                takeProfitMode);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -45,23 +47,27 @@ namespace TradeKit.Tests
             return (finder, signals);
         }
 
-        [TestCase(M15_FILE, false, false, false)]
-        [TestCase(H1_FILE, false, false, false)]
-        [TestCase(H1_FILE, true, false, false)]
-        [TestCase(H1_FILE, false, true, false)]
-        [TestCase(H1_FILE, false, false, true)]
+        [TestCase(M15_FILE, false, false, false, false)]
+        [TestCase(H1_FILE, false, false, false, false)]
+        [TestCase(H1_FILE, true, false, false, false)]
+        [TestCase(H1_FILE, false, true, false, false)]
+        [TestCase(H1_FILE, false, false, true, false)]
+        [TestCase(H1_FILE, false, false, false, true)]
         public void Diagonal_EmittedSignals_SatisfyHardRules(
             string file, bool requireWave5Ratio, bool requireWave4Ratio,
-            bool requireInitialMovement)
+            bool requireInitialMovement, bool retraceTakeProfit)
         {
             ITimeFrame timeFrame = file.Contains("_m15_")
                 ? TimeFrameHelper.Minute15
                 : TimeFrameHelper.Hour1;
 
             const double takeProfitRatio = 1.5;
+            DiagonalTakeProfitMode tpMode = retraceTakeProfit
+                ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
+                : DiagonalTakeProfitMode.RISK_RATIO;
             (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) =
                 Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio,
-                    requireInitialMovement);
+                    requireInitialMovement, tpMode);
 
             Assert.That(signals, Is.Not.Empty,
                 $"No diagonal setups detected in {file}. Funnel: " +
@@ -149,11 +155,23 @@ namespace TradeKit.Tests
                 Assert.That(slDistance, Is.EqualTo(w3).Within(allowance + 2 * s.StopLoss.Value * 1e-4),
                     $"{at}: SL is not V(4) ± |W3|.");
 
-                // §6: TP keeps the requested R:R exactly (modulo tick rounding).
+                // §6: TP keeps the requested R:R exactly (modulo tick rounding), or — in
+                // retrace mode — sits at 23.6% of the whole diagonal V(0)→W5.
                 double risk = Math.Abs(s.StopLoss.Value - entry);
                 double reward = Math.Abs(s.TakeProfit.Value - entry);
-                Assert.That(reward, Is.EqualTo(takeProfitRatio * risk).Within(risk * 0.02 + 1e-4),
-                    $"{at}: TP does not match TakeProfitRatio={takeProfitRatio}.");
+                if (retraceTakeProfit)
+                {
+                    double diagonal = Math.Abs(p[5].Value - p[0].Value);
+                    double expectedTp = p[5].Value - sgn * 0.236 * diagonal;
+                    Assert.That(s.TakeProfit.Value, Is.EqualTo(expectedTp)
+                            .Within(2 * s.TakeProfit.Value * 1e-4),
+                        $"{at}: D-TP-236 — TP is not a 23.6% retracement of the diagonal.");
+                }
+                else
+                {
+                    Assert.That(reward, Is.EqualTo(takeProfitRatio * risk).Within(risk * 0.02 + 1e-4),
+                        $"{at}: TP does not match TakeProfitRatio={takeProfitRatio}.");
+                }
             }
         }
 
@@ -218,7 +236,8 @@ namespace TradeKit.Tests
 
         /// <summary>
         /// Compares the option axes (DIAGONAL.md §9.1): wave-5 maturity, even contraction of
-        /// wave 4, the "initial movement" test for point 0 and the R:R target. Research-only.
+        /// wave 4, the "initial movement" test for point 0 and the target (fixed R:R vs a
+        /// 23.6% retracement of the diagonal, where the R:R floats). Research-only.
         /// </summary>
         [Test]
         [Explicit]
@@ -229,29 +248,43 @@ namespace TradeKit.Tests
             foreach (bool requireW4 in new[] { false, true })
             foreach (bool requireRatio in new[] { false, true })
             {
-                foreach (double ratio in new[] { 1.0, 1.5, 2.0, 3.0 })
+                // The retrace target ignores TakeProfitRatio, so it is a single extra run.
+                foreach (double ratio in new[] { 1.0, 1.5, 2.0, 3.0, 0.0 })
                 {
+                    bool isRetrace = ratio == 0.0;
                     var provider = new TestBarsProvider(TimeFrameHelper.Hour1);
                     provider.LoadCandles(Path.Combine(FindDataDir(), H1_FILE));
 
                     var finder = new DiagonalSetupFinder(
-                        provider, provider.BarSymbol, new EWParams(0, 0.1, 10), ratio,
-                        requireRatio, requireW4, requireInit);
+                        provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                        isRetrace ? 1.0 : ratio, requireRatio, requireW4, requireInit,
+                        isRetrace
+                            ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
+                            : DiagonalTakeProfitMode.RISK_RATIO);
 
                     int enters = 0, tp = 0, sl = 0;
-                    finder.OnEnter += (_, _) => enters++;
-                    finder.OnTakeProfit += (_, _) => tp++;
-                    finder.OnStopLoss += (_, _) => sl++;
+                    double pendingR = 0, profit = 0, rSum = 0;
+                    finder.OnEnter += (_, e) =>
+                    {
+                        enters++;
+                        pendingR = Math.Abs(e.TakeProfit.Value - e.Level.Value) /
+                                   Math.Max(1e-9, Math.Abs(e.StopLoss.Value - e.Level.Value));
+                        rSum += pendingR;
+                    };
+                    finder.OnTakeProfit += (_, _) => { tp++; profit += pendingR; };
+                    finder.OnStopLoss += (_, _) => { sl++; profit -= 1; };
                     finder.MarkAsInitialized();
                     for (int i = 0; i < provider.Count; i++)
                         finder.CheckBar(provider.GetOpenTime(i));
 
                     int resolved = tp + sl;
                     double winRate = resolved > 0 ? 100.0 * tp / resolved : 0;
-                    double expectancy = resolved > 0 ? (tp * ratio - sl) / resolved : 0;
+                    double expectancy = resolved > 0 ? profit / resolved : 0;
+                    double avgR = enters > 0 ? rSum / enters : 0;
                     TestContext.Out.WriteLine(
                         $"W5={requireRatio,-5} W4={requireW4,-5} init={requireInit,-5} " +
-                        $"R:R={ratio:F1} enters={enters,4} tp={tp,4} sl={sl,4} " +
+                        $"tp={(isRetrace ? "23.6%" : $"R{ratio:F1}"),5} enters={enters,4} " +
+                        $"avgR={avgR,5:F2} tp={tp,4} sl={sl,4} " +
                         $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
                 }
             }

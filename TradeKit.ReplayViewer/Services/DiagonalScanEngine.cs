@@ -47,7 +47,10 @@ public sealed class DiagonalScanEngine
         var ewParams = new EWParams(req.Period, req.MinSizePercent, req.BarsCount);
         var finder = new DiagonalSetupFinder(
             provider, symbol, ewParams, req.TakeProfitRatio,
-            req.RequireWave5Ratio, req.RequireWave4Ratio, req.RequireInitialMovement);
+            req.RequireWave5Ratio, req.RequireWave4Ratio, req.RequireInitialMovement,
+            req.TakeProfitAtRetrace
+                ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
+                : DiagonalTakeProfitMode.RISK_RATIO);
 
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
@@ -180,4 +183,5 @@ public sealed record DiagonalScanRequest(
     double TakeProfitRatio = 1.0,
     bool RequireWave5Ratio = false,
     bool RequireWave4Ratio = false,
-    bool RequireInitialMovement = false);
+    bool RequireInitialMovement = false,
+    bool TakeProfitAtRetrace = false);

@@ -7,14 +7,32 @@ using TradeKit.Core.Indicators;
 namespace TradeKit.Core.ElliottWave
 {
     /// <summary>
+    /// How the take profit of a diagonal signal is placed (DIAGONAL.md §6.3).
+    /// </summary>
+    public enum DiagonalTakeProfitMode
+    {
+        /// <summary>
+        /// <c>TakeProfitRatio</c> × the risk — a fixed, requested R:R.
+        /// </summary>
+        RISK_RATIO,
+
+        /// <summary>
+        /// A 23.6% retracement of the whole diagonal <c>V(0) → W5</c>, so the R:R floats
+        /// with the geometry of the wedge.
+        /// </summary>
+        DIAGONAL_RETRACE
+    }
+
+    /// <summary>
     /// Finds <b>contracting diagonals</b> (leading and ending alike, see DIAGONAL.md §1)
     /// and trades the move that always follows them — a correction (wave 2 / b) or a new
     /// trend — i.e. <b>counter</b> to the diagonal itself.
     /// <para>
     /// The signal fires on the closed candle whose extreme breaks the end of wave 3
     /// (DIAGONAL.md §6, D-W5-BREAK): truncated diagonals are not traded. The stop is the
-    /// theoretical ceiling of wave 5 — <c>V(4) ± |W3|</c> — and the target is
-    /// <c>TakeProfitRatio</c> × the risk, so the R:R is exactly the requested one.
+    /// theoretical ceiling of wave 5 — <c>V(4) ± |W3|</c> — and the target is either
+    /// <c>TakeProfitRatio</c> × the risk (fixed R:R) or a 23.6% retracement of the whole
+    /// diagonal, see <see cref="DiagonalTakeProfitMode"/>.
     /// </para>
     /// <para>
     /// Architecture mirrors <see cref="RunningTriangleSetupFinder"/> but splits the work
@@ -35,6 +53,12 @@ namespace TradeKit.Core.ElliottWave
 
         /// <summary>Lower bound of |W4|/|W2| for <see cref="RequireWave4Ratio"/> (D-W4-78).</summary>
         private const double WAVE4_MIN_RATIO = 0.786;
+
+        /// <summary>
+        /// Retracement of the whole diagonal used as the target in
+        /// <see cref="DiagonalTakeProfitMode.DIAGONAL_RETRACE"/> mode (D-TP-236).
+        /// </summary>
+        private const double DIAGONAL_RETRACE_RATIO = 0.236;
 
         /// <summary>
         /// Minimum risk (entry→SL) as a share of |W3|. As wave 5 approaches its |W3| ceiling
@@ -106,9 +130,15 @@ namespace TradeKit.Core.ElliottWave
 
         /// <summary>
         /// Gets the take-profit multiplier of the risk: 1 → R:R = 1, 2 → the target is
-        /// twice the entry-to-stop distance (DIAGONAL.md §6).
+        /// twice the entry-to-stop distance (DIAGONAL.md §6). Ignored in
+        /// <see cref="DiagonalTakeProfitMode.DIAGONAL_RETRACE"/> mode.
         /// </summary>
         public double TakeProfitRatio { get; }
+
+        /// <summary>
+        /// Gets the way the target is placed (DIAGONAL.md §6.3).
+        /// </summary>
+        public DiagonalTakeProfitMode TakeProfitMode { get; }
 
         /// <summary>
         /// When set, a signal additionally requires a "mature" wave 5:
@@ -145,6 +175,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireWave5Ratio">Require <c>|W5| ≥ 0.786·|W3|</c> on the signal.</param>
         /// <param name="requireWave4Ratio">Require <c>|W4| ≥ 0.786·|W2|</c>.</param>
         /// <param name="requireInitialMovement">Require an initial move <c>V(0) → V(1)</c>.</param>
+        /// <param name="takeProfitMode">How the target is placed.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -152,7 +183,8 @@ namespace TradeKit.Core.ElliottWave
             double takeProfitRatio = 1.0,
             bool requireWave5Ratio = false,
             bool requireWave4Ratio = false,
-            bool requireInitialMovement = false)
+            bool requireInitialMovement = false,
+            DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -160,6 +192,7 @@ namespace TradeKit.Core.ElliottWave
             RequireWave5Ratio = requireWave5Ratio;
             RequireWave4Ratio = requireWave4Ratio;
             RequireInitialMovement = requireInitialMovement;
+            TakeProfitMode = takeProfitMode;
 
             // A diagonal is a motive model, so the impulse volatility estimate applies.
             ZigzagPeriod = ewParams.Period > 0
@@ -657,6 +690,11 @@ namespace TradeKit.Core.ElliottWave
                 : candidate.P4.Value - w3;
             double slAllowance = Math.Abs(entry - slRaw) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
+            // D-TP-236: the target retraces the whole diagonal V(0) → W5, not the risk.
+            double retraceRaw = candidate.W5Extreme + (candidate.IsUp ? -1 : 1) *
+                DIAGONAL_RETRACE_RATIO * Math.Abs(candidate.W5Extreme - p0.Value);
+            bool isRetraceTp = TakeProfitMode == DiagonalTakeProfitMode.DIAGONAL_RETRACE;
+
             double slPrice, tpPrice;
             if (isUpSetup)
             {
@@ -667,8 +705,10 @@ namespace TradeKit.Core.ElliottWave
                     return false;
                 }
 
-                tpPrice = Math.Round(entry + TakeProfitRatio * (entry - slPrice),
-                    Symbol.Digits, MidpointRounding.ToZero);
+                tpPrice = isRetraceTp
+                    ? Math.Round(retraceRaw, Symbol.Digits, MidpointRounding.ToZero)
+                    : Math.Round(entry + TakeProfitRatio * (entry - slPrice),
+                        Symbol.Digits, MidpointRounding.ToZero);
             }
             else
             {
@@ -679,8 +719,17 @@ namespace TradeKit.Core.ElliottWave
                     return false;
                 }
 
-                tpPrice = Math.Round(entry - TakeProfitRatio * (slPrice - entry),
-                    Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+                tpPrice = isRetraceTp
+                    ? Math.Round(retraceRaw, Symbol.Digits, MidpointRounding.ToPositiveInfinity)
+                    : Math.Round(entry - TakeProfitRatio * (slPrice - entry),
+                        Symbol.Digits, MidpointRounding.ToPositiveInfinity);
+            }
+
+            // In retrace mode the trigger candle may already close past the 23.6% level.
+            if (isRetraceTp && (isUpSetup ? tpPrice <= entry : tpPrice >= entry))
+            {
+                Bump("tpBehindEntry", p0);
+                return false;
             }
 
             if (Math.Abs(slPrice - entry) < MIN_RISK_TO_W3_RATIO * w3)
@@ -728,7 +777,7 @@ namespace TradeKit.Core.ElliottWave
             CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(
                 level, tpPoint, slPoint, wavePoints, p0.OpenTime,
                 string.Create(CultureInfo.InvariantCulture,
-                    $"DIAGONAL_CONTRACTING w5/w3={candidate.W5Length / Math.Max(1e-9, w3):F2} rr={TakeProfitRatio:F2}"));
+                    $"DIAGONAL_CONTRACTING w5/w3={candidate.W5Length / Math.Max(1e-9, w3):F2} rr={Math.Abs(tpPrice - entry) / Math.Max(1e-9, Math.Abs(entry - slPrice)):F2}"));
 
             m_SignaledPoint0.Add(p0.OpenTime);
             Bump("entered", p0);
