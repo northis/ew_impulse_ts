@@ -160,6 +160,12 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireInitialMovement { get; }
 
         /// <summary>
+        /// When set (the default), the trendlines 1-3 and 2-4 must converge — the wedge
+        /// closes ahead of wave 5 instead of opening up (DIAGONAL.md §4.2, D-CONVERGE).
+        /// </summary>
+        public bool RequireConvergence { get; }
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -176,6 +182,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireWave4Ratio">Require <c>|W4| ≥ 0.786·|W2|</c>.</param>
         /// <param name="requireInitialMovement">Require an initial move <c>V(0) → V(1)</c>.</param>
         /// <param name="takeProfitMode">How the target is placed.</param>
+        /// <param name="requireConvergence">Require the trendlines 1-3 and 2-4 to converge.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -184,7 +191,8 @@ namespace TradeKit.Core.ElliottWave
             bool requireWave5Ratio = false,
             bool requireWave4Ratio = false,
             bool requireInitialMovement = false,
-            DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO)
+            DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
+            bool requireConvergence = true)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -193,6 +201,7 @@ namespace TradeKit.Core.ElliottWave
             RequireWave4Ratio = requireWave4Ratio;
             RequireInitialMovement = requireInitialMovement;
             TakeProfitMode = takeProfitMode;
+            RequireConvergence = requireConvergence;
 
             // A diagonal is a motive model, so the impulse volatility estimate applies.
             ZigzagPeriod = ewParams.Period > 0
@@ -470,6 +479,24 @@ namespace TradeKit.Core.ElliottWave
             {
                 Bump("w4BeyondW2", p0);
                 return;
+            }
+
+            // D-CONVERGE: the trendlines 1-3 and 2-4 must close, not open up. In v-space
+            // the 1-3 line rises by |W3|−|W2| over its span and the 2-4 line by |W3|−|W4|
+            // over its own, so this is a genuinely different test from |W4| < |W2| — it
+            // weighs the durations as well (DIAGONAL.md §4.2).
+            if (RequireConvergence)
+            {
+                double upperRise = sgn * (p3.Value - p1.Value);
+                double lowerRise = sgn * (p4.Value - p2.Value);
+                int upperBars = p3.BarIndex - p1.BarIndex;
+                int lowerBars = p4.BarIndex - p2.BarIndex;
+                if (upperBars <= 0 || lowerBars <= 0 ||
+                    upperRise * lowerBars >= lowerRise * upperBars)
+                {
+                    Bump("linesDiverge", p0);
+                    return;
+                }
             }
 
             // Soft fibo W3/W1 — disabled by default (DIAGONAL.md O-7).

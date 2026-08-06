@@ -28,7 +28,8 @@ namespace TradeKit.Tests
             Run(string file, ITimeFrame timeFrame, double takeProfitRatio = 1.0,
                 bool requireWave5Ratio = false, bool requireWave4Ratio = false,
                 bool requireInitialMovement = false,
-                DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO)
+                DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
+                bool requireConvergence = true)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -36,7 +37,7 @@ namespace TradeKit.Tests
             var finder = new DiagonalSetupFinder(
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
                 takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialMovement,
-                takeProfitMode);
+                takeProfitMode, requireConvergence);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -108,6 +109,14 @@ namespace TradeKit.Tests
                 // D-CONTRACT-3 / D-CONTRACT-4
                 Assert.That(w3, Is.LessThan(w1), $"{at}: D-CONTRACT-3 — |W3| >= |W1|.");
                 Assert.That(w4, Is.LessThan(w2), $"{at}: D-CONTRACT-4 — |W4| >= |W2|.");
+
+                // D-CONVERGE — the trendlines 1-3 and 2-4 close (on by default).
+                double upperSlope = sgn * (p[3].Value - p[1].Value) /
+                                    (p[3].BarIndex - p[1].BarIndex);
+                double lowerSlope = sgn * (p[4].Value - p[2].Value) /
+                                    (p[4].BarIndex - p[2].BarIndex);
+                Assert.That(upperSlope, Is.LessThan(lowerSlope),
+                    $"{at}: D-CONVERGE — the trendlines diverge.");
 
                 // D-OVERLAP — the defining feature of a diagonal.
                 Assert.That(sgn * (p[4].Value - p[1].Value), Is.LessThan(0),
@@ -244,6 +253,7 @@ namespace TradeKit.Tests
         [Category("Research")]
         public void Diagonal_ModeComparison_Report()
         {
+            foreach (bool converge in new[] { true, false })
             foreach (bool requireInit in new[] { false, true })
             foreach (bool requireW4 in new[] { false, true })
             foreach (bool requireRatio in new[] { false, true })
@@ -260,7 +270,8 @@ namespace TradeKit.Tests
                         isRetrace ? 1.0 : ratio, requireRatio, requireW4, requireInit,
                         isRetrace
                             ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
-                            : DiagonalTakeProfitMode.RISK_RATIO);
+                            : DiagonalTakeProfitMode.RISK_RATIO,
+                        converge);
 
                     int enters = 0, tp = 0, sl = 0;
                     double pendingR = 0, profit = 0, rSum = 0;
@@ -282,7 +293,8 @@ namespace TradeKit.Tests
                     double expectancy = resolved > 0 ? profit / resolved : 0;
                     double avgR = enters > 0 ? rSum / enters : 0;
                     TestContext.Out.WriteLine(
-                        $"W5={requireRatio,-5} W4={requireW4,-5} init={requireInit,-5} " +
+                        $"conv={converge,-5} W5={requireRatio,-5} W4={requireW4,-5} " +
+                        $"init={requireInit,-5} " +
                         $"tp={(isRetrace ? "23.6%" : $"R{ratio:F1}"),5} enters={enters,4} " +
                         $"avgR={avgR,5:F2} tp={tp,4} sl={sl,4} " +
                         $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");

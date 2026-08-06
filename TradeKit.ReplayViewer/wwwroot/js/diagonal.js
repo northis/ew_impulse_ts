@@ -320,7 +320,8 @@ async function runScan() {
         requireWave5Ratio: $('pW5Ratio').checked,
         requireWave4Ratio: $('pW4Ratio').checked,
         requireInitialMovement: $('pInitMove').checked,
-        takeProfitAtRetrace: $('pTpRetrace').checked
+        takeProfitAtRetrace: $('pTpRetrace').checked,
+        requireConvergence: $('pConverge').checked
     };
 
     try {
