@@ -51,7 +51,9 @@ public sealed class DiagonalScanEngine
             req.TakeProfitAtRetrace
                 ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                 : DiagonalTakeProfitMode.RISK_RATIO,
-            req.RequireConvergence);
+            req.RequireConvergence,
+            req.RequireInsideWedge,
+            req.MaxSpillAreaRatio);
 
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
@@ -186,4 +188,6 @@ public sealed record DiagonalScanRequest(
     bool RequireWave4Ratio = false,
     bool RequireInitialMovement = false,
     bool TakeProfitAtRetrace = false,
-    bool RequireConvergence = true);
+    bool RequireConvergence = true,
+    bool RequireInsideWedge = true,
+    double MaxSpillAreaRatio = 0.005);

@@ -118,6 +118,24 @@ namespace TradeKit.Tests
                 Assert.That(upperSlope, Is.LessThan(lowerSlope),
                     $"{at}: D-CONVERGE — the trendlines diverge.");
 
+                // D-INSIDE — the bars of waves 2-4 stay inside the wedge (on by default).
+                double ceilSlope = (p[3].Value - p[1].Value) / (p[3].BarIndex - p[1].BarIndex);
+                double floorSlope = (p[4].Value - p[2].Value) / (p[4].BarIndex - p[2].BarIndex);
+                double spill = 0, wedge = 0;
+                for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
+                {
+                    double ceiling = sgn * (p[1].Value + ceilSlope * (bar - p[1].BarIndex));
+                    double floorLine = sgn * (p[2].Value + floorSlope * (bar - p[2].BarIndex));
+                    double high = sgn * finder.BarsProvider.GetHighPrice(bar);
+                    double low = sgn * finder.BarsProvider.GetLowPrice(bar);
+                    spill += Math.Max(0, Math.Max(high, low) - ceiling) +
+                             Math.Max(0, floorLine - Math.Min(high, low));
+                    wedge += ceiling - floorLine;
+                }
+
+                Assert.That(spill / wedge, Is.LessThanOrEqualTo(finder.MaxSpillAreaRatio + 1e-9),
+                    $"{at}: D-INSIDE — the bars spill out of the wedge.");
+
                 // D-OVERLAP — the defining feature of a diagonal.
                 Assert.That(sgn * (p[4].Value - p[1].Value), Is.LessThan(0),
                     $"{at}: D-OVERLAP — wave 4 does not overlap wave 1 (this is an impulse).");
@@ -196,8 +214,8 @@ namespace TradeKit.Tests
             string[] files =
             {
                 M15_FILE, H1_FILE,
-                "EURUSD_h1_2017-12-18T16-00-00_2026-05-31T23-00-00.csv",
-                "GBPUSD_h1_2019-12-18T09-00-00_2026-05-31T23-00-00.csv"
+                "EURUSD_h1_2017-12-27T20-00-00_2026-05-31T23-00-00.csv",
+                "GBPUSD_h1_2017-12-18T16-00-00_2026-05-31T23-00-00.csv"
             };
 
             var lines = new List<string>
@@ -297,6 +315,61 @@ namespace TradeKit.Tests
                         $"init={requireInit,-5} " +
                         $"tp={(isRetrace ? "23.6%" : $"R{ratio:F1}"),5} enters={enters,4} " +
                         $"avgR={avgR,5:F2} tp={tp,4} sl={sl,4} " +
+                        $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Calibrates the D-INSIDE threshold (DIAGONAL.md §4.3): how much of the wedge area
+        /// may the bars of waves 2-4 spend outside the trendlines? Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_SpillThreshold_Report()
+        {
+            string[] files =
+            {
+                H1_FILE,
+                "EURUSD_h1_2017-12-27T20-00-00_2026-05-31T23-00-00.csv",
+                "GBPUSD_h1_2017-12-18T16-00-00_2026-05-31T23-00-00.csv"
+            };
+            foreach (string file in files)
+            {
+                if (!File.Exists(Path.Combine(FindDataDir(), file)))
+                    continue;
+
+                foreach (double maxSpill in new[] { 0.0, 0.002, 0.003, 0.005, 0.01, 0.02, 0.05 })
+                foreach (double ratio in new[] { 1.0, 1.5, 2.0 })
+                {
+                    var provider = new TestBarsProvider(TimeFrameHelper.Hour1);
+                    provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+                    var finder = new DiagonalSetupFinder(
+                        provider, provider.BarSymbol, new EWParams(0, 0.1, 10), ratio,
+                        requireWave5Ratio: false, requireWave4Ratio: false,
+                        requireInitialMovement: false,
+                        takeProfitMode: DiagonalTakeProfitMode.RISK_RATIO,
+                        requireConvergence: true,
+                        requireInsideWedge: maxSpill > 0,
+                        maxSpillAreaRatio: maxSpill > 0 ? maxSpill : 1.0);
+
+                    int enters = 0, tp = 0, sl = 0;
+                    finder.OnEnter += (_, _) => enters++;
+                    finder.OnTakeProfit += (_, _) => tp++;
+                    finder.OnStopLoss += (_, _) => sl++;
+                    finder.MarkAsInitialized();
+                    for (int i = 0; i < provider.Count; i++)
+                        finder.CheckBar(provider.GetOpenTime(i));
+
+                    int resolved = tp + sl;
+                    double winRate = resolved > 0 ? 100.0 * tp / resolved : 0;
+                    double expectancy = resolved > 0 ? (tp * ratio - sl) / resolved : 0;
+                    string spillLabel = maxSpill > 0 ? maxSpill.ToString("F3") : "off";
+                    TestContext.Out.WriteLine(
+                        $"{file[..6]} maxSpill={spillLabel,5} " +
+                        $"R:R={ratio:F1} enters={enters,4} tp={tp,4} sl={sl,4} " +
                         $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
                 }
             }

@@ -67,6 +67,12 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         private const double MIN_RISK_TO_W3_RATIO = 0.05;
 
+        /// <summary>
+        /// Default share of the wedge area the bars may spend outside the trendlines
+        /// before the candidate is rejected (D-INSIDE). Calibrated in DIAGONAL.md §9.7.
+        /// </summary>
+        private const double DEFAULT_MAX_SPILL_AREA_RATIO = 0.005;
+
         /// <summary>Sanity bound on adjacent wave durations (D-TIME).</summary>
         private const double MAX_WAVE_DURATION_RATIO = 4.0;
 
@@ -166,6 +172,19 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireConvergence { get; }
 
         /// <summary>
+        /// When set (the default), the bars of waves 2-4 must stay inside the trendlines:
+        /// their spill area may not exceed <see cref="MaxSpillAreaRatio"/> of the wedge
+        /// area (DIAGONAL.md §4.3, D-INSIDE).
+        /// </summary>
+        public bool RequireInsideWedge { get; }
+
+        /// <summary>
+        /// Gets the D-INSIDE threshold — the tolerated spill area as a share of the wedge
+        /// area. Isolated wicks cost a fraction of a percent, a sustained excursion much more.
+        /// </summary>
+        public double MaxSpillAreaRatio { get; }
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -183,6 +202,8 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireInitialMovement">Require an initial move <c>V(0) → V(1)</c>.</param>
         /// <param name="takeProfitMode">How the target is placed.</param>
         /// <param name="requireConvergence">Require the trendlines 1-3 and 2-4 to converge.</param>
+        /// <param name="requireInsideWedge">Require the bars to stay inside the trendlines.</param>
+        /// <param name="maxSpillAreaRatio">Tolerated spill area as a share of the wedge area.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -192,7 +213,9 @@ namespace TradeKit.Core.ElliottWave
             bool requireWave4Ratio = false,
             bool requireInitialMovement = false,
             DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
-            bool requireConvergence = true)
+            bool requireConvergence = true,
+            bool requireInsideWedge = true,
+            double maxSpillAreaRatio = DEFAULT_MAX_SPILL_AREA_RATIO)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -202,6 +225,10 @@ namespace TradeKit.Core.ElliottWave
             RequireInitialMovement = requireInitialMovement;
             TakeProfitMode = takeProfitMode;
             RequireConvergence = requireConvergence;
+            RequireInsideWedge = requireInsideWedge;
+            MaxSpillAreaRatio = maxSpillAreaRatio > 0
+                ? maxSpillAreaRatio
+                : DEFAULT_MAX_SPILL_AREA_RATIO;
 
             // A diagonal is a motive model, so the impulse volatility estimate applies.
             ZigzagPeriod = ewParams.Period > 0
@@ -543,6 +570,15 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
+            // D-INSIDE: bars of waves 2-4 stay inside the wedge. Walks the whole skeleton
+            // span, so it goes after the cheap geometry.
+            if (RequireInsideWedge &&
+                SpillAreaRatio(p1, p2, p3, p4, sgn) > MaxSpillAreaRatio)
+            {
+                Bump("spillsOutOfWedge", p0);
+                return;
+            }
+
             // D-W1-INIT (optional): wave 1 starts off a fresh reversal — natural for an
             // ending diagonal, often false for a leading one (DIAGONAL.md §5.2, O-6).
             // Last gate: it is the only one that walks bars backwards.
@@ -605,6 +641,37 @@ namespace TradeKit.Core.ElliottWave
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Share of the wedge's own area that the bars of waves 2-4 spend <b>outside</b> the
+        /// trendlines 1-3 and 2-4 (D-INSIDE, DIAGONAL.md §4.3). Dimensionless, so it is
+        /// comparable across symbols, timeframes and wedge sizes: an isolated wick over a
+        /// span of dozens of bars is negligible, a sustained excursion is not.
+        /// </summary>
+        private double SpillAreaRatio(BarPoint p1, BarPoint p2, BarPoint p3, BarPoint p4, int sgn)
+        {
+            double ceilSlope = (p3.Value - p1.Value) / (p3.BarIndex - p1.BarIndex);
+            double floorSlope = (p4.Value - p2.Value) / (p4.BarIndex - p2.BarIndex);
+
+            double spill = 0;
+            double area = 0;
+            for (int bar = p1.BarIndex; bar <= p4.BarIndex; bar++)
+            {
+                // In v-space the 1-3 line is always the ceiling and the 2-4 line the floor.
+                double ceiling = sgn * (p1.Value + ceilSlope * (bar - p1.BarIndex));
+                double floor = sgn * (p2.Value + floorSlope * (bar - p2.BarIndex));
+
+                double high = sgn * BarsProvider.GetHighPrice(bar);
+                double low = sgn * BarsProvider.GetLowPrice(bar);
+                double barMax = Math.Max(high, low);
+                double barMin = Math.Min(high, low);
+
+                spill += Math.Max(0, barMax - ceiling) + Math.Max(0, floor - barMin);
+                area += ceiling - floor;
+            }
+
+            return spill / Math.Max(1e-12, area);
         }
 
         #endregion
