@@ -166,10 +166,14 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireInitialMovement { get; }
 
         /// <summary>
-        /// When set (the default), the trendlines 1-3 and 2-4 must converge — the wedge
-        /// closes ahead of wave 5 instead of opening up (DIAGONAL.md §4.2, D-CONVERGE).
+        /// Minimum required convergence of the trendlines 1-3 and 2-4 (D-CONVERGE,
+        /// DIAGONAL.md §4.2). The measure is <c>w(t1)/w(t4) − 1</c>, where <c>w</c> is the
+        /// distance between the lines: <c>0</c> — parallel (the default, so only genuinely
+        /// diverging wedges are dropped), <c>+1</c> — the wedge is twice as narrow at point 4,
+        /// <c>+5</c> — six times. Values below <c>−1</c> disable the filter, since the measure
+        /// is always greater than <c>−1</c>.
         /// </summary>
-        public bool RequireConvergence { get; }
+        public double MinConvergence { get; }
 
         /// <summary>
         /// When set (the default), the bars of waves 2-4 must stay inside the trendlines:
@@ -201,7 +205,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireWave4Ratio">Require <c>|W4| ≥ 0.786·|W2|</c>.</param>
         /// <param name="requireInitialMovement">Require an initial move <c>V(0) → V(1)</c>.</param>
         /// <param name="takeProfitMode">How the target is placed.</param>
-        /// <param name="requireConvergence">Require the trendlines 1-3 and 2-4 to converge.</param>
+        /// <param name="minConvergence">Minimum convergence of the trendlines 1-3 and 2-4.</param>
         /// <param name="requireInsideWedge">Require the bars to stay inside the trendlines.</param>
         /// <param name="maxSpillAreaRatio">Tolerated spill area as a share of the wedge area.</param>
         public DiagonalSetupFinder(
@@ -213,7 +217,7 @@ namespace TradeKit.Core.ElliottWave
             bool requireWave4Ratio = false,
             bool requireInitialMovement = false,
             DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
-            bool requireConvergence = true,
+            double minConvergence = 0,
             bool requireInsideWedge = true,
             double maxSpillAreaRatio = DEFAULT_MAX_SPILL_AREA_RATIO)
             : base(mainBarsProvider, symbol)
@@ -224,7 +228,7 @@ namespace TradeKit.Core.ElliottWave
             RequireWave4Ratio = requireWave4Ratio;
             RequireInitialMovement = requireInitialMovement;
             TakeProfitMode = takeProfitMode;
-            RequireConvergence = requireConvergence;
+            MinConvergence = minConvergence;
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
                 ? maxSpillAreaRatio
@@ -508,22 +512,15 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
-            // D-CONVERGE: the trendlines 1-3 and 2-4 must close, not open up. In v-space
-            // the 1-3 line rises by |W3|−|W2| over its span and the 2-4 line by |W3|−|W4|
-            // over its own, so this is a genuinely different test from |W4| < |W2| — it
-            // weighs the durations as well (DIAGONAL.md §4.2).
-            if (RequireConvergence)
+            // D-CONVERGE: how hard the trendlines 1-3 and 2-4 close. In v-space the 1-3 line
+            // rises by |W3|−|W2| over its span and the 2-4 line by |W3|−|W4| over its own, so
+            // this weighs the durations as well and is a genuinely different test from
+            // |W4| < |W2| (DIAGONAL.md §4.2).
+            double convergence = ConvergenceRatio(p1, p2, p3, p4, sgn);
+            if (convergence < MinConvergence)
             {
-                double upperRise = sgn * (p3.Value - p1.Value);
-                double lowerRise = sgn * (p4.Value - p2.Value);
-                int upperBars = p3.BarIndex - p1.BarIndex;
-                int lowerBars = p4.BarIndex - p2.BarIndex;
-                if (upperBars <= 0 || lowerBars <= 0 ||
-                    upperRise * lowerBars >= lowerRise * upperBars)
-                {
-                    Bump("linesDiverge", p0);
-                    return;
-                }
+                Bump("linesDiverge", p0);
+                return;
             }
 
             // Soft fibo W3/W1 — disabled by default (DIAGONAL.md O-7).
@@ -627,6 +624,26 @@ namespace TradeKit.Core.ElliottWave
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// How hard the trendlines 1-3 and 2-4 close: <c>w(t1)/w(t4) − 1</c>, where <c>w</c>
+        /// is the vertical distance between them (D-CONVERGE, DIAGONAL.md §4.2).
+        /// <c>0</c> — parallel, <c>+1</c> — the wedge is twice as narrow at point 4,
+        /// <c>+5</c> — six times, negative — diverging (asymptotically <c>−1</c>).
+        /// </summary>
+        private static double ConvergenceRatio(
+            BarPoint p1, BarPoint p2, BarPoint p3, BarPoint p4, int sgn)
+        {
+            double ceilSlope = (p3.Value - p1.Value) / (p3.BarIndex - p1.BarIndex);
+            double floorSlope = (p4.Value - p2.Value) / (p4.BarIndex - p2.BarIndex);
+
+            // The 1-3 line is the ceiling in v-space, the 2-4 line the floor; both are
+            // extrapolated to the ends of the skeleton.
+            double widthAt1 = sgn * (p1.Value - (p2.Value + floorSlope * (p1.BarIndex - p2.BarIndex)));
+            double widthAt4 = sgn * ((p1.Value + ceilSlope * (p4.BarIndex - p1.BarIndex)) - p4.Value);
+
+            return widthAt1 / Math.Max(1e-12, widthAt4) - 1;
         }
 
         private bool IsWaveContained(BarPoint start, BarPoint end)

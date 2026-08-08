@@ -321,7 +321,7 @@ async function runScan() {
         requireWave4Ratio: $('pW4Ratio').checked,
         requireInitialMovement: $('pInitMove').checked,
         takeProfitAtRetrace: $('pTpRetrace').checked,
-        requireConvergence: $('pConverge').checked,
+        minConvergence: parseFloat($('pConverge').value) || 0,
         requireInsideWedge: $('pInside').checked,
         maxSpillAreaRatio: parseFloat($('pSpill').value) || 0.005
     };

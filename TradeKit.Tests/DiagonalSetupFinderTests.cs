@@ -29,7 +29,7 @@ namespace TradeKit.Tests
                 bool requireWave5Ratio = false, bool requireWave4Ratio = false,
                 bool requireInitialMovement = false,
                 DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
-                bool requireConvergence = true)
+                double minConvergence = 0)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -37,7 +37,7 @@ namespace TradeKit.Tests
             var finder = new DiagonalSetupFinder(
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
                 takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialMovement,
-                takeProfitMode, requireConvergence);
+                takeProfitMode, minConvergence);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -110,17 +110,18 @@ namespace TradeKit.Tests
                 Assert.That(w3, Is.LessThan(w1), $"{at}: D-CONTRACT-3 — |W3| >= |W1|.");
                 Assert.That(w4, Is.LessThan(w2), $"{at}: D-CONTRACT-4 — |W4| >= |W2|.");
 
-                // D-CONVERGE — the trendlines 1-3 and 2-4 close (on by default).
-                double upperSlope = sgn * (p[3].Value - p[1].Value) /
-                                    (p[3].BarIndex - p[1].BarIndex);
-                double lowerSlope = sgn * (p[4].Value - p[2].Value) /
-                                    (p[4].BarIndex - p[2].BarIndex);
-                Assert.That(upperSlope, Is.LessThan(lowerSlope),
-                    $"{at}: D-CONVERGE — the trendlines diverge.");
-
-                // D-INSIDE — the bars of waves 2-4 stay inside the wedge (on by default).
+                // D-CONVERGE — the wedge is at least as closed as MinConvergence demands.
                 double ceilSlope = (p[3].Value - p[1].Value) / (p[3].BarIndex - p[1].BarIndex);
                 double floorSlope = (p[4].Value - p[2].Value) / (p[4].BarIndex - p[2].BarIndex);
+                double widthAt1 =
+                    sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
+                double widthAt4 =
+                    sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
+                Assert.That(widthAt1 / widthAt4 - 1,
+                    Is.GreaterThanOrEqualTo(finder.MinConvergence - 1e-9),
+                    $"{at}: D-CONVERGE — the wedge converges less than required.");
+
+                // D-INSIDE — the bars of waves 2-4 stay inside the wedge (on by default).
                 double spill = 0, wedge = 0;
                 for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
                 {
@@ -271,7 +272,7 @@ namespace TradeKit.Tests
         [Category("Research")]
         public void Diagonal_ModeComparison_Report()
         {
-            foreach (bool converge in new[] { true, false })
+            foreach (double minConvergence in new[] { -1.0, 0.0, 0.5, 1.0 })
             foreach (bool requireInit in new[] { false, true })
             foreach (bool requireW4 in new[] { false, true })
             foreach (bool requireRatio in new[] { false, true })
@@ -289,7 +290,7 @@ namespace TradeKit.Tests
                         isRetrace
                             ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                             : DiagonalTakeProfitMode.RISK_RATIO,
-                        converge);
+                        minConvergence);
 
                     int enters = 0, tp = 0, sl = 0;
                     double pendingR = 0, profit = 0, rSum = 0;
@@ -311,7 +312,7 @@ namespace TradeKit.Tests
                     double expectancy = resolved > 0 ? profit / resolved : 0;
                     double avgR = enters > 0 ? rSum / enters : 0;
                     TestContext.Out.WriteLine(
-                        $"conv={converge,-5} W5={requireRatio,-5} W4={requireW4,-5} " +
+                        $"conv={minConvergence,5:F1} W5={requireRatio,-5} W4={requireW4,-5} " +
                         $"init={requireInit,-5} " +
                         $"tp={(isRetrace ? "23.6%" : $"R{ratio:F1}"),5} enters={enters,4} " +
                         $"avgR={avgR,5:F2} tp={tp,4} sl={sl,4} " +
@@ -351,7 +352,7 @@ namespace TradeKit.Tests
                         requireWave5Ratio: false, requireWave4Ratio: false,
                         requireInitialMovement: false,
                         takeProfitMode: DiagonalTakeProfitMode.RISK_RATIO,
-                        requireConvergence: true,
+                        minConvergence: 0,
                         requireInsideWedge: maxSpill > 0,
                         maxSpillAreaRatio: maxSpill > 0 ? maxSpill : 1.0);
 
