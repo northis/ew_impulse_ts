@@ -45,8 +45,8 @@ namespace TradeKit.Core.ElliottWave
     /// </summary>
     public class DiagonalSetupFinder : SingleSetupFinder<ElliottWaveSignalEventArgs>
     {
-        /// <summary>Minimum penetration of wave 3 beyond wave 1, as a share of |W1| (D-W3-PEN).</summary>
-        private const double MIN_DIAGONAL_PENETRATION = 0.05;
+        /// <summary>Default minimum penetration of wave 3 beyond wave 1, as a share of |W1| (D-W3-PEN).</summary>
+        private const double DEFAULT_MIN_WAVE3_PENETRATION = 0.03;
 
         /// <summary>Maturity threshold of wave 5 for <see cref="RequireWave5Ratio"/> (D-W5-78).</summary>
         private const double WAVE5_MIN_RATIO = 0.786;
@@ -73,8 +73,8 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         private const double DEFAULT_MAX_SPILL_AREA_RATIO = 0.005;
 
-        /// <summary>Sanity bound on adjacent wave durations (D-TIME).</summary>
-        private const double MAX_WAVE_DURATION_RATIO = 4.0;
+        /// <summary>Default sanity bound on the duration ratio of same-character waves (D-TIME).</summary>
+        private const double DEFAULT_MAX_WAVE_DURATION_RATIO = 8.0;
 
         /// <summary>Pullback share that ends a wave during greedy sub-wave merging.</summary>
         private const double WAVE_PULLBACK_TOL = 0.5;
@@ -189,6 +189,20 @@ namespace TradeKit.Core.ElliottWave
         public double MaxSpillAreaRatio { get; }
 
         /// <summary>
+        /// Gets the minimum penetration of wave 3 beyond the end of wave 1, as a share of
+        /// |W1| (D-W3-PEN). Separates a genuine new extreme from a truncation; a value that
+        /// is too high rejects wedges whose wave 3 barely pokes through, which is exactly
+        /// what a tight contracting diagonal looks like.
+        /// </summary>
+        public double MinWave3Penetration { get; }
+
+        /// <summary>
+        /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
+        /// same-character sibling — W3 vs W1 and W4 vs W2 (DIAGONAL.md §4).
+        /// </summary>
+        public double MaxWaveDurationRatio { get; }
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -208,6 +222,8 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="minConvergence">Minimum convergence of the trendlines 1-3 and 2-4.</param>
         /// <param name="requireInsideWedge">Require the bars to stay inside the trendlines.</param>
         /// <param name="maxSpillAreaRatio">Tolerated spill area as a share of the wedge area.</param>
+        /// <param name="minWave3Penetration">Minimum break of wave 1 by wave 3, share of |W1|.</param>
+        /// <param name="maxWaveDurationRatio">D-TIME bound on W3/W1 and W4/W2 durations.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -219,7 +235,9 @@ namespace TradeKit.Core.ElliottWave
             DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
             double minConvergence = 0,
             bool requireInsideWedge = true,
-            double maxSpillAreaRatio = DEFAULT_MAX_SPILL_AREA_RATIO)
+            double maxSpillAreaRatio = DEFAULT_MAX_SPILL_AREA_RATIO,
+            double minWave3Penetration = DEFAULT_MIN_WAVE3_PENETRATION,
+            double maxWaveDurationRatio = DEFAULT_MAX_WAVE_DURATION_RATIO)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -233,6 +251,10 @@ namespace TradeKit.Core.ElliottWave
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
                 ? maxSpillAreaRatio
                 : DEFAULT_MAX_SPILL_AREA_RATIO;
+            MinWave3Penetration = Math.Max(0, minWave3Penetration);
+            MaxWaveDurationRatio = maxWaveDurationRatio > 0
+                ? maxWaveDurationRatio
+                : DEFAULT_MAX_WAVE_DURATION_RATIO;
 
             // A diagonal is a motive model, so the impulse volatility estimate applies.
             ZigzagPeriod = ewParams.Period > 0
@@ -471,7 +493,7 @@ namespace TradeKit.Core.ElliottWave
             }
 
             // D-W3-PEN: wave 3 makes a new extreme beyond wave 1.
-            if (sgn * (p3.Value - p1.Value) < MIN_DIAGONAL_PENETRATION * w1)
+            if (sgn * (p3.Value - p1.Value) < MinWave3Penetration * w1)
             {
                 Bump("w3NoPenetration", p0);
                 return;
@@ -536,7 +558,7 @@ namespace TradeKit.Core.ElliottWave
 
             BarPoint[] skeleton = { p0, p1, p2, p3, p4 };
 
-            // D-TIME: no wave lasts disproportionally longer than the one before it.
+            // D-TIME: no wave lasts disproportionally longer than its same-character sibling.
             if (!AreWaveDurationsSane(skeleton))
             {
                 Bump("durationInsane", p0);
@@ -613,13 +635,23 @@ namespace TradeKit.Core.ElliottWave
             Bump("registered", p0);
         }
 
-        private static bool AreWaveDurationsSane(IReadOnlyList<BarPoint> points)
+        /// <summary>
+        /// D-TIME: compares the duration of same-character waves — motive W3 against motive
+        /// W1, corrective W4 against corrective W2 — in both directions. Comparing adjacent
+        /// waves instead would pit a fast motive leg against a slow correction, which in a
+        /// diagonal routinely differ by an order of magnitude and is not a defect.
+        /// </summary>
+        private bool AreWaveDurationsSane(IReadOnlyList<BarPoint> points)
         {
-            for (int w = 2; w < points.Count; w++)
+            for (int w = 3; w < points.Count; w++)
             {
-                double prevBars = points[w - 1].BarIndex - points[w - 2].BarIndex;
+                double siblingBars = points[w - 2].BarIndex - points[w - 3].BarIndex;
                 double curBars = points[w].BarIndex - points[w - 1].BarIndex;
-                if (prevBars > 0 && curBars / prevBars > MAX_WAVE_DURATION_RATIO)
+                if (siblingBars <= 0 || curBars <= 0)
+                    continue;
+
+                double ratio = Math.Max(curBars / siblingBars, siblingBars / curBars);
+                if (ratio > MaxWaveDurationRatio)
                     return false;
             }
 
@@ -761,10 +793,11 @@ namespace TradeKit.Core.ElliottWave
             if (candidate.W5Length >= candidate.W3Length)
                 return false;
 
-            // D-TIME for wave 5.
-            double w4Bars = candidate.P4.BarIndex - candidate.P3.BarIndex;
+            // D-TIME for wave 5: measured against its motive sibling W3, not against the
+            // corrective W4 — a wave 4 can be a handful of bars while wave 5 grinds out.
+            double w3Bars = candidate.P3.BarIndex - candidate.P2.BarIndex;
             double w5Bars = bar - candidate.P4.BarIndex;
-            if (w4Bars > 0 && w5Bars / w4Bars > MAX_WAVE_DURATION_RATIO)
+            if (w3Bars > 0 && w5Bars / w3Bars > MaxWaveDurationRatio)
                 return false;
 
             return true;

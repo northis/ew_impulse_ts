@@ -32,7 +32,8 @@ namespace TradeKit.CTrader.Diagonal
                     ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                     : DiagonalTakeProfitMode.RISK_RATIO,
                 MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
-                RequireWave5Ratio, RequireWave4Ratio, RequireInitialMovement);
+                RequireWave5Ratio, RequireWave4Ratio, RequireInitialMovement,
+                MinWave3Penetration, MaxWaveDurationRatio);
         }
 
         #region Input parameters
@@ -88,6 +89,19 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Max spill area", DefaultValue = 0.005, MinValue = 0.0001, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxSpillAreaRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the minimum break of wave 1 by wave 3 as a share of |W1| (D-W3-PEN).
+        /// </summary>
+        [Parameter("Min W3 penetration", DefaultValue = 0.03, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MinWave3Penetration { get; set; }
+
+        /// <summary>
+        /// Gets or sets the D-TIME bound on the duration ratio of same-character waves
+        /// (W3 vs W1, W4 vs W2).
+        /// </summary>
+        [Parameter("Max wave duration ratio", DefaultValue = 8.0, MinValue = 1, MaxValue = 1000, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxWaveDurationRatio { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether wave 5 must be "mature" on the signal:

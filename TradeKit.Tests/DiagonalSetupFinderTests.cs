@@ -1,7 +1,9 @@
 using NUnit.Framework;
+using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
+using TradeKit.Core.Indicators;
 using TradeKit.Tests.Mocks;
 
 namespace TradeKit.Tests
@@ -19,7 +21,6 @@ namespace TradeKit.Tests
         private const string H1_FILE =
             "AUDUSD_h1_2017-12-18T16-00-00_2026-05-31T23-00-00.csv";
 
-        private const double MIN_DIAGONAL_PENETRATION = 0.05;
         private const double PERCENT_ALLOWANCE_SL = 2;
 
         private static double Sign(bool isUpDiagonal) => isUpDiagonal ? 1 : -1;
@@ -103,7 +104,7 @@ namespace TradeKit.Tests
 
                 // D-W3-PEN
                 Assert.That(sgn * (p[3].Value - p[1].Value),
-                    Is.GreaterThanOrEqualTo(MIN_DIAGONAL_PENETRATION * w1),
+                    Is.GreaterThanOrEqualTo(finder.MinWave3Penetration * w1),
                     $"{at}: D-W3-PEN — wave 3 did not make a new extreme beyond wave 1.");
 
                 // D-CONTRACT-3 / D-CONTRACT-4
@@ -371,6 +372,233 @@ namespace TradeKit.Tests
                     TestContext.Out.WriteLine(
                         $"{file[..6]} maxSpill={spillLabel,5} " +
                         $"R:R={ratio:F1} enters={enters,4} tp={tp,4} sl={sl,4} " +
+                        $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Diagnoses one hand-marked diagonal (NZDCAD m5, 2026-08-09..10): evaluates every
+        /// §4 gate on the manual skeleton, lists the ladder rungs that actually see those
+        /// pivots and dumps the gate the live finder used. Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_NzdCadM5_Case_Diagnostics()
+        {
+            const string file = "NZDCAD_m5_2026-07-09T07-20-00_2026-08-10T16-05-00.csv";
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var live = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+            double minPen = live.MinWave3Penetration;
+            double maxDur = live.MaxWaveDurationRatio;
+            TestContext.Out.WriteLine($"defaults: pen={minPen:F3} dur={maxDur:F1}");
+
+            (DateTime Time, bool IsHigh)[][] markups =
+            {
+                new[]
+                {
+                    (new DateTime(2026, 8, 9, 21, 25, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 9, 22, 0, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 10, 3, 5, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 10, 6, 0, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 10, 7, 5, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 10, 7, 45, 0, DateTimeKind.Utc), true)
+                },
+                new[]
+                {
+                    (new DateTime(2026, 8, 9, 21, 25, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 9, 22, 0, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 10, 3, 5, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 10, 7, 45, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 10, 8, 20, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 10, 9, 25, 0, DateTimeKind.Utc), true)
+                }
+            };
+
+            for (int v = 0; v < markups.Length; v++)
+            {
+                TestContext.Out.WriteLine($"=== markup variant {v + 1} ===");
+                BarPoint[] p = markups[v]
+                    .Select(x =>
+                    {
+                        int i = provider.GetIndexByTime(x.Time);
+                        double value = x.IsHigh
+                            ? provider.GetHighPrice(i)
+                            : provider.GetLowPrice(i);
+                        return new BarPoint(value, x.Time, provider.TimeFrame, i);
+                    })
+                    .ToArray();
+
+                int sgn = 1;
+                double w1 = Math.Abs(p[1].Value - p[0].Value);
+                double w2 = Math.Abs(p[2].Value - p[1].Value);
+                double w3 = Math.Abs(p[3].Value - p[2].Value);
+                double w4 = Math.Abs(p[4].Value - p[3].Value);
+                double w5 = Math.Abs(p[5].Value - p[4].Value);
+
+                for (int i = 0; i < p.Length; i++)
+                    TestContext.Out.WriteLine($"  V({i}) {p[i].OpenTime:u} idx={p[i].BarIndex,5} {p[i].Value:F5}");
+
+                TestContext.Out.WriteLine(
+                    $"  |W1|={w1:F5} |W2|={w2:F5} |W3|={w3:F5} |W4|={w4:F5} |W5|={w5:F5}");
+
+                void Gate(string rule, bool ok, string detail) =>
+                    TestContext.Out.WriteLine($"  {(ok ? "OK  " : "FAIL")} {rule,-14} {detail}");
+
+                Gate("D-W2", sgn * (p[2].Value - p[0].Value) > 0,
+                    $"V(2)-V(0)={p[2].Value - p[0].Value:F5}");
+                Gate("D-W3-PEN", sgn * (p[3].Value - p[1].Value) >= minPen * w1,
+                    $"pen={p[3].Value - p[1].Value:F5} " +
+                    $"= {(p[3].Value - p[1].Value) / w1:P2} of |W1|");
+                Gate("D-CONTRACT-3", w3 < w1, $"{w3:F5} < {w1:F5}");
+                Gate("D-CONTRACT-4", w4 < w2, $"{w4:F5} < {w2:F5}");
+                Gate("D-OVERLAP", sgn * (p[4].Value - p[1].Value) < 0,
+                    $"V(4)-V(1)={p[4].Value - p[1].Value:F5}");
+                Gate("D-W4-2", sgn * (p[4].Value - p[2].Value) > 0,
+                    $"V(4)-V(2)={p[4].Value - p[2].Value:F5}");
+                Gate("D-W5-BREAK", sgn * (p[5].Value - p[3].Value) > 0,
+                    $"V(5)-V(3)={p[5].Value - p[3].Value:F5}");
+                Gate("D-W5-CAP", w5 < w3, $"{w5:F5} < {w3:F5}");
+
+                double ceilSlope = (p[3].Value - p[1].Value) / (p[3].BarIndex - p[1].BarIndex);
+                double floorSlope = (p[4].Value - p[2].Value) / (p[4].BarIndex - p[2].BarIndex);
+                double widthAt1 =
+                    sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
+                double widthAt4 =
+                    sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
+                Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= 0,
+                    $"conv={widthAt1 / widthAt4 - 1:F3}");
+
+                double spill = 0, wedge = 0;
+                for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
+                {
+                    double ceiling = p[1].Value + ceilSlope * (bar - p[1].BarIndex);
+                    double floorLine = p[2].Value + floorSlope * (bar - p[2].BarIndex);
+                    spill += Math.Max(0, provider.GetHighPrice(bar) - ceiling) +
+                             Math.Max(0, floorLine - provider.GetLowPrice(bar));
+                    wedge += ceiling - floorLine;
+                }
+
+                Gate("D-INSIDE", spill / wedge <= live.MaxSpillAreaRatio,
+                    $"spill={spill / wedge:F5}");
+
+                for (int w = 3; w < p.Length - 1; w++)
+                {
+                    double siblingBars = p[w - 2].BarIndex - p[w - 3].BarIndex;
+                    double curBars = p[w].BarIndex - p[w - 1].BarIndex;
+                    double ratio = Math.Max(curBars / siblingBars, siblingBars / curBars);
+                    Gate("D-TIME", ratio <= maxDur,
+                        $"W{w} vs W{w - 2}: {curBars}/{siblingBars} -> ratio={ratio:F2}");
+                }
+            }
+
+            // Which ladder rungs actually see the marked pivots?
+            int basePeriod = AutoPeriodEstimator.EstimateImpulsePeriod(provider);
+            TestContext.Out.WriteLine($"=== auto base period = {basePeriod} ===");
+            var window = (From: new DateTime(2026, 8, 9, 21, 0, 0, DateTimeKind.Utc),
+                To: new DateTime(2026, 8, 10, 10, 0, 0, DateTimeKind.Utc));
+
+            foreach (double ratio in new[]
+                     {
+                         0.382, 0.618, 0.786, 1.000, 1.127, 1.272, 1.434, 1.618,
+                         1.826, 2.058, 2.321, 2.618, 3.330, 4.236, 5.388, 6.854
+                     })
+            {
+                int period = Math.Max(1, (int)Math.Round(basePeriod * ratio));
+                var zz = new DeviationExtremumFinder(period, provider);
+                for (int i = 0; i < provider.Count; i++)
+                    zz.OnCalculate(provider.GetOpenTime(i));
+
+                string pivots = string.Join(", ", zz.Extrema.Values
+                    .Where(x => x.OpenTime >= window.From && x.OpenTime <= window.To)
+                    .Select(x => $"{x.OpenTime:HH:mm}"));
+                TestContext.Out.WriteLine($"  period={period,4}: {pivots}");
+            }
+
+            // What does the live finder do with candidates in the window?
+            var gates = new List<string>();
+            live.OnGate = (p0, gate) =>
+            {
+                if (p0.OpenTime >= window.From && p0.OpenTime <= window.To)
+                    gates.Add($"{p0.OpenTime:u} -> {gate}");
+            };
+            var emitted = new List<ElliottWaveSignalEventArgs>();
+            live.OnEnter += (_, a) => emitted.Add(a);
+            live.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                live.CheckBar(provider.GetOpenTime(i));
+
+            TestContext.Out.WriteLine("=== live finder gates in the window ===");
+            foreach (string g in gates.Distinct())
+                TestContext.Out.WriteLine($"  {g}");
+
+            TestContext.Out.WriteLine("=== signals in the window ===");
+            foreach (ElliottWaveSignalEventArgs s in emitted
+                         .Where(x => x.WavePoints[0].OpenTime >= window.From &&
+                                     x.WavePoints[0].OpenTime <= window.To))
+            {
+                TestContext.Out.WriteLine(
+                    "  " + string.Join(" | ", s.WavePoints.Select(
+                        (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm} {x.Value:F5}")));
+                TestContext.Out.WriteLine(
+                    $"    entry={s.Level.Value:F5} sl={s.StopLoss.Value:F5} tp={s.TakeProfit.Value:F5}");
+            }
+        }
+
+        /// <summary>
+        /// Calibrates the two hard thresholds that are not EW rules but sanity guards —
+        /// D-W3-PEN (<c>MinWave3Penetration</c>) and D-TIME (<c>MaxWaveDurationRatio</c>).
+        /// Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_PenetrationAndDurationThresholds_Report()
+        {
+            (string File, ITimeFrame Tf)[] files =
+            {
+                (H1_FILE, TimeFrameHelper.Hour1),
+                (M15_FILE, TimeFrameHelper.Minute15),
+                ("EURUSD_h1_2017-12-27T20-00-00_2026-05-31T23-00-00.csv", TimeFrameHelper.Hour1),
+                ("GBPUSD_h1_2017-12-18T16-00-00_2026-05-31T23-00-00.csv", TimeFrameHelper.Hour1)
+            };
+
+            foreach ((string file, ITimeFrame tf) in files)
+            {
+                if (!File.Exists(Path.Combine(FindDataDir(), file)))
+                    continue;
+
+                var provider = new TestBarsProvider(tf);
+                provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+                foreach (double penetration in new[] { 0.0, 0.01, 0.03, 0.05, 0.1 })
+                foreach (double duration in new[] { 4.0, 6.0, 8.0, 12.0, 1e9 })
+                {
+                    var finder = new DiagonalSetupFinder(
+                        provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                        takeProfitRatio: 1.5,
+                        minWave3Penetration: penetration,
+                        maxWaveDurationRatio: duration);
+
+                    int enters = 0, tp = 0, sl = 0;
+                    finder.OnEnter += (_, _) => enters++;
+                    finder.OnTakeProfit += (_, _) => tp++;
+                    finder.OnStopLoss += (_, _) => sl++;
+                    finder.MarkAsInitialized();
+                    for (int i = 0; i < provider.Count; i++)
+                        finder.CheckBar(provider.GetOpenTime(i));
+
+                    int resolved = tp + sl;
+                    double winRate = resolved > 0 ? 100.0 * tp / resolved : 0;
+                    double expectancy = resolved > 0 ? (tp * 1.5 - sl) / resolved : 0;
+                    TestContext.Out.WriteLine(
+                        $"{file[..6]} {tf.ShortName,4} pen={penetration:F2} " +
+                        $"dur={(duration > 1e6 ? "off" : duration.ToString("F0")),3} " +
+                        $"enters={enters,4} tp={tp,4} sl={sl,4} " +
                         $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
                 }
             }
