@@ -40,7 +40,9 @@ namespace TradeKit.Core.ElliottWave
     /// is assembled from zigzag pivots only when a rung's pivot list grows, while wave 5
     /// is tracked on <b>raw bars</b> on every closed candle — pivot lists are
     /// replay-dependent, raw bars are not, and the trigger is a bar event rather than a
-    /// pivot event.
+    /// pivot event. When the single-scale carving of a wave breaks on a deep sub-wave,
+    /// the skeleton is retried cross-scale: waves 0-1 on the event rung, wave 2's end on
+    /// a coarser rung, waves 3-4 on whichever rung resolves them (DIAGONAL.md §7.2).
     /// </para>
     /// </summary>
     public class DiagonalSetupFinder : SingleSetupFinder<ElliottWaveSignalEventArgs>
@@ -76,8 +78,8 @@ namespace TradeKit.Core.ElliottWave
         /// <summary>Default sanity bound on the duration ratio of same-character waves (D-TIME).</summary>
         private const double DEFAULT_MAX_WAVE_DURATION_RATIO = 8.0;
 
-        /// <summary>Pullback share that ends a wave during greedy sub-wave merging.</summary>
-        private const double WAVE_PULLBACK_TOL = 0.5;
+        /// <summary>Default pullback share that ends a wave during greedy sub-wave merging.</summary>
+        private const double DEFAULT_WAVE_PULLBACK_TOL = 0.5;
 
         /// <summary>How deep (in pivots) the point-0 candidate scan goes back from wave 4.</summary>
         private const int MAX_ASSEMBLY_DEPTH = 40;
@@ -115,6 +117,13 @@ namespace TradeKit.Core.ElliottWave
         private readonly Dictionary<DeviationExtremumFinder, int> m_PrevExtremaCount = new();
         private readonly Dictionary<CandidateKey, DiagonalCandidate> m_Candidates = new();
         private readonly List<CandidateKey> m_DeadBuffer = new();
+
+        /// <summary>
+        /// Per-bar cache of chronological pivot tails: cross-scale assembly reads the lists
+        /// of several rungs per event and must not re-sort each of them repeatedly.
+        /// </summary>
+        private readonly Dictionary<DeviationExtremumFinder, List<BarPoint>> m_TailCache = new();
+        private int m_TailCacheBar = -1;
 
         /// <summary>
         /// Diagnostic tally of how many candidates die at each validation gate (keyed by
@@ -203,6 +212,14 @@ namespace TradeKit.Core.ElliottWave
         public double MaxWaveDurationRatio { get; }
 
         /// <summary>
+        /// Gets the pullback share (of a wave's amplitude so far) at which the greedy
+        /// sub-wave merger decides the wave has ended and the next one begins. A small value
+        /// splits choppy waves early, a large one over-merges them. There is no single value
+        /// that carves every diagonal — see DIAGONAL.md §9.9.
+        /// </summary>
+        public double WavePullbackTol { get; }
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -224,6 +241,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="maxSpillAreaRatio">Tolerated spill area as a share of the wedge area.</param>
         /// <param name="minWave3Penetration">Minimum break of wave 1 by wave 3, share of |W1|.</param>
         /// <param name="maxWaveDurationRatio">D-TIME bound on W3/W1 and W4/W2 durations.</param>
+        /// <param name="wavePullbackTol">Pullback share that ends a wave during greedy merging.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -237,7 +255,8 @@ namespace TradeKit.Core.ElliottWave
             bool requireInsideWedge = true,
             double maxSpillAreaRatio = DEFAULT_MAX_SPILL_AREA_RATIO,
             double minWave3Penetration = DEFAULT_MIN_WAVE3_PENETRATION,
-            double maxWaveDurationRatio = DEFAULT_MAX_WAVE_DURATION_RATIO)
+            double maxWaveDurationRatio = DEFAULT_MAX_WAVE_DURATION_RATIO,
+            double wavePullbackTol = DEFAULT_WAVE_PULLBACK_TOL)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -255,6 +274,9 @@ namespace TradeKit.Core.ElliottWave
             MaxWaveDurationRatio = maxWaveDurationRatio > 0
                 ? maxWaveDurationRatio
                 : DEFAULT_MAX_WAVE_DURATION_RATIO;
+            WavePullbackTol = wavePullbackTol > 0
+                ? wavePullbackTol
+                : DEFAULT_WAVE_PULLBACK_TOL;
 
             // A diagonal is a motive model, so the impulse volatility estimate applies.
             ZigzagPeriod = ewParams.Period > 0
@@ -383,9 +405,30 @@ namespace TradeKit.Core.ElliottWave
             return result;
         }
 
+        /// <summary>
+        /// Returns the last <see cref="MAX_ASSEMBLY_DEPTH"/> + 8 pivots of
+        /// <paramref name="finder"/> in chronological order, cached per bar.
+        /// </summary>
+        private List<BarPoint> CachedTailPivots(DeviationExtremumFinder finder, int index)
+        {
+            if (m_TailCacheBar != index)
+            {
+                m_TailCache.Clear();
+                m_TailCacheBar = index;
+            }
+
+            if (!m_TailCache.TryGetValue(finder, out List<BarPoint> tail))
+            {
+                tail = TailPivots(finder, MAX_ASSEMBLY_DEPTH + 8);
+                m_TailCache[finder] = tail;
+            }
+
+            return tail;
+        }
+
         private void AssembleCandidates(DeviationExtremumFinder finder, int index)
         {
-            List<BarPoint> piv = TailPivots(finder, MAX_ASSEMBLY_DEPTH + 8);
+            List<BarPoint> piv = CachedTailPivots(finder, index);
             if (piv.Count < MIN_EXTREMUM_COUNT)
                 return;
 
@@ -394,10 +437,11 @@ namespace TradeKit.Core.ElliottWave
             // to be registered yet). Both readings are tried; the wrong one dies on the
             // first bar that breaks V(4).
             for (int p4Idx = piv.Count - 1; p4Idx >= piv.Count - 2 && p4Idx >= 4; p4Idx--)
-                TryAssembleAt(piv, p4Idx, index);
+                TryAssembleAt(finder, piv, p4Idx, index);
         }
 
-        private void TryAssembleAt(IList<BarPoint> piv, int p4Idx, int index)
+        private void TryAssembleAt(DeviationExtremumFinder finder, IList<BarPoint> piv,
+            int p4Idx, int index)
         {
             // The end of wave 4 is a counter-extreme: a low for a bullish diagonal.
             bool isUp = piv[p4Idx].Value < piv[p4Idx - 1].Value;
@@ -411,31 +455,131 @@ namespace TradeKit.Core.ElliottWave
                 if (sgn * piv[k].Value >= sgn * piv[k + 1].Value)
                     continue;
 
-                int i1 = ExtendWave(piv, k, p4Idx, isUp, true);
+                int i1 = ExtendWave(piv, k, p4Idx, isUp, true, WavePullbackTol);
                 if (i1 <= k || i1 >= p4Idx) continue;
 
-                int i2 = ExtendWave(piv, i1, p4Idx, isUp, false);
-                if (i2 <= i1 || i2 >= p4Idx) continue;
+                int i2 = ExtendWave(piv, i1, p4Idx, isUp, false, WavePullbackTol);
+                int i3 = i2 > i1 && i2 < p4Idx
+                    ? ExtendWave(piv, i2, p4Idx, isUp, true, WavePullbackTol)
+                    : -1;
+                int i4 = i3 > i2 && i3 < p4Idx
+                    ? ExtendWave(piv, i3, p4Idx, isUp, false, WavePullbackTol)
+                    : -1;
 
-                int i3 = ExtendWave(piv, i2, p4Idx, isUp, true);
-                if (i3 <= i2 || i3 >= p4Idx) continue;
+                if (i4 == p4Idx)
+                {
+                    TryRegister(piv[k], piv[i1], piv[i2], piv[i3], piv[i4], isUp, index);
+                    continue;
+                }
 
-                int i4 = ExtendWave(piv, i3, p4Idx, isUp, false);
-                if (i4 != p4Idx) continue;
-
-                TryRegister(piv[k], piv[i1], piv[i2], piv[i3], piv[i4], isUp, index);
+                // Single-scale carving broke on a sub-wave (typically a deep corrective
+                // wave 2 across a session gap): retry cross-scale — waves 0-1 from this
+                // rung, wave 2's end from a coarser rung, waves 3-4 from whichever rung
+                // resolves them (DIAGONAL.md §7.2).
+                TryCrossScaleWave2(finder, piv, k, i1, isUp, index);
             }
+        }
+
+        /// <summary>
+        /// Cross-scale assembly (DIAGONAL.md §7.2). The greedy merge of
+        /// <see cref="ExtendWave"/> carves every wave with one pullback tolerance; a wave
+        /// whose interior counter-move is deeper than the tolerance — yet which the Elliott
+        /// rules still treat as a single wave — is split on the event rung and the skeleton
+        /// falls apart. Here wave 2 is re-merged on each COARSER rung (where the sub-wave
+        /// is fine enough to be absorbed) and waves 3-4 are re-carved on whichever rung
+        /// resolves wave 4 as a fresh pivot. Waves 0-1 stay on the event rung: they are
+        /// motive legs and resolve on fine scales.
+        /// </summary>
+        /// <param name="eventFinder">The rung whose pivot list is
+        /// <paramref name="piv"/> (the one that grew and triggered the assembly).</param>
+        /// <param name="piv">Chronological pivot tail of <paramref name="eventFinder"/>.</param>
+        /// <param name="k">Index of point 0 in <paramref name="piv"/>.</param>
+        /// <param name="i1">Index of wave-1 end in <paramref name="piv"/>.</param>
+        /// <param name="isUp">True for a bullish (up) diagonal.</param>
+        /// <param name="index">Bar index of the event that triggered assembly.</param>
+        private void TryCrossScaleWave2(DeviationExtremumFinder eventFinder,
+            IList<BarPoint> piv, int k, int i1, bool isUp, int index)
+        {
+            BarPoint p0 = piv[k];
+            BarPoint p1 = piv[i1];
+
+            foreach (DeviationExtremumFinder coarse in m_ExtremumFinders)
+            {
+                if (coarse == eventFinder || coarse.ScaleRate <= eventFinder.ScaleRate)
+                    continue;
+
+                List<BarPoint> cpiv = CachedTailPivots(coarse, index);
+                int c1 = FindPivot(cpiv, p1);
+                if (c1 < 0 || c1 + 1 >= cpiv.Count)
+                    continue;
+
+                // Wave 2 on the coarse rung. The walk ends where the first genuine
+                // counter-move to wave 3 begins — exactly the wave boundary needed.
+                int c2 = ExtendWave(cpiv, c1, cpiv.Count - 1, isUp, false, WavePullbackTol);
+                if (c2 <= c1)
+                    continue;
+
+                BarPoint v2 = cpiv[c2];
+                if (v2.BarIndex <= p1.BarIndex)
+                    continue;
+
+                foreach (DeviationExtremumFinder medium in m_ExtremumFinders)
+                {
+                    List<BarPoint> mpiv = CachedTailPivots(medium, index);
+                    int m2 = FindPivot(mpiv, v2);
+                    if (m2 < 0)
+                        continue;
+
+                    // Wave 4 must be FRESH on this rung — same reading as the single-scale
+                    // loop: the newest pivot, or the frozen one behind the running wave 5.
+                    for (int j4 = mpiv.Count - 1;
+                         j4 >= mpiv.Count - 2 && j4 >= m2 + 2;
+                         j4--)
+                    {
+                        if ((mpiv[j4].Value < mpiv[j4 - 1].Value) != isUp)
+                            continue;
+
+                        int i3 = ExtendWave(mpiv, m2, j4, isUp, true, WavePullbackTol);
+                        if (i3 <= m2 || i3 >= j4)
+                            continue;
+
+                        int i4 = ExtendWave(mpiv, i3, j4, isUp, false, WavePullbackTol);
+                        if (i4 != j4)
+                            continue;
+
+                        Bump("xScaleAssembled", p0);
+                        TryRegister(p0, p1, v2, mpiv[i3], mpiv[j4], isUp, index);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Finds a pivot with the same bar and value as <paramref name="target"/> — the
+        /// extremum of a swing is the same bar/price on every rung that resolves it
+        /// (OpenTime may differ by the collision shift, so it is not compared).
+        /// </summary>
+        private static int FindPivot(IList<BarPoint> piv, BarPoint target)
+        {
+            for (int i = 0; i < piv.Count; i++)
+            {
+                if (piv[i].BarIndex == target.BarIndex &&
+                    Math.Abs(piv[i].Value - target.Value) < double.Epsilon)
+                    return i;
+            }
+
+            return -1;
         }
 
         /// <summary>
         /// Merges one diagonal wave starting at <paramref name="startIdx"/>: walks pivots
         /// forward tracking the running extreme in v-space (up → price, down → negated
         /// price). Internal counter-moves (sub-waves) are absorbed until a pullback from the
-        /// running extreme exceeds <see cref="WAVE_PULLBACK_TOL"/> of the wave's amplitude
+        /// running extreme exceeds <paramref name="tol"/> of the wave's amplitude
         /// so far — that deeper counter-move is where the next wave begins.
         /// </summary>
         private static int ExtendWave(IList<BarPoint> piv, int startIdx, int endLimit,
-            bool isUp, bool wantVHigh)
+            bool isUp, bool wantVHigh, double tol)
         {
             int sgn = isUp ? 1 : -1;
             double vStart = sgn * piv[startIdx].Value;
@@ -451,12 +595,12 @@ namespace TradeKit.Core.ElliottWave
                 if (wantVHigh)
                 {
                     if (vi > vExt) { vExt = vi; extreme = i; }
-                    else if (vExt - vi > WAVE_PULLBACK_TOL * Math.Max(1e-12, vExt - vStart)) break;
+                    else if (vExt - vi > tol * Math.Max(1e-12, vExt - vStart)) break;
                 }
                 else
                 {
                     if (vi < vExt) { vExt = vi; extreme = i; }
-                    else if (vi - vExt > WAVE_PULLBACK_TOL * Math.Max(1e-12, vStart - vExt)) break;
+                    else if (vi - vExt > tol * Math.Max(1e-12, vStart - vExt)) break;
                 }
             }
 
