@@ -57,6 +57,13 @@ namespace TradeKit.Core.ElliottWave
         private const double WAVE4_MIN_RATIO = 0.786;
 
         /// <summary>
+        /// Minimum retracement of wave 3 by wave 4 (hard rule D-W4-38): a diagonal's wave 4
+        /// must give back at least 38.2% of wave 3. Shallower pullbacks are impulse-like and
+        /// belong to a trend, not to a wedge.
+        /// </summary>
+        private const double MIN_WAVE4_RETRACE_W3 = 0.382;
+
+        /// <summary>
         /// Retracement of the whole diagonal used as the target in
         /// <see cref="DiagonalTakeProfitMode.DIAGONAL_RETRACE"/> mode (D-TP-236).
         /// </summary>
@@ -204,6 +211,13 @@ namespace TradeKit.Core.ElliottWave
         /// what a tight contracting diagonal looks like.
         /// </summary>
         public double MinWave3Penetration { get; }
+
+        /// <summary>
+        /// Gets the hard minimum retracement of wave 3 by wave 4 (D-W4-38): wave 4 must give
+        /// back at least this share of |W3|, otherwise the pullback is impulse-like and the
+        /// structure is a trend, not a wedge.
+        /// </summary>
+        public double MinWave4RetraceW3 => MIN_WAVE4_RETRACE_W3;
 
         /// <summary>
         /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
@@ -487,8 +501,11 @@ namespace TradeKit.Core.ElliottWave
         /// rules still treat as a single wave — is split on the event rung and the skeleton
         /// falls apart. Here wave 2 is re-merged on each COARSER rung (where the sub-wave
         /// is fine enough to be absorbed) and waves 3-4 are re-carved on whichever rung
-        /// resolves wave 4 as a fresh pivot. Waves 0-1 stay on the event rung: they are
-        /// motive legs and resolve on fine scales.
+        /// resolves wave 4 as a fresh pivot. Wave 1 normally stays on the event rung (a
+        /// motive leg resolving on fine scales); the exception is a wave-1 end the coarse
+        /// rung does not see at all — a double top whose first touch the greedy merge keeps
+        /// as the extreme — in which case wave 1 is re-carved from point 0 on the coarse
+        /// rung.
         /// </summary>
         /// <param name="eventFinder">The rung whose pivot list is
         /// <paramref name="piv"/> (the one that grew and triggered the assembly).</param>
@@ -509,8 +526,27 @@ namespace TradeKit.Core.ElliottWave
                     continue;
 
                 List<BarPoint> cpiv = CachedTailPivots(coarse, index);
+                BarPoint v1 = p1;
                 int c1 = FindPivot(cpiv, p1);
-                if (c1 < 0 || c1 + 1 >= cpiv.Count)
+                if (c1 < 0)
+                {
+                    // The coarse rung does not resolve the event rung's wave-1 end. The
+                    // classic case is a DOUBLE TOP: the greedy merge keeps the first touch
+                    // as the wave-1 extreme (the strict > in ExtendWave never moves to the
+                    // equal second touch) while the coarse scale only resolves the second.
+                    // Re-carve wave 1 from point 0 on the coarse rung and use that end.
+                    int c0 = FindPivot(cpiv, p0);
+                    if (c0 < 0)
+                        continue;
+
+                    c1 = ExtendWave(cpiv, c0, cpiv.Count - 1, isUp, true, WavePullbackTol);
+                    if (c1 <= c0)
+                        continue;
+
+                    v1 = cpiv[c1];
+                }
+
+                if (c1 + 1 >= cpiv.Count)
                     continue;
 
                 // Wave 2 on the coarse rung. The walk ends where the first genuine
@@ -520,7 +556,7 @@ namespace TradeKit.Core.ElliottWave
                     continue;
 
                 BarPoint v2 = cpiv[c2];
-                if (v2.BarIndex <= p1.BarIndex)
+                if (v2.BarIndex <= v1.BarIndex)
                     continue;
 
                 foreach (DeviationExtremumFinder medium in m_ExtremumFinders)
@@ -548,7 +584,7 @@ namespace TradeKit.Core.ElliottWave
                             continue;
 
                         Bump("xScaleAssembled", p0);
-                        TryRegister(p0, p1, v2, mpiv[i3], mpiv[j4], isUp, index);
+                        TryRegister(p0, v1, v2, mpiv[i3], mpiv[j4], isUp, index);
                     }
                 }
             }
@@ -660,6 +696,22 @@ namespace TradeKit.Core.ElliottWave
             if (RequireWave4Ratio && w4 < WAVE4_MIN_RATIO * w2)
             {
                 Bump("w4TooShallow", p0);
+                return;
+            }
+
+            // D-W4-38 (hard): wave 4 retraces at least 38.2% of wave 3 — a pullback any
+            // shallower is impulse-like and does not belong to a wedge.
+            if (w4 < MIN_WAVE4_RETRACE_W3 * w3)
+            {
+                Bump("w4RetraceTooShallow", p0);
+                return;
+            }
+
+            // D-TIME-24 (hard): wave 2 must last longer than wave 4. A final pullback that
+            // drags on past wave 2's duration is drift, not a coiling wedge.
+            if (p4.BarIndex - p3.BarIndex >= p2.BarIndex - p1.BarIndex)
+            {
+                Bump("w4TimeNotContracting", p0);
                 return;
             }
 

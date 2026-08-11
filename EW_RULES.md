@@ -364,6 +364,10 @@ random price path (no recursive sub-decomposition). Probability coefficient = 0.
    - Wave 3 must exceed Wave 2 retracement.
 4. **Wave 4** length drawn from `[wave1–wave3 gap × 1.05, wave3Len − rest]`.
    - Wave 4 overlaps Wave 1 price territory (contracting diagonal rule).
+   - Wave 4 retraces at least **38.2%** of Wave 3 (hard rule;
+     `MIN_WAVE4_RETRACE_W3`, DIAGONAL.md §4 D-W4-38).
+   - Wave 4 is shorter than Wave 2 in bar count (hard rule;
+     DIAGONAL.md §4 D-TIME-24).
 5. **Wave 5** ends at the pattern's target price (may be truncated).
 6. Each wave must be **shorter** than the previous same-direction wave
    (channels converge).
