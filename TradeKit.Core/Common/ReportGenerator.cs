@@ -43,7 +43,7 @@ namespace TradeKit.Core.Common
         private const string TRANSPARENT_COLOR_VALUE = "0,0,0,0";
 
         private const string BACKGROUND_COLOR_LIGHT_VALUE = "255, 255, 255";
-        private const string BACKGROUND_COLOR_DARK_VALUE = "0, 0, 0";
+        private const string BACKGROUND_COLOR_DARK_VALUE = "13, 13, 13";
 
         private const string SEPARATOR_COLOR_LIGHT_VALUE = "194, 194, 194";
         private const string SEPARATOR_COLOR_DARK_VALUE = "56, 56, 56";

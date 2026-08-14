@@ -1115,9 +1115,7 @@ namespace TradeKit.Core.ElliottWave
             };
 
             CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(
-                level, tpPoint, slPoint, wavePoints, p0.OpenTime,
-                string.Create(CultureInfo.InvariantCulture,
-                    $"DIAGONAL_CONTRACTING w5/w3={candidate.W5Length / Math.Max(1e-9, w3):F2} rr={Math.Abs(tpPrice - entry) / Math.Max(1e-9, Math.Abs(entry - slPrice)):F2}"));
+                level, tpPoint, slPoint, wavePoints, p0.OpenTime, string.Empty);
 
             m_SignaledPoint0.Add(p0.OpenTime);
             Bump("entered", p0);

@@ -22,7 +22,7 @@ namespace TradeKit.Core.ElliottWave
         protected DiagonalBaseAlgoRobot(ITradeManager tradeManager, IStorageManager storageManager,
             RobotParams robotParams, bool isBackTesting, string symbolName, string timeFrameName)
             : base(tradeManager, storageManager, robotParams, isBackTesting, symbolName,
-                timeFrameName, true, true)
+                timeFrameName, false, true)
         {
         }
 

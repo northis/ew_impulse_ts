@@ -953,7 +953,7 @@ namespace TradeKit.Core.Common
                 closedArgs.Position.TakeProfit,
                 closedArgs.Position.StopLoss);
             string folder = GetDirectoryToSave(tfName, position.Symbol.Name, "report", "0");
-            string path = ReportGenerator.GetPngReport(position, closedArgs.State, folder);
+            string path = ReportGenerator.GetPngReport(position, closedArgs.State, folder, false);
             return path;
         }
 

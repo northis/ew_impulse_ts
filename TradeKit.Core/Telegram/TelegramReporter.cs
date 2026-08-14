@@ -252,7 +252,7 @@ namespace TradeKit.Core.Telegram
 
 
             double nom = Math.Abs(price - tp);
-            double den = Math.Abs(sl - tp);
+            double den = Math.Abs(sl - price);
 
             var sb = new StringBuilder();
             string symbolViewName = 
@@ -272,7 +272,7 @@ namespace TradeKit.Core.Telegram
                 double profit = nom / den;
 
                 sb.AppendLine(
-                    $"Profit = {Helper.PriceFormat(profit, 2)}; {Helper.PriceFormat(nom / signalArgs.PipSize, 0)} pips; Δ={Helper.PriceFormat(100 * nom / price, 2)}%");
+                    $"RR = {Helper.PriceFormat(profit, 2)}; {Helper.PriceFormat(nom / signalArgs.PipSize, 0)} pips; Δ={Helper.PriceFormat(100 * nom / price, 2)}%");
             }
 
             //sb.AppendLine($"Spread = {Helper.PriceFormat(spread * Math.Pow(10, signalArgs.Digits), 0)}");
