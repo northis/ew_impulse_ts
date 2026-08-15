@@ -1,0 +1,13 @@
+# Secrets and runtime data — never in the image build context
+.env
+secrets/
+algo/
+parameters.cbotset
+
+# Non-build files
+README.md
+build-algo.ps1
+docker-compose.yml
+.env.example
+parameters.cbotset.example
+.gitignore

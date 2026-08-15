@@ -1,0 +1,34 @@
+{
+  "Parameters": {
+    "TelegramBotToken": "",
+    "ChatId": "",
+
+    "AllowToTrade": "False",
+    "RiskPercentFromDeposit": "1",
+    "RiskPercentFromDepositMax": "5",
+    "MaxVolumeLots": "1",
+    "AllowOvernightTrade": "True",
+    "AllowEnterOnBigSpread": "True",
+    "UseProgressiveVolume": "False",
+    "UseSymbolsList": "False",
+    "UseTimeFramesList": "False",
+    "SaveChartForManualAnalysis": "False",
+    "PostCloseMessages": "True",
+    "TimeFramesToProceed": "Minute5",
+    "SymbolsToProceed": "XAUUSD,XAGUSD,XAUEUR,XAGEUR,EURUSD,GBPUSD,USDJPY,USDCAD,USDCHF,AUDUSD,NZDUSD,AUDCAD,AUDCHF,AUDJPY,CADJPY,CADCHF,CHFJPY,EURCAD,EURCHF,EURGBP,EURAUD,EURJPY,EURNZD,GBPCAD,GBPAUD,GBPJPY,GBPNZD,GBPCHF,NZDCAD,NZDJPY",
+
+    "MinSizePercent": "0.3",
+    "Period": "0",
+    "BarsCount": "40",
+    "TakeProfitRatio": "1.0",
+    "TakeProfitAtRetrace": "True",
+    "MinConvergence": "0",
+    "RequireInsideWedge": "True",
+    "MaxSpillAreaRatio": "0.005",
+    "MinWave3Penetration": "0.05",
+    "MaxWaveDurationRatio": "8",
+    "RequireWave5Ratio": "False",
+    "RequireWave4Ratio": "False",
+    "RequireInitialMovement": "False"
+  }
+}

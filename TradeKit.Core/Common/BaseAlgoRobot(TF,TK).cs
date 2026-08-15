@@ -954,6 +954,7 @@ namespace TradeKit.Core.Common
                 closedArgs.Position.StopLoss);
             string folder = GetDirectoryToSave(tfName, position.Symbol.Name, "report", "0");
             string path = ReportGenerator.GetPngReport(position, closedArgs.State, folder, false);
+            Logger.Write($"Report path: {path}");
             return path;
         }
 

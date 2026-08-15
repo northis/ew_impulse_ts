@@ -1,0 +1,10 @@
+# Secrets
+.env
+secrets/
+parameters.cbotset
+
+# Built .algo artifacts (regenerate with build-algo.ps1 / build-algo.sh)
+algo/
+
+# Backtest output
+reports/
