@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using cAlgo.API;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
@@ -15,6 +16,28 @@ namespace TradeKit.CTrader.Core
         protected const double RISK_DEPOSIT_PERCENT = 1;
         protected const double RISK_DEPOSIT_PERCENT_MAX = 5;
         protected const string NO_INIT_BOT = "BASE_ROBOT_NO_INIT";
+
+        /// <summary>
+        /// The env var that overrides the <see cref="TelegramBotToken"/> parameter.
+        /// Keeps the secret out of the .cbotset file: cTrader CLI prints every
+        /// .cbotset value into the startup log, so secrets must not live there.
+        /// </summary>
+        public const string TELEGRAM_TOKEN_ENV = "TELEGRAM_BOT_TOKEN";
+
+        /// <summary>
+        /// The env var that overrides the <see cref="ChatId"/> parameter.
+        /// </summary>
+        public const string TELEGRAM_CHAT_ID_ENV = "TELEGRAM_CHAT_ID";
+
+        /// <summary>
+        /// The placeholder value for secret parameters in the .cbotset file.
+        /// cTrader CLI rejects empty custom parameter values and prints every
+        /// .cbotset value into the startup log, so secrets in .cbotset are
+        /// replaced with this placeholder and the real values come from the
+        /// env vars above. A placeholder left without an env override means
+        /// "no value" (e.g. Telegram alerts disabled).
+        /// </summary>
+        public const string MASKED_SECRET_PLACEHOLDER = "***";
 
         private Bars m_ProtectiveMinBars;
 
@@ -60,8 +83,35 @@ namespace TradeKit.CTrader.Core
                 PostCloseMessages,
                 TimeFramesToProceed, 
                 SymbolsToProceed, 
-                TelegramBotToken, 
-                ChatId);
+                GetEnvOverride(TELEGRAM_TOKEN_ENV, TelegramBotToken),
+                GetEnvOverride(TELEGRAM_CHAT_ID_ENV, ChatId));
+        }
+
+        /// <summary>
+        /// Returns the environment variable value when it is set, otherwise the
+        /// parameter fallback. Never throws: in the cTrader sandbox the env access
+        /// can be restricted, in that case we just use the parameter value.
+        /// The <see cref="MASKED_SECRET_PLACEHOLDER"/> is treated as "no value".
+        /// </summary>
+        private static string GetEnvOverride(string name, string fallback)
+        {
+            string value = null;
+            try
+            {
+                value = Environment.GetEnvironmentVariable(name);
+            }
+            catch
+            {
+                // The sandbox can forbid the env access - fall back to the parameter.
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                value = fallback;
+            }
+
+            value = value?.Trim();
+            return value == MASKED_SECRET_PLACEHOLDER ? null : value;
         }
 
         #region User properties
@@ -152,13 +202,15 @@ namespace TradeKit.CTrader.Core
         public string SymbolsToProceed { get; set; }
 
         /// <summary>
-        /// Gets or sets the telegram bot token.
+        /// Gets or sets the telegram bot token. Prefer the <see cref="TELEGRAM_TOKEN_ENV"/>
+        /// env var instead: the cTrader CLI logs every .cbotset value at startup.
         /// </summary>
         [Parameter("Telegram bot token", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string TelegramBotToken { get; set; }
 
         /// <summary>
-        /// Gets or sets the chat identifier where to send signals.
+        /// Gets or sets the chat identifier where to send signals. Prefer the
+        /// <see cref="TELEGRAM_CHAT_ID_ENV"/> env var (see <see cref="TelegramBotToken"/>).
         /// </summary>
         [Parameter("Chat ID", DefaultValue = null, Group = Helper.TELEGRAM_SETTINGS_NAME)]
         public string ChatId { get; set; }

@@ -12,8 +12,7 @@
 | `docker-compose.yml` | запуск бота, собирает образ из `Dockerfile` |
 | `Dockerfile` | производный образ: fontconfig + шрифты для SVG-отчётов |
 | `entrypoint.sh` | переключение live/backtest по `MODE` |
-| `fonts.conf` | fontconfig-алиас «Helvetica Neue LT *» → Liberation Sans |
-| `.env.example` | шаблон авторизации (cTID/счёт/symbol/period) → скопируй в `.env` |
+| `.env.example` | шаблон авторизации и секретов (cTID/счёт/symbol/period/Telegram) → скопируй в `.env` |
 | `parameters.cbotset.example` | шаблон параметров бота → скопируй в `parameters.cbotset` |
 | `build-algo.ps1` | собирает `.algo` из исходников и кладёт в `./algo/` |
 | `algo/` *(gitignored)* | собранный `DiagonalSignalerBot.algo` |
@@ -25,12 +24,21 @@
 | Данные | Где хранить |
 |--------|-------------|
 | cTID (логин/email), номер счёта, symbol, period | `.env` |
-| Telegram bot token + chat id | `parameters.cbotset` |
+| Telegram bot token + chat id | `.env` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) |
 | `AllowToTrade` и все параметры бота | `parameters.cbotset` |
 | **Пароль cTID** | **`secrets/ctrader-cli.pwd`** (файл, не `.env`) |
 
-Два слоя: `.env` — «как подключиться» (авторизация), `parameters.cbotset` — «что
-делает бот» (все параметры инстанса). Это штатный формат cTrader (JSON).
+Два слоя: `.env` — «как подключиться» (авторизация + секреты), `parameters.cbotset` —
+«что делает бот» (все параметры инстанса). Это штатный формат cTrader (JSON).
+
+Почему токен Telegram НЕ в `.cbotset`: cTrader CLI при старте печатает таблицу
+**всех** значений `.cbotset` в лог (значения лишь обрезаются до ~25 символов, т.е.
+часть секрета всё равно утекает). Поэтому бот читает токен и chat id из
+env-переменных `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` (override параметров
+`TelegramBotToken`/`ChatId`, см. `CTraderBaseRobot`), а в `.cbotset` на их месте
+стоит плейсхолдер `***` (пустые значения CLI отвергает: «All custom parameters
+must have a value»). Плейсхолдер без env-переменной трактуется как «значения нет»
+(Telegram выключен).
 
 Почему пароль отдельно: cTrader CLI в batch-режиме (`run`) принимает пароль **только
 через `--pwd-file`** (env-переменной для сырого пароля нет), а сами доки cTrader
@@ -52,9 +60,9 @@ Set-Content -NoNewline -Path secrets\ctrader-cli.pwd -Value "твой_парол
 
 # 3.3. Создать .env и parameters.cbotset из шаблонов
 Copy-Item .env.example .env
-#    открой .env: CTID, ACCOUNT, SYMBOL, PERIOD
+#    открой .env: CTID, ACCOUNT, SYMBOL, PERIOD, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 Copy-Item parameters.cbotset.example parameters.cbotset
-#    открой parameters.cbotset: TelegramBotToken, ChatId, AllowToTrade, символы и т.д.
+#    открой parameters.cbotset: AllowToTrade, символы и т.д.
 
 # 3.4. Проверить, что Compose видит все подстановки
 docker compose config
@@ -105,7 +113,7 @@ docker compose up -d
 
 | Параметр | Дефолт | Что делает |
 |----------|--------|------------|
-| `TelegramBotToken`, `ChatId` | пусто | Telegram-алерты (пусто = выключено) |
+| `TelegramBotToken`, `ChatId` | пусто | Telegram-алерты (пусто = выключено). **Не заполняй здесь** — задавай через `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` в `.env`: значения `.cbotset` CLI печатает в стартовый лог, а env-переменные бот читает как override этих параметров |
 | `AllowToTrade` | `False` | `False` = только сигналы, `True` = реальные ордера |
 | `RiskPercentFromDeposit` | `1` | риск на сделку, % депозита |
 | `MaxVolumeLots` | `1` | макс. объём, лоты |
@@ -129,34 +137,43 @@ Desktop-версия cTrader сохраняет файл с блоком `"Chart
 ## 6. Шрифты SVG-отчёта
 
 Бот рендерит отчёт о сделке из SVG (`tradeResultTemplate.svg`) в PNG через
-Svg.Skia/SkiaSharp. В шаблоне указаны `Helvetica Neue LT Com/Pro` — это
-**коммерческий шрифт Linotype**, его нет в apt, а в базовом образе cTrader CLI
-вообще нет ни шрифтов, ни `libfontconfig` (без него SkiaSharp не рендерит текст).
+Svg.Skia/SkiaSharp. В базовом образе cTrader CLI нет ни шрифтов, ни
+`libfontconfig` — SkiaSharp падал бы с `DllNotFoundException: libSkiaSharp` и не
+рендерил бы текст.
 
 `Dockerfile` решает это тремя шагами:
 
-1. Ставит `fontconfig` + свободные шрифты (`fonts-liberation`, `fonts-dejavu`).
-2. `fonts.conf` подменяет `Helvetica Neue LT Com/Pro` (и `Helvetica Neue`) на
-   **Liberation Sans** — метрически совместимый с Helvetica/Arial.
-3. Докачивает нативные `libSkiaSharp.so` + `libHarfBuzzSharp.so` (linux-x64) с
+1. Ставит `fontconfig` + **TeX Gyre Heros** (пакет `fonts-texgyre`, бесплатный
+   клон Helvetica) + `fonts-dejavu` (запасные глифы). Шрифты качаются при сборке
+   образа из apt — локально ничего подкладывать не нужно.
+2. Делает симлинк `tex-gyre` в `/usr/share/fonts/` — Debian ставит
+   `fonts-texgyre` в `/usr/share/texmf/fonts/opentype/public/tex-gyre/`
+   (fontconfig видит его через texmf-хук; симлинк — страховка, чтобы семейство
+   было видно и в стандартном дереве шрифтов).
+3. **Это критично.** Нативная сборка — обычный `SkiaSharp.NativeAssets.Linux`
+   (слинкован с fontconfig), а **не** `.NoDependencies`. Font manager
+   NoDependencies-сборки умеет матчить только по имени семейства
+   (`MatchFamily`/`FromFamilyName` работают), но `SKFontManager.MatchCharacter()`
+   там **всегда возвращает null** — а Svg.Skia 2.0.0.1 резолвит typeface каждого
+   текстового рана именно через `MatchCharacter` (`SkiaAssetLoader.FindTypefaces`).
+   Итог: любой `<text>` тихо рендерится дефолтным засечковым шрифтом
+   (**DejaVu Serif**, «похожим на Georgia» — так выглядел баг), игнорируя
+   `font-family` и `font-weight`. Проверено эмпирически в контейнере: на
+   NoDependencies-сборке `MatchCharacter("TeX Gyre Heros", ..., 'A')` → `null`,
+   на обычной → `TeX Gyre Heros w=400`. Регулярной сборке нужен только
+   `libfontconfig` (никаких X-libs) — он ставится в шаге 1.
+4. Докачивает нативные `libSkiaSharp.so` + `libHarfBuzzSharp.so` (linux-x64) с
    NuGet и кладёт их в `/usr/lib/x86_64-linux-gnu/`. Без них на Linux падает
    `DllNotFoundException: libSkiaSharp` — пакет SkiaSharp 3.0.0-preview ссылается
-   только на Win/macOS нативы, Linux-нативы надо тянуть отдельно (они добавлены и
-   в `TradeKit.Core.csproj`: `SkiaSharp.NativeAssets.Linux.NoDependencies` +
-   `HarfBuzzSharp.NativeAssets.Linux`).
+   только на Win/macOS нативы (Linux-нативы добавлены и в `TradeKit.Core.csproj`,
+   тоже вариант `SkiaSharp.NativeAssets.Linux`).
 
-Проверка: `fc-match 'Helvetica Neue LT Pro'` → `Liberation Sans`; smoke-тест
-`new SKBitmap(...)` в контейнере проходит.
-
-Если есть лицензионные файлы Helvetica Neue — положи их в папку `fonts/` рядом с
-`Dockerfile` и добавь в `Dockerfile`:
-
-```dockerfile
-COPY fonts/ /usr/share/fonts/truetype/
-RUN fc-cache -f
-```
-
-(тогда `fonts.conf` можно удалить — семейства найдутся по их настоящим именам).
+Проверка (в контейнере): `ldd /usr/lib/x86_64-linux-gnu/libSkiaSharp.so` должен
+показывать `libfontconfig.so.1`; `fc-list | grep -ci gyre` > 0. Если в отчёте
+снова появились засечки — сначала смотри, какая сборка `libSkiaSharp.so` реально
+подгрузилась (app-local копия из NuGet важнее системной в `/usr/lib`, и
+`dotnet run` молча её перезаписывает):
+`docker compose run --rm --entrypoint sh diagonal-signaler -c 'ldd /usr/lib/x86_64-linux-gnu/libSkiaSharp.so | grep fontconfig'`.
 
 ## 7. Режим бектеста (отладка)
 

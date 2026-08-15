@@ -3,64 +3,64 @@
   <line x1="0" y1="1" x2="1170" y2="1" style="stroke: rgba({SEPARATOR_COLOR}); stroke-width: 2;"></line>
   <line x1="0" y1="420" x2="1170" y2="420" style="stroke: rgba({SEPARATOR_COLOR}); stroke-width: 2;"></line>
   <line x1="2" y1="4" x2="5" y2="420" style="stroke: rgba({BAR_COLOR}); stroke-width: 10;"></line>
-  <text font-family="Helvetica Neue LT Com" font-size="45" x="15" y="55">
+  <text font-family="TeX Gyre Heros" font-size="45" x="15" y="55">
     <tspan fill="rgba({SYMBOL_COLOR})" font-weight="700">{SYMBOL}, </tspan>
     <tspan fill="rgba({TRADE_COLOR})" style="white-space: pre;"> {TRADE_TYPE} {LOT_VOLUME}</tspan>
   </text>
   
-  <text fill="rgba({PRICE_RESULT_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="15" y="110">
+  <text fill="rgba({PRICE_RESULT_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="15" y="110">
   {ENTRY_PRICE} → {CURRENT_PRICE}
   </text>
     
-  <text fill="rgba({LABEL_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="15" y="185">
+  <text fill="rgba({LABEL_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="15" y="185">
   {CLOSE_DATETIME_REASON}
   </text>
-  <text fill="rgba({LABEL_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="15" y="255">
+  <text fill="rgba({LABEL_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="15" y="255">
   S/L:
   </text>
-  <text fill="rgba({LABEL_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="15" y="315">
+  <text fill="rgba({LABEL_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="15" y="315">
   T/P:
   </text>
-  <text fill="rgba({LABEL_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="15" y="375">
+  <text fill="rgba({LABEL_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="15" y="375">
   ID:
   </text>
   
-  <text fill="rgba({SL_COLOR})" text-anchor="end" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="510" y="260">
+  <text fill="rgba({SL_COLOR})" text-anchor="end" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="510" y="260">
   {SL_PRICE}
   </text>
-  <text fill="rgba({TP_COLOR})" text-anchor="end"  font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="510" y="320">
+  <text fill="rgba({TP_COLOR})" text-anchor="end"  font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="510" y="320">
   {TP_PRICE}
   </text>
-  <text fill="rgba({VALUE_COLOR})" text-anchor="end"  font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="510" y="380">
+  <text fill="rgba({VALUE_COLOR})" text-anchor="end"  font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="510" y="380">
   {ORDER_ID}
   </text>
   
     
-  <text fill="rgba({LABEL_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="535" y="260">
+  <text fill="rgba({LABEL_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="535" y="260">
   Swap:
   </text>
-  <text fill="rgba({LABEL_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="535" y="320">
+  <text fill="rgba({LABEL_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="535" y="320">
   Taxes:
   </text>
-  <text fill="rgba({LABEL_COLOR})" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="535" y="380">
+  <text fill="rgba({LABEL_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="535" y="380">
   Charges:
   </text>
   
-  <text fill="rgba({VALUE_COLOR})" text-anchor="end" font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="1155" y="260">
+  <text fill="rgba({VALUE_COLOR})" text-anchor="end" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="1155" y="260">
   {SWAP}
   </text>
-  <text fill="rgba({VALUE_COLOR})" text-anchor="end"  font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="1155" y="320">
+  <text fill="rgba({VALUE_COLOR})" text-anchor="end"  font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="1155" y="320">
   {TAXES}
   </text>
-  <text fill="rgba({VALUE_COLOR})" text-anchor="end"  font-family="Helvetica Neue LT Pro" font-size="40" font-weight="100" x="1155" y="380">
+  <text fill="rgba({VALUE_COLOR})" text-anchor="end"  font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="1155" y="380">
   {CHARGES}
   </text>
 
   
-  <text fill="rgba({VALUE_COLOR})" text-anchor="end" font-family="Helvetica Neue LT Com" font-size="40" font-weight="700" x="1154" y="50">
+  <text fill="rgba({VALUE_COLOR})" text-anchor="end" font-family="TeX Gyre Heros" font-size="40" font-weight="700" x="1154" y="50">
   {ENTRY_DATETIME}
   </text>
-  <text fill="rgba({PROFIT_COLOR})" text-anchor="end"  font-family="Helvetica Neue LT Com" font-size="45" font-weight="700" x="1154" y="115">
+  <text fill="rgba({PROFIT_COLOR})" text-anchor="end"  font-family="TeX Gyre Heros" font-size="45" font-weight="700" x="1154" y="115">
   {GROSS_PROFIT}
   </text>
 </svg>

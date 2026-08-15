@@ -1,7 +1,7 @@
 {
   "Parameters": {
-    "TelegramBotToken": "",
-    "ChatId": "",
+    "TelegramBotToken": "***",
+    "ChatId": "***",
 
     "AllowToTrade": "False",
     "RiskPercentFromDeposit": "1",
