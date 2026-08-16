@@ -2,7 +2,7 @@
   <rect x="0" y="0" width="1170" height="420" style="fill: rgba({BACKGROUND_COLOR});"></rect>
   <line x1="0" y1="1" x2="1170" y2="1" style="stroke: rgba({SEPARATOR_COLOR}); stroke-width: 2;"></line>
   <line x1="0" y1="420" x2="1170" y2="420" style="stroke: rgba({SEPARATOR_COLOR}); stroke-width: 2;"></line>
-  <line x1="2" y1="4" x2="4" y2="420" style="stroke: rgba({BAR_COLOR}); stroke-width: 10;"></line>
+  <line x1="2" y1="4" x2="2" y2="420" style="stroke: rgba({BAR_COLOR}); stroke-width: 10;"></line>
   <text font-family="TeX Gyre Heros" font-size="45" x="15" y="55">
     <tspan fill="rgba({SYMBOL_COLOR})" font-weight="700">{SYMBOL}, </tspan>
     <tspan fill="rgba({TRADE_COLOR})" style="white-space: pre;"> {TRADE_TYPE} {LOT_VOLUME}</tspan>
