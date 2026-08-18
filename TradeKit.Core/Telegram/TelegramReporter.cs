@@ -89,7 +89,7 @@ namespace TradeKit.Core.Telegram
 
         private string GetStatistic(SignalArgs args, double targetLevel, int k = 1)
         {
-            double wholeRisk = args.SignalEventArgs.WholeRange;
+            double wholeRisk = Math.Abs(args.SignalEventArgs.Level.Value - args.SignalEventArgs.StopLoss.Value);
             if (wholeRisk <= 0) 
                 return string.Empty;
 
