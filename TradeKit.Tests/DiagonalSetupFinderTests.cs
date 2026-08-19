@@ -116,6 +116,11 @@ namespace TradeKit.Tests
                     Is.GreaterThanOrEqualTo(finder.MinWave4RetraceW3 * w3 - 1e-12),
                     $"{at}: D-W4-38 — wave 4 retraces less than 38.2% of wave 3.");
 
+                // D-W4-24 — wave 4 reaches at least the 23.6% level of wave 2.
+                Assert.That(w4,
+                    Is.GreaterThanOrEqualTo(finder.MinWave4RetraceW2 * w2 - 1e-12),
+                    $"{at}: D-W4-24 — wave 4 is shorter than 23.6% of wave 2.");
+
                 // D-TIME-24 — wave 4 lasts fewer bars than wave 2.
                 Assert.That(p[4].BarIndex - p[3].BarIndex,
                     Is.LessThan(p[2].BarIndex - p[1].BarIndex),
@@ -468,6 +473,8 @@ namespace TradeKit.Tests
                 Gate("D-CONTRACT-4", w4 < w2, $"{w4:F5} < {w2:F5}");
                 Gate("D-W4-38", w4 >= live.MinWave4RetraceW3 * w3,
                     $"{w4:F5} >= {live.MinWave4RetraceW3 * w3:F5} (38.2% of |W3|)");
+                Gate("D-W4-24", w4 >= live.MinWave4RetraceW2 * w2,
+                    $"{w4:F5} >= {live.MinWave4RetraceW2 * w2:F5} (23.6% of |W2|)");
                 Gate("D-TIME-24",
                     p[4].BarIndex - p[3].BarIndex < p[2].BarIndex - p[1].BarIndex,
                     $"bars(W4)={p[4].BarIndex - p[3].BarIndex} < " +
@@ -641,6 +648,8 @@ namespace TradeKit.Tests
             Gate("D-CONTRACT-4", w4 < w2, $"{w4:F5} < {w2:F5}");
             Gate("D-W4-38", w4 >= live.MinWave4RetraceW3 * w3,
                 $"{w4:F5} >= {live.MinWave4RetraceW3 * w3:F5} (38.2% of |W3|)");
+            Gate("D-W4-24", w4 >= live.MinWave4RetraceW2 * w2,
+                $"{w4:F5} >= {live.MinWave4RetraceW2 * w2:F5} (23.6% of |W2|)");
             Gate("D-TIME-24",
                 p[4].BarIndex - p[3].BarIndex < p[2].BarIndex - p[1].BarIndex,
                 $"bars(W4)={p[4].BarIndex - p[3].BarIndex} < " +
@@ -895,6 +904,8 @@ namespace TradeKit.Tests
             Gate("D-CONTRACT-4", w4 < w2, $"{w4:F5} < {w2:F5}");
             Gate("D-W4-38", w4 >= live.MinWave4RetraceW3 * w3,
                 $"{w4:F5} >= {live.MinWave4RetraceW3 * w3:F5} (38.2% of |W3|)");
+            Gate("D-W4-24", w4 >= live.MinWave4RetraceW2 * w2,
+                $"{w4:F5} >= {live.MinWave4RetraceW2 * w2:F5} (23.6% of |W2|)");
             Gate("D-TIME-24",
                 p[4].BarIndex - p[3].BarIndex < p[2].BarIndex - p[1].BarIndex,
                 $"bars(W4)={p[4].BarIndex - p[3].BarIndex} < " +

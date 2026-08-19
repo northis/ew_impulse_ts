@@ -97,6 +97,13 @@ namespace TradeKit.Core.ElliottWave
         private const double MIN_WAVE4_RETRACE_W3 = 0.382;
 
         /// <summary>
+        /// Minimum size of wave 4 relative to wave 2 (hard rule D-W4-24): together with
+        /// D-CONTRACT-4 it gives the corridor <c>0.236·|W2| ≤ |W4| &lt; |W2|</c>. A wave 4
+        /// that collapses below that is a pause inside a trend, not the last swing of a wedge.
+        /// </summary>
+        private const double MIN_WAVE4_RETRACE_W2 = 0.236;
+
+        /// <summary>
         /// Retracement of the whole diagonal used as the target in
         /// <see cref="DiagonalTakeProfitMode.DIAGONAL_RETRACE"/> mode (D-TP-236).
         /// </summary>
@@ -262,6 +269,12 @@ namespace TradeKit.Core.ElliottWave
         /// structure is a trend, not a wedge.
         /// </summary>
         public double MinWave4RetraceW3 => MIN_WAVE4_RETRACE_W3;
+
+        /// <summary>
+        /// Gets the hard minimum size of wave 4 as a share of |W2| (D-W4-24): the wedge has to
+        /// keep contracting evenly instead of collapsing into a tiny final pullback.
+        /// </summary>
+        public double MinWave4RetraceW2 => MIN_WAVE4_RETRACE_W2;
 
         /// <summary>
         /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
@@ -829,6 +842,14 @@ namespace TradeKit.Core.ElliottWave
             if (w4 >= w2)
             {
                 Bump("w4NotContracting", p0);
+                return;
+            }
+
+            // D-W4-24 (hard): wave 4 reaches at least the 23.6% level of wave 2 — below that
+            // the wedge collapses instead of contracting.
+            if (w4 < MIN_WAVE4_RETRACE_W2 * w2)
+            {
+                Bump("w4RetraceW2TooShallow", p0);
                 return;
             }
 
