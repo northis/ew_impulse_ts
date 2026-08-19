@@ -413,9 +413,11 @@ namespace TradeKit.Core.Common
         /// <param name="setupId">ID of the setup finder.</param>
         /// <param name="posId">Identity args to find the position</param>
         /// <param name="breakEvenPrice">If not null, sets this price as a breakeven</param>
-        /// <param name="closeHalf">If true, close half of the position volume before setting breakeven SL.</param>
+        /// <param name="closeHalf">If true, close half of the position volume.</param>
+        /// <param name="moveStopToEntry">If true, move the stop loss to the entry price.</param>
         private void ModifySymbolPositions(
-            string setupId, string posId, double? breakEvenPrice = null, bool closeHalf = false)
+            string setupId, string posId, double? breakEvenPrice = null, bool closeHalf = false,
+            bool moveStopToEntry = true)
         {
             if (!m_FinderPositionMap.TryGetValue(setupId, out List<int> posIds)
                 || posIds == null || posIds.Count == 0)
@@ -431,7 +433,8 @@ namespace TradeKit.Core.Common
                 {
                     if (closeHalf)
                         TradeManager.ClosePartial(position, 0.5);
-                    TradeManager.SetBreakeven(position);
+                    if (moveStopToEntry)
+                        TradeManager.SetBreakeven(position);
                 }
                 else
                 {
@@ -593,15 +596,20 @@ namespace TradeKit.Core.Common
         protected void OnBreakeven(object sender, LevelEventArgs e)
         {
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
-            Logger.Write($"Breakeven is set! {positionId}");
+            Logger.Write(
+                $"Position is secured ({positionId}): breakeven {e.MoveStopToEntry}, close half {e.CloseHalf}");
 
             string correctedPosId = m_IsTradable ? positionId + TAKE_PROFIT_SUFFIX : positionId;
-            ModifySymbolPositions(setupId, correctedPosId, e.Level.Value, e.CloseHalf);
+            ModifySymbolPositions(setupId, correctedPosId, e.Level.Value, e.CloseHalf, e.MoveStopToEntry);
 
             if (!TelegramReporter.IsReady)
                 return;
 
-            TelegramReporter.ReportBreakeven(positionId);
+            if (e.CloseHalf)
+                TelegramReporter.ReportPartialClose(positionId, e.Level.Value, 0.5);
+
+            if (e.MoveStopToEntry)
+                TelegramReporter.ReportBreakeven(positionId);
         }
 
         /// <summary>

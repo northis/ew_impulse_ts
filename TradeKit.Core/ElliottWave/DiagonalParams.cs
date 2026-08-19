@@ -13,7 +13,8 @@ namespace TradeKit.Core.ElliottWave
         bool RequireWave4Ratio,
         bool RequireInitialMovement,
         double MinWave3Penetration,
-        double MaxWaveDurationRatio)
+        double MaxWaveDurationRatio,
+        DiagonalRetraceAction RetraceAction)
     {
     }
 }

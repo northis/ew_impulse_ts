@@ -33,7 +33,7 @@ namespace TradeKit.CTrader.Diagonal
                     : DiagonalTakeProfitMode.RISK_RATIO,
                 MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
                 RequireWave5Ratio, RequireWave4Ratio, RequireInitialMovement,
-                MinWave3Penetration, MaxWaveDurationRatio);
+                MinWave3Penetration, MaxWaveDurationRatio, RetraceAction);
         }
 
         #region Input parameters
@@ -68,6 +68,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("TP at 23.6% of the diagonal", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool TakeProfitAtRetrace { get; set; }
+
+        /// <summary>
+        /// Gets or sets what to do when the recomputed 23.6% retrace level of the diagonal is
+        /// reached while the trade is in profit (DIAGONAL.md §6.4).
+        /// </summary>
+        [Parameter("Action on the fresh 23.6%", DefaultValue = DiagonalRetraceAction.NONE, Group = Helper.TRADE_SETTINGS_NAME)]
+        public DiagonalRetraceAction RetraceAction { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

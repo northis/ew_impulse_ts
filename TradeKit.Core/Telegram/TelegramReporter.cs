@@ -95,12 +95,48 @@ namespace TradeKit.Core.Telegram
 
             double diff = k * Math.Abs(args.SignalEventArgs.Level.Value - targetLevel);
             double diffP = diff / args.PipSize;
-            double toVal = diff / wholeRisk;
+
+            // The part closed early (see ReportPartialClose) is already realized, only the rest
+            // of the position rides to this exit.
+            double toVal = args.ClosedResult + (1 - args.ClosedPart) * diff / wholeRisk;
             StatisticItem res = m_StorageManager.AddSetupResult(toVal);
             string sign = k > 0 ? "+" : string.Empty;
             string resStr =
                 $": {sign}{Helper.PriceFormat(toVal, 2)}, {sign}{diffP:N0} pips; Σ={Helper.PriceFormat(res.ResultValue, 2)} ({res.SetupsCount:N0}).";
             return resStr;
+        }
+
+        /// <summary>
+        /// Reports an early partial close: <paramref name="ratio"/> of the position is closed at
+        /// <paramref name="price"/>, the rest keeps running to TP or SL.
+        /// </summary>
+        /// <param name="posId">The position identifier.</param>
+        /// <param name="price">The price the part was closed at.</param>
+        /// <param name="ratio">The share of the position closed.</param>
+        public void ReportPartialClose(string posId, double price, double ratio)
+        {
+            if (!m_ReportClose) return;
+
+            string stat = string.Empty;
+            if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
+            {
+                double entry = args.SignalEventArgs.Level.Value;
+                double wholeRisk = Math.Abs(entry - args.SignalEventArgs.StopLoss.Value);
+                double part = Math.Min(ratio, 1 - args.ClosedPart);
+                if (wholeRisk > 0 && part > 0)
+                {
+                    int dir = args.SignalEventArgs.StopLoss.Value <
+                              args.SignalEventArgs.TakeProfit.Value
+                        ? 1
+                        : -1;
+                    double resultValue = dir * (price - entry) / wholeRisk;
+                    args.ClosedResult += part * resultValue;
+                    args.ClosedPart += part;
+                    stat = $": {Helper.PriceFormat(resultValue, 2)}R";
+                }
+            }
+
+            ReportPositionInfo(posId, $"Close {ratio:P0} of the position{stat}");
         }
 
         /// <summary>
@@ -358,6 +394,17 @@ namespace TradeKit.Core.Telegram
             /// Gets or sets the image of signal (a .png file). Can be null
             /// </summary>
             public string PlotImagePath { get; set; }
+
+            /// <summary>
+            /// Gets or sets the share of the position already closed early (see
+            /// <see cref="ReportPartialClose"/>).
+            /// </summary>
+            public double ClosedPart { get; set; }
+
+            /// <summary>
+            /// Gets or sets the result (in R) already realized on <see cref="ClosedPart"/>.
+            /// </summary>
+            public double ClosedResult { get; set; }
         }
     }
 }

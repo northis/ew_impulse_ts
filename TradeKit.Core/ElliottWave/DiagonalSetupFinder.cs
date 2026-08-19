@@ -24,6 +24,39 @@ namespace TradeKit.Core.ElliottWave
     }
 
     /// <summary>
+    /// What to do when the <b>recomputed</b> 23.6% retrace level of the diagonal is reached
+    /// while the trade is in profit (DIAGONAL.md §6.4). Wave 5 is unfinished at the signal,
+    /// so the level fixed on the trigger candle is an estimate on incomplete data.
+    /// </summary>
+    public enum DiagonalRetraceAction
+    {
+        /// <summary>
+        /// Ignore the level, the setup runs to its original TP or SL.
+        /// </summary>
+        NONE,
+
+        /// <summary>
+        /// Move the stop loss to the entry price.
+        /// </summary>
+        BREAKEVEN,
+
+        /// <summary>
+        /// Move the stop loss to the entry price and close half of the position at market.
+        /// </summary>
+        BREAKEVEN_AND_HALF,
+
+        /// <summary>
+        /// Close half of the position at market, leave the stop where it is.
+        /// </summary>
+        HALF,
+
+        /// <summary>
+        /// Close the whole position at market.
+        /// </summary>
+        CLOSE
+    }
+
+    /// <summary>
     /// Finds <b>contracting diagonals</b> (leading and ending alike, see DIAGONAL.md §1)
     /// and trades the move that always follows them — a correction (wave 2 / b) or a new
     /// trend — i.e. <b>counter</b> to the diagonal itself.
@@ -125,6 +158,11 @@ namespace TradeKit.Core.ElliottWave
         private readonly Dictionary<CandidateKey, DiagonalCandidate> m_Candidates = new();
         private readonly List<CandidateKey> m_DeadBuffer = new();
 
+        /// <summary>The candidate behind the open setup — its wave 5 keeps running (§6.4).</summary>
+        private DiagonalCandidate m_ActiveCandidate;
+        private bool m_RetraceActionFired;
+        private bool m_BreakevenArmed;
+
         /// <summary>
         /// Per-bar cache of chronological pivot tails: cross-scale assembly reads the lists
         /// of several rungs per event and must not re-sort each of them repeatedly.
@@ -161,6 +199,12 @@ namespace TradeKit.Core.ElliottWave
         /// Gets the way the target is placed (DIAGONAL.md §6.3).
         /// </summary>
         public DiagonalTakeProfitMode TakeProfitMode { get; }
+
+        /// <summary>
+        /// Gets what happens once, when the recomputed 23.6% retrace of the diagonal is reached
+        /// while the trade is in profit (DIAGONAL.md §6.4). The take profit is never moved.
+        /// </summary>
+        public DiagonalRetraceAction RetraceAction { get; }
 
         /// <summary>
         /// When set, a signal additionally requires a "mature" wave 5:
@@ -256,6 +300,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="minWave3Penetration">Minimum break of wave 1 by wave 3, share of |W1|.</param>
         /// <param name="maxWaveDurationRatio">D-TIME bound on W3/W1 and W4/W2 durations.</param>
         /// <param name="wavePullbackTol">Pullback share that ends a wave during greedy merging.</param>
+        /// <param name="retraceAction">What to do when the recomputed 23.6% level is reached in profit.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -270,7 +315,8 @@ namespace TradeKit.Core.ElliottWave
             double maxSpillAreaRatio = DEFAULT_MAX_SPILL_AREA_RATIO,
             double minWave3Penetration = DEFAULT_MIN_WAVE3_PENETRATION,
             double maxWaveDurationRatio = DEFAULT_MAX_WAVE_DURATION_RATIO,
-            double wavePullbackTol = DEFAULT_WAVE_PULLBACK_TOL)
+            double wavePullbackTol = DEFAULT_WAVE_PULLBACK_TOL,
+            DiagonalRetraceAction retraceAction = DiagonalRetraceAction.NONE)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -279,6 +325,7 @@ namespace TradeKit.Core.ElliottWave
             RequireWave4Ratio = requireWave4Ratio;
             RequireInitialMovement = requireInitialMovement;
             TakeProfitMode = takeProfitMode;
+            RetraceAction = retraceAction;
             MinConvergence = minConvergence;
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
@@ -374,6 +421,7 @@ namespace TradeKit.Core.ElliottWave
                     CurrentSignalEventArgs.TakeProfit.WithIndex(index, BarsProvider),
                     CurrentSignalEventArgs.Level, false, CurrentSignalEventArgs.Comment));
                 CurrentSignalEventArgs = null;
+                m_ActiveCandidate = null;
                 return false;
             }
 
@@ -386,12 +434,104 @@ namespace TradeKit.Core.ElliottWave
                     CurrentSignalEventArgs.StopLoss.WithIndex(index, BarsProvider),
                     CurrentSignalEventArgs.Level, false, CurrentSignalEventArgs.Comment));
                 CurrentSignalEventArgs = null;
+                m_ActiveCandidate = null;
                 return false;
             }
 
             // No extra post-signal invalidation is needed (DIAGONAL.md §6.2): the only
             // "model is dead" scenario — wave 5 longer than wave 3 — is the stop level.
+            return ManageOpenSetup(isUpSetup ? low : high, isUpSetup ? high : low, index);
+        }
+
+        /// <inheritdoc/>
+        public override void CheckTick(SymbolTickEventArgs tick)
+        {
+            if (!IsInitialized || !IsInSetup || CurrentSignalEventArgs == null)
+                return;
+
+            int index = BarsProvider.Count - 1;
+            if (index < 0)
+                return;
+
+            // A long is closed at the bid and a short at the ask, so both the adverse and the
+            // favorable price of a trade come from the same side of the spread.
+            bool isUpSetup = CurrentSignalEventArgs.TakeProfit > CurrentSignalEventArgs.StopLoss;
+            double price = isUpSetup ? tick.Bid : tick.Ask;
+            ManageOpenSetup(price, price, index);
+        }
+
+        /// <summary>
+        /// Post-entry management (DIAGONAL.md §6.4). Wave 5 keeps running after the entry, so
+        /// the 23.6% retrace of the diagonal moves together with its extreme; when the fresh
+        /// level is reached on the profitable side of the entry, <see cref="RetraceAction"/>
+        /// fires once. Returns <c>false</c> when the setup has been closed here.
+        /// </summary>
+        /// <param name="adverse">The price against the trade (a high for a short).</param>
+        /// <param name="favorable">The price in favor of the trade (a low for a short).</param>
+        /// <param name="index">The current bar index.</param>
+        private bool ManageOpenSetup(double adverse, double favorable, int index)
+        {
+            double entry = CurrentSignalEventArgs.Level.Value;
+            bool isUpSetup = CurrentSignalEventArgs.TakeProfit > CurrentSignalEventArgs.StopLoss;
+
+            // The stop has been moved to the entry, so the setup ends at 0R rather than at the
+            // original stop — otherwise the option would look like a loss in the statistics.
+            if (m_BreakevenArmed && (isUpSetup ? adverse <= entry : adverse >= entry))
+            {
+                CloseSetup(new BarPoint(entry, index, BarsProvider));
+                return false;
+            }
+
+            if (RetraceAction == DiagonalRetraceAction.NONE || m_RetraceActionFired ||
+                m_ActiveCandidate == null)
+                return true;
+
+            DiagonalCandidate candidate = m_ActiveCandidate;
+            int sgn = candidate.IsUp ? 1 : -1;
+            if (sgn * (adverse - candidate.W5Extreme) > 0)
+            {
+                candidate.W5Extreme = adverse;
+                candidate.W5ExtremeBar = index;
+            }
+
+            double level = candidate.W5Extreme - sgn * DIAGONAL_RETRACE_RATIO *
+                Math.Abs(candidate.W5Extreme - candidate.Point0.Value);
+
+            // The level has to be in profit and already reached.
+            if (sgn * (entry - level) <= 0 || sgn * (favorable - level) > 0)
+                return true;
+
+            m_RetraceActionFired = true;
+            var levelPoint = new BarPoint(level, index, BarsProvider);
+
+            if (RetraceAction == DiagonalRetraceAction.CLOSE)
+            {
+                CloseSetup(levelPoint);
+                return false;
+            }
+
+            bool moveStop = RetraceAction is DiagonalRetraceAction.BREAKEVEN
+                or DiagonalRetraceAction.BREAKEVEN_AND_HALF;
+            bool closeHalf = RetraceAction is DiagonalRetraceAction.HALF
+                or DiagonalRetraceAction.BREAKEVEN_AND_HALF;
+            if (moveStop)
+            {
+                m_BreakevenArmed = true;
+                CurrentSignalEventArgs.HasBreakeven = true;
+            }
+
+            OnBreakEvenInvoke(new LevelEventArgs(levelPoint, CurrentSignalEventArgs.Level,
+                moveStop, CurrentSignalEventArgs.Comment, closeHalf, moveStop));
             return true;
+        }
+
+        private void CloseSetup(BarPoint level)
+        {
+            IsInSetup = false;
+            OnManualCloseInvoke(new LevelEventArgs(level, CurrentSignalEventArgs.Level,
+                m_BreakevenArmed, CurrentSignalEventArgs.Comment));
+            CurrentSignalEventArgs = null;
+            m_ActiveCandidate = null;
         }
 
         #region Skeleton assembly (pivot-driven)
@@ -1116,6 +1256,10 @@ namespace TradeKit.Core.ElliottWave
 
             CurrentSignalEventArgs = new ElliottWaveSignalEventArgs(
                 level, tpPoint, slPoint, wavePoints, p0.OpenTime, string.Empty);
+
+            m_ActiveCandidate = candidate;
+            m_RetraceActionFired = false;
+            m_BreakevenArmed = false;
 
             m_SignaledPoint0.Add(p0.OpenTime);
             Bump("entered", p0);

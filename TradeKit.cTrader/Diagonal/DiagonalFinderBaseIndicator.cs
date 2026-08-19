@@ -32,6 +32,22 @@ namespace TradeKit.CTrader.Diagonal
             Logger.Write($"TP hit! Price:{priceFmt} ({e.Level.OpenTime:s})");
         }
 
+        protected override void OnBreakeven(object sender, LevelEventArgs e)
+        {
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
+            string action = e.MoveStopToEntry
+                ? e.CloseHalf ? "breakeven + close half" : "breakeven"
+                : "close half";
+            Logger.Write(
+                $"The fresh 23.6% level is reached, {action}. Price:{priceFmt} ({e.Level.OpenTime:s})");
+        }
+
+        protected override void OnManualClose(object sender, LevelEventArgs e)
+        {
+            string priceFmt = e.Level.Value.ToString($"F{Symbol.Digits}");
+            Logger.Write($"The setup is closed early. Price:{priceFmt} ({e.Level.OpenTime:s})");
+        }
+
         protected override void OnEnter(object sender, ElliottWaveSignalEventArgs e)
         {
             BarPoint[] wp = e.WavePoints;
@@ -89,7 +105,7 @@ namespace TradeKit.CTrader.Diagonal
                     ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                     : DiagonalTakeProfitMode.RISK_RATIO,
                 MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
-                MinWave3Penetration, MaxWaveDurationRatio);
+                MinWave3Penetration, MaxWaveDurationRatio, retraceAction: RetraceAction);
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -134,6 +150,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("TP at 23.6% of the diagonal", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool TakeProfitAtRetrace { get; set; }
+
+        /// <summary>
+        /// Gets or sets what is logged when the recomputed 23.6% retrace level of the diagonal
+        /// is reached while the trade is in profit (DIAGONAL.md §6.4).
+        /// </summary>
+        [Parameter("Action on the fresh 23.6%", DefaultValue = DiagonalRetraceAction.NONE, Group = Helper.TRADE_SETTINGS_NAME)]
+        public DiagonalRetraceAction RetraceAction { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

@@ -30,6 +30,7 @@ namespace TradeKit.CTrader.Core
             m_SetupFinder.OnStopLoss += OnStopLoss;
             m_SetupFinder.OnTakeProfit += OnTakeProfit;
             m_SetupFinder.OnBreakeven += OnBreakeven;
+            m_SetupFinder.OnManualClose += OnManualClose;
         }
         
         /// <summary>
@@ -64,6 +65,16 @@ namespace TradeKit.CTrader.Core
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
         protected virtual void OnBreakeven(object sender, LevelEventArgs e)
+        {
+
+        }
+
+        /// <summary>
+        /// Called when the setup is closed before TP or SL is hit.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="LevelEventArgs"/> instance containing the event data.</param>
+        protected virtual void OnManualClose(object sender, LevelEventArgs e)
         {
 
         }
@@ -104,6 +115,7 @@ namespace TradeKit.CTrader.Core
                 m_SetupFinder.OnStopLoss -= OnStopLoss;
                 m_SetupFinder.OnTakeProfit -= OnTakeProfit;
                 m_SetupFinder.OnTakeProfit -= OnBreakeven;
+                m_SetupFinder.OnManualClose -= OnManualClose;
             }
             
             base.OnDestroy();

@@ -4,13 +4,14 @@ namespace TradeKit.Core.EventArgs
 {
     public class LevelEventArgs : System.EventArgs
     {
-        public LevelEventArgs(BarPoint level, BarPoint fromLevel, bool hasBreakeven = false, string comment = "", bool closeHalf = false)
+        public LevelEventArgs(BarPoint level, BarPoint fromLevel, bool hasBreakeven = false, string comment = "", bool closeHalf = false, bool moveStopToEntry = true)
         {
             Level = level;
             FromLevel = fromLevel;
             HasBreakeven = hasBreakeven;
             Comment = comment;
             CloseHalf = closeHalf;
+            MoveStopToEntry = moveStopToEntry;
         }
 
         public BarPoint Level { get; }
@@ -28,6 +29,12 @@ namespace TradeKit.Core.EventArgs
         /// Gets a value indicating whether half of the position should be closed when breakeven is triggered.
         /// </summary>
         public bool CloseHalf { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the stop should be moved to the entry price. False
+        /// makes the event a pure partial close (see <see cref="CloseHalf"/>).
+        /// </summary>
+        public bool MoveStopToEntry { get; }
 
         public string Comment { get; }
     }

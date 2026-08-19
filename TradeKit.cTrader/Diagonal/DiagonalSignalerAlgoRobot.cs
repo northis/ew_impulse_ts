@@ -76,7 +76,8 @@ namespace TradeKit.CTrader.Diagonal
                 m_DiagonalParams.RequireInsideWedge,
                 m_DiagonalParams.MaxSpillAreaRatio,
                 m_DiagonalParams.MinWave3Penetration,
-                m_DiagonalParams.MaxWaveDurationRatio);
+                m_DiagonalParams.MaxWaveDurationRatio,
+                retraceAction: m_DiagonalParams.RetraceAction);
         }
     }
 }
