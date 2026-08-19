@@ -12,7 +12,7 @@ namespace TradeKit.Core.Common
         private const string UNKNOWN = "unknown";
 
         /// <summary>
-        /// Gets the hash of the commit at HEAD when the library was built.
+        /// Gets the short hash of the commit at HEAD when the library was built.
         /// </summary>
         public static string Commit =>
             string.IsNullOrEmpty(GitInfo.Commit) ? UNKNOWN : GitInfo.Commit;

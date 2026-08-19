@@ -53,7 +53,7 @@ namespace TradeKit.Core.Common
 
         static BaseSetupFinder()
         {
-            Logger.Write($"Trade Kit version {BuildInfo.Commit} {BuildInfo.CommitDateUtc}");
+            Logger.Write($"Trade Kit {BuildInfo.CommitDateUtc}, commit {BuildInfo.Commit} ");
         }
 
         /// <summary>

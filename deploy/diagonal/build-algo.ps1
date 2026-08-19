@@ -15,7 +15,7 @@ Write-Host "Building DiagonalSignalerBot.algo from $repoRoot ..."
 $commit = ""
 $commitDate = ""
 try {
-    $commit = (git -C $repoRoot rev-parse HEAD | Out-String).Trim()
+    $commit = (git -C $repoRoot rev-parse --short HEAD | Out-String).Trim()
     $commitDate = (git -C $repoRoot show -s --format=%cI HEAD | Out-String).Trim()
 } catch {
     Write-Warning "git is unavailable, the .algo will report an unknown revision."
