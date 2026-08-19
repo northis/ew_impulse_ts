@@ -22,6 +22,7 @@
     "BarsCount": "40",
     "TakeProfitRatio": "1.0",
     "TakeProfitAtRetrace": "True",
+    "RetraceAction": "NONE",
     "MinConvergence": "0",
     "RequireInsideWedge": "True",
     "MaxSpillAreaRatio": "0.005",

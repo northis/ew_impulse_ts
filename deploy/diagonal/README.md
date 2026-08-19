@@ -120,6 +120,7 @@ docker compose up -d
 | `SymbolsToProceed` | 30 пар | торгуемые символы |
 | `TimeFramesToProceed` | `Minute30,Hour` | торгуемые таймфреймы |
 | `TakeProfitRatio` | `1.0` | R:R диагонали |
+| `RetraceAction` | `NONE` | что делать при достижении пересчитанного уровня 23.6% в прибыли (DIAGONAL.md §6.4): `NONE`, `BREAKEVEN`, `BREAKEVEN_AND_HALF`, `HALF`, `CLOSE` |
 | `MinSizePercent`, `Period`, `BarsCount` | — | параметры зигзага/диагонали |
 
 Любой параметр можно убрать из файла — тогда бот возьмёт свой скомпилированный
