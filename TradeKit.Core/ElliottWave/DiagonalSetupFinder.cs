@@ -97,11 +97,11 @@ namespace TradeKit.Core.ElliottWave
         private const double MIN_WAVE4_RETRACE_W3 = 0.382;
 
         /// <summary>
-        /// Minimum size of wave 4 relative to wave 2 (hard rule D-W4-24): together with
-        /// D-CONTRACT-4 it gives the corridor <c>0.236·|W2| ≤ |W4| &lt; |W2|</c>. A wave 4
-        /// that collapses below that is a pause inside a trend, not the last swing of a wedge.
+        /// Minimum level wave 4 has to reach inside wave 2's range (hard rule D-W4-24), where
+        /// 0 is the end of wave 1 and 1 is the end of wave 2. A wave 4 that only scratches the
+        /// zone of wave 1 overlaps on paper but does not coil the wedge.
         /// </summary>
-        private const double MIN_WAVE4_RETRACE_W2 = 0.236;
+        private const double MIN_WAVE4_W2_LEVEL = 0.236;
 
         /// <summary>
         /// Retracement of the whole diagonal used as the target in
@@ -271,10 +271,11 @@ namespace TradeKit.Core.ElliottWave
         public double MinWave4RetraceW3 => MIN_WAVE4_RETRACE_W3;
 
         /// <summary>
-        /// Gets the hard minimum size of wave 4 as a share of |W2| (D-W4-24): the wedge has to
-        /// keep contracting evenly instead of collapsing into a tiny final pullback.
+        /// Gets the hard minimum level wave 4 must reach inside wave 2's range (D-W4-24):
+        /// 0 is the end of wave 1, 1 is the end of wave 2. Strengthens D-OVERLAP, which only
+        /// demands that the level be positive.
         /// </summary>
-        public double MinWave4RetraceW2 => MIN_WAVE4_RETRACE_W2;
+        public double MinWave4Wave2Level => MIN_WAVE4_W2_LEVEL;
 
         /// <summary>
         /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
@@ -845,14 +846,6 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
-            // D-W4-24 (hard): wave 4 reaches at least the 23.6% level of wave 2 — below that
-            // the wedge collapses instead of contracting.
-            if (w4 < MIN_WAVE4_RETRACE_W2 * w2)
-            {
-                Bump("w4RetraceW2TooShallow", p0);
-                return;
-            }
-
             // D-W4-78 (optional): the wedge contracts evenly rather than collapsing.
             if (RequireWave4Ratio && w4 < WAVE4_MIN_RATIO * w2)
             {
@@ -881,6 +874,15 @@ namespace TradeKit.Core.ElliottWave
             if (sgn * (p4.Value - p1.Value) >= 0)
             {
                 Bump("noOverlap", p0);
+                return;
+            }
+
+            // D-W4-24 (hard): measured on wave 2's range (0 = end of W1, 1 = end of W2),
+            // wave 4 has to reach at least the 23.6% level — a shallower overlap does not
+            // coil the wedge.
+            if (sgn * (p1.Value - p4.Value) < MIN_WAVE4_W2_LEVEL * w2)
+            {
+                Bump("w4ShallowIntoW2", p0);
                 return;
             }
 
