@@ -5,7 +5,7 @@
   <line x1="2" y1="4" x2="2" y2="420" style="stroke: rgba({BAR_COLOR}); stroke-width: 10;"></line>
   <text font-family="TeX Gyre Heros" font-size="45" x="15" y="55">
     <tspan fill="rgba({SYMBOL_COLOR})" font-weight="700">{SYMBOL}, </tspan>
-    <tspan fill="rgba({TRADE_COLOR})" style="white-space: pre;"> {TRADE_TYPE} {LOT_VOLUME}</tspan>
+    <tspan fill="rgba({TRADE_COLOR})" font-weight="700" style="white-space: pre;"> {TRADE_TYPE} {LOT_VOLUME}</tspan>
   </text>
   
   <text fill="rgba({PRICE_RESULT_COLOR})" font-family="TeX Gyre Heros" font-size="40" font-weight="100" x="15" y="110">

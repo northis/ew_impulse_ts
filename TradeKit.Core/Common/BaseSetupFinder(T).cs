@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Plotly.NET;
+﻿using Plotly.NET;
 using TradeKit.Core.EventArgs;
 
 namespace TradeKit.Core.Common
@@ -54,7 +53,7 @@ namespace TradeKit.Core.Common
 
         static BaseSetupFinder()
         {
-            Logger.Write($"Trade Kit version {Assembly.GetExecutingAssembly().GetName().Version}");
+            Logger.Write($"Trade Kit version {BuildInfo.Commit} {BuildInfo.CommitDateUtc}");
         }
 
         /// <summary>

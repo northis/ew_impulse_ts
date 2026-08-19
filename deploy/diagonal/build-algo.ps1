@@ -9,7 +9,20 @@ $algoDir  = Join-Path $PSScriptRoot "algo"
 New-Item -ItemType Directory -Force -Path $algoDir | Out-Null
 
 Write-Host "Building DiagonalSignalerBot.algo from $repoRoot ..."
+
+# The CLI image has no git, so the HEAD stamp is taken here and handed over as env vars
+# (MSBuild picks them up as properties, see the EmbedGitInfo target in TradeKit.Core).
+$commit = ""
+$commitDate = ""
+try {
+    $commit = (git -C $repoRoot rev-parse HEAD | Out-String).Trim()
+    $commitDate = (git -C $repoRoot show -s --format=%cI HEAD | Out-String).Trim()
+} catch {
+    Write-Warning "git is unavailable, the .algo will report an unknown revision."
+}
+
 docker run --rm --mount "type=bind,src=$repoRoot,dst=/src" `
+    -e "TradeKitGitCommit=$commit" -e "TradeKitGitCommitDate=$commitDate" `
     ghcr.io/spotware/ctrader-console:latest build /src/DiagonalSignalerBot
 
 $src = Join-Path $repoRoot "DiagonalSignalerBot\bin\Release\net6.0\src.algo"
