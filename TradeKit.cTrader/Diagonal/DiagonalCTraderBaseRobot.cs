@@ -33,7 +33,7 @@ namespace TradeKit.CTrader.Diagonal
                     : DiagonalTakeProfitMode.RISK_RATIO,
                 MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
                 RequireWave5Ratio, RequireWave4Ratio, RequireInitialMovement,
-                MinWave3Penetration, MaxWaveDurationRatio, RetraceAction);
+                MinWave3Penetration, MaxWaveDurationRatio, RetraceAction, MinRiskRewardRatio);
         }
 
         #region Input parameters
@@ -75,6 +75,14 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Action on the fresh 23.6%", DefaultValue = DiagonalRetraceAction.NONE, Group = Helper.TRADE_SETTINGS_NAME)]
         public DiagonalRetraceAction RetraceAction { get; set; }
+
+        /// <summary>
+        /// Gets or sets the minimum R:R of a 23.6%-retrace setup: a worse one waits for wave 5
+        /// to improve it instead of being taken or dropped. 0 turns the wait off
+        /// (DIAGONAL.md §6.5).
+        /// </summary>
+        [Parameter("Min R:R (retrace TP)", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MinRiskRewardRatio { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

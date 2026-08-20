@@ -214,6 +214,15 @@ namespace TradeKit.Core.ElliottWave
         public DiagonalRetraceAction RetraceAction { get; }
 
         /// <summary>
+        /// Gets the minimum R:R a <see cref="DiagonalTakeProfitMode.DIAGONAL_RETRACE"/> setup
+        /// has to offer (DIAGONAL.md §6.5). A signal whose target is closer than this waits:
+        /// the candidate stays alive and is re-checked on every closed candle with the target
+        /// recomputed from the fresh extreme of wave 5. <c>0</c> disables the wait — the setup
+        /// is taken (or dropped) on the trigger candle, as before.
+        /// </summary>
+        public double MinRiskRewardRatio { get; }
+
+        /// <summary>
         /// When set, a signal additionally requires a "mature" wave 5:
         /// <c>|W5| ≥ 0.786·|W3|</c> (DIAGONAL.md §6.1).
         /// </summary>
@@ -315,6 +324,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="maxWaveDurationRatio">D-TIME bound on W3/W1 and W4/W2 durations.</param>
         /// <param name="wavePullbackTol">Pullback share that ends a wave during greedy merging.</param>
         /// <param name="retraceAction">What to do when the recomputed 23.6% level is reached in profit.</param>
+        /// <param name="minRiskRewardRatio">Minimum R:R of a retrace-mode setup; 0 — no wait.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -330,7 +340,8 @@ namespace TradeKit.Core.ElliottWave
             double minWave3Penetration = DEFAULT_MIN_WAVE3_PENETRATION,
             double maxWaveDurationRatio = DEFAULT_MAX_WAVE_DURATION_RATIO,
             double wavePullbackTol = DEFAULT_WAVE_PULLBACK_TOL,
-            DiagonalRetraceAction retraceAction = DiagonalRetraceAction.NONE)
+            DiagonalRetraceAction retraceAction = DiagonalRetraceAction.NONE,
+            double minRiskRewardRatio = 0)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -340,6 +351,7 @@ namespace TradeKit.Core.ElliottWave
             RequireInitialMovement = requireInitialMovement;
             TakeProfitMode = takeProfitMode;
             RetraceAction = retraceAction;
+            MinRiskRewardRatio = Math.Max(0, minRiskRewardRatio);
             MinConvergence = minConvergence;
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
@@ -1106,7 +1118,12 @@ namespace TradeKit.Core.ElliottWave
                 }
 
                 bool triggerable = IsTriggerable(candidate);
-                bool fireNow = triggerable && !candidate.WasTriggerable;
+
+                // A candidate parked by the R:R gate (§6.5) is re-checked on every closed
+                // candle: both the entry (the close) and the target (the fresh extreme of
+                // wave 5) move, so the ratio it was rejected for can become acceptable.
+                bool fireNow = triggerable &&
+                               (!candidate.WasTriggerable || candidate.IsWaitingForRatio);
                 candidate.WasTriggerable = triggerable;
 
                 if (!fireNow || IsInSetup)
@@ -1241,6 +1258,19 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
+            // D-TP-RR (§6.5): the retrace target is a geometric level, so its R:R floats and
+            // may be worse than the setup is worth. Instead of dropping the diagonal, wait for
+            // wave 5 to push the entry away from the stop and the level along with it.
+            if (isRetraceTp && MinRiskRewardRatio > 0 &&
+                Math.Abs(tpPrice - entry) < MinRiskRewardRatio * Math.Abs(entry - slPrice))
+            {
+                candidate.IsWaitingForRatio = true;
+                Bump("ratioTooLow", p0);
+                return false;
+            }
+
+            candidate.IsWaitingForRatio = false;
+
             double low = BarsProvider.GetLowPrice(index);
             double high = BarsProvider.GetHighPrice(index);
             bool alreadyHit = isUpSetup
@@ -1338,6 +1368,12 @@ namespace TradeKit.Core.ElliottWave
             /// signal fires on the FIRST candle that satisfies them.
             /// </summary>
             public bool WasTriggerable { get; set; }
+
+            /// <summary>
+            /// Whether the candidate is triggerable but parked by the R:R gate (§6.5) and so
+            /// has to be re-checked on every closed candle rather than only on the first one.
+            /// </summary>
+            public bool IsWaitingForRatio { get; set; }
 
             public double W5Length => Math.Abs(W5Extreme - P4.Value);
         }

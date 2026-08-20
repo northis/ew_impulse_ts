@@ -23,6 +23,7 @@
     "TakeProfitRatio": "1.0",
     "TakeProfitAtRetrace": "True",
     "RetraceAction": "NONE",
+    "MinRiskRewardRatio": "0",
     "MinConvergence": "0",
     "RequireInsideWedge": "True",
     "MaxSpillAreaRatio": "0.005",
