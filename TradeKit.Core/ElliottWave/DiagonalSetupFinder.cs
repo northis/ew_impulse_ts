@@ -131,6 +131,12 @@ namespace TradeKit.Core.ElliottWave
         /// <summary>How deep (in pivots) the point-0 candidate scan goes back from wave 4.</summary>
         private const int MAX_ASSEMBLY_DEPTH = 40;
 
+        /// <summary>
+        /// How many shorter wave-1 endings are tried when the greedy merge over-runs wave 1
+        /// (DIAGONAL.md §9.11).
+        /// </summary>
+        private const int MAX_WAVE1_ALTERNATIVES = 4;
+
         /// <summary>Pivots needed for a 0-1-2-3-4 skeleton.</summary>
         private const int MIN_EXTREMUM_COUNT = 5;
 
@@ -164,6 +170,7 @@ namespace TradeKit.Core.ElliottWave
         private readonly Dictionary<DeviationExtremumFinder, int> m_PrevExtremaCount = new();
         private readonly Dictionary<CandidateKey, DiagonalCandidate> m_Candidates = new();
         private readonly List<CandidateKey> m_DeadBuffer = new();
+        private readonly List<KeyValuePair<CandidateKey, DiagonalCandidate>> m_FireBuffer = new();
 
         /// <summary>The candidate behind the open setup — its wave 5 keeps running (§6.4).</summary>
         private DiagonalCandidate m_ActiveCandidate;
@@ -214,11 +221,19 @@ namespace TradeKit.Core.ElliottWave
         public DiagonalRetraceAction RetraceAction { get; }
 
         /// <summary>
-        /// Gets the minimum R:R a <see cref="DiagonalTakeProfitMode.DIAGONAL_RETRACE"/> setup
-        /// has to offer (DIAGONAL.md §6.5). A signal whose target is closer than this waits:
-        /// the candidate stays alive and is re-checked on every closed candle with the target
-        /// recomputed from the fresh extreme of wave 5. <c>0</c> disables the wait — the setup
-        /// is taken (or dropped) on the trigger candle, as before.
+        /// Gets the share of <c>|W3|</c> the target retraces from the extreme of wave 5
+        /// (DIAGONAL.md §6.6): <c>TP = W5 ∓ ratio·|W3|</c>. Overrides
+        /// <see cref="TakeProfitMode"/> when positive; <c>0</c> — off, the target is placed by
+        /// <see cref="TakeProfitMode"/> as before.
+        /// </summary>
+        public double Wave3RetraceRatio { get; }
+
+        /// <summary>
+        /// Gets the minimum R:R a setup with a geometric target (§6.3 / §6.6) has to offer
+        /// (DIAGONAL.md §6.5). A signal whose target is closer than this waits: the candidate
+        /// stays alive and is re-checked on every closed candle with the target recomputed
+        /// from the fresh extreme of wave 5. <c>0</c> disables the wait — the setup is taken
+        /// (or dropped) on the trigger candle, as before.
         /// </summary>
         public double MinRiskRewardRatio { get; }
 
@@ -325,6 +340,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="wavePullbackTol">Pullback share that ends a wave during greedy merging.</param>
         /// <param name="retraceAction">What to do when the recomputed 23.6% level is reached in profit.</param>
         /// <param name="minRiskRewardRatio">Minimum R:R of a retrace-mode setup; 0 — no wait.</param>
+        /// <param name="wave3RetraceRatio">Target as a retrace of |W3| from the wave-5 extreme; 0 — off.</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -341,7 +357,8 @@ namespace TradeKit.Core.ElliottWave
             double maxWaveDurationRatio = DEFAULT_MAX_WAVE_DURATION_RATIO,
             double wavePullbackTol = DEFAULT_WAVE_PULLBACK_TOL,
             DiagonalRetraceAction retraceAction = DiagonalRetraceAction.NONE,
-            double minRiskRewardRatio = 0)
+            double minRiskRewardRatio = 0,
+            double wave3RetraceRatio = 0)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -352,6 +369,7 @@ namespace TradeKit.Core.ElliottWave
             TakeProfitMode = takeProfitMode;
             RetraceAction = retraceAction;
             MinRiskRewardRatio = Math.Max(0, minRiskRewardRatio);
+            Wave3RetraceRatio = Math.Max(0, wave3RetraceRatio);
             MinConvergence = minConvergence;
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
@@ -638,25 +656,69 @@ namespace TradeKit.Core.ElliottWave
                 int i1 = ExtendWave(piv, k, p4Idx, isUp, true, WavePullbackTol);
                 if (i1 <= k || i1 >= p4Idx) continue;
 
-                int i2 = ExtendWave(piv, i1, p4Idx, isUp, false, WavePullbackTol);
-                int i3 = i2 > i1 && i2 < p4Idx
-                    ? ExtendWave(piv, i2, p4Idx, isUp, true, WavePullbackTol)
-                    : -1;
-                int i4 = i3 > i2 && i3 < p4Idx
-                    ? ExtendWave(piv, i3, p4Idx, isUp, false, WavePullbackTol)
-                    : -1;
-
-                if (i4 == p4Idx)
-                {
-                    TryRegister(piv[k], piv[i1], piv[i2], piv[i3], piv[i4], isUp, index);
+                if (TryCarveWaves234(piv, k, i1, p4Idx, isUp, index))
                     continue;
-                }
 
                 // Single-scale carving broke on a sub-wave (typically a deep corrective
                 // wave 2 across a session gap): retry cross-scale — waves 0-1 from this
                 // rung, wave 2's end from a coarser rung, waves 3-4 from whichever rung
                 // resolves them (DIAGONAL.md §7.2).
+                int poolSize = m_Candidates.Count;
                 TryCrossScaleWave2(finder, piv, k, i1, isUp, index);
+
+                if (m_Candidates.Count == poolSize)
+                    TryShorterWave1(piv, k, i1, p4Idx, isUp, index);
+            }
+        }
+
+        /// <summary>
+        /// Carves waves 2-4 greedily from the end of wave 1 and registers the skeleton when
+        /// wave 4 lands exactly on <paramref name="p4Idx"/>. Returns whether it did.
+        /// </summary>
+        private bool TryCarveWaves234(IList<BarPoint> piv, int k, int i1, int p4Idx,
+            bool isUp, int index)
+        {
+            int i2 = ExtendWave(piv, i1, p4Idx, isUp, false, WavePullbackTol);
+            int i3 = i2 > i1 && i2 < p4Idx
+                ? ExtendWave(piv, i2, p4Idx, isUp, true, WavePullbackTol)
+                : -1;
+            int i4 = i3 > i2 && i3 < p4Idx
+                ? ExtendWave(piv, i3, p4Idx, isUp, false, WavePullbackTol)
+                : -1;
+
+            if (i4 != p4Idx)
+                return false;
+
+            TryRegister(piv[k], piv[i1], piv[i2], piv[i3], piv[i4], isUp, index);
+            return true;
+        }
+
+        /// <summary>
+        /// Fallback for an OVER-merged wave 1 (DIAGONAL.md §9.11): when wave 2 retraces less
+        /// than <see cref="WavePullbackTol"/> of wave 1 — usual when wave 1 is a spike — the
+        /// greedy merge absorbs waves 2-4 into wave 1 and the skeleton falls apart. Retries
+        /// the carve with the nearest earlier pivots in the diagonal's direction as the end
+        /// of wave 1; the §4 gates drop whatever is not a wedge.
+        /// </summary>
+        private void TryShorterWave1(IList<BarPoint> piv, int k, int i1, int p4Idx,
+            bool isUp, int index)
+        {
+            int sgn = isUp ? 1 : -1;
+            int tried = 0;
+
+            for (int alt = Math.Min(i1 - 1, p4Idx - 3);
+                 alt > k && tried < MAX_WAVE1_ALTERNATIVES;
+                 alt--)
+            {
+                // A wave-1 end runs in the diagonal's direction and is followed by a
+                // counter-move (the start of wave 2).
+                if (sgn * (piv[alt].Value - piv[k].Value) <= 0 ||
+                    sgn * (piv[alt].Value - piv[alt + 1].Value) <= 0)
+                    continue;
+
+                tried++;
+                if (TryCarveWaves234(piv, k, alt, p4Idx, isUp, index))
+                    return;
             }
         }
 
@@ -1104,6 +1166,7 @@ namespace TradeKit.Core.ElliottWave
                 return;
 
             m_DeadBuffer.Clear();
+            m_FireBuffer.Clear();
             foreach (KeyValuePair<CandidateKey, DiagonalCandidate> pair in m_Candidates)
             {
                 DiagonalCandidate candidate = pair.Value;
@@ -1126,10 +1189,28 @@ namespace TradeKit.Core.ElliottWave
                                (!candidate.WasTriggerable || candidate.IsWaitingForRatio);
                 candidate.WasTriggerable = triggerable;
 
-                if (!fireNow || IsInSetup)
-                    continue;
+                if (fireNow)
+                    m_FireBuffer.Add(pair);
+            }
 
-                if (TryEmit(candidate, index))
+            // Several wedges can break V(3) on the very same candle. Take the outermost one
+            // (the earliest point 0) rather than whatever the dictionary yields first — the
+            // inner wedges are its own sub-structure, and the choice must not depend on hash
+            // order to stay reproducible between replays.
+            m_FireBuffer.Sort((a, b) =>
+            {
+                int cmp = a.Value.Point0.BarIndex.CompareTo(b.Value.Point0.BarIndex);
+                if (cmp != 0) return cmp;
+                cmp = a.Value.P4.BarIndex.CompareTo(b.Value.P4.BarIndex);
+                return cmp != 0 ? cmp : a.Value.IsUp.CompareTo(b.Value.IsUp);
+            });
+
+            foreach (KeyValuePair<CandidateKey, DiagonalCandidate> pair in m_FireBuffer)
+            {
+                if (IsInSetup)
+                    break;
+
+                if (TryEmit(pair.Value, index))
                     m_DeadBuffer.Add(pair.Key);
             }
 
@@ -1211,9 +1292,15 @@ namespace TradeKit.Core.ElliottWave
             double slAllowance = Math.Abs(entry - slRaw) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
             // D-TP-236: the target retraces the whole diagonal V(0) → W5, not the risk.
-            double retraceRaw = candidate.W5Extreme + (candidate.IsUp ? -1 : 1) *
-                DIAGONAL_RETRACE_RATIO * Math.Abs(candidate.W5Extreme - p0.Value);
-            bool isRetraceTp = TakeProfitMode == DiagonalTakeProfitMode.DIAGONAL_RETRACE;
+            // D-TP-W3 (§6.6) measures the same pullback against |W3| instead.
+            bool isWave3Tp = Wave3RetraceRatio > 0;
+            double retraceDepth = isWave3Tp
+                ? Wave3RetraceRatio * w3
+                : DIAGONAL_RETRACE_RATIO * Math.Abs(candidate.W5Extreme - p0.Value);
+            double retraceRaw = candidate.W5Extreme +
+                                (candidate.IsUp ? -1 : 1) * retraceDepth;
+            bool isRetraceTp = isWave3Tp ||
+                               TakeProfitMode == DiagonalTakeProfitMode.DIAGONAL_RETRACE;
 
             double slPrice, tpPrice;
             if (isUpSetup)

@@ -122,6 +122,7 @@ docker compose up -d
 | `TakeProfitRatio` | `1.0` | R:R диагонали |
 | `RetraceAction` | `NONE` | что делать при достижении пересчитанного уровня 23.6% в прибыли (DIAGONAL.md §6.4): `NONE`, `BREAKEVEN`, `BREAKEVEN_AND_HALF`, `HALF`, `CLOSE` |
 | `MinRiskRewardRatio` | `0` | мин. R:R для режима TP «23.6% диагонали» (DIAGONAL.md §6.5): если на пробое сетап невыгоден, бот не входит, а ждёт на закрытиях свечей, пересчитывая TP по свежему экстремуму волны 5. `0` = выключено |
+| `Wave3RetraceRatio` | `0` | TP на уровне отката от волны 3 (DIAGONAL.md §6.6): `TP = W5 ∓ доля·|W3|`, например `0.382`. Перекрывает `TakeProfitRatio` и `TakeProfitAtRetrace`; `0` = выключено |
 | `MinSizePercent`, `Period`, `BarsCount` | — | параметры зигзага/диагонали |
 
 Любой параметр можно убрать из файла — тогда бот возьмёт свой скомпилированный

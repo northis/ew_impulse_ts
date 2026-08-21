@@ -78,7 +78,8 @@ namespace TradeKit.CTrader.Diagonal
                 m_DiagonalParams.MinWave3Penetration,
                 m_DiagonalParams.MaxWaveDurationRatio,
                 retraceAction: m_DiagonalParams.RetraceAction,
-                minRiskRewardRatio: m_DiagonalParams.MinRiskRewardRatio);
+                minRiskRewardRatio: m_DiagonalParams.MinRiskRewardRatio,
+                wave3RetraceRatio: m_DiagonalParams.Wave3RetraceRatio);
         }
     }
 }

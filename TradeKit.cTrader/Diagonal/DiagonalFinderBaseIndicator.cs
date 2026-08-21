@@ -106,7 +106,8 @@ namespace TradeKit.CTrader.Diagonal
                     : DiagonalTakeProfitMode.RISK_RATIO,
                 MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
                 MinWave3Penetration, MaxWaveDurationRatio, retraceAction: RetraceAction,
-                minRiskRewardRatio: MinRiskRewardRatio);
+                minRiskRewardRatio: MinRiskRewardRatio,
+                wave3RetraceRatio: Wave3RetraceRatio);
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -166,6 +167,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min R:R (retrace TP)", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinRiskRewardRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the target as a retrace of |W3| from the extreme of wave 5
+        /// (DIAGONAL.md §6.6): 0.382 — TP at the 38.2% level, 0 — off.
+        /// </summary>
+        [Parameter("TP at % of W3", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double Wave3RetraceRatio { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

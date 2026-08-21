@@ -1248,6 +1248,454 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
+        /// CADJPY m5, 2026-08-19 12:35 → 15:25: wave 1 is a spike (|W1| = 0.602) and wave 2
+        /// gives back only 34% of it — less than the greedy merge tolerance — so the single
+        /// pass swallows waves 2-4 into wave 1 and the wedge anchored at 12:35 falls apart
+        /// (the detector used to anchor it one pivot later, at 13:10). The shorter-wave-1
+        /// fallback must recover the full skeleton.
+        /// </summary>
+        [Test]
+        public void Diagonal_CadJpyM5_ShallowWave2_FoundByShorterWave1()
+        {
+            const string file = "CADJPY_m5_2026-07-17T04-20-00_2026-08-20T23-00-00.csv";
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            DateTime p0Time = new DateTime(2026, 8, 19, 12, 35, 0, DateTimeKind.Utc);
+            ElliottWaveSignalEventArgs? signal = signals.FirstOrDefault(s =>
+                (s.WavePoints[0].OpenTime - p0Time).Duration() <= TimeSpan.FromSeconds(5));
+
+            Assert.That(signal, Is.Not.Null,
+                "The shallow-wave-2 diagonal was not recovered. Funnel: " +
+                string.Join(", ", finder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+
+            (DateTime Time, double Value)[] expected =
+            {
+                (p0Time, 114.084),
+                (new DateTime(2026, 8, 19, 14, 5, 0, DateTimeKind.Utc), 114.686),
+                (new DateTime(2026, 8, 19, 14, 35, 0, DateTimeKind.Utc), 114.480),
+                (new DateTime(2026, 8, 19, 15, 10, 0, DateTimeKind.Utc), 114.726),
+                (new DateTime(2026, 8, 19, 15, 20, 0, DateTimeKind.Utc), 114.607)
+            };
+
+            BarPoint[] p = signal!.WavePoints;
+            for (int i = 0; i < expected.Length; i++)
+            {
+                Assert.That(Math.Abs((p[i].OpenTime - expected[i].Time).TotalSeconds),
+                    Is.LessThanOrEqualTo(5),
+                    $"V({i}) must be at {expected[i].Time:u}; actual {p[i].OpenTime:u}.");
+                Assert.That(p[i].Value, Is.EqualTo(expected[i].Value).Within(1e-5),
+                    $"V({i}) price mismatch at {p[i].OpenTime:u}.");
+            }
+        }
+
+        /// <summary>
+        /// DIAGONAL.md §6.6: with <c>Wave3RetraceRatio</c> set, the target is a retrace of
+        /// |W3| from the running extreme of wave 5 — <c>TP = W5 ∓ ratio·|W3|</c> — and it
+        /// overrides both the fixed R:R and the 23.6%-of-the-diagonal mode.
+        /// </summary>
+        [Test]
+        public void Diagonal_Wave3RetraceRatio_PlacesTargetAtW3Fibo()
+        {
+            const string file = "USDJPY_m5_2026-07-16T07-05-00_2026-08-20T21-15-00.csv";
+            const double ratio = 0.382;
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                wave3RetraceRatio: ratio);
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            DateTime p0Time = new DateTime(2026, 8, 19, 22, 5, 0, DateTimeKind.Utc);
+            ElliottWaveSignalEventArgs? signal = signals.FirstOrDefault(s =>
+                (s.WavePoints[0].OpenTime - p0Time).Duration() <= TimeSpan.FromSeconds(5));
+
+            Assert.That(signal, Is.Not.Null, "No signal for the USDJPY diagonal.");
+
+            BarPoint[] p = signal!.WavePoints;
+            double w3 = Math.Abs(p[3].Value - p[2].Value);
+            double expected = p[5].Value - ratio * w3;
+
+            Assert.That(signal.TakeProfit.Value, Is.EqualTo(expected).Within(1e-4),
+                $"TP must sit at the {ratio:P1} retrace of |W3| = {w3:F5} " +
+                $"below the wave-5 extreme {p[5].Value:F5}.");
+        }
+
+        /// <summary>
+        /// Diagnoses one hand-marked diagonal (USDJPY m5, 2026-08-19 22:05 → 08-20 14:15):
+        /// evaluates every §4 gate on the manual skeleton, lists the ladder rungs that see
+        /// those pivots, dumps the gates and the signals the live finder produced in the
+        /// window. Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_UsdJpyM5_Case_Diagnostics()
+        {
+            // point0 is a LOW (up diagonal): low,high,low,high,low,high.
+            RunCaseDiagnostics(
+                "USDJPY_m5_2026-07-16T07-05-00_2026-08-20T21-15-00.csv",
+                new[]
+                {
+                    (new DateTime(2026, 8, 19, 22, 5, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 20, 5, 40, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 20, 9, 20, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 20, 12, 5, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 20, 13, 5, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 20, 14, 15, 0, DateTimeKind.Utc), true)
+                },
+                new DateTime(2026, 8, 19, 21, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 8, 20, 15, 0, 0, DateTimeKind.Utc));
+        }
+
+        /// <summary>
+        /// Diagnoses one hand-marked diagonal (CADJPY m5, 2026-08-19 12:35 → 15:25) the same
+        /// way. Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_CadJpyM5_Case_Diagnostics()
+        {
+            RunCaseDiagnostics(
+                "CADJPY_m5_2026-07-17T04-20-00_2026-08-20T23-00-00.csv",
+                new[]
+                {
+                    (new DateTime(2026, 8, 19, 12, 35, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 19, 14, 5, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 19, 14, 35, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 19, 15, 10, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 19, 15, 20, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 19, 15, 25, 0, DateTimeKind.Utc), true)
+                },
+                new DateTime(2026, 8, 19, 11, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 8, 19, 17, 0, 0, DateTimeKind.Utc));
+        }
+
+        private static void RunCaseDiagnostics(
+            string file, (DateTime Time, bool IsHigh)[] markup, DateTime from, DateTime to)
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var live = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+            double minPen = live.MinWave3Penetration;
+            double maxDur = live.MaxWaveDurationRatio;
+            TestContext.Out.WriteLine(
+                $"{file}\ndefaults: pen={minPen:F3} dur={maxDur:F1} " +
+                $"minConv={live.MinConvergence:F2} inside={live.RequireInsideWedge} " +
+                $"spill={live.MaxSpillAreaRatio:F4} tol={live.WavePullbackTol:F2} " +
+                $"zzPeriod={live.ZigzagPeriod}");
+
+            TestContext.Out.WriteLine("=== manual skeleton ===");
+            BarPoint[] p = markup
+                .Select(x =>
+                {
+                    int i = provider.GetIndexByTime(x.Time);
+                    double value = x.IsHigh
+                        ? provider.GetHighPrice(i)
+                        : provider.GetLowPrice(i);
+                    return new BarPoint(value, x.Time, provider.TimeFrame, i);
+                })
+                .ToArray();
+
+            int sgn = 1; // up diagonal
+            double w1 = Math.Abs(p[1].Value - p[0].Value);
+            double w2 = Math.Abs(p[2].Value - p[1].Value);
+            double w3 = Math.Abs(p[3].Value - p[2].Value);
+            double w4 = Math.Abs(p[4].Value - p[3].Value);
+            double w5 = Math.Abs(p[5].Value - p[4].Value);
+
+            for (int i = 0; i < p.Length; i++)
+                TestContext.Out.WriteLine($"  V({i}) {p[i].OpenTime:u} idx={p[i].BarIndex,5} {p[i].Value:F5}");
+
+            TestContext.Out.WriteLine(
+                $"  |W1|={w1:F5} |W2|={w2:F5} |W3|={w3:F5} |W4|={w4:F5} |W5|={w5:F5}");
+            TestContext.Out.WriteLine(
+                $"  bars: W1={p[1].BarIndex - p[0].BarIndex} W2={p[2].BarIndex - p[1].BarIndex} " +
+                $"W3={p[3].BarIndex - p[2].BarIndex} W4={p[4].BarIndex - p[3].BarIndex} " +
+                $"W5={p[5].BarIndex - p[4].BarIndex} span0-4={p[4].BarIndex - p[0].BarIndex}");
+
+            void Gate(string rule, bool ok, string detail) =>
+                TestContext.Out.WriteLine($"  {(ok ? "OK  " : "FAIL")} {rule,-14} {detail}");
+
+            Gate("D-W2", sgn * (p[2].Value - p[0].Value) > 0,
+                $"V(2)-V(0)={p[2].Value - p[0].Value:F5}");
+            Gate("D-W3-PEN", sgn * (p[3].Value - p[1].Value) >= minPen * w1,
+                $"pen={p[3].Value - p[1].Value:F5} = {(p[3].Value - p[1].Value) / w1:P2} of |W1|");
+            Gate("D-CONTRACT-3", w3 < w1, $"{w3:F5} < {w1:F5}");
+            Gate("D-CONTRACT-4", w4 < w2, $"{w4:F5} < {w2:F5}");
+            Gate("D-W4-38", w4 >= live.MinWave4RetraceW3 * w3,
+                $"{w4:F5} >= {live.MinWave4RetraceW3 * w3:F5} (38.2% of |W3|)");
+            Gate("D-W4-24", sgn * (p[1].Value - p[4].Value) >= live.MinWave4Wave2Level * w2,
+                $"level={sgn * (p[1].Value - p[4].Value) / w2:F3} of |W2|");
+            Gate("D-TIME-24",
+                p[4].BarIndex - p[3].BarIndex < p[2].BarIndex - p[1].BarIndex,
+                $"bars(W4)={p[4].BarIndex - p[3].BarIndex} < bars(W2)={p[2].BarIndex - p[1].BarIndex}");
+            Gate("D-OVERLAP", sgn * (p[4].Value - p[1].Value) < 0,
+                $"V(4)-V(1)={p[4].Value - p[1].Value:F5}");
+            Gate("D-W4-2", sgn * (p[4].Value - p[2].Value) > 0,
+                $"V(4)-V(2)={p[4].Value - p[2].Value:F5}");
+            Gate("D-W5-BREAK", sgn * (p[5].Value - p[3].Value) > 0,
+                $"V(5)-V(3)={p[5].Value - p[3].Value:F5}");
+            Gate("D-W5-CAP", w5 < w3, $"{w5:F5} < {w3:F5}");
+
+            double ceilSlope = (p[3].Value - p[1].Value) / (p[3].BarIndex - p[1].BarIndex);
+            double floorSlope = (p[4].Value - p[2].Value) / (p[4].BarIndex - p[2].BarIndex);
+            double widthAt1 =
+                sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
+            double widthAt4 =
+                sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
+            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence,
+                $"conv={widthAt1 / widthAt4 - 1:F3}");
+
+            double spill = 0, wedge = 0;
+            for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
+            {
+                double ceiling = p[1].Value + ceilSlope * (bar - p[1].BarIndex);
+                double floorLine = p[2].Value + floorSlope * (bar - p[2].BarIndex);
+                spill += Math.Max(0, provider.GetHighPrice(bar) - ceiling) +
+                         Math.Max(0, floorLine - provider.GetLowPrice(bar));
+                wedge += ceiling - floorLine;
+            }
+
+            Gate("D-INSIDE", spill / wedge <= live.MaxSpillAreaRatio,
+                $"spill={spill / wedge:F5} (limit {live.MaxSpillAreaRatio:F4})");
+
+            for (int w = 3; w < p.Length - 1; w++)
+            {
+                double siblingBars = p[w - 2].BarIndex - p[w - 3].BarIndex;
+                double curBars = p[w].BarIndex - p[w - 1].BarIndex;
+                double ratio = Math.Max(curBars / siblingBars, siblingBars / curBars);
+                Gate("D-TIME", ratio <= maxDur,
+                    $"W{w} vs W{w - 2}: {curBars}/{siblingBars} -> ratio={ratio:F2}");
+            }
+
+            // Deepest counter-move inside every marked wave: the greedy merger ends a wave
+            // when a pullback exceeds WavePullbackTol of the amplitude accumulated so far.
+            TestContext.Out.WriteLine("=== worst internal pullback per wave (share of run so far) ===");
+            for (int w = 1; w < p.Length; w++)
+            {
+                bool up = p[w].Value > p[w - 1].Value;
+                double start = p[w - 1].Value;
+                double best = start, worst = 0;
+                DateTime worstAt = p[w - 1].OpenTime;
+                for (int bar = p[w - 1].BarIndex + 1; bar <= p[w].BarIndex; bar++)
+                {
+                    double fwd = up ? provider.GetHighPrice(bar) : provider.GetLowPrice(bar);
+                    double back = up ? provider.GetLowPrice(bar) : provider.GetHighPrice(bar);
+                    double run = Math.Abs(best - start);
+                    double pull = up ? best - back : back - best;
+                    if (run > 0 && pull / run > worst)
+                    {
+                        worst = pull / run;
+                        worstAt = provider.GetOpenTime(bar);
+                    }
+
+                    if (up ? fwd > best : fwd < best)
+                        best = fwd;
+                }
+
+                TestContext.Out.WriteLine(
+                    $"  W{w}: worst pullback = {worst:P1} at {worstAt:MM-dd HH:mm} " +
+                    $"(tol = {live.WavePullbackTol:P0})");
+            }
+
+            // Which ladder rungs actually see the marked pivots?
+            int basePeriod = AutoPeriodEstimator.EstimateImpulsePeriod(provider);
+            TestContext.Out.WriteLine($"=== auto base period = {basePeriod} ===");
+            var window = (From: from, To: to);
+
+            int[] markedIdx = p.Select(x => x.BarIndex).ToArray();
+            foreach (double ratio in new[]
+                     {
+                         0.382, 0.618, 0.786, 1.000, 1.127, 1.272, 1.434, 1.618,
+                         1.826, 2.058, 2.321, 2.618, 3.330, 4.236, 5.388, 6.854
+                     })
+            {
+                int period = Math.Max(1, (int)Math.Round(basePeriod * ratio));
+                var zz = new DeviationExtremumFinder(period, provider);
+                for (int i = 0; i < provider.Count; i++)
+                    zz.OnCalculate(provider.GetOpenTime(i));
+
+                var inWindow = zz.Extrema.Values
+                    .Where(x => x.OpenTime >= window.From && x.OpenTime <= window.To)
+                    .OrderBy(x => x.OpenTime)
+                    .ToList();
+
+                string pivots = string.Join(", ", inWindow.Select(x => $"{x.OpenTime:MM-dd HH:mm}"));
+                int between = inWindow.Count(x =>
+                    x.BarIndex > markedIdx[0] && x.BarIndex < markedIdx[4]);
+                string hit = string.Join("", markedIdx
+                    .Select(mi => inWindow.Any(x => x.BarIndex == mi) ? "#" : "."));
+
+                TestContext.Out.WriteLine(
+                    $"  period={period,4} pivots0to4={between,3} hit0..5={hit} | {pivots}");
+            }
+
+            // What does the live finder do with candidates in the window?
+            var gates = new List<string>();
+            live.OnGate = (p0, gate) =>
+            {
+                if (p0.OpenTime >= window.From && p0.OpenTime <= window.To)
+                    gates.Add($"{p0.OpenTime:u} -> {gate}");
+            };
+            var emitted = new List<ElliottWaveSignalEventArgs>();
+            live.OnEnter += (_, a) => emitted.Add(a);
+            live.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                live.CheckBar(provider.GetOpenTime(i));
+
+            TestContext.Out.WriteLine("=== live finder gates in the window ===");
+            foreach (string g in gates.Distinct())
+                TestContext.Out.WriteLine($"  {g}");
+
+            TestContext.Out.WriteLine("=== signals in the window ===");
+            foreach (ElliottWaveSignalEventArgs s in emitted
+                         .Where(x => x.WavePoints.Any(wp => wp.OpenTime >= window.From &&
+                                                           wp.OpenTime <= window.To)))
+            {
+                TestContext.Out.WriteLine(
+                    "  " + string.Join(" | ", s.WavePoints.Select(
+                        (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm} {x.Value:F5}")));
+                TestContext.Out.WriteLine(
+                    $"    entry={s.Level.Value:F5} sl={s.StopLoss.Value:F5} tp={s.TakeProfit.Value:F5}");
+            }
+
+            // When does each candidate reach the pool, and in what order do they fire?
+            TestContext.Out.WriteLine("=== registration timeline (registered/entered) ===");
+            var timed = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+            DateTime curBar = default;
+            timed.OnGate = (p0, gate) =>
+            {
+                if (gate is "registered" or "entered" &&
+                    p0.OpenTime >= window.From && p0.OpenTime <= window.To)
+                    TestContext.Out.WriteLine(
+                        $"  bar {curBar:MM-dd HH:mm} | V(0) {p0.OpenTime:MM-dd HH:mm} -> {gate}");
+            };
+            timed.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+            {
+                curBar = provider.GetOpenTime(i);
+                timed.CheckBar(curBar);
+            }
+
+            // Production-style configs: does the zigzag/size filter change the skeleton?
+            TestContext.Out.WriteLine("=== config matrix (all signals touching the window) ===");
+            foreach ((double dev, int bars) in new[] { (0.1, 10), (0.3, 40) })
+            foreach (bool retraceTp in new[] { false, true })
+            foreach (bool w5Ratio in new[] { false, true })
+            {
+                var finder = new DiagonalSetupFinder(
+                    provider, provider.BarSymbol, new EWParams(0, dev, bars),
+                    takeProfitRatio: 1.0,
+                    requireWave5Ratio: w5Ratio,
+                    takeProfitMode: retraceTp
+                        ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
+                        : DiagonalTakeProfitMode.RISK_RATIO);
+
+                var found = new List<ElliottWaveSignalEventArgs>();
+                finder.OnEnter += (_, a) =>
+                {
+                    if (a.WavePoints.Any(wp => wp.OpenTime >= window.From &&
+                                               wp.OpenTime <= window.To))
+                        found.Add(a);
+                };
+                finder.MarkAsInitialized();
+                for (int i = 0; i < provider.Count; i++)
+                    finder.CheckBar(provider.GetOpenTime(i));
+
+                TestContext.Out.WriteLine(
+                    $"  dev={dev:F1} bars={bars,2} tp={(retraceTp ? "23.6%" : "R1.0")} " +
+                    $"w5ratio={w5Ratio,-5} -> {found.Count} signal(s)");
+                foreach (ElliottWaveSignalEventArgs s in found)
+                    TestContext.Out.WriteLine(
+                        "      " + string.Join(" | ", s.WavePoints.Select(
+                            (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm}")) +
+                        $" entry={s.Level.Value:F3} sl={s.StopLoss.Value:F3} tp={s.TakeProfit.Value:F3}");
+            }
+
+            // Zigzag period sweep: the auto period depends on how much history is loaded,
+            // so a chart with a shorter history can carve a different (right-shifted) wedge.
+            TestContext.Out.WriteLine("=== zigzag period sweep (all signals touching the window) ===");
+            foreach (int zzPeriod in new[] { 4, 5, 6, 8, 10, 12, 14, 16, 19, 21, 27 })
+            {
+                var finder = new DiagonalSetupFinder(
+                    provider, provider.BarSymbol, new EWParams(zzPeriod, 0.1, 10));
+
+                var found = new List<ElliottWaveSignalEventArgs>();
+                finder.OnEnter += (_, a) =>
+                {
+                    if (a.WavePoints.Any(wp => wp.OpenTime >= window.From &&
+                                               wp.OpenTime <= window.To))
+                        found.Add(a);
+                };
+                finder.MarkAsInitialized();
+                for (int i = 0; i < provider.Count; i++)
+                    finder.CheckBar(provider.GetOpenTime(i));
+
+                TestContext.Out.WriteLine($"  period={zzPeriod,3} -> {found.Count} signal(s)");
+                foreach (ElliottWaveSignalEventArgs s in found)
+                    TestContext.Out.WriteLine(
+                        "      " + string.Join(" | ", s.WavePoints.Select(
+                            (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm}")) +
+                        $" entry={s.Level.Value:F3}");
+            }
+
+            // Greedy-merge tolerance: a wave ends when a pullback exceeds this share of the
+            // amplitude accumulated so far, so it decides where wave 1 stops.
+            TestContext.Out.WriteLine("=== wavePullbackTol sweep (default gates) ===");
+            foreach (double tol in new[] { 0.20, 0.25, 0.30, 0.34, 0.40, 0.50, 0.60, 0.70, 0.80 })
+            foreach (bool retraceTp in new[] { false, true })
+            {
+                var finder = new DiagonalSetupFinder(
+                    provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                    takeProfitMode: retraceTp
+                        ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
+                        : DiagonalTakeProfitMode.RISK_RATIO,
+                    wavePullbackTol: tol);
+
+                var found = new List<ElliottWaveSignalEventArgs>();
+                finder.OnEnter += (_, a) =>
+                {
+                    if (a.WavePoints.Any(wp => wp.OpenTime >= window.From &&
+                                               wp.OpenTime <= window.To))
+                        found.Add(a);
+                };
+                finder.MarkAsInitialized();
+                for (int i = 0; i < provider.Count; i++)
+                    finder.CheckBar(provider.GetOpenTime(i));
+
+                TestContext.Out.WriteLine(
+                    $"  tol={tol:F2} tp={(retraceTp ? "23.6%" : "R1.0")} -> {found.Count} signal(s)");
+                foreach (ElliottWaveSignalEventArgs s in found)
+                    TestContext.Out.WriteLine(
+                        "      " + string.Join(" | ", s.WavePoints.Select(
+                            (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm}")) +
+                        $" entry={s.Level.Value:F3} sl={s.StopLoss.Value:F3} tp={s.TakeProfit.Value:F3}");
+            }
+        }
+
+        /// <summary>
         /// Walks up from the test working directory to locate the repo <c>data/</c> folder
         /// (the directory next to <c>TradeKit.sln</c>).
         /// </summary>
