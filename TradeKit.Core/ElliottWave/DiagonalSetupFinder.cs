@@ -295,11 +295,17 @@ namespace TradeKit.Core.ElliottWave
         public double MinWave4RetraceW3 => MIN_WAVE4_RETRACE_W3;
 
         /// <summary>
-        /// Gets the hard minimum level wave 4 must reach inside wave 2's range (D-W4-24):
-        /// 0 is the end of wave 1, 1 is the end of wave 2. Strengthens D-OVERLAP, which only
-        /// demands that the level be positive.
+        /// Gets the minimum level wave 4 must reach inside wave 2's range (D-W4-24): 0 is the
+        /// end of wave 1, 1 is the end of wave 2. Strengthens D-OVERLAP, which only demands
+        /// that the level be positive; <c>0</c> falls back to D-OVERLAP alone.
         /// </summary>
-        public double MinWave4Wave2Level => MIN_WAVE4_W2_LEVEL;
+        public double MinWave4Wave2Level { get; }
+
+        /// <summary>
+        /// When set (the default), wave 4 must last fewer bars than wave 2 (D-TIME-24): a
+        /// final pullback that drags on past wave 2's duration is drift, not a coiling wedge.
+        /// </summary>
+        public bool RequireWave4Shorter { get; }
 
         /// <summary>
         /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
@@ -341,6 +347,8 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="retraceAction">What to do when the recomputed 23.6% level is reached in profit.</param>
         /// <param name="minRiskRewardRatio">Minimum R:R of a retrace-mode setup; 0 — no wait.</param>
         /// <param name="wave3RetraceRatio">Target as a retrace of |W3| from the wave-5 extreme; 0 — off.</param>
+        /// <param name="minWave4Wave2Level">D-W4-24 level of wave 2 wave 4 has to reach.</param>
+        /// <param name="requireWave4Shorter">Require wave 4 to last fewer bars than wave 2 (D-TIME-24).</param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -358,7 +366,9 @@ namespace TradeKit.Core.ElliottWave
             double wavePullbackTol = DEFAULT_WAVE_PULLBACK_TOL,
             DiagonalRetraceAction retraceAction = DiagonalRetraceAction.NONE,
             double minRiskRewardRatio = 0,
-            double wave3RetraceRatio = 0)
+            double wave3RetraceRatio = 0,
+            double minWave4Wave2Level = MIN_WAVE4_W2_LEVEL,
+            bool requireWave4Shorter = true)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -370,6 +380,8 @@ namespace TradeKit.Core.ElliottWave
             RetraceAction = retraceAction;
             MinRiskRewardRatio = Math.Max(0, minRiskRewardRatio);
             Wave3RetraceRatio = Math.Max(0, wave3RetraceRatio);
+            MinWave4Wave2Level = Math.Max(0, minWave4Wave2Level);
+            RequireWave4Shorter = requireWave4Shorter;
             MinConvergence = minConvergence;
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
@@ -935,9 +947,10 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
-            // D-TIME-24 (hard): wave 2 must last longer than wave 4. A final pullback that
-            // drags on past wave 2's duration is drift, not a coiling wedge.
-            if (p4.BarIndex - p3.BarIndex >= p2.BarIndex - p1.BarIndex)
+            // D-TIME-24: wave 2 must last longer than wave 4. A final pullback that drags on
+            // past wave 2's duration is drift, not a coiling wedge.
+            if (RequireWave4Shorter &&
+                p4.BarIndex - p3.BarIndex >= p2.BarIndex - p1.BarIndex)
             {
                 Bump("w4TimeNotContracting", p0);
                 return;
@@ -954,7 +967,7 @@ namespace TradeKit.Core.ElliottWave
             // D-W4-24 (hard): measured on wave 2's range (0 = end of W1, 1 = end of W2),
             // wave 4 has to reach at least the 23.6% level — a shallower overlap does not
             // coil the wedge.
-            if (sgn * (p1.Value - p4.Value) < MIN_WAVE4_W2_LEVEL * w2)
+            if (sgn * (p1.Value - p4.Value) < MinWave4Wave2Level * w2)
             {
                 Bump("w4ShallowIntoW2", p0);
                 return;

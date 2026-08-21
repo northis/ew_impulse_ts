@@ -16,7 +16,9 @@ namespace TradeKit.Core.ElliottWave
         double MaxWaveDurationRatio,
         DiagonalRetraceAction RetraceAction,
         double MinRiskRewardRatio,
-        double Wave3RetraceRatio)
+        double Wave3RetraceRatio,
+        double MinWave4Wave2Level,
+        bool RequireWave4Shorter)
     {
     }
 }

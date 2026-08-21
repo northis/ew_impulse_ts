@@ -34,7 +34,7 @@ namespace TradeKit.CTrader.Diagonal
                 MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
                 RequireWave5Ratio, RequireWave4Ratio, RequireInitialMovement,
                 MinWave3Penetration, MaxWaveDurationRatio, RetraceAction, MinRiskRewardRatio,
-                Wave3RetraceRatio);
+                Wave3RetraceRatio, MinWave4Wave2Level, RequireWave4Shorter);
         }
 
         #region Input parameters
@@ -91,6 +91,20 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("TP at % of W3", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
         public double Wave3RetraceRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the level of wave 2's range wave 4 has to reach (D-W4-24, DIAGONAL.md
+        /// §4): 0 is the end of wave 1, 1 is the end of wave 2.
+        /// </summary>
+        [Parameter("Min W4 level in W2", DefaultValue = 0.236, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MinWave4Wave2Level { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether wave 4 must last fewer bars than wave 2
+        /// (D-TIME-24, DIAGONAL.md §4).
+        /// </summary>
+        [Parameter("W4 shorter than W2", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool RequireWave4Shorter { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

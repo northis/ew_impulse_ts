@@ -1339,6 +1339,46 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
+        /// Diagnoses two hand-marked diagonals on NZDJPY m5 (2026-08-19 12:35 → 16:05 and
+        /// 2026-08-19 21:25 → 08-20 19:55) the same way. Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_NzdJpyM5_Case_Diagnostics()
+        {
+            const string file = "NZDJPY_m5_2026-07-17T04-20-00_2026-08-20T23-55-00.csv";
+
+            RunCaseDiagnostics(
+                file,
+                new[]
+                {
+                    (new DateTime(2026, 8, 19, 12, 35, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 19, 14, 5, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 19, 14, 20, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 19, 15, 35, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 19, 15, 50, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 19, 16, 5, 0, DateTimeKind.Utc), true)
+                },
+                new DateTime(2026, 8, 19, 12, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 8, 19, 17, 0, 0, DateTimeKind.Utc));
+
+            RunCaseDiagnostics(
+                file,
+                new[]
+                {
+                    (new DateTime(2026, 8, 19, 21, 25, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 20, 5, 30, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 20, 7, 5, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 20, 14, 40, 0, DateTimeKind.Utc), true),
+                    (new DateTime(2026, 8, 20, 15, 5, 0, DateTimeKind.Utc), false),
+                    (new DateTime(2026, 8, 20, 19, 55, 0, DateTimeKind.Utc), true)
+                },
+                new DateTime(2026, 8, 19, 21, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 8, 20, 20, 30, 0, DateTimeKind.Utc));
+        }
+
+        /// <summary>
         /// Diagnoses one hand-marked diagonal (USDJPY m5, 2026-08-19 22:05 → 08-20 14:15):
         /// evaluates every §4 gate on the manual skeleton, lists the ladder rungs that see
         /// those pivots, dumps the gates and the signals the live finder produced in the
@@ -1692,6 +1732,41 @@ namespace TradeKit.Tests
                         "      " + string.Join(" | ", s.WavePoints.Select(
                             (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm}")) +
                         $" entry={s.Level.Value:F3} sl={s.StopLoss.Value:F3} tp={s.TakeProfit.Value:F3}");
+            }
+
+            // Gate knobs that reject "almost-wedges": how far wave 4 must reach into wave 2
+            // (D-W4-24), whether wave 4 must be shorter than wave 2 (D-TIME-24) and how much
+            // the bars may spill out of the wedge (D-INSIDE).
+            TestContext.Out.WriteLine("=== D-W4-24 / D-TIME-24 / D-INSIDE sweep ===");
+            foreach (double w4Level in new[] { 0.236, 0.20, 0.15, 0.0 })
+            foreach (bool w4Shorter in new[] { true, false })
+            foreach (double spillLimit in new[] { 0.005, 0.02 })
+            {
+                var finder = new DiagonalSetupFinder(
+                    provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                    maxSpillAreaRatio: spillLimit,
+                    minWave4Wave2Level: w4Level,
+                    requireWave4Shorter: w4Shorter);
+
+                var found = new List<ElliottWaveSignalEventArgs>();
+                finder.OnEnter += (_, a) =>
+                {
+                    if (a.WavePoints.Any(wp => wp.OpenTime >= window.From &&
+                                               wp.OpenTime <= window.To))
+                        found.Add(a);
+                };
+                finder.MarkAsInitialized();
+                for (int i = 0; i < provider.Count; i++)
+                    finder.CheckBar(provider.GetOpenTime(i));
+
+                TestContext.Out.WriteLine(
+                    $"  w4Level={w4Level:F3} w4Shorter={w4Shorter,-5} spill={spillLimit:F3} " +
+                    $"-> {found.Count} signal(s)");
+                foreach (ElliottWaveSignalEventArgs s in found)
+                    TestContext.Out.WriteLine(
+                        "      " + string.Join(" | ", s.WavePoints.Select(
+                            (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm}")) +
+                        $" entry={s.Level.Value:F3}");
             }
         }
 
