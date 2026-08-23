@@ -315,6 +315,13 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireWave4Shorter { get; }
 
         /// <summary>
+        /// When set, wave 2 must last fewer bars than wave 1 (D-TIME-12): time contracts
+        /// together with price. Off by default — the rule is a quality dial, not a part of
+        /// the diagonal definition (DIAGONAL.md §4).
+        /// </summary>
+        public bool RequireWave2Shorter { get; }
+
+        /// <summary>
         /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
         /// same-character sibling — W3 vs W1 and W4 vs W2 (DIAGONAL.md §4).
         /// </summary>
@@ -362,6 +369,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="wave3RetraceRatio">Target as a retrace of |W3| from the wave-5 extreme; 0 — off.</param>
         /// <param name="minWave4Wave2Level">D-W4-24 level of wave 2 wave 4 has to reach.</param>
         /// <param name="requireWave4Shorter">Require wave 4 to last fewer bars than wave 2 (D-TIME-24).</param>
+        /// <param name="requireWave2Shorter">Require wave 2 to last fewer bars than wave 1 (D-TIME-12).</param>
         /// <param name="isolatedPrintFilter">
         /// The isolated-print detector (DIAGONAL.md §4.4); must be bound to the same bars
         /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
@@ -387,6 +395,7 @@ namespace TradeKit.Core.ElliottWave
             double wave3RetraceRatio = 0,
             double minWave4Wave2Level = MIN_WAVE4_W2_LEVEL,
             bool requireWave4Shorter = true,
+            bool requireWave2Shorter = false,
             IsolatedPrintFilter isolatedPrintFilter = null)
             : base(mainBarsProvider, symbol)
         {
@@ -402,6 +411,7 @@ namespace TradeKit.Core.ElliottWave
             Wave3RetraceRatio = Math.Max(0, wave3RetraceRatio);
             MinWave4Wave2Level = Math.Max(0, minWave4Wave2Level);
             RequireWave4Shorter = requireWave4Shorter;
+            RequireWave2Shorter = requireWave2Shorter;
             MinConvergence = minConvergence;
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
@@ -938,6 +948,15 @@ namespace TradeKit.Core.ElliottWave
             if (sgn * (p2.Value - p0.Value) <= 0)
             {
                 Bump("w2BeyondStart", p0);
+                return;
+            }
+
+            // D-TIME-12 (optional): time contracts together with price — wave 2 must
+            // last fewer bars than wave 1.
+            if (RequireWave2Shorter &&
+                p2.BarIndex - p1.BarIndex >= p1.BarIndex - p0.BarIndex)
+            {
+                Bump("w2TimeNotContracting", p0);
                 return;
             }
 

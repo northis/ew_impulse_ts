@@ -109,7 +109,8 @@ namespace TradeKit.CTrader.Diagonal
                 minRiskRewardRatio: MinRiskRewardRatio,
                 wave3RetraceRatio: Wave3RetraceRatio,
                 minWave4Wave2Level: MinWave4Wave2Level,
-                requireWave4Shorter: RequireWave4Shorter);
+                requireWave4Shorter: RequireWave4Shorter,
+                requireWave2Shorter: RequireWave2Shorter);
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -190,6 +191,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("W4 shorter than W2", DefaultValue = true, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool RequireWave4Shorter { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether wave 2 must last fewer bars than wave 1
+        /// (D-TIME-12, DIAGONAL.md §4). Off by default — the rule is optional.
+        /// </summary>
+        [Parameter("W2 shorter than W1", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool RequireWave2Shorter { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

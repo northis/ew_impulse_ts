@@ -30,7 +30,8 @@ namespace TradeKit.Tests
                 bool requireWave5Ratio = false, bool requireWave4Ratio = false,
                 bool requireInitialMovement = false,
                 DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
-                double minConvergence = 0)
+                double minConvergence = 0,
+                bool requireWave2Shorter = false)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -38,7 +39,8 @@ namespace TradeKit.Tests
             var finder = new DiagonalSetupFinder(
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
                 takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialMovement,
-                takeProfitMode, minConvergence);
+                takeProfitMode, minConvergence,
+                requireWave2Shorter: requireWave2Shorter);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -55,9 +57,11 @@ namespace TradeKit.Tests
         [TestCase(H1_FILE, false, true, false, false)]
         [TestCase(H1_FILE, false, false, true, false)]
         [TestCase(H1_FILE, false, false, false, true)]
+        [TestCase(H1_FILE, false, false, false, false, true)]
         public void Diagonal_EmittedSignals_SatisfyHardRules(
             string file, bool requireWave5Ratio, bool requireWave4Ratio,
-            bool requireInitialMovement, bool retraceTakeProfit)
+            bool requireInitialMovement, bool retraceTakeProfit,
+            bool requireWave2Shorter = false)
         {
             ITimeFrame timeFrame = file.Contains("_m15_")
                 ? TimeFrameHelper.Minute15
@@ -69,7 +73,7 @@ namespace TradeKit.Tests
                 : DiagonalTakeProfitMode.RISK_RATIO;
             (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) =
                 Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio,
-                    requireInitialMovement, tpMode);
+                    requireInitialMovement, tpMode, requireWave2Shorter: requireWave2Shorter);
 
             Assert.That(signals, Is.Not.Empty,
                 $"No diagonal setups detected in {file}. Funnel: " +
@@ -125,6 +129,15 @@ namespace TradeKit.Tests
                 Assert.That(p[4].BarIndex - p[3].BarIndex,
                     Is.LessThan(p[2].BarIndex - p[1].BarIndex),
                     $"{at}: D-TIME-24 — wave 4 lasts as long as or longer than wave 2.");
+
+                if (requireWave2Shorter)
+                {
+                    // D-TIME-12 — wave 2 lasts fewer bars than wave 1.
+                    Assert.That(p[2].BarIndex - p[1].BarIndex,
+                        Is.LessThan(p[1].BarIndex - p[0].BarIndex),
+                        $"{at}: D-TIME-12 — wave 2 lasts as long as or longer than wave 1 " +
+                        "although the option is on.");
+                }
 
                 // D-CONVERGE — the wedge is at least as closed as MinConvergence demands.
                 double ceilSlope = (p[3].Value - p[1].Value) / (p[3].BarIndex - p[1].BarIndex);

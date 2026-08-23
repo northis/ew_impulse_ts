@@ -55,7 +55,8 @@ public sealed class DiagonalScanEngine
             req.RequireInsideWedge,
             req.MaxSpillAreaRatio,
             req.MinWave3Penetration,
-            req.MaxWaveDurationRatio);
+            req.MaxWaveDurationRatio,
+            requireWave2Shorter: req.RequireWave2Shorter);
 
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
@@ -194,4 +195,5 @@ public sealed record DiagonalScanRequest(
     bool RequireInsideWedge = true,
     double MaxSpillAreaRatio = 0.005,
     double MinWave3Penetration = 0.03,
-    double MaxWaveDurationRatio = 8.0);
+    double MaxWaveDurationRatio = 8.0,
+    bool RequireWave2Shorter = false);

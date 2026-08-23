@@ -31,6 +31,7 @@
     "MinWave3Penetration": "0.05",
     "MinWave4Wave2Level": "0.236",
     "RequireWave4Shorter": "True",
+    "RequireWave2Shorter": "False",
     "MaxWaveDurationRatio": "8",
     "RequireWave5Ratio": "False",
     "RequireWave4Ratio": "False",
