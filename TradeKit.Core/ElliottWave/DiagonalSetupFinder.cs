@@ -191,6 +191,13 @@ namespace TradeKit.Core.ElliottWave
         public readonly Dictionary<string, int> Diag = new();
 
         /// <summary>
+        /// Isolated-print filter (DIAGONAL.md §4.4): bars of confirmed bad-fill segments
+        /// are excluded from the pivot intake, wave-5 tracking and the containment/spill
+        /// measurements. Never null.
+        /// </summary>
+        private readonly IsolatedPrintFilter m_PrintFilter;
+
+        /// <summary>
         /// Diagnostic hook: invoked with (point0, gateKey) for every candidate outcome.
         /// Optional.
         /// </summary>
@@ -322,6 +329,12 @@ namespace TradeKit.Core.ElliottWave
         public double WavePullbackTol { get; }
 
         /// <summary>
+        /// Gets the isolated-print filter (DIAGONAL.md §4.4). Confirmed segments are
+        /// excluded from the analysis; exposed so tests can recompute the gates by hand.
+        /// </summary>
+        public IsolatedPrintFilter PrintFilter => m_PrintFilter;
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -349,6 +362,11 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="wave3RetraceRatio">Target as a retrace of |W3| from the wave-5 extreme; 0 — off.</param>
         /// <param name="minWave4Wave2Level">D-W4-24 level of wave 2 wave 4 has to reach.</param>
         /// <param name="requireWave4Shorter">Require wave 4 to last fewer bars than wave 2 (D-TIME-24).</param>
+        /// <param name="isolatedPrintFilter">
+        /// The isolated-print detector (DIAGONAL.md §4.4); must be bound to the same bars
+        /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
+        /// filter with <c>maxSpikeBars ≤ 0</c> to disable.
+        /// </param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -368,10 +386,12 @@ namespace TradeKit.Core.ElliottWave
             double minRiskRewardRatio = 0,
             double wave3RetraceRatio = 0,
             double minWave4Wave2Level = MIN_WAVE4_W2_LEVEL,
-            bool requireWave4Shorter = true)
+            bool requireWave4Shorter = true,
+            IsolatedPrintFilter isolatedPrintFilter = null)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
+            m_PrintFilter = isolatedPrintFilter ?? new IsolatedPrintFilter(BarsProvider);
             TakeProfitRatio = takeProfitRatio;
             RequireWave5Ratio = requireWave5Ratio;
             RequireWave4Ratio = requireWave4Ratio;
@@ -432,6 +452,10 @@ namespace TradeKit.Core.ElliottWave
 
             if (IsInSetup && CurrentSignalEventArgs != null && !HandleOpenSetup(index))
                 return;
+
+            // The print filter advances together with the zigzags: same bars, same causality
+            // (DIAGONAL.md §4.4).
+            m_PrintFilter.OnCalculate(openDateTime);
 
             foreach (DeviationExtremumFinder finder in m_ExtremumFinders
                          .OrderByDescending(a => a.ScaleRate))
@@ -630,6 +654,11 @@ namespace TradeKit.Core.ElliottWave
             if (!m_TailCache.TryGetValue(finder, out List<BarPoint> tail))
             {
                 tail = TailPivots(finder, MAX_ASSEMBLY_DEPTH + 8);
+
+                // Pivots standing on isolated-print bars are prices the market never
+                // traded: drop them so skeletons are not assembled on a bad fill
+                // (DIAGONAL.md §4.4).
+                tail.RemoveAll(p => m_PrintFilter.IsExcluded(p.BarIndex));
                 m_TailCache[finder] = tail;
             }
 
@@ -1131,6 +1160,10 @@ namespace TradeKit.Core.ElliottWave
 
             for (int i = start.BarIndex + 1; i < end.BarIndex; i++)
             {
+                // An isolated print is not part of the wave structure (DIAGONAL.md §4.4).
+                if (m_PrintFilter.IsExcluded(i))
+                    continue;
+
                 if (BarsProvider.GetHighPrice(i) > max || BarsProvider.GetLowPrice(i) < min)
                     return false;
             }
@@ -1153,6 +1186,10 @@ namespace TradeKit.Core.ElliottWave
             double area = 0;
             for (int bar = p1.BarIndex; bar <= p4.BarIndex; bar++)
             {
+                // An isolated print contributes neither spill nor area (DIAGONAL.md §4.4).
+                if (m_PrintFilter.IsExcluded(bar))
+                    continue;
+
                 // In v-space the 1-3 line is always the ceiling and the 2-4 line the floor.
                 double ceiling = sgn * (p1.Value + ceilSlope * (bar - p1.BarIndex));
                 double floor = sgn * (p2.Value + floorSlope * (bar - p2.BarIndex));
@@ -1183,6 +1220,17 @@ namespace TradeKit.Core.ElliottWave
             foreach (KeyValuePair<CandidateKey, DiagonalCandidate> pair in m_Candidates)
             {
                 DiagonalCandidate candidate = pair.Value;
+
+                // A skeleton confirmed after the fact to stand on an isolated print is void
+                // (DIAGONAL.md §4.4): registration can precede confirmation — a pivot forms
+                // as soon as the price retraces, a segment needs the full retrace window.
+                if (SkeletonOnExcludedPrint(candidate))
+                {
+                    m_DeadBuffer.Add(pair.Key);
+                    Bump("excludedPrintSkeleton", candidate.Point0);
+                    continue;
+                }
+
                 bool alive = true;
                 for (int bar = candidate.LastProcessedBar + 1; bar <= index && alive; bar++)
                     alive = AdvanceWave5(candidate, bar);
@@ -1232,12 +1280,31 @@ namespace TradeKit.Core.ElliottWave
         }
 
         /// <summary>
+        /// Whether any of the candidate's skeleton bars has since been confirmed as an
+        /// isolated print (DIAGONAL.md §4.4).
+        /// </summary>
+        private bool SkeletonOnExcludedPrint(DiagonalCandidate candidate)
+        {
+            return m_PrintFilter.IsExcluded(candidate.Point0.BarIndex) ||
+                   m_PrintFilter.IsExcluded(candidate.P1.BarIndex) ||
+                   m_PrintFilter.IsExcluded(candidate.P2.BarIndex) ||
+                   m_PrintFilter.IsExcluded(candidate.P3.BarIndex) ||
+                   m_PrintFilter.IsExcluded(candidate.P4.BarIndex);
+        }
+
+        /// <summary>
         /// Applies one raw bar to the running wave 5. Returns <c>false</c> when the
         /// candidate is dead (DIAGONAL.md §7.3).
         /// </summary>
         private bool AdvanceWave5(DiagonalCandidate candidate, int bar)
         {
             candidate.LastProcessedBar = bar;
+
+            // Isolated-print bars never traded at their price: they neither extend wave 5
+            // nor invalidate the candidate by breaking V(4) (DIAGONAL.md §4.4).
+            if (m_PrintFilter.IsExcluded(bar))
+                return true;
+
             int sgn = candidate.IsUp ? 1 : -1;
 
             double counter = candidate.IsUp

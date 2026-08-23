@@ -137,10 +137,14 @@ namespace TradeKit.Tests
                     Is.GreaterThanOrEqualTo(finder.MinConvergence - 1e-9),
                     $"{at}: D-CONVERGE — the wedge converges less than required.");
 
-                // D-INSIDE — the bars of waves 2-4 stay inside the wedge (on by default).
+                // D-INSIDE — the bars of waves 2-4 stay inside the wedge (on by default);
+                // isolated-print bars are skipped, exactly as the finder does (§4.4).
                 double spill = 0, wedge = 0;
                 for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
                 {
+                    if (finder.PrintFilter.IsExcluded(bar))
+                        continue;
+
                     double ceiling = sgn * (p[1].Value + ceilSlope * (bar - p[1].BarIndex));
                     double floorLine = sgn * (p[2].Value + floorSlope * (bar - p[2].BarIndex));
                     double high = sgn * finder.BarsProvider.GetHighPrice(bar);
@@ -500,6 +504,9 @@ namespace TradeKit.Tests
                 double spill = 0, wedge = 0;
                 for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
                 {
+                    if (live.PrintFilter.IsExcluded(bar))
+                        continue;
+
                     double ceiling = p[1].Value + ceilSlope * (bar - p[1].BarIndex);
                     double floorLine = p[2].Value + floorSlope * (bar - p[2].BarIndex);
                     spill += Math.Max(0, provider.GetHighPrice(bar) - ceiling) +
@@ -676,6 +683,9 @@ namespace TradeKit.Tests
             double spill = 0, wedge = 0;
             for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
             {
+                if (live.PrintFilter.IsExcluded(bar))
+                    continue;
+
                 double ceiling = p[1].Value + ceilSlope * (bar - p[1].BarIndex);
                 double floorLine = p[2].Value + floorSlope * (bar - p[2].BarIndex);
                 spill += Math.Max(0, provider.GetHighPrice(bar) - ceiling) +
@@ -933,6 +943,9 @@ namespace TradeKit.Tests
             double spill = 0, wedge = 0;
             for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
             {
+                if (live.PrintFilter.IsExcluded(bar))
+                    continue;
+
                 double ceiling = p[1].Value + ceilSlope * (bar - p[1].BarIndex);
                 double floorLine = p[2].Value + floorSlope * (bar - p[2].BarIndex);
                 spill += Math.Max(0, provider.GetHighPrice(bar) - ceiling) +
@@ -1300,6 +1313,58 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
+        /// EURCHF m5, 2026-08-19 21:10 → 08-21 03:30 (DIAGONAL.md §9.13): the detector
+        /// used to build wave 4 on an isolated print — a zero-range bar at 2026-08-20 21:00
+        /// (0.93288) gapped ~18 points below the previous bar and ~15 points below the
+        /// next one, fully retraced on the very next candle and never revisited again.
+        /// The filter must confirm the bar as a print and no emitted signal may use it.
+        /// </summary>
+        [Test]
+        public void Diagonal_EurChfM5_IsolatedPrintWave4_Excluded()
+        {
+            const string file = "EURCHF_m5_2026-08-14T07-20-00_2026-08-21T20-55-00.csv";
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            // The zero-range 21:00 bar with gaps on both sides is a confirmed print.
+            DateTime spikeTime = new DateTime(2026, 8, 20, 21, 0, 0, DateTimeKind.Utc);
+            int spikeBar = provider.GetIndexByTime(spikeTime);
+            Assert.That(finder.PrintFilter.IsExcluded(spikeBar), Is.True,
+                "The isolated print at 2026-08-20 21:00 was not confirmed. Segments: " +
+                string.Join(", ", finder.PrintFilter.Segments.Select(s =>
+                    $"[{provider.GetOpenTime(s.StartBar):u}..{provider.GetOpenTime(s.EndBar):u}]")));
+
+            IsolatedPrintSegment segment = finder.PrintFilter.Segments
+                .First(s => s.StartBar <= spikeBar && spikeBar <= s.EndBar);
+            Assert.That(segment.IsDown, Is.True, "The EURCHF print hangs below both neighbors.");
+
+            // No signal may stand on the print — neither as wave 4 nor as any other point.
+            foreach (ElliottWaveSignalEventArgs s in signals)
+            {
+                Assert.That(s.WavePoints.Any(x => x.BarIndex == spikeBar), Is.False,
+                    $"Signal {s.WavePoints[0].OpenTime:u} uses the isolated print " +
+                    "2026-08-20 21:00 as a wave point.");
+            }
+
+            // In particular, the faulty diagonal V(0)=08-19 21:10 … V(4)=21:00 must be gone.
+            DateTime badPoint0 = new DateTime(2026, 8, 19, 21, 10, 0, DateTimeKind.Utc);
+            Assert.That(signals.Any(s =>
+                    (s.WavePoints[0].OpenTime - badPoint0).Duration() <= TimeSpan.FromSeconds(5) &&
+                    s.WavePoints[4].OpenTime == spikeTime),
+                Is.False,
+                "The diagonal anchored at 2026-08-19 21:10 still ends wave 4 on the print.");
+        }
+
+        /// <summary>
         /// DIAGONAL.md §6.6: with <c>Wave3RetraceRatio</c> set, the target is a retrace of
         /// |W3| from the running extreme of wave 5 — <c>TP = W5 ∓ ratio·|W3|</c> — and it
         /// overrides both the fixed R:R and the 23.6%-of-the-diagonal mode.
@@ -1510,6 +1575,9 @@ namespace TradeKit.Tests
             double spill = 0, wedge = 0;
             for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
             {
+                if (live.PrintFilter.IsExcluded(bar))
+                    continue;
+
                 double ceiling = p[1].Value + ceilSlope * (bar - p[1].BarIndex);
                 double floorLine = p[2].Value + floorSlope * (bar - p[2].BarIndex);
                 spill += Math.Max(0, provider.GetHighPrice(bar) - ceiling) +
