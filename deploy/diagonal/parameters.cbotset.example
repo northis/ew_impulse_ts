@@ -35,6 +35,6 @@
     "MaxWaveDurationRatio": "8",
     "RequireWave5Ratio": "False",
     "RequireWave4Ratio": "False",
-    "RequireInitialMovement": "False"
+    "RequireInitialDiagonal": "False"
   }
 }

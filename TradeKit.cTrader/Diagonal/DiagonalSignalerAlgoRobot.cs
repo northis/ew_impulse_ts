@@ -70,7 +70,7 @@ namespace TradeKit.CTrader.Diagonal
                 m_DiagonalParams.TakeProfitRatio,
                 m_DiagonalParams.RequireWave5Ratio,
                 m_DiagonalParams.RequireWave4Ratio,
-                m_DiagonalParams.RequireInitialMovement,
+                m_DiagonalParams.RequireInitialDiagonal,
                 m_DiagonalParams.TakeProfitMode,
                 m_DiagonalParams.MinConvergence,
                 m_DiagonalParams.RequireInsideWedge,

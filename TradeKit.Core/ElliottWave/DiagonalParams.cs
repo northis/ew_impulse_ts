@@ -11,7 +11,7 @@ namespace TradeKit.Core.ElliottWave
         double MaxSpillAreaRatio,
         bool RequireWave5Ratio,
         bool RequireWave4Ratio,
-        bool RequireInitialMovement,
+        bool RequireInitialDiagonal,
         double MinWave3Penetration,
         double MaxWaveDurationRatio,
         DiagonalRetraceAction RetraceAction,

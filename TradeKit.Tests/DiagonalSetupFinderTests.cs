@@ -28,7 +28,7 @@ namespace TradeKit.Tests
         private static (DiagonalSetupFinder Finder, List<ElliottWaveSignalEventArgs> Signals)
             Run(string file, ITimeFrame timeFrame, double takeProfitRatio = 1.0,
                 bool requireWave5Ratio = false, bool requireWave4Ratio = false,
-                bool requireInitialMovement = false,
+                bool requireInitialDiagonal = false,
                 DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
                 double minConvergence = 0,
                 bool requireWave2Shorter = false)
@@ -38,7 +38,7 @@ namespace TradeKit.Tests
 
             var finder = new DiagonalSetupFinder(
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
-                takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialMovement,
+                takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialDiagonal,
                 takeProfitMode, minConvergence,
                 requireWave2Shorter: requireWave2Shorter);
 
@@ -60,7 +60,7 @@ namespace TradeKit.Tests
         [TestCase(H1_FILE, false, false, false, false, true)]
         public void Diagonal_EmittedSignals_SatisfyHardRules(
             string file, bool requireWave5Ratio, bool requireWave4Ratio,
-            bool requireInitialMovement, bool retraceTakeProfit,
+            bool requireInitialDiagonal, bool retraceTakeProfit,
             bool requireWave2Shorter = false)
         {
             ITimeFrame timeFrame = file.Contains("_m15_")
@@ -73,7 +73,7 @@ namespace TradeKit.Tests
                 : DiagonalTakeProfitMode.RISK_RATIO;
             (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) =
                 Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio,
-                    requireInitialMovement, tpMode, requireWave2Shorter: requireWave2Shorter);
+                    requireInitialDiagonal, tpMode, requireWave2Shorter: requireWave2Shorter);
 
             Assert.That(signals, Is.Not.Empty,
                 $"No diagonal setups detected in {file}. Funnel: " +
@@ -383,7 +383,7 @@ namespace TradeKit.Tests
                     var finder = new DiagonalSetupFinder(
                         provider, provider.BarSymbol, new EWParams(0, 0.1, 10), ratio,
                         requireWave5Ratio: false, requireWave4Ratio: false,
-                        requireInitialMovement: false,
+                        requireInitialDiagonal: false,
                         takeProfitMode: DiagonalTakeProfitMode.RISK_RATIO,
                         minConvergence: 0,
                         requireInsideWedge: maxSpill > 0,

@@ -100,7 +100,7 @@ namespace TradeKit.CTrader.Diagonal
 
             m_SetupFinder = new DiagonalSetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), GetEWParams(),
-                TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio, RequireInitialMovement,
+                TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio, RequireInitialDiagonal,
                 TakeProfitAtRetrace
                     ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                     : DiagonalTakeProfitMode.RISK_RATIO,
@@ -248,11 +248,11 @@ namespace TradeKit.CTrader.Diagonal
         public bool RequireWave4Ratio { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether wave 1 must start off a fresh reversal
-        /// (DIAGONAL.md §5.2).
+        /// Gets or sets a value indicating whether the whole diagonal, up to the signal bar,
+        /// must stay inside the preceding counter-move (DIAGONAL.md §5.2).
         /// </summary>
-        [Parameter("Initial move W1", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
-        public bool RequireInitialMovement { get; set; }
+        [Parameter("Initial diagonal", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool RequireInitialDiagonal { get; set; }
 
         #endregion
     }

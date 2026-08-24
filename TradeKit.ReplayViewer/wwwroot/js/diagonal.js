@@ -320,7 +320,7 @@ async function runScan() {
         requireWave5Ratio: $('pW5Ratio').checked,
         requireWave4Ratio: $('pW4Ratio').checked,
         requireWave2Shorter: $('pW2Time').checked,
-        requireInitialMovement: $('pInitMove').checked,
+        requireInitialDiagonal: $('pInitDiagonal').checked,
         takeProfitAtRetrace: $('pTpRetrace').checked,
         minConvergence: parseFloat($('pConverge').value) || 0,
         requireInsideWedge: $('pInside').checked,

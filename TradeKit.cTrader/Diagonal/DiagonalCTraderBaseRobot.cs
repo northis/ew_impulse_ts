@@ -32,7 +32,7 @@ namespace TradeKit.CTrader.Diagonal
                     ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                     : DiagonalTakeProfitMode.RISK_RATIO,
                 MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
-                RequireWave5Ratio, RequireWave4Ratio, RequireInitialMovement,
+                RequireWave5Ratio, RequireWave4Ratio, RequireInitialDiagonal,
                 MinWave3Penetration, MaxWaveDurationRatio, RetraceAction, MinRiskRewardRatio,
                 Wave3RetraceRatio, MinWave4Wave2Level, RequireWave4Shorter,
                 RequireWave2Shorter);
@@ -163,11 +163,11 @@ namespace TradeKit.CTrader.Diagonal
         public bool RequireWave4Ratio { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether wave 1 must start off a fresh reversal
-        /// (DIAGONAL.md §5.2).
+        /// Gets or sets a value indicating whether the whole diagonal, up to the signal bar,
+        /// must stay inside the preceding counter-move (DIAGONAL.md §5.2).
         /// </summary>
-        [Parameter("Initial move W1", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
-        public bool RequireInitialMovement { get; set; }
+        [Parameter("Initial diagonal", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool RequireInitialDiagonal { get; set; }
 
         #endregion
     }

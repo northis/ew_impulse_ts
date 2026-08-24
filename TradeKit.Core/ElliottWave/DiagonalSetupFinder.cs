@@ -257,11 +257,12 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireWave4Ratio { get; }
 
         /// <summary>
-        /// When set, point 0 additionally has to pass the "line-back" test: the move
-        /// <c>V(0) → V(1)</c> must be an initial one (DIAGONAL.md §5.2). Natural for an
-        /// ending diagonal, restrictive for a leading one — hence optional.
+        /// When set, the <b>whole</b> diagonal has to pass the "line-back" test: the move
+        /// <c>V(0) → W5</c>, wave 5 included up to the signal bar, must be an initial one
+        /// (DIAGONAL.md §5.2). Natural for an ending diagonal, restrictive for a leading
+        /// one — hence optional.
         /// </summary>
-        public bool RequireInitialMovement { get; }
+        public bool RequireInitialDiagonal { get; }
 
         /// <summary>
         /// Minimum required convergence of the trendlines 1-3 and 2-4 (D-CONVERGE,
@@ -356,7 +357,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="takeProfitRatio">TP as a multiple of the risk (R:R).</param>
         /// <param name="requireWave5Ratio">Require <c>|W5| ≥ 0.786·|W3|</c> on the signal.</param>
         /// <param name="requireWave4Ratio">Require <c>|W4| ≥ 0.786·|W2|</c>.</param>
-        /// <param name="requireInitialMovement">Require an initial move <c>V(0) → V(1)</c>.</param>
+        /// <param name="requireInitialDiagonal">Require an initial move <c>V(0) → W5</c>.</param>
         /// <param name="takeProfitMode">How the target is placed.</param>
         /// <param name="minConvergence">Minimum convergence of the trendlines 1-3 and 2-4.</param>
         /// <param name="requireInsideWedge">Require the bars to stay inside the trendlines.</param>
@@ -382,7 +383,7 @@ namespace TradeKit.Core.ElliottWave
             double takeProfitRatio = 1.0,
             bool requireWave5Ratio = false,
             bool requireWave4Ratio = false,
-            bool requireInitialMovement = false,
+            bool requireInitialDiagonal = false,
             DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
             double minConvergence = 0,
             bool requireInsideWedge = true,
@@ -404,7 +405,7 @@ namespace TradeKit.Core.ElliottWave
             TakeProfitRatio = takeProfitRatio;
             RequireWave5Ratio = requireWave5Ratio;
             RequireWave4Ratio = requireWave4Ratio;
-            RequireInitialMovement = requireInitialMovement;
+            RequireInitialDiagonal = requireInitialDiagonal;
             TakeProfitMode = takeProfitMode;
             RetraceAction = retraceAction;
             MinRiskRewardRatio = Math.Max(0, minRiskRewardRatio);
@@ -1092,16 +1093,6 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
-            // D-W1-INIT (optional): wave 1 starts off a fresh reversal — natural for an
-            // ending diagonal, often false for a leading one (DIAGONAL.md §5.2, O-6).
-            // Last gate: it is the only one that walks bars backwards.
-            if (RequireInitialMovement &&
-                !IsInitialMovement(p0.Value, p1.Value, p0.BarIndex, BarsProvider, out _))
-            {
-                Bump("notInitialMove", p0);
-                return;
-            }
-
             var candidate = new DiagonalCandidate(p0, p1, p2, p3, p4, isUp);
 
             // Back-fill wave 5 up to the previous bar so the current bar can still be the
@@ -1379,6 +1370,18 @@ namespace TradeKit.Core.ElliottWave
         private bool TryEmit(DiagonalCandidate candidate, int index)
         {
             BarPoint p0 = candidate.Point0;
+
+            // D-INIT (optional): the whole diagonal — wave 5 included up to this very bar —
+            // stays inside the preceding counter-move (DIAGONAL.md §5.2, O-6). Checked here
+            // and not on the skeleton because the extreme of wave 5 only exists now.
+            if (RequireInitialDiagonal &&
+                !IsInitialMovement(p0.Value, candidate.W5Extreme, p0.BarIndex, BarsProvider,
+                    out _))
+            {
+                Bump("notInitialDiagonal", p0);
+                return false;
+            }
+
             double entry = BarsProvider.GetClosePrice(index);
             double w3 = candidate.W3Length;
 
