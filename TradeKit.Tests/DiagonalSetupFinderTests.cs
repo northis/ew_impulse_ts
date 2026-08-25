@@ -31,7 +31,8 @@ namespace TradeKit.Tests
                 bool requireInitialDiagonal = false,
                 DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
                 double minConvergence = 0,
-                bool requireWave2Shorter = false)
+                bool requireWave2Shorter = false,
+                double minWave2Retrace = 0)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -40,7 +41,8 @@ namespace TradeKit.Tests
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
                 takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialDiagonal,
                 takeProfitMode, minConvergence,
-                requireWave2Shorter: requireWave2Shorter);
+                requireWave2Shorter: requireWave2Shorter,
+                minWave2Retrace: minWave2Retrace);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -58,10 +60,11 @@ namespace TradeKit.Tests
         [TestCase(H1_FILE, false, false, true, false)]
         [TestCase(H1_FILE, false, false, false, true)]
         [TestCase(H1_FILE, false, false, false, false, true)]
+        [TestCase(H1_FILE, false, false, false, false, false, 0.5)]
         public void Diagonal_EmittedSignals_SatisfyHardRules(
             string file, bool requireWave5Ratio, bool requireWave4Ratio,
             bool requireInitialDiagonal, bool retraceTakeProfit,
-            bool requireWave2Shorter = false)
+            bool requireWave2Shorter = false, double minWave2Retrace = 0)
         {
             ITimeFrame timeFrame = file.Contains("_m15_")
                 ? TimeFrameHelper.Minute15
@@ -73,7 +76,8 @@ namespace TradeKit.Tests
                 : DiagonalTakeProfitMode.RISK_RATIO;
             (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) =
                 Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio,
-                    requireInitialDiagonal, tpMode, requireWave2Shorter: requireWave2Shorter);
+                    requireInitialDiagonal, tpMode, requireWave2Shorter: requireWave2Shorter,
+                    minWave2Retrace: minWave2Retrace);
 
             Assert.That(signals, Is.Not.Empty,
                 $"No diagonal setups detected in {file}. Funnel: " +
@@ -105,6 +109,11 @@ namespace TradeKit.Tests
                 // D-W2
                 Assert.That(sgn * (p[2].Value - p[0].Value), Is.GreaterThan(0),
                     $"{at}: D-W2 — wave 2 ran past the start of wave 1.");
+
+                // D-W2-RET
+                Assert.That(w2,
+                    Is.GreaterThanOrEqualTo(finder.MinWave2Retrace * w1 - 1e-12),
+                    $"{at}: D-W2-RET — wave 2 retraces less of wave 1 than required.");
 
                 // D-W3-PEN
                 Assert.That(sgn * (p[3].Value - p[1].Value),

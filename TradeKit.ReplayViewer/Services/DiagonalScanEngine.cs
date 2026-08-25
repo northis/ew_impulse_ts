@@ -56,7 +56,8 @@ public sealed class DiagonalScanEngine
             req.MaxSpillAreaRatio,
             req.MinWave3Penetration,
             req.MaxWaveDurationRatio,
-            requireWave2Shorter: req.RequireWave2Shorter);
+            requireWave2Shorter: req.RequireWave2Shorter,
+            minWave2Retrace: req.MinWave2Retrace);
 
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
@@ -196,4 +197,5 @@ public sealed record DiagonalScanRequest(
     double MaxSpillAreaRatio = 0.005,
     double MinWave3Penetration = 0.03,
     double MaxWaveDurationRatio = 8.0,
-    bool RequireWave2Shorter = false);
+    bool RequireWave2Shorter = false,
+    double MinWave2Retrace = 0);

@@ -323,6 +323,13 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireWave2Shorter { get; }
 
         /// <summary>
+        /// Gets the minimum retracement of wave 1 by wave 2 as a share of |W1| (D-W2-RET):
+        /// a wedge whose first pullback barely dents wave 1 is a trend, not a coiling
+        /// diagonal. <c>0</c> — off (DIAGONAL.md §4).
+        /// </summary>
+        public double MinWave2Retrace { get; }
+
+        /// <summary>
         /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
         /// same-character sibling — W3 vs W1 and W4 vs W2 (DIAGONAL.md §4).
         /// </summary>
@@ -371,6 +378,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="minWave4Wave2Level">D-W4-24 level of wave 2 wave 4 has to reach.</param>
         /// <param name="requireWave4Shorter">Require wave 4 to last fewer bars than wave 2 (D-TIME-24).</param>
         /// <param name="requireWave2Shorter">Require wave 2 to last fewer bars than wave 1 (D-TIME-12).</param>
+        /// <param name="minWave2Retrace">Minimum retracement of wave 1 by wave 2, share of |W1|; 0 — off.</param>
         /// <param name="isolatedPrintFilter">
         /// The isolated-print detector (DIAGONAL.md §4.4); must be bound to the same bars
         /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
@@ -397,6 +405,7 @@ namespace TradeKit.Core.ElliottWave
             double minWave4Wave2Level = MIN_WAVE4_W2_LEVEL,
             bool requireWave4Shorter = true,
             bool requireWave2Shorter = false,
+            double minWave2Retrace = 0,
             IsolatedPrintFilter isolatedPrintFilter = null)
             : base(mainBarsProvider, symbol)
         {
@@ -413,6 +422,7 @@ namespace TradeKit.Core.ElliottWave
             MinWave4Wave2Level = Math.Max(0, minWave4Wave2Level);
             RequireWave4Shorter = requireWave4Shorter;
             RequireWave2Shorter = requireWave2Shorter;
+            MinWave2Retrace = Math.Max(0, minWave2Retrace);
             MinConvergence = minConvergence;
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
@@ -949,6 +959,13 @@ namespace TradeKit.Core.ElliottWave
             if (sgn * (p2.Value - p0.Value) <= 0)
             {
                 Bump("w2BeyondStart", p0);
+                return;
+            }
+
+            // D-W2-RET (optional): wave 2 gives back at least this share of wave 1.
+            if (MinWave2Retrace > 0 && w2 < MinWave2Retrace * w1)
+            {
+                Bump("w2RetraceTooShallow", p0);
                 return;
             }
 

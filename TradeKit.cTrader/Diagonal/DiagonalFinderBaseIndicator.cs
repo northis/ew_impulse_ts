@@ -110,7 +110,8 @@ namespace TradeKit.CTrader.Diagonal
                 wave3RetraceRatio: Wave3RetraceRatio,
                 minWave4Wave2Level: MinWave4Wave2Level,
                 requireWave4Shorter: RequireWave4Shorter,
-                requireWave2Shorter: RequireWave2Shorter);
+                requireWave2Shorter: RequireWave2Shorter,
+                minWave2Retrace: MinWave2Retrace);
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -198,6 +199,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("W2 shorter than W1", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool RequireWave2Shorter { get; set; }
+
+        /// <summary>
+        /// Gets or sets the minimum retracement of wave 1 by wave 2 as a share of |W1|
+        /// (D-W2-RET, DIAGONAL.md §4). 0 — no limit.
+        /// </summary>
+        [Parameter("Min W2 retrace of W1", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MinWave2Retrace { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,
