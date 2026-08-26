@@ -288,6 +288,14 @@ namespace TradeKit.Core.ElliottWave
         public double MaxSpillAreaRatio { get; }
 
         /// <summary>
+        /// Gets the D-INSIDE-5 threshold — the same spill measure taken over the span of
+        /// wave 5 alone, where the corridor is narrow and may even close, so the scale is a
+        /// magnitude coarser than <see cref="MaxSpillAreaRatio"/> (DIAGONAL.md §4.3).
+        /// <c>0</c> — off.
+        /// </summary>
+        public double MaxWave5SpillRatio { get; }
+
+        /// <summary>
         /// Gets the minimum penetration of wave 3 beyond the end of wave 1, as a share of
         /// |W1| (D-W3-PEN). Separates a genuine new extreme from a truncation; a value that
         /// is too high rejects wedges whose wave 3 barely pokes through, which is exactly
@@ -379,6 +387,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireWave4Shorter">Require wave 4 to last fewer bars than wave 2 (D-TIME-24).</param>
         /// <param name="requireWave2Shorter">Require wave 2 to last fewer bars than wave 1 (D-TIME-12).</param>
         /// <param name="minWave2Retrace">Minimum retracement of wave 1 by wave 2, share of |W1|; 0 — off.</param>
+        /// <param name="maxWave5SpillRatio">Tolerated spill area over the span of wave 5; 0 — off.</param>
         /// <param name="isolatedPrintFilter">
         /// The isolated-print detector (DIAGONAL.md §4.4); must be bound to the same bars
         /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
@@ -406,6 +415,7 @@ namespace TradeKit.Core.ElliottWave
             bool requireWave4Shorter = true,
             bool requireWave2Shorter = false,
             double minWave2Retrace = 0,
+            double maxWave5SpillRatio = 0,
             IsolatedPrintFilter isolatedPrintFilter = null)
             : base(mainBarsProvider, symbol)
         {
@@ -428,6 +438,7 @@ namespace TradeKit.Core.ElliottWave
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
                 ? maxSpillAreaRatio
                 : DEFAULT_MAX_SPILL_AREA_RATIO;
+            MaxWave5SpillRatio = Math.Max(0, maxWave5SpillRatio);
             MinWave3Penetration = Math.Max(0, minWave3Penetration);
             MaxWaveDurationRatio = maxWaveDurationRatio > 0
                 ? maxWaveDurationRatio
@@ -1104,7 +1115,7 @@ namespace TradeKit.Core.ElliottWave
             // D-INSIDE: bars of waves 2-4 stay inside the wedge. Walks the whole skeleton
             // span, so it goes after the cheap geometry.
             if (RequireInsideWedge &&
-                SpillAreaRatio(p1, p2, p3, p4, sgn) > MaxSpillAreaRatio)
+                SpillAreaRatio(p1, p2, p3, p4, sgn, p1.BarIndex, p4.BarIndex) > MaxSpillAreaRatio)
             {
                 Bump("spillsOutOfWedge", p0);
                 return;
@@ -1199,19 +1210,21 @@ namespace TradeKit.Core.ElliottWave
         }
 
         /// <summary>
-        /// Share of the wedge's own area that the bars of waves 2-4 spend <b>outside</b> the
-        /// trendlines 1-3 and 2-4 (D-INSIDE, DIAGONAL.md §4.3). Dimensionless, so it is
-        /// comparable across symbols, timeframes and wedge sizes: an isolated wick over a
-        /// span of dozens of bars is negligible, a sustained excursion is not.
+        /// Share of the wedge's own area that the bars of <c>[fromBar, toBar]</c> spend
+        /// <b>outside</b> the trendlines 1-3 and 2-4 (D-INSIDE, DIAGONAL.md §4.3).
+        /// Dimensionless, so it is comparable across symbols, timeframes and wedge sizes: an
+        /// isolated wick over a span of dozens of bars is negligible, a sustained excursion
+        /// is not. Past the apex the corridor has closed, so those bars add spill but no area.
         /// </summary>
-        private double SpillAreaRatio(BarPoint p1, BarPoint p2, BarPoint p3, BarPoint p4, int sgn)
+        private double SpillAreaRatio(BarPoint p1, BarPoint p2, BarPoint p3, BarPoint p4,
+            int sgn, int fromBar, int toBar)
         {
             double ceilSlope = (p3.Value - p1.Value) / (p3.BarIndex - p1.BarIndex);
             double floorSlope = (p4.Value - p2.Value) / (p4.BarIndex - p2.BarIndex);
 
             double spill = 0;
             double area = 0;
-            for (int bar = p1.BarIndex; bar <= p4.BarIndex; bar++)
+            for (int bar = fromBar; bar <= toBar; bar++)
             {
                 // An isolated print contributes neither spill nor area (DIAGONAL.md §4.4).
                 if (m_PrintFilter.IsExcluded(bar))
@@ -1227,7 +1240,7 @@ namespace TradeKit.Core.ElliottWave
                 double barMin = Math.Min(high, low);
 
                 spill += Math.Max(0, barMax - ceiling) + Math.Max(0, floor - barMin);
-                area += ceiling - floor;
+                area += Math.Max(0, ceiling - floor);
             }
 
             return spill / Math.Max(1e-12, area);
@@ -1396,6 +1409,17 @@ namespace TradeKit.Core.ElliottWave
                     out _))
             {
                 Bump("notInitialDiagonal", p0);
+                return false;
+            }
+
+            // D-INSIDE-5: wave 5 keeps hugging the wedge too. Measured on its own span, where
+            // the corridor is narrowest, so a wave 5 that stretches out (or runs past the
+            // apex) fails even though it still passes the |W3| cap (DIAGONAL.md §4.3).
+            if (MaxWave5SpillRatio > 0 &&
+                SpillAreaRatio(candidate.P1, candidate.P2, candidate.P3, candidate.P4,
+                    candidate.IsUp ? 1 : -1, candidate.P4.BarIndex, index) > MaxWave5SpillRatio)
+            {
+                Bump("w5SpillsOutOfWedge", p0);
                 return false;
             }
 

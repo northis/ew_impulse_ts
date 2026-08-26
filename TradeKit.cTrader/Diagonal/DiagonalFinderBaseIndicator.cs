@@ -111,7 +111,8 @@ namespace TradeKit.CTrader.Diagonal
                 minWave4Wave2Level: MinWave4Wave2Level,
                 requireWave4Shorter: RequireWave4Shorter,
                 requireWave2Shorter: RequireWave2Shorter,
-                minWave2Retrace: MinWave2Retrace);
+                minWave2Retrace: MinWave2Retrace,
+                maxWave5SpillRatio: MaxWave5SpillRatio);
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -206,6 +207,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min W2 retrace of W1", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinWave2Retrace { get; set; }
+
+        /// <summary>
+        /// Gets or sets the tolerated spill area over the span of wave 5 (D-INSIDE-5,
+        /// DIAGONAL.md §4.3). 0 — off.
+        /// </summary>
+        [Parameter("Max W5 spill", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxWave5SpillRatio { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

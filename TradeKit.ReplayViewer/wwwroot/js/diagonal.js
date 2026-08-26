@@ -327,7 +327,8 @@ async function runScan() {
         maxSpillAreaRatio: parseFloat($('pSpill').value) || 0.005,
         minWave3Penetration: numVal('pPen', 0.03),
         maxWaveDurationRatio: numVal('pDur', 8.0),
-        minWave2Retrace: numVal('pW2Retrace', 0)
+        minWave2Retrace: numVal('pW2Retrace', 0),
+        maxWave5SpillRatio: numVal('pW5Spill', 0)
     };
 
     try {

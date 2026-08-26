@@ -83,7 +83,8 @@ namespace TradeKit.CTrader.Diagonal
                 minWave4Wave2Level: m_DiagonalParams.MinWave4Wave2Level,
                 requireWave4Shorter: m_DiagonalParams.RequireWave4Shorter,
                 requireWave2Shorter: m_DiagonalParams.RequireWave2Shorter,
-                minWave2Retrace: m_DiagonalParams.MinWave2Retrace);
+                minWave2Retrace: m_DiagonalParams.MinWave2Retrace,
+                maxWave5SpillRatio: m_DiagonalParams.MaxWave5SpillRatio);
         }
     }
 }

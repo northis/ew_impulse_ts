@@ -32,7 +32,8 @@ namespace TradeKit.Tests
                 DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
                 double minConvergence = 0,
                 bool requireWave2Shorter = false,
-                double minWave2Retrace = 0)
+                double minWave2Retrace = 0,
+                double maxWave5SpillRatio = 0)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -42,7 +43,8 @@ namespace TradeKit.Tests
                 takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialDiagonal,
                 takeProfitMode, minConvergence,
                 requireWave2Shorter: requireWave2Shorter,
-                minWave2Retrace: minWave2Retrace);
+                minWave2Retrace: minWave2Retrace,
+                maxWave5SpillRatio: maxWave5SpillRatio);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -61,10 +63,12 @@ namespace TradeKit.Tests
         [TestCase(H1_FILE, false, false, false, true)]
         [TestCase(H1_FILE, false, false, false, false, true)]
         [TestCase(H1_FILE, false, false, false, false, false, 0.5)]
+        [TestCase(H1_FILE, false, false, false, false, false, 0, 0.3)]
         public void Diagonal_EmittedSignals_SatisfyHardRules(
             string file, bool requireWave5Ratio, bool requireWave4Ratio,
             bool requireInitialDiagonal, bool retraceTakeProfit,
-            bool requireWave2Shorter = false, double minWave2Retrace = 0)
+            bool requireWave2Shorter = false, double minWave2Retrace = 0,
+            double maxWave5SpillRatio = 0)
         {
             ITimeFrame timeFrame = file.Contains("_m15_")
                 ? TimeFrameHelper.Minute15
@@ -77,7 +81,8 @@ namespace TradeKit.Tests
             (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) =
                 Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio,
                     requireInitialDiagonal, tpMode, requireWave2Shorter: requireWave2Shorter,
-                    minWave2Retrace: minWave2Retrace);
+                    minWave2Retrace: minWave2Retrace,
+                    maxWave5SpillRatio: maxWave5SpillRatio);
 
             Assert.That(signals, Is.Not.Empty,
                 $"No diagonal setups detected in {file}. Funnel: " +
@@ -412,6 +417,56 @@ namespace TradeKit.Tests
                     string spillLabel = maxSpill > 0 ? maxSpill.ToString("F3") : "off";
                     TestContext.Out.WriteLine(
                         $"{file[..6]} maxSpill={spillLabel,5} " +
+                        $"R:R={ratio:F1} enters={enters,4} tp={tp,4} sl={sl,4} " +
+                        $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Calibrates the D-INSIDE-5 threshold (DIAGONAL.md §4.3): how much of the (narrow)
+        /// wedge corridor may wave 5 spend outside the trendlines? Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_Wave5SpillThreshold_Report()
+        {
+            string[] files =
+            {
+                H1_FILE,
+                "EURUSD_h1_2017-12-27T20-00-00_2026-05-31T23-00-00.csv",
+                "GBPUSD_h1_2017-12-18T16-00-00_2026-05-31T23-00-00.csv"
+            };
+            foreach (string file in files)
+            {
+                if (!File.Exists(Path.Combine(FindDataDir(), file)))
+                    continue;
+
+                foreach (double maxW5Spill in new[] { 0.0, 0.1, 0.2, 0.3, 0.5, 1.0 })
+                foreach (double ratio in new[] { 1.0, 1.5, 2.0 })
+                {
+                    var provider = new TestBarsProvider(TimeFrameHelper.Hour1);
+                    provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+                    var finder = new DiagonalSetupFinder(
+                        provider, provider.BarSymbol, new EWParams(0, 0.1, 10), ratio,
+                        maxWave5SpillRatio: maxW5Spill);
+
+                    int enters = 0, tp = 0, sl = 0;
+                    finder.OnEnter += (_, _) => enters++;
+                    finder.OnTakeProfit += (_, _) => tp++;
+                    finder.OnStopLoss += (_, _) => sl++;
+                    finder.MarkAsInitialized();
+                    for (int i = 0; i < provider.Count; i++)
+                        finder.CheckBar(provider.GetOpenTime(i));
+
+                    int resolved = tp + sl;
+                    double winRate = resolved > 0 ? 100.0 * tp / resolved : 0;
+                    double expectancy = resolved > 0 ? (tp * ratio - sl) / resolved : 0;
+                    string label = maxW5Spill > 0 ? maxW5Spill.ToString("F2") : "off";
+                    TestContext.Out.WriteLine(
+                        $"{file[..6]} maxW5Spill={label,4} " +
                         $"R:R={ratio:F1} enters={enters,4} tp={tp,4} sl={sl,4} " +
                         $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
                 }
