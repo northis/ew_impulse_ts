@@ -245,6 +245,15 @@ namespace TradeKit.Core.ElliottWave
         public double MinRiskRewardRatio { get; }
 
         /// <summary>
+        /// Whether a rejected trigger is only provisional: the target is a geometric level
+        /// and a minimum R:R is required, so the candidate waits for a better candle
+        /// (DIAGONAL.md §6.5) instead of being dropped.
+        /// </summary>
+        private bool WaitsForBetterRatio =>
+            MinRiskRewardRatio > 0 &&
+            (Wave3RetraceRatio > 0 || TakeProfitMode == DiagonalTakeProfitMode.DIAGONAL_RETRACE);
+
+        /// <summary>
         /// When set, a signal additionally requires a "mature" wave 5:
         /// <c>|W5| ≥ 0.786·|W3|</c> (DIAGONAL.md §6.1).
         /// </summary>
@@ -1281,7 +1290,18 @@ namespace TradeKit.Core.ElliottWave
                     continue;
                 }
 
+                // One diagonal — one signal: a rival skeleton sharing point 0 can never emit
+                // again, so it is dropped instead of being re-tested on every candle.
+                if (m_SignaledPoint0.Contains(candidate.Point0.OpenTime))
+                {
+                    m_DeadBuffer.Add(pair.Key);
+                    Bump("duplicatePoint0", candidate.Point0);
+                    continue;
+                }
+
                 bool triggerable = IsTriggerable(candidate);
+                if (triggerable && candidate.TriggerBar < 0)
+                    candidate.TriggerBar = index;
 
                 // A candidate parked by the R:R gate (§6.5) is re-checked on every closed
                 // candle: both the entry (the close) and the target (the fresh extreme of
@@ -1308,10 +1328,14 @@ namespace TradeKit.Core.ElliottWave
 
             foreach (KeyValuePair<CandidateKey, DiagonalCandidate> pair in m_FireBuffer)
             {
-                if (IsInSetup)
-                    break;
-
-                if (TryEmit(pair.Value, index))
+                // While the R:R wait is on, every rejection is provisional (DIAGONAL.md
+                // §6.5): the candidate stays parked and is re-tried on the next candle
+                // instead of being silenced by WasTriggerable. Otherwise the first candle
+                // that closed past the target, or that found the setup slot busy, ended the
+                // wait for good — and the wait lost setups instead of improving them.
+                if (IsInSetup || !TryEmit(pair.Value, index))
+                    pair.Value.IsWaitingForRatio = WaitsForBetterRatio;
+                else
                     m_DeadBuffer.Add(pair.Key);
             }
 
@@ -1414,10 +1438,15 @@ namespace TradeKit.Core.ElliottWave
 
             // D-INSIDE-5: wave 5 keeps hugging the wedge too. Measured on its own span, where
             // the corridor is narrowest, so a wave 5 that stretches out (or runs past the
-            // apex) fails even though it still passes the |W3| cap (DIAGONAL.md §4.3).
+            // apex) fails even though it still passes the |W3| cap (DIAGONAL.md §4.3). The
+            // span ends at the TRIGGER candle, not at this one: the shape of the model was
+            // settled when wave 5 broke V(3), and the bars a candidate spends waiting for a
+            // better R:R (§6.5) are ours, not the market's — charging them to the model would
+            // make the wait self-defeating.
             if (MaxWave5SpillRatio > 0 &&
                 SpillAreaRatio(candidate.P1, candidate.P2, candidate.P3, candidate.P4,
-                    candidate.IsUp ? 1 : -1, candidate.P4.BarIndex, index) > MaxWave5SpillRatio)
+                    candidate.IsUp ? 1 : -1, candidate.P4.BarIndex,
+                    candidate.TriggerBar < 0 ? index : candidate.TriggerBar) > MaxWave5SpillRatio)
             {
                 Bump("w5SpillsOutOfWedge", p0);
                 return false;
@@ -1494,12 +1523,9 @@ namespace TradeKit.Core.ElliottWave
             if (isRetraceTp && MinRiskRewardRatio > 0 &&
                 Math.Abs(tpPrice - entry) < MinRiskRewardRatio * Math.Abs(entry - slPrice))
             {
-                candidate.IsWaitingForRatio = true;
                 Bump("ratioTooLow", p0);
                 return false;
             }
-
-            candidate.IsWaitingForRatio = false;
 
             double low = BarsProvider.GetLowPrice(index);
             double high = BarsProvider.GetHighPrice(index);
@@ -1509,12 +1535,6 @@ namespace TradeKit.Core.ElliottWave
             if (alreadyHit)
             {
                 Bump("tpSlHit", p0);
-                return false;
-            }
-
-            if (m_SignaledPoint0.Contains(p0.OpenTime))
-            {
-                Bump("duplicatePoint0", p0);
                 return false;
             }
 
@@ -1598,6 +1618,13 @@ namespace TradeKit.Core.ElliottWave
             /// signal fires on the FIRST candle that satisfies them.
             /// </summary>
             public bool WasTriggerable { get; set; }
+
+            /// <summary>
+            /// The first bar on which the signal conditions held, or <c>-1</c>. The shape gates
+            /// of the model are measured up to it, so parking the candidate for a better R:R
+            /// (§6.5) does not change what is being judged.
+            /// </summary>
+            public int TriggerBar { get; set; } = -1;
 
             /// <summary>
             /// Whether the candidate is triggerable but parked by the R:R gate (§6.5) and so

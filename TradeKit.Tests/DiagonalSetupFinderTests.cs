@@ -1,3 +1,4 @@
+using System.Globalization;
 using NUnit.Framework;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -1478,6 +1479,59 @@ namespace TradeKit.Tests
             Assert.That(signal.TakeProfit.Value, Is.EqualTo(expected).Within(1e-4),
                 $"TP must sit at the {ratio:P1} retrace of |W3| = {w3:F5} " +
                 $"below the wave-5 extreme {p[5].Value:F5}.");
+        }
+
+        /// <summary>
+        /// GBPCHF m5, 2026-08-19 21:00 → 08-20 15:25 (DIAGONAL.md §6.5, §9.15): the trigger
+        /// candle offers an R:R of only ≈0.5, so a stricter <c>MinRiskRewardRatio</c> parks the
+        /// candidate. Wave 5 then keeps climbing for another day, which both improves the ratio
+        /// and — since D-INSIDE-5 used to be measured up to the current candle — used to blow
+        /// the spill budget and silence the setup for good. The wait must instead produce the
+        /// signal on the first candle whose ratio qualifies.
+        /// </summary>
+        [TestCase(0.0, "2026-08-20T15:25:00")]
+        [TestCase(0.7, "2026-08-20T15:40:00")]
+        [TestCase(1.0, "2026-08-21T06:35:00")]
+        public void Diagonal_GbpChfM5_RatioWait_EntersOnLaterCandle(
+            double minRiskRewardRatio, string expectedEntry)
+        {
+            const string file = "GBPCHF_m5_2026-08-14T07-20-00_2026-08-26T21-45-00.csv";
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.3, 50),
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                minConvergence: 0.3,
+                minWave3Penetration: 0.07,
+                minRiskRewardRatio: minRiskRewardRatio,
+                minWave2Retrace: 0.5,
+                maxWave5SpillRatio: 0.01);
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            DateTime p0Time = new DateTime(2026, 8, 19, 21, 0, 0, DateTimeKind.Utc);
+            ElliottWaveSignalEventArgs? signal = signals.FirstOrDefault(s =>
+                (s.WavePoints[0].OpenTime - p0Time).Duration() <= TimeSpan.FromSeconds(5));
+
+            Assert.That(signal, Is.Not.Null,
+                $"The diagonal vanished at MinRiskRewardRatio = {minRiskRewardRatio}. Funnel: " +
+                string.Join(", ", finder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+
+            var expected = DateTime.Parse(expectedEntry, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            Assert.That(signal!.Level.OpenTime, Is.EqualTo(expected),
+                $"Entry candle mismatch at MinRiskRewardRatio = {minRiskRewardRatio}.");
+
+            double risk = Math.Abs(signal.Level.Value - signal.StopLoss.Value);
+            double reward = Math.Abs(signal.TakeProfit.Value - signal.Level.Value);
+            Assert.That(reward, Is.GreaterThanOrEqualTo(minRiskRewardRatio * risk),
+                "The emitted setup must satisfy the requested R:R.");
         }
 
         /// <summary>
