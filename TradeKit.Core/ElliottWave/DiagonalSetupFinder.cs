@@ -167,10 +167,21 @@ namespace TradeKit.Core.ElliottWave
         private readonly List<DeviationExtremumFinder> m_ExtremumFinders = new();
         private readonly HashSet<SignalKey> m_ProcessedSignals = new();
         private readonly HashSet<DateTime> m_SignaledPoint0 = new();
+
+        /// <summary>
+        /// Skeletons (1-2-3-4 frame + direction) that already produced a signal. Any rival
+        /// candidate with the same frame — regardless of its point 0 or wave-5 reading — is
+        /// the same setup and must never emit again (DIAGONAL.md §9.16).
+        /// </summary>
+        private readonly HashSet<SkeletonKey> m_SignaledSkeletons = new();
+
         private readonly Dictionary<DeviationExtremumFinder, int> m_PrevExtremaCount = new();
         private readonly Dictionary<CandidateKey, DiagonalCandidate> m_Candidates = new();
         private readonly List<CandidateKey> m_DeadBuffer = new();
         private readonly List<KeyValuePair<CandidateKey, DiagonalCandidate>> m_FireBuffer = new();
+
+        /// <summary>Scratch set: skeletons already represented in the current fire buffer.</summary>
+        private readonly HashSet<SkeletonKey> m_FireSkeletons = new();
 
         /// <summary>The candidate behind the open setup — its wave 5 keeps running (§6.4).</summary>
         private DiagonalCandidate m_ActiveCandidate;
@@ -965,6 +976,15 @@ namespace TradeKit.Core.ElliottWave
             if (m_Candidates.ContainsKey(key))
                 return;
 
+            // One wedge frame — one setup: a skeleton whose 1-2-3-4 has already produced a
+            // signal (under any point 0) never emits again (DIAGONAL.md §9.16).
+            if (m_SignaledSkeletons.Contains(new SkeletonKey(p1.OpenTime, p2.OpenTime,
+                    p3.OpenTime, p4.OpenTime, isUp)))
+            {
+                Bump("duplicateSkeleton", p0);
+                return;
+            }
+
             int sgn = isUp ? 1 : -1;
             double w1 = Math.Abs(p1.Value - p0.Value);
             double w2 = Math.Abs(p2.Value - p1.Value);
@@ -1299,9 +1319,18 @@ namespace TradeKit.Core.ElliottWave
                     continue;
                 }
 
+                // Same rule lifted to the wedge frame: once a skeleton has signaled, its
+                // siblings (identical 1-2-3-4, different point 0 or wave-5 extreme) are the
+                // same setup and are dropped instead of waiting for their own turn
+                // (DIAGONAL.md §9.16).
+                if (m_SignaledSkeletons.Contains(SkeletonOf(candidate)))
+                {
+                    m_DeadBuffer.Add(pair.Key);
+                    Bump("duplicateSkeleton", candidate.Point0);
+                    continue;
+                }
+
                 bool triggerable = IsTriggerable(candidate);
-                if (triggerable && candidate.TriggerBar < 0)
-                    candidate.TriggerBar = index;
 
                 // A candidate parked by the R:R gate (§6.5) is re-checked on every closed
                 // candle: both the entry (the close) and the target (the fresh extreme of
@@ -1326,8 +1355,22 @@ namespace TradeKit.Core.ElliottWave
                 return cmp != 0 ? cmp : a.Value.IsUp.CompareTo(b.Value.IsUp);
             });
 
+            m_FireSkeletons.Clear();
             foreach (KeyValuePair<CandidateKey, DiagonalCandidate> pair in m_FireBuffer)
             {
+                // One skeleton — one representative per candle: the buffer is sorted
+                // outermost first, so the earliest point 0 attempts the entry while its
+                // siblings (identical 1-2-3-4) are retired. The outermost point 0 is the
+                // strongest member of the group for every p0-dependent gate — deeper retrace
+                // target, better R:R, later tpBehindEntry — so the group loses nothing by
+                // speaking with one voice (DIAGONAL.md §9.16).
+                if (!m_FireSkeletons.Add(SkeletonOf(pair.Value)))
+                {
+                    m_DeadBuffer.Add(pair.Key);
+                    Bump("duplicateSkeleton", pair.Value.Point0);
+                    continue;
+                }
+
                 // While the R:R wait is on, every rejection is provisional (DIAGONAL.md
                 // §6.5): the candidate stays parked and is re-tried on the next candle
                 // instead of being silenced by WasTriggerable. Otherwise the first candle
@@ -1439,14 +1482,15 @@ namespace TradeKit.Core.ElliottWave
             // D-INSIDE-5: wave 5 keeps hugging the wedge too. Measured on its own span, where
             // the corridor is narrowest, so a wave 5 that stretches out (or runs past the
             // apex) fails even though it still passes the |W3| cap (DIAGONAL.md §4.3). The
-            // span ends at the TRIGGER candle, not at this one: the shape of the model was
-            // settled when wave 5 broke V(3), and the bars a candidate spends waiting for a
-            // better R:R (§6.5) are ours, not the market's — charging them to the model would
-            // make the wait self-defeating.
+            // span ends at the SIGNAL candle: without the R:R wait (§6.5) that is the trigger
+            // candle itself, so instant entries are still judged exactly at the break of V(3).
+            // While the entry is parked for a better ratio, the extra bars belong to wave 5,
+            // and a genuine spill that develops during the wait must veto the setup —
+            // freezing the window at the trigger made the filter blind to exactly the
+            // overshoot the wait exposed (DIAGONAL.md §9.15, §9.16).
             if (MaxWave5SpillRatio > 0 &&
                 SpillAreaRatio(candidate.P1, candidate.P2, candidate.P3, candidate.P4,
-                    candidate.IsUp ? 1 : -1, candidate.P4.BarIndex,
-                    candidate.TriggerBar < 0 ? index : candidate.TriggerBar) > MaxWave5SpillRatio)
+                    candidate.IsUp ? 1 : -1, candidate.P4.BarIndex, index) > MaxWave5SpillRatio)
             {
                 Bump("w5SpillsOutOfWedge", p0);
                 return false;
@@ -1565,6 +1609,7 @@ namespace TradeKit.Core.ElliottWave
             m_BreakevenArmed = false;
 
             m_SignaledPoint0.Add(p0.OpenTime);
+            m_SignaledSkeletons.Add(SkeletonOf(candidate));
             Bump("entered", p0);
             OnEnterInvoke(CurrentSignalEventArgs);
             IsInSetup = true;
@@ -1574,6 +1619,18 @@ namespace TradeKit.Core.ElliottWave
         #endregion
 
         private readonly record struct CandidateKey(DateTime Point0Time, DateTime P4Time, bool IsUp);
+
+        /// <summary>
+        /// The 1-2-3-4 wedge frame plus direction — the identity of a diagonal setup without
+        /// point 0 and wave 5. Two candidates sharing this key differ only in where the
+        /// impulse started and where wave 5 ended; they are the same model, so at most one
+        /// signal may be emitted per key (DIAGONAL.md §9.16).
+        /// </summary>
+        private readonly record struct SkeletonKey(DateTime P1Time, DateTime P2Time,
+            DateTime P3Time, DateTime P4Time, bool IsUp);
+
+        private static SkeletonKey SkeletonOf(DiagonalCandidate c) =>
+            new(c.P1.OpenTime, c.P2.OpenTime, c.P3.OpenTime, c.P4.OpenTime, c.IsUp);
 
         /// <summary>
         /// A validated 0-1-2-3-4 skeleton whose wave 5 is being tracked on raw bars
@@ -1618,13 +1675,6 @@ namespace TradeKit.Core.ElliottWave
             /// signal fires on the FIRST candle that satisfies them.
             /// </summary>
             public bool WasTriggerable { get; set; }
-
-            /// <summary>
-            /// The first bar on which the signal conditions held, or <c>-1</c>. The shape gates
-            /// of the model are measured up to it, so parking the candidate for a better R:R
-            /// (§6.5) does not change what is being judged.
-            /// </summary>
-            public int TriggerBar { get; set; } = -1;
 
             /// <summary>
             /// Whether the candidate is triggerable but parked by the R:R gate (§6.5) and so

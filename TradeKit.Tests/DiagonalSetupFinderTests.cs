@@ -249,6 +249,18 @@ namespace TradeKit.Tests
                         $"{at}: TP does not match TakeProfitRatio={takeProfitRatio}.");
                 }
             }
+
+            // §9.16: one 1-2-3-4 frame — one signal. Setups that differ only in point 0 or
+            // in the wave-5 extreme are the same model and must not emit twice.
+            var skeletons = new HashSet<(DateTime, DateTime, DateTime, DateTime, bool)>();
+            foreach (ElliottWaveSignalEventArgs s in signals)
+            {
+                bool isUpDiagonal = s.TakeProfit.Value < s.StopLoss.Value;
+                var key = (s.WavePoints[1].OpenTime, s.WavePoints[2].OpenTime,
+                    s.WavePoints[3].OpenTime, s.WavePoints[4].OpenTime, isUpDiagonal);
+                Assert.That(skeletons.Add(key), Is.True,
+                    $"{key}: two emitted signals share the same 1-2-3-4 frame.");
+            }
         }
 
         /// <summary>
@@ -1482,18 +1494,23 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
-        /// GBPCHF m5, 2026-08-19 21:00 → 08-20 15:25 (DIAGONAL.md §6.5, §9.15): the trigger
-        /// candle offers an R:R of only ≈0.5, so a stricter <c>MinRiskRewardRatio</c> parks the
-        /// candidate. Wave 5 then keeps climbing for another day, which both improves the ratio
-        /// and — since D-INSIDE-5 used to be measured up to the current candle — used to blow
-        /// the spill budget and silence the setup for good. The wait must instead produce the
-        /// signal on the first candle whose ratio qualifies.
+        /// GBPCHF m5, 2026-08-19 21:00 → 08-20 15:25 (DIAGONAL.md §6.5, §9.15, §9.16): the
+        /// trigger candle offers an R:R of only ≈0.35, so a stricter <c>MinRiskRewardRatio</c>
+        /// parks the candidate and the signal must come on the first candle whose ratio
+        /// qualifies. With the spill filter off the wait reaches 15:40 (ratio 0.7) and 06:35
+        /// next day (ratio 1.0) — §9.15. With <c>MaxWave5SpillRatio</c> on, the bars added by
+        /// the wait belong to wave 5 (§9.16): at 15:25 and 15:30 the overshoot is still below
+        /// the 1% budget, but by 15:40 wave 5 has genuinely spilled out of the wedge, so the
+        /// stricter ratios must produce no signal at all instead of entering on a broken model.
         /// </summary>
-        [TestCase(0.0, "2026-08-20T15:25:00")]
-        [TestCase(0.7, "2026-08-20T15:40:00")]
-        [TestCase(1.0, "2026-08-21T06:35:00")]
+        [TestCase(0.0, 0.01, "2026-08-20T15:25:00")]
+        [TestCase(0.5, 0.01, "2026-08-20T15:30:00")]
+        [TestCase(0.7, 0.01, null)]
+        [TestCase(1.0, 0.01, null)]
+        [TestCase(0.7, 0.0, "2026-08-20T15:40:00")]
+        [TestCase(1.0, 0.0, "2026-08-21T06:35:00")]
         public void Diagonal_GbpChfM5_RatioWait_EntersOnLaterCandle(
-            double minRiskRewardRatio, string expectedEntry)
+            double minRiskRewardRatio, double maxWave5SpillRatio, string? expectedEntry)
         {
             const string file = "GBPCHF_m5_2026-08-14T07-20-00_2026-08-26T21-45-00.csv";
             var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
@@ -1506,7 +1523,7 @@ namespace TradeKit.Tests
                 minWave3Penetration: 0.07,
                 minRiskRewardRatio: minRiskRewardRatio,
                 minWave2Retrace: 0.5,
-                maxWave5SpillRatio: 0.01);
+                maxWave5SpillRatio: maxWave5SpillRatio);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -1517,6 +1534,27 @@ namespace TradeKit.Tests
             DateTime p0Time = new DateTime(2026, 8, 19, 21, 0, 0, DateTimeKind.Utc);
             ElliottWaveSignalEventArgs? signal = signals.FirstOrDefault(s =>
                 (s.WavePoints[0].OpenTime - p0Time).Duration() <= TimeSpan.FromSeconds(5));
+
+            // The sibling skeleton (same 1-2-3-4, point 0 at 21:50) must never emit in the
+            // place of the outer one — one wedge frame is one setup (DIAGONAL.md §9.16).
+            DateTime siblingP0 = new DateTime(2026, 8, 19, 21, 50, 0, DateTimeKind.Utc);
+            Assert.That(signals.Any(s =>
+                    (s.WavePoints[0].OpenTime - siblingP0).Duration() <= TimeSpan.FromSeconds(5)),
+                Is.False, "The duplicate skeleton anchored at 21:50 emitted a signal.");
+
+            if (expectedEntry == null)
+            {
+                Assert.That(signal, Is.Null,
+                    $"Wave 5 spills out of the wedge during the R:R wait, so no signal is " +
+                    $"expected at MinRiskRewardRatio = {minRiskRewardRatio}, " +
+                    $"MaxWave5SpillRatio = {maxWave5SpillRatio}.");
+                Assert.That(finder.Diag.GetValueOrDefault("w5SpillsOutOfWedge"),
+                    Is.GreaterThan(0),
+                    "The rejection must come from the D-INSIDE-5 gate. Funnel: " +
+                    string.Join(", ", finder.Diag.OrderByDescending(x => x.Value)
+                        .Select(x => $"{x.Key}={x.Value}")));
+                return;
+            }
 
             Assert.That(signal, Is.Not.Null,
                 $"The diagonal vanished at MinRiskRewardRatio = {minRiskRewardRatio}. Funnel: " +
@@ -1532,6 +1570,75 @@ namespace TradeKit.Tests
             double reward = Math.Abs(signal.TakeProfit.Value - signal.Level.Value);
             Assert.That(reward, Is.GreaterThanOrEqualTo(minRiskRewardRatio * risk),
                 "The emitted setup must satisfy the requested R:R.");
+        }
+
+        /// <summary>
+        /// GBPCHF m5, 2026-08-19/20 (DIAGONAL.md §9.16): the same wedge frame
+        /// 07:40 → 09:20 → 14:15 → 15:00 resolves twice — with point 0 at 21:00 and with
+        /// point 0 at 21:50 — and both break V(3) on the same candle. Without dedup the R:R
+        /// wait emits the outer one at 15:40 and, once that setup closes on its target, the
+        /// inner one again at 08-21 00:00 with a later wave-5 extreme (16:55). One 1-2-3-4
+        /// frame is one setup: the outermost point 0 represents the group and the sibling
+        /// must stay silent.
+        /// </summary>
+        [Test]
+        public void Diagonal_GbpChfM5_DuplicateSkeleton_SingleSignal()
+        {
+            const string file = "GBPCHF_m5_2026-08-14T07-20-00_2026-08-26T21-45-00.csv";
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.3, 50),
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                minConvergence: 0.3,
+                minWave3Penetration: 0.07,
+                minRiskRewardRatio: 0.7,
+                minWave2Retrace: 0.5,
+                maxWave5SpillRatio: 0); // spill filter off — the duplicate passed D-INSIDE-5
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            DateTime outerP0 = new DateTime(2026, 8, 19, 21, 0, 0, DateTimeKind.Utc);
+            DateTime innerP0 = new DateTime(2026, 8, 19, 21, 50, 0, DateTimeKind.Utc);
+
+            List<ElliottWaveSignalEventArgs> outer = signals
+                .Where(s => (s.WavePoints[0].OpenTime - outerP0).Duration() <= TimeSpan.FromSeconds(5))
+                .ToList();
+            List<ElliottWaveSignalEventArgs> inner = signals
+                .Where(s => (s.WavePoints[0].OpenTime - innerP0).Duration() <= TimeSpan.FromSeconds(5))
+                .ToList();
+
+            Assert.That(outer, Has.Count.EqualTo(1),
+                "The outer skeleton (point 0 at 21:00) must emit exactly once. Funnel: " +
+                string.Join(", ", finder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+            Assert.That(inner, Is.Empty,
+                "The sibling skeleton (point 0 at 21:50) must not emit — it is the same setup.");
+
+            BarPoint[] p = outer[0].WavePoints;
+            Assert.That(p[1].OpenTime, Is.EqualTo(new DateTime(2026, 8, 20, 7, 40, 0, DateTimeKind.Utc)));
+            Assert.That(p[2].OpenTime, Is.EqualTo(new DateTime(2026, 8, 20, 9, 20, 0, DateTimeKind.Utc)));
+            Assert.That(p[3].OpenTime, Is.EqualTo(new DateTime(2026, 8, 20, 14, 15, 0, DateTimeKind.Utc)));
+            Assert.That(p[4].OpenTime, Is.EqualTo(new DateTime(2026, 8, 20, 15, 0, 0, DateTimeKind.Utc)));
+            Assert.That(outer[0].Level.OpenTime,
+                Is.EqualTo(new DateTime(2026, 8, 20, 15, 40, 0, DateTimeKind.Utc)),
+                "The wait must end on the first candle whose R:R qualifies.");
+
+            // Global invariant: no two signals in the run share a 1-2-3-4 frame.
+            var skeletons = new HashSet<(DateTime, DateTime, DateTime, DateTime, bool)>();
+            foreach (ElliottWaveSignalEventArgs s in signals)
+            {
+                bool isUpDiagonal = s.TakeProfit.Value < s.StopLoss.Value;
+                var key = (s.WavePoints[1].OpenTime, s.WavePoints[2].OpenTime,
+                    s.WavePoints[3].OpenTime, s.WavePoints[4].OpenTime, isUpDiagonal);
+                Assert.That(skeletons.Add(key), Is.True,
+                    $"{key}: two emitted signals share the same 1-2-3-4 frame.");
+            }
         }
 
         /// <summary>
