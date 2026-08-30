@@ -26,12 +26,30 @@ namespace TradeKit.Tests
 
         private static double Sign(bool isUpDiagonal) => isUpDiagonal ? 1 : -1;
 
+        /// <summary>
+        /// The D-CONVERGE measure <c>w(t1)/w(t4) − 1</c> of a signal's skeleton, exactly as
+        /// the finder computes it (DIAGONAL.md §4.2).
+        /// </summary>
+        private static double ConvergenceOf(ElliottWaveSignalEventArgs s)
+        {
+            BarPoint[] p = s.WavePoints;
+            double sgn = Sign(s.TakeProfit.Value < s.StopLoss.Value);
+            double ceilSlope = (p[3].Value - p[1].Value) / (p[3].BarIndex - p[1].BarIndex);
+            double floorSlope = (p[4].Value - p[2].Value) / (p[4].BarIndex - p[2].BarIndex);
+            double widthAt1 =
+                sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
+            double widthAt4 =
+                sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
+            return widthAt1 / widthAt4 - 1;
+        }
+
         private static (DiagonalSetupFinder Finder, List<ElliottWaveSignalEventArgs> Signals)
             Run(string file, ITimeFrame timeFrame, double takeProfitRatio = 1.0,
                 bool requireWave5Ratio = false, bool requireWave4Ratio = false,
                 bool requireInitialDiagonal = false,
                 DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
                 double minConvergence = 0,
+                double maxConvergence = 0,
                 bool requireWave2Shorter = false,
                 double minWave2Retrace = 0,
                 double maxWave5SpillRatio = 0)
@@ -42,7 +60,7 @@ namespace TradeKit.Tests
             var finder = new DiagonalSetupFinder(
                 provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
                 takeProfitRatio, requireWave5Ratio, requireWave4Ratio, requireInitialDiagonal,
-                takeProfitMode, minConvergence,
+                takeProfitMode, minConvergence, maxConvergence,
                 requireWave2Shorter: requireWave2Shorter,
                 minWave2Retrace: minWave2Retrace,
                 maxWave5SpillRatio: maxWave5SpillRatio);
@@ -65,11 +83,12 @@ namespace TradeKit.Tests
         [TestCase(H1_FILE, false, false, false, false, true)]
         [TestCase(H1_FILE, false, false, false, false, false, 0.5)]
         [TestCase(H1_FILE, false, false, false, false, false, 0, 0.3)]
+        [TestCase(H1_FILE, false, false, false, false, false, 0, 0, 2.0)]
         public void Diagonal_EmittedSignals_SatisfyHardRules(
             string file, bool requireWave5Ratio, bool requireWave4Ratio,
             bool requireInitialDiagonal, bool retraceTakeProfit,
             bool requireWave2Shorter = false, double minWave2Retrace = 0,
-            double maxWave5SpillRatio = 0)
+            double maxWave5SpillRatio = 0, double maxConvergence = 0)
         {
             ITimeFrame timeFrame = file.Contains("_m15_")
                 ? TimeFrameHelper.Minute15
@@ -83,7 +102,8 @@ namespace TradeKit.Tests
                 Run(file, timeFrame, takeProfitRatio, requireWave5Ratio, requireWave4Ratio,
                     requireInitialDiagonal, tpMode, requireWave2Shorter: requireWave2Shorter,
                     minWave2Retrace: minWave2Retrace,
-                    maxWave5SpillRatio: maxWave5SpillRatio);
+                    maxWave5SpillRatio: maxWave5SpillRatio,
+                    maxConvergence: maxConvergence);
 
             Assert.That(signals, Is.Not.Empty,
                 $"No diagonal setups detected in {file}. Funnel: " +
@@ -164,6 +184,13 @@ namespace TradeKit.Tests
                 Assert.That(widthAt1 / widthAt4 - 1,
                     Is.GreaterThanOrEqualTo(finder.MinConvergence - 1e-9),
                     $"{at}: D-CONVERGE — the wedge converges less than required.");
+
+                if (finder.MaxConvergence > 0)
+                {
+                    Assert.That(widthAt1 / widthAt4 - 1,
+                        Is.LessThanOrEqualTo(finder.MaxConvergence + 1e-9),
+                        $"{at}: D-CONVERGE — the wedge converges harder than allowed.");
+                }
 
                 // D-INSIDE — the bars of waves 2-4 stay inside the wedge (on by default);
                 // isolated-print bars are skipped, exactly as the finder does (§4.4).
@@ -261,6 +288,49 @@ namespace TradeKit.Tests
                 Assert.That(skeletons.Add(key), Is.True,
                     $"{key}: two emitted signals share the same 1-2-3-4 frame.");
             }
+        }
+
+        /// <summary>
+        /// The D-CONVERGE upper bound (<see cref="DiagonalSetupFinder.MaxConvergence"/>,
+        /// DIAGONAL.md §4.2): a positive value caps the convergence of the trendlines from
+        /// above. The cap can only narrow the sample, and every surviving signal must
+        /// respect it. Default <c>0</c> leaves the behaviour unchanged.
+        /// </summary>
+        [Test]
+        public void Diagonal_MaxConvergence_LimitsWedgeNarrowing()
+        {
+            (DiagonalSetupFinder baselineFinder, List<ElliottWaveSignalEventArgs> baseline) =
+                Run(H1_FILE, TimeFrameHelper.Hour1);
+
+            double[] convergences = baseline.Select(ConvergenceOf).ToArray();
+            Assert.That(convergences, Is.Not.Empty,
+                "No diagonal setups detected. Funnel: " +
+                string.Join(", ", baselineFinder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+
+            double maxSeen = convergences.Max();
+            Assert.That(maxSeen, Is.GreaterThan(0),
+                "The archive must contain at least one converging wedge to test the cap.");
+
+            // Default 0 disables the cap: the sample stays exactly the same.
+            (_, List<ElliottWaveSignalEventArgs> uncapped) =
+                Run(H1_FILE, TimeFrameHelper.Hour1, maxConvergence: 0);
+            Assert.That(uncapped.Count, Is.EqualTo(baseline.Count),
+                "MaxConvergence = 0 must not change the behaviour.");
+
+            double cap = maxSeen / 2;
+            (DiagonalSetupFinder cappedFinder, List<ElliottWaveSignalEventArgs> capped) =
+                Run(H1_FILE, TimeFrameHelper.Hour1, maxConvergence: cap);
+
+            Assert.That(capped.Count, Is.LessThan(baseline.Count),
+                $"MaxConvergence = {cap:F3} must reject the hardest-converging wedges. " +
+                "Funnel: " + string.Join(", ", cappedFinder.Diag
+                    .OrderByDescending(x => x.Value).Select(x => $"{x.Key}={x.Value}")));
+            Assert.That(cappedFinder.Diag.GetValueOrDefault("linesOverConverge"),
+                Is.GreaterThan(0), "The rejection must come from the D-CONVERGE cap gate.");
+            Assert.That(capped.Select(ConvergenceOf),
+                Is.All.LessThanOrEqualTo(cap + 1e-9),
+                "No emitted wedge may converge harder than the cap.");
         }
 
         /// <summary>
@@ -691,7 +761,8 @@ namespace TradeKit.Tests
             double maxDur = live.MaxWaveDurationRatio;
             TestContext.Out.WriteLine(
                 $"defaults: pen={minPen:F3} dur={maxDur:F1} " +
-                $"minConv={live.MinConvergence:F2} inside={live.RequireInsideWedge} " +
+                $"minConv={live.MinConvergence:F2} maxConv={live.MaxConvergence:F2} " +
+                $"inside={live.RequireInsideWedge} " +
                 $"spill={live.MaxSpillAreaRatio:F4}");
 
             // point0 is a LOW (up diagonal): low,high,low,high,low,high.
@@ -767,8 +838,10 @@ namespace TradeKit.Tests
                 sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
             double widthAt4 =
                 sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
-            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence,
-                $"conv={widthAt1 / widthAt4 - 1:F3} (need >= {live.MinConvergence:F2})");
+            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence &&
+                    (live.MaxConvergence <= 0 || widthAt1 / widthAt4 - 1 <= live.MaxConvergence),
+                $"conv={widthAt1 / widthAt4 - 1:F3} (need >= {live.MinConvergence:F2}" +
+                (live.MaxConvergence > 0 ? $", <= {live.MaxConvergence:F2}" : "") + ")");
 
             double spill = 0, wedge = 0;
             for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
@@ -951,7 +1024,8 @@ namespace TradeKit.Tests
             double maxDur = live.MaxWaveDurationRatio;
             TestContext.Out.WriteLine(
                 $"defaults: pen={minPen:F3} dur={maxDur:F1} " +
-                $"minConv={live.MinConvergence:F2} inside={live.RequireInsideWedge} " +
+                $"minConv={live.MinConvergence:F2} maxConv={live.MaxConvergence:F2} " +
+                $"inside={live.RequireInsideWedge} " +
                 $"spill={live.MaxSpillAreaRatio:F4}");
 
             // point0 is a LOW (up diagonal): low,high,low,high,low,high.
@@ -1027,8 +1101,10 @@ namespace TradeKit.Tests
                 sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
             double widthAt4 =
                 sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
-            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence,
-                $"conv={widthAt1 / widthAt4 - 1:F3} (need >= {live.MinConvergence:F2})");
+            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence &&
+                    (live.MaxConvergence <= 0 || widthAt1 / widthAt4 - 1 <= live.MaxConvergence),
+                $"conv={widthAt1 / widthAt4 - 1:F3} (need >= {live.MinConvergence:F2}" +
+                (live.MaxConvergence > 0 ? $", <= {live.MaxConvergence:F2}" : "") + ")");
 
             double spill = 0, wedge = 0;
             for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
@@ -1744,7 +1820,8 @@ namespace TradeKit.Tests
             double maxDur = live.MaxWaveDurationRatio;
             TestContext.Out.WriteLine(
                 $"{file}\ndefaults: pen={minPen:F3} dur={maxDur:F1} " +
-                $"minConv={live.MinConvergence:F2} inside={live.RequireInsideWedge} " +
+                $"minConv={live.MinConvergence:F2} maxConv={live.MaxConvergence:F2} " +
+                $"inside={live.RequireInsideWedge} " +
                 $"spill={live.MaxSpillAreaRatio:F4} tol={live.WavePullbackTol:F2} " +
                 $"zzPeriod={live.ZigzagPeriod}");
 
@@ -1807,7 +1884,8 @@ namespace TradeKit.Tests
                 sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
             double widthAt4 =
                 sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
-            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence,
+            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence &&
+                    (live.MaxConvergence <= 0 || widthAt1 / widthAt4 - 1 <= live.MaxConvergence),
                 $"conv={widthAt1 / widthAt4 - 1:F3}");
 
             double spill = 0, wedge = 0;

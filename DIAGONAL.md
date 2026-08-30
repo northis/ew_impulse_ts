@@ -170,8 +170,9 @@
   через разрывы, как в треугольниках). Порог — **параметр**, по умолчанию
   **8.0**: в диагонали коррекции и импульсы регулярно расходятся по времени
   в разы, прежние 4.0 резали валидные клинья (§9.8).
-- **D-CONVERGE** *(параметр `MinConvergence`, по умолчанию **0**)* — образующие
-  1-3 и 2-4 сходятся не слабее заданного (§4.2).
+- **D-CONVERGE** *(параметры `MinConvergence`/`MaxConvergence`, по умолчанию
+  **0** / **0**)* — образующие 1-3 и 2-4 сходятся в заданном коридоре (§4.2):
+  не слабее `MinConvergence` и (когда `MaxConvergence > 0`) не сильнее него.
 - **D-INSIDE** *(опционально, флаг `RequireInsideWedge`, по умолчанию
   **включено**)* — бары волн 2–4 не выходят за образующие надолго:
   площадь выброса ≤ `MaxSpillAreaRatio` от площади клина (§4.3).
@@ -198,7 +199,7 @@ Soft-фильтры — **выключены на первом этапе** (р�
   решаем, включать ли. В коде оставляем точку расширения (константы
   `W3_TO_W1_MIN/MAX` + флаг), чтобы включение было однострочным.
 
-### 4.2. Сходимость образующих (`MinConvergence`, D-CONVERGE)
+### 4.2. Сходимость образующих (`MinConvergence`/`MaxConvergence`, D-CONVERGE)
 
 **Сжатие амплитуд не гарантирует сходимость трендлиний** — изначально
 в этом документе было написано обратное, и это было ошибкой. Наклон
@@ -231,7 +232,7 @@ $$\frac{|W3|-|W2|}{t_3-t_1}\;<\;\frac{|W3|-|W4|}{t_4-t_2}$$
 Поэтому сходимость измеряется **числом**, а не проверяется флагом. Мера —
 во сколько раз клин сузился от начала до конца скелета:
 
-$$\boxed{\;c=\frac{w(t_1)}{w(t_4)}-1\;\ge\;\texttt{MinConvergence}\;}$$
+$$\boxed{\;\texttt{MinConvergence}\;\le\;c=\frac{w(t_1)}{w(t_4)}-1\;\le\;\texttt{MaxConvergence}\;}$$
 
 где `w(t)` — расстояние между образующими на баре `t` (обе продолжены до
 концов скелета; `w > 0` на всём `[t1, t4]`, см. ниже). Шкала:
@@ -246,7 +247,10 @@ $$\boxed{\;c=\frac{w(t_1)}{w(t_4)}-1\;\ge\;\texttt{MinConvergence}\;}$$
 
 Свойства: безразмерно (отношение двух ценовых расстояний), не зависит от
 масштаба символа, таймфрейма и длины клина. `MinConvergence = −1` полностью
-отключает фильтр.
+отключает фильтр. Верхняя граница `MaxConvergence` — отдельный регулятор:
+**0** (по умолчанию) снимает её, положительное значение отбрасывает клинья,
+сошедшиеся сильнее заданного (в точке 4 уже, чем в `(MaxConvergence + 1)`
+раз), — гейт `linesOverConverge`, проверяется сразу после нижней границы.
 
 Отдельно проверять, что вершина клина правее точки 4, не нужно: при
 `наклон_{1-3} > 0` верхняя образующая в точке `t4` всегда выше `V(3) > V(4)`,
@@ -256,6 +260,8 @@ $$\boxed{\;c=\frac{w(t_1)}{w(t_4)}-1\;\ge\;\texttt{MinConvergence}\;}$$
 > расходящиеся клинья. Это стоит ~3% входов и улучшает матожидание во всех
 > без исключения режимах. Ужесточение работает как регулятор качества:
 > `+0.5` и `+1.0` заметно поднимают матожидание ценой выборки (§9.6).
+> **По умолчанию `MaxConvergence = 0`** — верхний порог отключён: степень
+> сходимости сверху не ограничивается.
 
 ### 4.3. Бары внутри клина (`RequireInsideWedge`, D-INSIDE)
 
@@ -807,6 +813,7 @@ DiagonalCandidate {
 | `MinWave2Retrace` | Мин. откат волны 2 от волны 1 (доля \|W1\|, D-W2-RET, §4). 0 — выключено. | **0** |
 | `RequireInitialDiagonal` | Требовать «заходности» всей диагонали `V(0) → W5` (D-INIT, §5.2). | `false` |
 | `MinConvergence` | Минимальная сходимость образующих (D-CONVERGE, §4.2). | **0** |
+| `MaxConvergence` | Максимальная сходимость образующих (D-CONVERGE, §4.2). 0 — порог отключён. | **0** |
 | `RequireInsideWedge` | Требовать, чтобы бары не выходили за образующие (D-INSIDE, §4.3). | **`true`** |
 | `MaxSpillAreaRatio` | Порог площади выброса (доля площади клина). | **0.005** (§9.7) |
 | `MaxWave5SpillRatio` | Порог выброса на участке волны 5 (D-INSIDE-5, §4.3). 0 — выключено. | **0** (§9.14) |
@@ -843,7 +850,8 @@ DiagonalCandidate {
 - откат волны 2: `|W2| ≥ MinWave2Retrace·|W1|` (D-W2-RET);
 - коридор волны 4: `s·(V(1) − V(4)) ≥ 0.236·|W2|` (D-W4-24) и `|W4| ≥ 0.382·|W3|`
   (D-W4-38);
-- сходимость образующих `w(t1)/w(t4) − 1 ≥ MinConvergence` (D-CONVERGE);
+- сходимость образующих `w(t1)/w(t4) − 1` не слабее `MinConvergence` и (когда
+  `MaxConvergence > 0`) не сильнее него (D-CONVERGE);
 - площадь выброса за образующие ≤ `MaxSpillAreaRatio` (D-INSIDE) — тоже всегда;
 - перекрытие: конец W4 в зоне W1 (D-OVERLAP);
 - пробой: на триггерном баре экстремум за `V(3)` (D-W5-BREAK);
@@ -887,10 +895,10 @@ DiagonalCandidate {
   `OnEnter` → `OnTakeProfit`/`OnStopLoss` в DTO с исходом (`TP`/`SL`),
   срез свечей под отрисовку. DTO переиспользованы без изменений
   (`TriangleScanResult` / `TriangleSetupDto`, 6 wave-точек 0–5); запрос —
-  `DiagonalScanRequest { File, FromDate, ToDate, Period, MinSizePercent,
-  BarsCount, TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio,
-  RequireInitialDiagonal, TakeProfitAtRetrace, MinConvergence,
-  RequireInsideWedge, MaxSpillAreaRatio, MinWave2Retrace, MaxWave5SpillRatio }`.
+   `DiagonalScanRequest { File, FromDate, ToDate, Period, MinSizePercent,
+   BarsCount, TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio,
+   RequireInitialDiagonal, TakeProfitAtRetrace, MinConvergence, MaxConvergence,
+   RequireInsideWedge, MaxSpillAreaRatio, MinWave2Retrace, MaxWave5SpillRatio }`.
 - **`POST /api/diagonal/scan`** в [Program.cs](TradeKit.ReplayViewer/Program.cs) —
   по образцу `/api/rtriangle/scan` (имя файла нормализуется
   `Path.GetFileName`, чтобы запрос не вышел за `dataDir`).
@@ -899,7 +907,8 @@ DiagonalCandidate {
   зигзаг 0-1-2-3-4-5, трендлинии 1-3 и 2-4 (сходящийся клин), уровни
   W3/entry/TP/SL, маркеры волн; пользователь угадывает исход (TP/SL),
   статистика ответов. Параметры: Период (0=авто), Размер %, Баров,
-  R:R, числовое поле «Сходимость» (0 по умолчанию), чекбокс «Бары в клине»
+   R:R, числовое поле «Сходимость» (0 по умолчанию) и поле «Сходимость макс»
+   (0 по умолчанию — порог отключён), чекбокс «Бары в клине»
   с полем «Выброс», «Выброс W5», «Откат W2», «W5 ≥ 78%», «W4 ≥ 78%»,
   «Заходность диагонали» и «TP 23.6%».
 - Ссылка «◺ Диагонали» добавлена в навигацию index/impulse/triangle/rtriangle.

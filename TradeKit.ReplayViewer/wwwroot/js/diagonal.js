@@ -323,6 +323,7 @@ async function runScan() {
         requireInitialDiagonal: $('pInitDiagonal').checked,
         takeProfitAtRetrace: $('pTpRetrace').checked,
         minConvergence: parseFloat($('pConverge').value) || 0,
+        maxConvergence: parseFloat($('pMaxConverge').value) || 0,
         requireInsideWedge: $('pInside').checked,
         maxSpillAreaRatio: parseFloat($('pSpill').value) || 0.005,
         minWave3Penetration: numVal('pPen', 0.03),

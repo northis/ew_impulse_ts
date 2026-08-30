@@ -52,6 +52,7 @@ public sealed class DiagonalScanEngine
                 ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                 : DiagonalTakeProfitMode.RISK_RATIO,
             req.MinConvergence,
+            req.MaxConvergence,
             req.RequireInsideWedge,
             req.MaxSpillAreaRatio,
             req.MinWave3Penetration,
@@ -194,6 +195,7 @@ public sealed record DiagonalScanRequest(
     bool RequireInitialDiagonal = false,
     bool TakeProfitAtRetrace = false,
     double MinConvergence = 0,
+    double MaxConvergence = 0,
     bool RequireInsideWedge = true,
     double MaxSpillAreaRatio = 0.005,
     double MinWave3Penetration = 0.03,

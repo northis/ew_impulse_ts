@@ -7,6 +7,7 @@ namespace TradeKit.Core.ElliottWave
         double TakeProfitRatio,
         DiagonalTakeProfitMode TakeProfitMode,
         double MinConvergence,
+        double MaxConvergence,
         bool RequireInsideWedge,
         double MaxSpillAreaRatio,
         bool RequireWave5Ratio,

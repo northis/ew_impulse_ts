@@ -26,6 +26,7 @@
     "MinRiskRewardRatio": "0",
     "Wave3RetraceRatio": "0",
     "MinConvergence": "0",
+    "MaxConvergence": "0",
     "RequireInsideWedge": "True",
     "MaxSpillAreaRatio": "0.005",
     "MaxWave5SpillRatio": "0",

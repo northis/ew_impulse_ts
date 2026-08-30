@@ -31,7 +31,7 @@ namespace TradeKit.CTrader.Diagonal
                 TakeProfitAtRetrace
                     ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                     : DiagonalTakeProfitMode.RISK_RATIO,
-                MinConvergence, RequireInsideWedge, MaxSpillAreaRatio,
+                MinConvergence, MaxConvergence, RequireInsideWedge, MaxSpillAreaRatio,
                 RequireWave5Ratio, RequireWave4Ratio, RequireInitialDiagonal,
                 MinWave3Penetration, MaxWaveDurationRatio, RetraceAction, MinRiskRewardRatio,
                 Wave3RetraceRatio, MinWave4Wave2Level, RequireWave4Shorter,
@@ -135,6 +135,14 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min convergence", DefaultValue = 0.0, MinValue = -1, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinConvergence { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum allowed convergence of the trendlines 1-3 and 2-4:
+        /// 0 — the cap is off, +1 — the wedge may be at most twice as narrow at point 4
+        /// (DIAGONAL.md §4.2).
+        /// </summary>
+        [Parameter("Max convergence", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxConvergence { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the bars of waves 2-4 must stay inside

@@ -295,6 +295,15 @@ namespace TradeKit.Core.ElliottWave
         public double MinConvergence { get; }
 
         /// <summary>
+        /// Maximum allowed convergence of the trendlines 1-3 and 2-4 (D-CONVERGE,
+        /// DIAGONAL.md §4.2). The measure is the same <c>w(t1)/w(t4) − 1</c> as for
+        /// <see cref="MinConvergence"/>; this bound caps the wedge narrowing from above.
+        /// <c>0</c> (the default) disables the cap; <c>+1</c> rejects wedges more than
+        /// twice as narrow at point 4.
+        /// </summary>
+        public double MaxConvergence { get; }
+
+        /// <summary>
         /// When set (the default), the bars of waves 2-4 must stay inside the trendlines:
         /// their spill area may not exceed <see cref="MaxSpillAreaRatio"/> of the wedge
         /// area (DIAGONAL.md §4.3, D-INSIDE).
@@ -395,6 +404,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireInitialDiagonal">Require an initial move <c>V(0) → W5</c>.</param>
         /// <param name="takeProfitMode">How the target is placed.</param>
         /// <param name="minConvergence">Minimum convergence of the trendlines 1-3 and 2-4.</param>
+        /// <param name="maxConvergence">Maximum convergence of the trendlines 1-3 and 2-4; 0 — no cap.</param>
         /// <param name="requireInsideWedge">Require the bars to stay inside the trendlines.</param>
         /// <param name="maxSpillAreaRatio">Tolerated spill area as a share of the wedge area.</param>
         /// <param name="minWave3Penetration">Minimum break of wave 1 by wave 3, share of |W1|.</param>
@@ -423,6 +433,7 @@ namespace TradeKit.Core.ElliottWave
             bool requireInitialDiagonal = false,
             DiagonalTakeProfitMode takeProfitMode = DiagonalTakeProfitMode.RISK_RATIO,
             double minConvergence = 0,
+            double maxConvergence = 0,
             bool requireInsideWedge = true,
             double maxSpillAreaRatio = DEFAULT_MAX_SPILL_AREA_RATIO,
             double minWave3Penetration = DEFAULT_MIN_WAVE3_PENETRATION,
@@ -454,6 +465,7 @@ namespace TradeKit.Core.ElliottWave
             RequireWave2Shorter = requireWave2Shorter;
             MinWave2Retrace = Math.Max(0, minWave2Retrace);
             MinConvergence = minConvergence;
+            MaxConvergence = Math.Max(0, maxConvergence);
             RequireInsideWedge = requireInsideWedge;
             MaxSpillAreaRatio = maxSpillAreaRatio > 0
                 ? maxSpillAreaRatio
@@ -1094,6 +1106,14 @@ namespace TradeKit.Core.ElliottWave
             if (convergence < MinConvergence)
             {
                 Bump("linesDiverge", p0);
+                return;
+            }
+
+            // D-CONVERGE cap: how narrow the wedge may get at most (MaxConvergence,
+            // DIAGONAL.md §4.2). 0 disables the upper bound.
+            if (MaxConvergence > 0 && convergence > MaxConvergence)
+            {
+                Bump("linesOverConverge", p0);
                 return;
             }
 

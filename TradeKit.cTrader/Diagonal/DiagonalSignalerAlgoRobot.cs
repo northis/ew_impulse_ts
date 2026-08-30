@@ -73,6 +73,7 @@ namespace TradeKit.CTrader.Diagonal
                 m_DiagonalParams.RequireInitialDiagonal,
                 m_DiagonalParams.TakeProfitMode,
                 m_DiagonalParams.MinConvergence,
+                m_DiagonalParams.MaxConvergence,
                 m_DiagonalParams.RequireInsideWedge,
                 m_DiagonalParams.MaxSpillAreaRatio,
                 m_DiagonalParams.MinWave3Penetration,
