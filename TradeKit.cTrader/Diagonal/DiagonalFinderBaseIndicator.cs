@@ -1,8 +1,13 @@
+using System;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using cAlgo.API;
+using Newtonsoft.Json;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
+using TradeKit.Core.Json;
 using TradeKit.CTrader.Core;
 
 namespace TradeKit.CTrader.Diagonal
@@ -19,6 +24,7 @@ namespace TradeKit.CTrader.Diagonal
         private IBarsProvider m_BarsProvider;
         private Color m_SlColor;
         private Color m_TpColor;
+        private int m_MarkupSavedCount;
 
         protected override void OnStopLoss(object sender, LevelEventArgs e)
         {
@@ -82,6 +88,46 @@ namespace TradeKit.CTrader.Diagonal
             Chart.DrawRectangle($"DgTP{levelIndex}", levelIndex, levelValue, levelIndex + SETUP_WIDTH,
                     e.TakeProfit.Value, m_TpColor, LINE_WIDTH)
                 .SetFilled();
+
+            SaveDiagonalMarkup(wp, e);
+        }
+
+        /// <summary>
+        /// Saves the found diagonal as a JSON markup file when <see cref="MarkupSavePath"/>
+        /// is set. Empty path (the default) — nothing is saved.
+        /// </summary>
+        private void SaveDiagonalMarkup(BarPoint[] wavePoints, ElliottWaveSignalEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(MarkupSavePath))
+                return;
+
+            try
+            {
+                Directory.CreateDirectory(MarkupSavePath);
+
+                JsonDiagonalMarkup markup = JsonDiagonalMarkup.FromSignal(
+                    Symbol.Name, m_BarsProvider.TimeFrame.ShortName,
+                    wavePoints, e.Level, e.TakeProfit, e.StopLoss);
+
+                if (markup == null)
+                    return;
+
+                string fileName = string.Format(CultureInfo.InvariantCulture,
+                    "{0}_{1}_Diagonal_{2}_{3:yyyyMMdd-HHmmss}.json",
+                    Symbol.Name,
+                    m_BarsProvider.TimeFrame.ShortName,
+                    ++m_MarkupSavedCount,
+                    wavePoints[0].OpenTime);
+
+                string filePath = Path.Combine(MarkupSavePath, fileName);
+                System.IO.File.WriteAllText(filePath,
+                    JsonConvert.SerializeObject(markup, Formatting.Indented));
+                Print($"Diagonal markup saved: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                Print($"Failed to save diagonal markup: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -277,6 +323,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Initial diagonal", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool RequireInitialDiagonal { get; set; }
+
+        /// <summary>
+        /// Gets or sets the folder where JSON markup files of the diagonals found on the
+        /// available candles are saved. Empty (the default) — nothing is saved.
+        /// </summary>
+        [Parameter("Save markup path", DefaultValue = "", Group = Helper.DEV_SETTINGS_NAME)]
+        public string MarkupSavePath { get; set; }
 
         #endregion
     }

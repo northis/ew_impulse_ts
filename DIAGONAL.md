@@ -1546,7 +1546,10 @@ TP 23.6%). Две независимые проблемы.
 - `DiagonalFinderBaseIndicator.cs` — `BaseIndicator<DiagonalSetupFinder,
   ElliottWaveSignalEventArgs>`; рисует зигзаг 0-1-2-3-4-5, образующие 1-3 и
   2-4 и прямоугольники TP/SL; события §6.4 (`OnBreakeven`, `OnManualClose`)
-  пишутся в лог на закрытии свечи;
+  пишутся в лог на закрытии свечи; на каждом сигнале сохраняет JSON-разметку
+  найденной диагонали в папку из параметра `Save markup path`
+  (`JsonDiagonalMarkup`: скелет 0-1-2-3-4-5 + entry/TP/SL; пусто — не
+  сохраняем, по аналогии с экспортом дерева из EW_MARKUP_v2.md §17);
 - `DiagonalCTraderBaseRobot.cs` — те же `[Parameter]`, `GetEWParams()` +
   `GetDiagonalParams()`;
 - `DiagonalSignalerAlgoRobot.cs` — `CreateBarsProvider` / `CreateSetupFinder`.
