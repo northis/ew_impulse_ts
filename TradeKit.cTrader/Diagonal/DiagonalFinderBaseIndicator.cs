@@ -90,6 +90,83 @@ namespace TradeKit.CTrader.Diagonal
                 .SetFilled();
 
             SaveDiagonalMarkup(wp, e);
+            DrawDiagonalParams(levelIndex, wp, e);
+        }
+
+        /// <summary>
+        /// Draws a compact block with the parameters that characterise the found diagonal
+        /// itself (contractions, retrace/penetration levels, convergence, durations —
+        /// DIAGONAL.md §4) next to the end of wave 5: above the extreme for a bullish
+        /// diagonal, below it for a bearish one. The trade levels (TP/SL/R:R) are shown
+        /// on a separate, differently coloured last line.
+        /// </summary>
+        private void DrawDiagonalParams(int levelIndex, BarPoint[] wp, ElliottWaveSignalEventArgs e)
+        {
+            if (!ShowDiagonalParams || wp.Length < 6)
+                return;
+
+            bool isUp = wp[5].Value > wp[0].Value;
+            double s = isUp ? 1 : -1;
+            double V(int i) => s * wp[i].Value;
+
+            double w1 = V(1) - V(0);
+            double w2 = V(1) - V(2);
+            double w3 = V(3) - V(2);
+            double w4 = V(3) - V(4);
+            double w5 = V(5) - V(4);
+            if (w1 <= 0 || w2 <= 0 || w3 <= 0 || w4 <= 0 || w5 <= 0)
+                return;
+
+            double b1 = Math.Max(1, wp[1].BarIndex - wp[0].BarIndex);
+            double b2 = Math.Max(1, wp[2].BarIndex - wp[1].BarIndex);
+            double b3 = Math.Max(1, wp[3].BarIndex - wp[2].BarIndex);
+            double b4 = Math.Max(1, wp[4].BarIndex - wp[3].BarIndex);
+
+            // D-CONVERGE measure (DIAGONAL.md §4.2): how many times narrower the wedge
+            // is at point 4 than at point 1, in v-space.
+            double slope13 = (V(3) - V(1)) / (wp[3].BarIndex - wp[1].BarIndex);
+            double slope24 = (V(4) - V(2)) / (wp[4].BarIndex - wp[2].BarIndex);
+            double width1 = V(1) - (V(2) + slope24 * (wp[1].BarIndex - wp[2].BarIndex));
+            double width4 = (V(1) + slope13 * (wp[4].BarIndex - wp[1].BarIndex)) - V(4);
+            string conv = width4 > 0 && width1 > 0
+                ? ((width1 / width4) - 1).ToString("+0.###;-0.###;0", CultureInfo.InvariantCulture)
+                : "—";
+
+            string f(double x) => x.ToString("0.###", CultureInfo.InvariantCulture);
+            string pc(double x) => (100 * x).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+            string F(double x) => x.ToString($"F{Symbol.Digits}", CultureInfo.InvariantCulture);
+
+            double rr = Math.Abs(e.TakeProfit.Value - e.Level.Value) /
+                        Math.Max(1e-12, Math.Abs(e.StopLoss.Value - e.Level.Value));
+
+            string[] lines =
+            {
+                $"DIAGONAL {(isUp ? "↑" : "↓")}",
+                $"W3/W1 {f(w3 / w1)}   W4/W2 {f(w4 / w2)}   W5/W3 {f(w5 / w3)}",
+                $"W2ret {pc(w2 / w1)}   W3pen {pc((w3 - w2) / w1)}   W4/W3 {pc(w4 / w3)}",
+                $"W4→W2 {pc((V(1) - V(4)) / w2)}   conv {conv}",
+                $"t3/t1 {f(b3 / b1)}   t4/t2 {f(b4 / b2)}",
+                $"TP {F(e.TakeProfit.Value)}   SL {F(e.StopLoss.Value)}   R:R {f(rr)}",
+            };
+
+            // Readable on both dark and light themes.
+            Color statsColor = Color.FromHex("#00BFFF");
+            Color levelsColor = Color.Goldenrod;
+
+            int bar = Bars.OpenTimes.GetIndexByTime(wp[5].OpenTime) + 1;
+            double step = Math.Max(Symbol.PipSize * 12, Math.Abs(wp[5].Value - wp[0].Value) * 0.06);
+            int n = lines.Length;
+
+            for (int i = 0; i < n; i++)
+            {
+                double price = isUp
+                    ? wp[5].Value + step * (n - i)
+                    : wp[5].Value - step * (i + 1);
+                ChartText txt = Chart.DrawText($"DgP{levelIndex}_{i}", lines[i],
+                    bar, price, i == n - 1 ? levelsColor : statsColor);
+                txt.HorizontalAlignment = HorizontalAlignment.Left;
+                txt.VerticalAlignment = isUp ? VerticalAlignment.Bottom : VerticalAlignment.Top;
+            }
         }
 
         /// <summary>
@@ -330,6 +407,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Save markup path", DefaultValue = "", Group = Helper.DEV_SETTINGS_NAME)]
         public string MarkupSavePath { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the parameters of a found diagonal
+        /// (wave ratios, retrace levels, convergence, durations) are drawn next to it.
+        /// </summary>
+        [Parameter("Show diagonal params", DefaultValue = true, Group = Helper.VIEW_SETTINGS_NAME)]
+        public bool ShowDiagonalParams { get; set; }
 
         #endregion
     }

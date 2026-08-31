@@ -1549,7 +1549,11 @@ TP 23.6%). Две независимые проблемы.
   пишутся в лог на закрытии свечи; на каждом сигнале сохраняет JSON-разметку
   найденной диагонали в папку из параметра `Save markup path`
   (`JsonDiagonalMarkup`: скелет 0-1-2-3-4-5 + entry/TP/SL; пусто — не
-  сохраняем, по аналогии с экспортом дерева из EW_MARKUP_v2.md §17);
+  сохраняем, по аналогии с экспортом дерева из EW_MARKUP_v2.md §17); плюс
+  компактный текстовый блок фактических параметров найденной диагонали
+  (W3/W1, W4/W2, W5/W3, retrace/penetration уровни, conv, длительности — §4)
+  над точкой 5 для бычьей и под ней для медвежьей; TP/SL/R:R — отдельной
+  строкой другого цвета; параметр `Show diagonal params`;
 - `DiagonalCTraderBaseRobot.cs` — те же `[Parameter]`, `GetEWParams()` +
   `GetDiagonalParams()`;
 - `DiagonalSignalerAlgoRobot.cs` — `CreateBarsProvider` / `CreateSetupFinder`.
