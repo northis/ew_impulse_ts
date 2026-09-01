@@ -374,6 +374,13 @@ namespace TradeKit.Core.ElliottWave
         public double MinWave3Wave1DurationRatio { get; }
 
         /// <summary>
+        /// Gets the minimum duration ratio <c>bars(W2)/bars(W1)</c> (D-TIME-21-MIN): a
+        /// pullback done in a couple of bars next to a lengthy wave 1 is a flash dip, not
+        /// the first coiling correction. <c>0</c> — off (DIAGONAL.md §4).
+        /// </summary>
+        public double MinWave2Wave1DurationRatio { get; }
+
+        /// <summary>
         /// Gets the minimum retracement of wave 1 by wave 2 as a share of |W1| (D-W2-RET):
         /// a wedge whose first pullback barely dents wave 1 is a trend, not a coiling
         /// diagonal. <c>0</c> — off (DIAGONAL.md §4).
@@ -434,6 +441,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="maxWave5SpillRatio">Tolerated spill area over the span of wave 5; 0 — off.</param>
         /// <param name="minWave4Wave2DurationRatio">Minimum bars(W4)/bars(W2) (D-TIME-24-MIN); 0 — off.</param>
         /// <param name="minWave3Wave1DurationRatio">Minimum bars(W3)/bars(W1) (D-TIME-31-MIN); 0 — off.</param>
+        /// <param name="minWave2Wave1DurationRatio">Minimum bars(W2)/bars(W1) (D-TIME-21-MIN); 0 — off.</param>
         /// <param name="isolatedPrintFilter">
         /// The isolated-print detector (DIAGONAL.md §4.4); must be bound to the same bars
         /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
@@ -465,6 +473,7 @@ namespace TradeKit.Core.ElliottWave
             double maxWave5SpillRatio = 0,
             double minWave4Wave2DurationRatio = 0,
             double minWave3Wave1DurationRatio = 0,
+            double minWave2Wave1DurationRatio = 0,
             IsolatedPrintFilter isolatedPrintFilter = null)
             : base(mainBarsProvider, symbol)
         {
@@ -484,6 +493,7 @@ namespace TradeKit.Core.ElliottWave
             MinWave2Retrace = Math.Max(0, minWave2Retrace);
             MinWave4Wave2DurationRatio = Math.Max(0, minWave4Wave2DurationRatio);
             MinWave3Wave1DurationRatio = Math.Max(0, minWave3Wave1DurationRatio);
+            MinWave2Wave1DurationRatio = Math.Max(0, minWave2Wave1DurationRatio);
             MinConvergence = minConvergence;
             MaxConvergence = Math.Max(0, maxConvergence);
             RequireInsideWedge = requireInsideWedge;
@@ -1047,6 +1057,17 @@ namespace TradeKit.Core.ElliottWave
                 p2.BarIndex - p1.BarIndex >= p1.BarIndex - p0.BarIndex)
             {
                 Bump("w2TimeNotContracting", p0);
+                return;
+            }
+
+            // D-TIME-21-MIN (optional): wave 2 must last at least
+            // MinWave2Wave1DurationRatio · bars(W1). A pullback done in a couple of bars
+            // next to a lengthy wave 1 is a flash dip, not the first coiling correction.
+            if (MinWave2Wave1DurationRatio > 0 &&
+                p2.BarIndex - p1.BarIndex <
+                    MinWave2Wave1DurationRatio * (p1.BarIndex - p0.BarIndex))
+            {
+                Bump("w2TimeTooShort", p0);
                 return;
             }
 

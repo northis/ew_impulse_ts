@@ -237,7 +237,8 @@ namespace TradeKit.CTrader.Diagonal
                 minWave2Retrace: MinWave2Retrace,
                 maxWave5SpillRatio: MaxWave5SpillRatio,
                 minWave4Wave2DurationRatio: MinWave4Wave2DurationRatio,
-                minWave3Wave1DurationRatio: MinWave3Wave1DurationRatio);
+                minWave3Wave1DurationRatio: MinWave3Wave1DurationRatio,
+                minWave2Wave1DurationRatio: MinWave2Wave1DurationRatio);
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -353,6 +354,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min W3/W1 duration", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinWave3Wave1DurationRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the minimum duration ratio bars(W2)/bars(W1) (D-TIME-21-MIN,
+        /// DIAGONAL.md §4). 0 — no limit.
+        /// </summary>
+        [Parameter("Min W2/W1 duration", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MinWave2Wave1DurationRatio { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,
