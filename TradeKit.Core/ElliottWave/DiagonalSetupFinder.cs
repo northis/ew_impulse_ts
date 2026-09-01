@@ -360,6 +360,13 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireWave2Shorter { get; }
 
         /// <summary>
+        /// Gets the minimum duration ratio <c>bars(W4)/bars(W2)</c> (D-TIME-24-MIN): a final
+        /// pullback that collapses into a handful of bars is a flash spill, not a coiling
+        /// wedge. <c>0</c> — off (DIAGONAL.md §4).
+        /// </summary>
+        public double MinWave4Wave2DurationRatio { get; }
+
+        /// <summary>
         /// Gets the minimum retracement of wave 1 by wave 2 as a share of |W1| (D-W2-RET):
         /// a wedge whose first pullback barely dents wave 1 is a trend, not a coiling
         /// diagonal. <c>0</c> — off (DIAGONAL.md §4).
@@ -418,6 +425,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireWave2Shorter">Require wave 2 to last fewer bars than wave 1 (D-TIME-12).</param>
         /// <param name="minWave2Retrace">Minimum retracement of wave 1 by wave 2, share of |W1|; 0 — off.</param>
         /// <param name="maxWave5SpillRatio">Tolerated spill area over the span of wave 5; 0 — off.</param>
+        /// <param name="minWave4Wave2DurationRatio">Minimum bars(W4)/bars(W2) (D-TIME-24-MIN); 0 — off.</param>
         /// <param name="isolatedPrintFilter">
         /// The isolated-print detector (DIAGONAL.md §4.4); must be bound to the same bars
         /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
@@ -447,6 +455,7 @@ namespace TradeKit.Core.ElliottWave
             bool requireWave2Shorter = false,
             double minWave2Retrace = 0,
             double maxWave5SpillRatio = 0,
+            double minWave4Wave2DurationRatio = 0,
             IsolatedPrintFilter isolatedPrintFilter = null)
             : base(mainBarsProvider, symbol)
         {
@@ -464,6 +473,7 @@ namespace TradeKit.Core.ElliottWave
             RequireWave4Shorter = requireWave4Shorter;
             RequireWave2Shorter = requireWave2Shorter;
             MinWave2Retrace = Math.Max(0, minWave2Retrace);
+            MinWave4Wave2DurationRatio = Math.Max(0, minWave4Wave2DurationRatio);
             MinConvergence = minConvergence;
             MaxConvergence = Math.Max(0, maxConvergence);
             RequireInsideWedge = requireInsideWedge;
@@ -1071,6 +1081,17 @@ namespace TradeKit.Core.ElliottWave
                 p4.BarIndex - p3.BarIndex >= p2.BarIndex - p1.BarIndex)
             {
                 Bump("w4TimeNotContracting", p0);
+                return;
+            }
+
+            // D-TIME-24-MIN (optional): wave 4 must last at least
+            // MinWave4Wave2DurationRatio · bars(W2). A pullback that collapses into a few
+            // bars is a flash spill, not a coiling wedge.
+            if (MinWave4Wave2DurationRatio > 0 &&
+                p4.BarIndex - p3.BarIndex <
+                    MinWave4Wave2DurationRatio * (p2.BarIndex - p1.BarIndex))
+            {
+                Bump("w4TimeTooShort", p0);
                 return;
             }
 
