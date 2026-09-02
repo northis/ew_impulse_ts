@@ -88,7 +88,8 @@ namespace TradeKit.CTrader.Diagonal
                 maxWave5SpillRatio: m_DiagonalParams.MaxWave5SpillRatio,
                 minWave4Wave2DurationRatio: m_DiagonalParams.MinWave4Wave2DurationRatio,
                 minWave3Wave1DurationRatio: m_DiagonalParams.MinWave3Wave1DurationRatio,
-                minWave2Wave1DurationRatio: m_DiagonalParams.MinWave2Wave1DurationRatio);
+                minWave2Wave1DurationRatio: m_DiagonalParams.MinWave2Wave1DurationRatio,
+                requireThickWaveEnds: m_DiagonalParams.RequireThickWaveEnds);
         }
     }
 }

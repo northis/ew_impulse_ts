@@ -37,7 +37,7 @@ namespace TradeKit.CTrader.Diagonal
                 Wave3RetraceRatio, MinWave4Wave2Level, RequireWave4Shorter,
                 RequireWave2Shorter, MinWave2Retrace, MaxWave5SpillRatio,
                 MinWave4Wave2DurationRatio, MinWave3Wave1DurationRatio,
-                MinWave2Wave1DurationRatio);
+                MinWave2Wave1DurationRatio, RequireThickWaveEnds);
         }
 
         #region Input parameters
@@ -150,6 +150,14 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min W2/W1 duration", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinWave2Wave1DurationRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether no sub-wave of the diagonal may end inside
+        /// a thin-market segment — the illiquid tail where prints are noise (D-THIN-ENDS,
+        /// DIAGONAL.md §4.5).
+        /// </summary>
+        [Parameter("Thick market at wave ends", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool RequireThickWaveEnds { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

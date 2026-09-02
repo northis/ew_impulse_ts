@@ -25,7 +25,8 @@ namespace TradeKit.Core.ElliottWave
         double MaxWave5SpillRatio,
         double MinWave4Wave2DurationRatio,
         double MinWave3Wave1DurationRatio,
-        double MinWave2Wave1DurationRatio)
+        double MinWave2Wave1DurationRatio,
+        bool RequireThickWaveEnds)
     {
     }
 }

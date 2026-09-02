@@ -20,6 +20,7 @@ namespace TradeKit.CTrader.Core
         
         private readonly SortedList<DateTime, int> m_CandlesDate;
         private readonly SortedList<int, Candle> m_CandlesIndex;
+        private readonly SortedList<int, double> m_TickVolumes;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CTraderBarsProvider"/> class.
@@ -39,6 +40,7 @@ namespace TradeKit.CTrader.Core
         {
             m_CandlesDate = new SortedList<DateTime, int>();
             m_CandlesIndex = new SortedList<int, Candle>();
+            m_TickVolumes = new SortedList<int, double>();
             m_Bars = bars;
             ReloadBars();
             bars.BarClosed += OnBarClosed;
@@ -73,6 +75,7 @@ namespace TradeKit.CTrader.Core
         {
             m_CandlesDate.Clear();
             m_CandlesIndex.Clear();
+            m_TickVolumes.Clear();
             for (int i = 0; i < m_Bars.OpenTimes.Count; i++)
             {
                 DateTime dt = m_Bars.OpenTimes[i];
@@ -82,6 +85,7 @@ namespace TradeKit.CTrader.Core
                     m_Bars.ClosePrices[i], null, i, dt);
                 m_CandlesIndex.Add(i, candle);
                 m_CandlesDate.Add(dt, i);
+                m_TickVolumes.Add(i, m_Bars.TickVolumes[i]);
             }
 
             m_TotalBarsCount = m_Bars.OpenTimes.Count;
@@ -99,6 +103,7 @@ namespace TradeKit.CTrader.Core
                 lastBar.Close, null, m_TotalBarsCount, lastBar.OpenTime);
             m_CandlesIndex.Add(m_TotalBarsCount, candle);
             m_CandlesDate.Add(lastBar.OpenTime, m_TotalBarsCount);
+            m_TickVolumes.Add(m_TotalBarsCount, lastBar.TickVolume);
             UpdateCount();
 
             return;
@@ -168,6 +173,15 @@ namespace TradeKit.CTrader.Core
         public virtual double GetClosePrice(int index)
         {
             return m_CandlesIndex[index].C;
+        }
+
+        /// <summary>
+        /// Gets the tick volume of the candle by the <see cref="index" /> specified.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        public double GetTickVolume(int index)
+        {
+            return m_TickVolumes.TryGetValue(index, out double volume) ? volume : 0;
         }
 
         /// <summary>

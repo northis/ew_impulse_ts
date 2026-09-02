@@ -544,7 +544,7 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
-        /// Saves OHLC candles to a .csv file.
+        /// Saves OHLC candles with tick volume to a .csv file.
         /// </summary>
         /// <param name="provider">The provider.</param>
         /// <param name="start">The start.</param>
@@ -560,7 +560,7 @@ namespace TradeKit.Core.Common
             }
 
             using var writer = new StreamWriter(pathToSave);
-            writer.WriteLine($"Time{Helper.CSV_SEPARATOR}Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close");
+            writer.WriteLine($"Time{Helper.CSV_SEPARATOR}Open{Helper.CSV_SEPARATOR}High{Helper.CSV_SEPARATOR}Low{Helper.CSV_SEPARATOR}Close{Helper.CSV_SEPARATOR}TickVolume");
 
             provider.LoadBars(start);
             int startIndex = provider.GetIndexByTime(start);
@@ -577,10 +577,11 @@ namespace TradeKit.Core.Common
                 double high = provider.GetHighPrice(i);
                 double low = provider.GetLowPrice(i);
                 double close = provider.GetClosePrice(i);
+                double tickVolume = provider.GetTickVolume(i);
                     
                 string formattedLine = string.Format(CultureInfo.InvariantCulture,
-                    "{0:"+Helper.DATE_COLLECTION_FORMAT+"}{5}{1:" + formatSpecifier + "}{5}{2:" + formatSpecifier + "}{5}{3:" + formatSpecifier + "}{5}{4:" + formatSpecifier + "}",
-                    openTime, open, high, low, close, Helper.CSV_SEPARATOR);
+                    "{0:"+Helper.DATE_COLLECTION_FORMAT+"}{5}{1:" + formatSpecifier + "}{5}{2:" + formatSpecifier + "}{5}{3:" + formatSpecifier + "}{5}{4:" + formatSpecifier + "}{5}{6:F0}",
+                    openTime, open, high, low, close, Helper.CSV_SEPARATOR, tickVolume);
 
                 writer.WriteLine(formattedLine);
             }

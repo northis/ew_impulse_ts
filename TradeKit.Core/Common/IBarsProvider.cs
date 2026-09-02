@@ -32,8 +32,17 @@
         /// <summary>
         /// Gets the close price of the candle by the <see cref="index" /> specified.
         /// </summary>
-        /// <param name="index">The index.</param>
+        /// <param name="dateTime">The date time.</param>
         double GetClosePrice(int index);
+
+        /// <summary>
+        /// Gets the tick volume of the candle by the <see cref="index"/> specified.
+        /// Providers without volume data return <c>0</c>; consumers must treat an
+        /// all-zero series as "volume unavailable".
+        /// </summary>
+        /// <param name="index">The index.</param>
+        double GetTickVolume(int index) => 0;
+
 
         /// <summary>
         /// Gets the open time of the candle by the <see cref="index"/> specified

@@ -1273,6 +1273,274 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
+        /// Diagnoses one hand-marked diagonal (GBPCHF m5, 2026-07-30 14:00 → 07-31 08:00):
+        /// evaluates every §4 gate on the manual skeleton, lists the ladder rungs that see
+        /// those pivots, checks point-0 reachability and dumps the gates the live finder
+        /// used. Research-only.
+        /// </summary>
+        [Test]
+        [Explicit]
+        [Category("Research")]
+        public void Diagonal_GbpChfM5_Jul30_Case_Diagnostics()
+        {
+            const string file = "GBPCHF_m5_2026-07-24T07-25-00_2026-07-31T20-55-00.csv";
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute5);
+            provider.LoadCandles(Path.Combine(FindDataDir(), file));
+
+            var live = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+            double minPen = live.MinWave3Penetration;
+            double maxDur = live.MaxWaveDurationRatio;
+            TestContext.Out.WriteLine(
+                $"defaults: pen={minPen:F3} dur={maxDur:F1} " +
+                $"minConv={live.MinConvergence:F2} maxConv={live.MaxConvergence:F2} " +
+                $"inside={live.RequireInsideWedge} " +
+                $"spill={live.MaxSpillAreaRatio:F4}");
+
+            // point0 is a LOW (up diagonal): low,high,low,high,low,high.
+            (DateTime Time, bool IsHigh)[] markup =
+            {
+                (new DateTime(2026, 7, 30, 14, 0, 0, DateTimeKind.Utc), false),
+                (new DateTime(2026, 7, 30, 14, 55, 0, DateTimeKind.Utc), true),
+                (new DateTime(2026, 7, 30, 21, 30, 0, DateTimeKind.Utc), false),
+                (new DateTime(2026, 7, 31, 5, 55, 0, DateTimeKind.Utc), true),
+                (new DateTime(2026, 7, 31, 6, 55, 0, DateTimeKind.Utc), false),
+                (new DateTime(2026, 7, 31, 8, 0, 0, DateTimeKind.Utc), true)
+            };
+
+            TestContext.Out.WriteLine($"=== manual skeleton ===");
+            BarPoint[] p = markup
+                .Select(x =>
+                {
+                    int i = provider.GetIndexByTime(x.Time);
+                    double value = x.IsHigh
+                        ? provider.GetHighPrice(i)
+                        : provider.GetLowPrice(i);
+                    return new BarPoint(value, x.Time, provider.TimeFrame, i);
+                })
+                .ToArray();
+
+            int sgn = 1; // up diagonal
+            double w1 = Math.Abs(p[1].Value - p[0].Value);
+            double w2 = Math.Abs(p[2].Value - p[1].Value);
+            double w3 = Math.Abs(p[3].Value - p[2].Value);
+            double w4 = Math.Abs(p[4].Value - p[3].Value);
+            double w5 = Math.Abs(p[5].Value - p[4].Value);
+
+            for (int i = 0; i < p.Length; i++)
+                TestContext.Out.WriteLine($"  V({i}) {p[i].OpenTime:u} idx={p[i].BarIndex,5} {p[i].Value:F5}");
+
+            TestContext.Out.WriteLine(
+                $"  |W1|={w1:F5} |W2|={w2:F5} |W3|={w3:F5} |W4|={w4:F5} |W5|={w5:F5}");
+            TestContext.Out.WriteLine(
+                $"  bars: W1={p[1].BarIndex - p[0].BarIndex} W2={p[2].BarIndex - p[1].BarIndex} " +
+                $"W3={p[3].BarIndex - p[2].BarIndex} W4={p[4].BarIndex - p[3].BarIndex} " +
+                $"W5={p[5].BarIndex - p[4].BarIndex} span0-4={p[4].BarIndex - p[0].BarIndex}");
+
+            void Gate(string rule, bool ok, string detail) =>
+                TestContext.Out.WriteLine($"  {(ok ? "OK  " : "FAIL")} {rule,-14} {detail}");
+
+            Gate("D-W2", sgn * (p[2].Value - p[0].Value) > 0,
+                $"V(2)-V(0)={p[2].Value - p[0].Value:F5}");
+            Gate("D-W3-PEN", sgn * (p[3].Value - p[1].Value) >= minPen * w1,
+                $"pen={p[3].Value - p[1].Value:F5} " +
+                $"= {(p[3].Value - p[1].Value) / w1:P2} of |W1| (need {minPen:P0})");
+            Gate("D-CONTRACT-3", w3 < w1, $"{w3:F5} < {w1:F5}");
+            Gate("D-CONTRACT-4", w4 < w2, $"{w4:F5} < {w2:F5}");
+            Gate("D-W4-38", w4 >= live.MinWave4RetraceW3 * w3,
+                $"{w4:F5} >= {live.MinWave4RetraceW3 * w3:F5} (38.2% of |W3|)");
+            Gate("D-W4-24", sgn * (p[1].Value - p[4].Value) >= live.MinWave4Wave2Level * w2,
+                $"level={sgn * (p[1].Value - p[4].Value) / w2:F3} of |W2| " +
+                $"(need {live.MinWave4Wave2Level:F3})");
+            Gate("D-TIME-24",
+                p[4].BarIndex - p[3].BarIndex < p[2].BarIndex - p[1].BarIndex,
+                $"bars(W4)={p[4].BarIndex - p[3].BarIndex} < " +
+                $"bars(W2)={p[2].BarIndex - p[1].BarIndex}");
+            Gate("D-OVERLAP", sgn * (p[4].Value - p[1].Value) < 0,
+                $"V(4)-V(1)={p[4].Value - p[1].Value:F5}");
+            Gate("D-W4-2", sgn * (p[4].Value - p[2].Value) > 0,
+                $"V(4)-V(2)={p[4].Value - p[2].Value:F5}");
+            Gate("D-W5-BREAK", sgn * (p[5].Value - p[3].Value) > 0,
+                $"V(5)-V(3)={p[5].Value - p[3].Value:F5}");
+            Gate("D-W5-CAP", w5 < w3, $"{w5:F5} < {w3:F5}");
+
+            double ceilSlope = (p[3].Value - p[1].Value) / (p[3].BarIndex - p[1].BarIndex);
+            double floorSlope = (p[4].Value - p[2].Value) / (p[4].BarIndex - p[2].BarIndex);
+            double widthAt1 =
+                sgn * (p[1].Value - (p[2].Value + floorSlope * (p[1].BarIndex - p[2].BarIndex)));
+            double widthAt4 =
+                sgn * ((p[1].Value + ceilSlope * (p[4].BarIndex - p[1].BarIndex)) - p[4].Value);
+            Gate("D-CONVERGE", widthAt1 / widthAt4 - 1 >= live.MinConvergence &&
+                    (live.MaxConvergence <= 0 || widthAt1 / widthAt4 - 1 <= live.MaxConvergence),
+                $"conv={widthAt1 / widthAt4 - 1:F3} (need >= {live.MinConvergence:F2}" +
+                (live.MaxConvergence > 0 ? $", <= {live.MaxConvergence:F2}" : "") + ")");
+
+            double spill = 0, wedge = 0;
+            for (int bar = p[1].BarIndex; bar <= p[4].BarIndex; bar++)
+            {
+                if (live.PrintFilter.IsExcluded(bar))
+                    continue;
+
+                double ceiling = p[1].Value + ceilSlope * (bar - p[1].BarIndex);
+                double floorLine = p[2].Value + floorSlope * (bar - p[2].BarIndex);
+                spill += Math.Max(0, provider.GetHighPrice(bar) - ceiling) +
+                         Math.Max(0, floorLine - provider.GetLowPrice(bar));
+                wedge += ceiling - floorLine;
+            }
+
+            Gate("D-INSIDE", spill / wedge <= live.MaxSpillAreaRatio,
+                $"spill={spill / wedge:F5} (limit {live.MaxSpillAreaRatio:F4})");
+
+            for (int w = 3; w < p.Length - 1; w++)
+            {
+                double siblingBars = p[w - 2].BarIndex - p[w - 3].BarIndex;
+                double curBars = p[w].BarIndex - p[w - 1].BarIndex;
+                double ratio = Math.Max(curBars / siblingBars, siblingBars / curBars);
+                Gate("D-TIME", ratio <= maxDur,
+                    $"W{w} vs W{w - 2}: {curBars}/{siblingBars} -> ratio={ratio:F2}");
+            }
+
+            // Which ladder rungs actually see the marked pivots, and is point 0 reachable?
+            int basePeriod = AutoPeriodEstimator.EstimateImpulsePeriod(provider);
+            TestContext.Out.WriteLine($"=== auto base period = {basePeriod} ===");
+            var window = (From: new DateTime(2026, 7, 30, 13, 0, 0, DateTimeKind.Utc),
+                To: new DateTime(2026, 7, 31, 9, 0, 0, DateTimeKind.Utc));
+
+            int[] markedIdx = p.Select(x => x.BarIndex).ToArray();
+            foreach (double ratio in new[]
+                     {
+                         0.382, 0.618, 0.786, 1.000, 1.127, 1.272, 1.434, 1.618,
+                         1.826, 2.058, 2.321, 2.618, 3.330, 4.236, 5.388, 6.854
+                     })
+            {
+                int period = Math.Max(1, (int)Math.Round(basePeriod * ratio));
+                var zz = new DeviationExtremumFinder(period, provider);
+                for (int i = 0; i < provider.Count; i++)
+                    zz.OnCalculate(provider.GetOpenTime(i));
+
+                var inWindow = zz.Extrema.Values
+                    .Where(x => x.OpenTime >= window.From && x.OpenTime <= window.To)
+                    .OrderBy(x => x.OpenTime)
+                    .ToList();
+
+                string pivots = string.Join(", ", inWindow.Select(x => $"{x.OpenTime:MM-dd HH:mm}"));
+
+                // How many pivots between point0 and point4 at this rung (assembly-depth check)?
+                int between = inWindow.Count(x =>
+                    x.BarIndex > markedIdx[0] && x.BarIndex < markedIdx[4]);
+                string hit = string.Join("", markedIdx
+                    .Select(mi => inWindow.Any(x => x.BarIndex == mi) ? "#" : "."));
+
+                TestContext.Out.WriteLine(
+                    $"  period={period,4} pivots0to4={between,3} hit0..5={hit} | {pivots}");
+            }
+
+            // What does the live finder do with candidates in the window?
+            var gates = new List<string>();
+            live.OnGate = (p0, gate) =>
+            {
+                if (p0.OpenTime >= window.From && p0.OpenTime <= window.To)
+                    gates.Add($"{p0.OpenTime:u} -> {gate}");
+            };
+            var emitted = new List<ElliottWaveSignalEventArgs>();
+            live.OnEnter += (_, a) => emitted.Add(a);
+            live.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                live.CheckBar(provider.GetOpenTime(i));
+
+            TestContext.Out.WriteLine("=== live finder gates in the window ===");
+            foreach (string g in gates.Distinct())
+                TestContext.Out.WriteLine($"  {g}");
+
+            TestContext.Out.WriteLine("=== signals in the window ===");
+            foreach (ElliottWaveSignalEventArgs s in emitted
+                         .Where(x => x.WavePoints[0].OpenTime >= window.From &&
+                                     x.WavePoints[0].OpenTime <= window.To))
+            {
+                TestContext.Out.WriteLine(
+                    "  " + string.Join(" | ", s.WavePoints.Select(
+                        (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm} {x.Value:F5}")));
+                TestContext.Out.WriteLine(
+                    $"    entry={s.Level.Value:F5} sl={s.StopLoss.Value:F5} tp={s.TakeProfit.Value:F5}");
+            }
+
+            // Parameter sweep: does any config emit a signal anchored at this point 0?
+            TestContext.Out.WriteLine("=== parameter sweep (signal anchored at 07-30 14:00) ===");
+            DateTime target0 = p[0].OpenTime;
+            foreach (double minConv in new[] { -1.0, 0.0 })
+            foreach (double spillLim in new[] { 0.005, 0.05, 1.0 })
+            foreach (double pen in new[] { 0.0, 0.03 })
+            {
+                var finder = new DiagonalSetupFinder(
+                    provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                    takeProfitRatio: 1.0,
+                    takeProfitMode: DiagonalTakeProfitMode.RISK_RATIO,
+                    minConvergence: minConv,
+                    requireInsideWedge: spillLim < 1.0,
+                    maxSpillAreaRatio: spillLim,
+                    minWave3Penetration: pen);
+
+                ElliottWaveSignalEventArgs? found = null;
+                finder.OnEnter += (_, a) =>
+                {
+                    if (a.WavePoints[0].OpenTime == target0)
+                        found = a;
+                };
+                finder.MarkAsInitialized();
+                for (int i = 0; i < provider.Count; i++)
+                    finder.CheckBar(provider.GetOpenTime(i));
+
+                TestContext.Out.WriteLine(
+                    $"  conv={minConv,4:F1} spill={spillLim,5:F3} pen={pen:F2} -> " +
+                    (found == null
+                        ? "not found"
+                        : $"FOUND entry={found.Level.Value:F5} " +
+                          $"sl={found.StopLoss.Value:F5} tp={found.TakeProfit.Value:F5}"));
+                if (found != null)
+                    TestContext.Out.WriteLine(
+                        "    " + string.Join(" | ", found.WavePoints.Select(
+                            (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm} {x.Value:F5}")));
+            }
+
+            // Tolerance sweep: with every threshold gate disabled, does ANY greedy-merge
+            // pullback tolerance carve the hand-marked skeleton?
+            TestContext.Out.WriteLine("=== wavePullbackTol sweep (all threshold gates off) ===");
+            foreach (double tol in new[] { 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.86, 0.90, 1.00, 1.20, 1.50 })
+            {
+                var finder = new DiagonalSetupFinder(
+                    provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                    takeProfitRatio: 1.0,
+                    takeProfitMode: DiagonalTakeProfitMode.RISK_RATIO,
+                    minConvergence: -1.0,
+                    requireInsideWedge: false,
+                    maxSpillAreaRatio: 1.0,
+                    minWave3Penetration: 0.0,
+                    wavePullbackTol: tol);
+
+                ElliottWaveSignalEventArgs? found = null;
+                finder.OnEnter += (_, a) =>
+                {
+                    if (a.WavePoints[0].OpenTime == target0)
+                        found = a;
+                };
+                finder.MarkAsInitialized();
+                for (int i = 0; i < provider.Count; i++)
+                    finder.CheckBar(provider.GetOpenTime(i));
+
+                TestContext.Out.WriteLine(
+                    $"  tol={tol,4:F2} -> " +
+                    (found == null
+                        ? "not found"
+                        : $"FOUND entry={found.Level.Value:F5} " +
+                          $"sl={found.StopLoss.Value:F5} tp={found.TakeProfit.Value:F5}"));
+                if (found != null)
+                    TestContext.Out.WriteLine(
+                        "    " + string.Join(" | ", found.WavePoints.Select(
+                            (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm} {x.Value:F5}")));
+            }
+        }
+
+        /// <summary>
         /// Calibrates the two hard thresholds that are not EW rules but sanity guards —
         /// D-W3-PEN (<c>MinWave3Penetration</c>) and D-TIME (<c>MaxWaveDurationRatio</c>).
         /// Research-only.
@@ -1280,8 +1548,7 @@ namespace TradeKit.Tests
         [Test]
         [Explicit]
         [Category("Research")]
-        public void Diagonal_PenetrationAndDurationThresholds_Report()
-        {
+        public void Diagonal_PenetrationAndDurationThresholds_Report()        {
             (string File, ITimeFrame Tf)[] files =
             {
                 (H1_FILE, TimeFrameHelper.Hour1),

@@ -209,6 +209,12 @@ namespace TradeKit.Core.ElliottWave
         private readonly IsolatedPrintFilter m_PrintFilter;
 
         /// <summary>
+        /// Thin-market filter (DIAGONAL.md §4.5): no sub-wave may end inside a confirmed
+        /// thin-market segment. <c>null</c> when <see cref="RequireThickWaveEnds"/> is off.
+        /// </summary>
+        private readonly ThinMarketFilter m_ThinFilter;
+
+        /// <summary>
         /// Diagnostic hook: invoked with (point0, gateKey) for every candidate outcome.
         /// Optional.
         /// </summary>
@@ -408,6 +414,18 @@ namespace TradeKit.Core.ElliottWave
         public IsolatedPrintFilter PrintFilter => m_PrintFilter;
 
         /// <summary>
+        /// Gets a value indicating whether wave ends are required to stay out of thin-market
+        /// segments (D-THIN-ENDS, DIAGONAL.md §4.5).
+        /// </summary>
+        public bool RequireThickWaveEnds => m_ThinFilter != null;
+
+        /// <summary>
+        /// Gets the thin-market filter (DIAGONAL.md §4.5), or <c>null</c> when the gate is
+        /// off. Exposed so tests can recompute the gate by hand.
+        /// </summary>
+        public ThinMarketFilter ThinFilter => m_ThinFilter;
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -442,6 +460,10 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="minWave4Wave2DurationRatio">Minimum bars(W4)/bars(W2) (D-TIME-24-MIN); 0 — off.</param>
         /// <param name="minWave3Wave1DurationRatio">Minimum bars(W3)/bars(W1) (D-TIME-31-MIN); 0 — off.</param>
         /// <param name="minWave2Wave1DurationRatio">Minimum bars(W2)/bars(W1) (D-TIME-21-MIN); 0 — off.</param>
+        /// <param name="requireThickWaveEnds">
+        /// Forbid sub-wave ends inside thin-market segments (D-THIN-ENDS, DIAGONAL.md §4.5);
+        /// the detector uses the default <see cref="ThinMarketFilter"/> parameters.
+        /// </param>
         /// <param name="isolatedPrintFilter">
         /// The isolated-print detector (DIAGONAL.md §4.4); must be bound to the same bars
         /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
@@ -474,11 +496,14 @@ namespace TradeKit.Core.ElliottWave
             double minWave4Wave2DurationRatio = 0,
             double minWave3Wave1DurationRatio = 0,
             double minWave2Wave1DurationRatio = 0,
+            bool requireThickWaveEnds = false,
             IsolatedPrintFilter isolatedPrintFilter = null)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
             m_PrintFilter = isolatedPrintFilter ?? new IsolatedPrintFilter(BarsProvider);
+            if (requireThickWaveEnds)
+                m_ThinFilter = new ThinMarketFilter(BarsProvider);
             TakeProfitRatio = takeProfitRatio;
             RequireWave5Ratio = requireWave5Ratio;
             RequireWave4Ratio = requireWave4Ratio;
@@ -550,6 +575,7 @@ namespace TradeKit.Core.ElliottWave
             // The print filter advances together with the zigzags: same bars, same causality
             // (DIAGONAL.md §4.4).
             m_PrintFilter.OnCalculate(openDateTime);
+            m_ThinFilter?.OnCalculate(openDateTime);
 
             foreach (DeviationExtremumFinder finder in m_ExtremumFinders
                          .OrderByDescending(a => a.ScaleRate))
@@ -1550,6 +1576,23 @@ namespace TradeKit.Core.ElliottWave
         private bool TryEmit(DiagonalCandidate candidate, int index)
         {
             BarPoint p0 = candidate.Point0;
+
+            // D-THIN-ENDS (optional): thin-market bars may cross the diagonal, but no
+            // sub-wave may END in a confirmed thin segment — its extremum is a noise print
+            // of the illiquid tail, not a traded pivot (DIAGONAL.md §4.5). Wave 5's running
+            // extreme and the signal bar are ends too: a break of V(3) made in the dead zone
+            // is random, and an entry there rides the same noise.
+            if (m_ThinFilter != null &&
+                (m_ThinFilter.IsInThinSegment(candidate.P1.BarIndex) ||
+                 m_ThinFilter.IsInThinSegment(candidate.P2.BarIndex) ||
+                 m_ThinFilter.IsInThinSegment(candidate.P3.BarIndex) ||
+                 m_ThinFilter.IsInThinSegment(candidate.P4.BarIndex) ||
+                 m_ThinFilter.IsInThinSegment(candidate.W5ExtremeBar) ||
+                 m_ThinFilter.IsInThinSegment(index)))
+            {
+                Bump("thinMarketEnds", p0);
+                return false;
+            }
 
             // D-INIT (optional): the whole diagonal — wave 5 included up to this very bar —
             // stays inside the preceding counter-move (DIAGONAL.md §5.2, O-6). Checked here

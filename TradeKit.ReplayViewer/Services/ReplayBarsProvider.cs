@@ -9,6 +9,7 @@ namespace TradeKit.ReplayViewer.Services;
 public sealed class ReplayBarsProvider : IBarsProvider
 {
     private readonly List<Candle> m_Candles = new();
+    private readonly List<double> m_TickVolumes = new();
     private readonly Dictionary<int, DateTime> m_OpenTimes = new();
     private readonly Dictionary<DateTime, int> m_TimeToIndex = new();
 
@@ -38,6 +39,7 @@ public sealed class ReplayBarsProvider : IBarsProvider
 
         // Clear previous data — each load is a fresh start
         m_Candles.Clear();
+        m_TickVolumes.Clear();
         m_OpenTimes.Clear();
         m_TimeToIndex.Clear();
 
@@ -73,6 +75,10 @@ public sealed class ReplayBarsProvider : IBarsProvider
 
             int index = m_Candles.Count;
             m_Candles.Add(new Candle(open, high, low, close, null, index));
+            double tickVolume = 0;
+            if (parts.Length > 5)
+                double.TryParse(parts[5], NumberStyles.Any, CultureInfo.InvariantCulture, out tickVolume);
+            m_TickVolumes.Add(tickVolume);
             m_OpenTimes[index] = openTime;
             m_TimeToIndex[openTime] = index;
         }
@@ -116,6 +122,7 @@ public sealed class ReplayBarsProvider : IBarsProvider
     public double GetMedianPrice(int index) => (m_Candles[index].H + m_Candles[index].L) / 2.0;
     public double GetOpenPrice(int index) => m_Candles[index].O;
     public double GetClosePrice(int index) => m_Candles[index].C;
+    public double GetTickVolume(int index) => m_TickVolumes[index];
     public DateTime GetOpenTime(int index) => m_OpenTimes[index];
 
     public int GetIndexByTime(DateTime dateTime) =>

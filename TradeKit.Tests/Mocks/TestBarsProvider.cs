@@ -9,6 +9,7 @@ namespace TradeKit.Tests.Mocks
     internal class TestBarsProvider : IBarsProvider
     {
         private readonly List<Candle> m_Candles = new List<Candle>();
+        private readonly List<double> m_TickVolumes = new List<double>();
         private readonly Dictionary<int, DateTime> m_OpenTimes = new Dictionary<int, DateTime>();
         private readonly Dictionary<DateTime, int> m_TimeToIndexMap = new Dictionary<DateTime, int>();
 
@@ -39,8 +40,9 @@ namespace TradeKit.Tests.Mocks
         /// <param name="to">Optional UTC end time filter (inclusive).</param>
         /// <remarks>
         /// Both the semicolon-separated archive format of <c>data/</c> and the comma-separated
-        /// TradingView "Export chart data" format are accepted; extra columns after Close are
-        /// ignored, so a Pine reference export can be replayed as a plain candle series.
+        /// TradingView "Export chart data" format are accepted; an optional 6th column after
+        /// Close is read as TickVolume (0 when absent), so a Pine reference export can be
+        /// replayed as a plain candle series.
         /// </remarks>
         public void LoadCandles(string pathToFile, DateTime? from = null, DateTime? to = null)
         {
@@ -123,8 +125,13 @@ namespace TradeKit.Tests.Mocks
             if (!double.TryParse(parts[4], NumberStyles.Any, CultureInfo.InvariantCulture, out double close))
                 return;
 
+            // Optional 6th column — TickVolume (the archive format and TradingView exports).
+            double tickVolume = 0;
+            if (parts.Length > 5)
+                double.TryParse(parts[5], NumberStyles.Any, CultureInfo.InvariantCulture, out tickVolume);
+
             Candle candle = new Candle(open, high, low, close, null, addedIndex);
-            AddCandle(candle, openTime);
+            AddCandle(candle, openTime, tickVolume);
             addedIndex++;
         }
 
@@ -133,10 +140,12 @@ namespace TradeKit.Tests.Mocks
         /// </summary>
         /// <param name="candle">The candle to add.</param>
         /// <param name="openTime">The open time of the candle.</param>
-        public void AddCandle(Candle candle, DateTime openTime)
+        /// <param name="tickVolume">The tick volume of the candle; 0 — no volume data.</param>
+        public void AddCandle(Candle candle, DateTime openTime, double tickVolume = 0)
         {
             int index = m_Candles.Count;
             m_Candles.Add(candle);
+            m_TickVolumes.Add(tickVolume);
             m_OpenTimes[index] = openTime;
             m_TimeToIndexMap[openTime] = index;
             
@@ -178,6 +187,11 @@ namespace TradeKit.Tests.Mocks
         public double GetClosePrice(int index)
         {
             return m_Candles[index].C;
+        }
+
+        public double GetTickVolume(int index)
+        {
+            return m_TickVolumes[index];
         }
 
         public DateTime GetOpenTime(int index)
