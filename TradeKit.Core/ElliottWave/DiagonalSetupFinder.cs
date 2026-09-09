@@ -117,6 +117,15 @@ namespace TradeKit.Core.ElliottWave
         private const double MIN_RISK_TO_W3_RATIO = 0.05;
 
         /// <summary>
+        /// Minimum depth of the correction that ends at point 0, as a share of the whole
+        /// diagonal's height, for an ending diagonal (<c>RequireInitialDiagonal == false</c>).
+        /// A point 0 sitting on a low-rank micro-extremum makes a model the user would never
+        /// mark up, so the move that produced point 0 must at least halve the diagonal
+        /// (DIAGONAL.md §4.6, hardcoded).
+        /// </summary>
+        private const double MIN_ENDING_CORRECTION_DEPTH_RATIO = 0.5;
+
+        /// <summary>
         /// Default share of the wedge area the bars may spend outside the trendlines
         /// before the candidate is rejected (D-INSIDE). Calibrated in DIAGONAL.md §9.7.
         /// </summary>
@@ -1569,6 +1578,42 @@ namespace TradeKit.Core.ElliottWave
                    candidate.W5Length >= WAVE5_MIN_RATIO * candidate.W3Length;
         }
 
+        /// <summary>
+        /// Depth of the correction that ends at point 0 (DIAGONAL.md §4.6). For an up
+        /// diagonal point 0 is the terminal low of a down-swing, so the depth is the swing
+        /// high before that low minus V(0); the backward scan is bounded by the most recent
+        /// bar that traded at or below V(0) — beyond it the price is in a different
+        /// structure. Mirrored for a down diagonal. Returns 0 when no meaningful preceding
+        /// swing exists (point 0 sits on a micro-extremum).
+        /// </summary>
+        private double PrecedingCorrectionDepth(BarPoint p0, bool isUpDiagonal)
+        {
+            if (isUpDiagonal)
+            {
+                double maxHigh = 0;
+                for (int i = p0.BarIndex - 1; i >= 0; i--)
+                {
+                    if (BarsProvider.GetLowPrice(i) <= p0.Value)
+                        break;
+                    double high = BarsProvider.GetHighPrice(i);
+                    if (high > maxHigh)
+                        maxHigh = high;
+                }
+                return maxHigh > 0 ? maxHigh - p0.Value : 0;
+            }
+
+            double minLow = double.MaxValue;
+            for (int i = p0.BarIndex - 1; i >= 0; i--)
+            {
+                if (BarsProvider.GetHighPrice(i) >= p0.Value)
+                    break;
+                double low = BarsProvider.GetLowPrice(i);
+                if (low < minLow)
+                    minLow = low;
+            }
+            return minLow < double.MaxValue ? p0.Value - minLow : 0;
+        }
+
         #endregion
 
         #region Signal
@@ -1603,6 +1648,21 @@ namespace TradeKit.Core.ElliottWave
             {
                 Bump("notInitialDiagonal", p0);
                 return false;
+            }
+
+            // D-INIT-END (hardcoded, DIAGONAL.md §4.6): when ending diagonals are allowed
+            // (RequireInitialDiagonal off), point 0 must be the end of a real correction,
+            // not a low-rank micro-extremum the user would never mark up — the move that
+            // produced point 0 must retrace at least half of the whole diagonal's height.
+            if (!RequireInitialDiagonal)
+            {
+                double diagonalHeight = Math.Abs(candidate.W5Extreme - p0.Value);
+                if (PrecedingCorrectionDepth(p0, candidate.IsUp) <
+                    MIN_ENDING_CORRECTION_DEPTH_RATIO * diagonalHeight)
+                {
+                    Bump("endingCorrectionTooShallow", p0);
+                    return false;
+                }
             }
 
             // D-INSIDE-5: wave 5 keeps hugging the wedge too. Measured on its own span, where

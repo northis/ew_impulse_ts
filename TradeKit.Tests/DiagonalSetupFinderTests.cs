@@ -27,6 +27,41 @@ namespace TradeKit.Tests
         private static double Sign(bool isUpDiagonal) => isUpDiagonal ? 1 : -1;
 
         /// <summary>
+        /// Depth of the correction that ends at point 0 (DIAGONAL.md §4.6), recomputed from
+        /// the raw bars exactly as <see cref="DiagonalSetupFinder"/> does it: the swing high
+        /// (up diagonal) before point 0 minus V(0), bounded by the most recent bar that
+        /// traded at or below V(0). Mirrored for a down diagonal.
+        /// </summary>
+        private static double PrecedingCorrectionDepth(
+            IBarsProvider bp, BarPoint p0, bool isUpDiagonal)
+        {
+            if (isUpDiagonal)
+            {
+                double maxHigh = 0;
+                for (int i = p0.BarIndex - 1; i >= 0; i--)
+                {
+                    if (bp.GetLowPrice(i) <= p0.Value)
+                        break;
+                    double high = bp.GetHighPrice(i);
+                    if (high > maxHigh)
+                        maxHigh = high;
+                }
+                return maxHigh > 0 ? maxHigh - p0.Value : 0;
+            }
+
+            double minLow = double.MaxValue;
+            for (int i = p0.BarIndex - 1; i >= 0; i--)
+            {
+                if (bp.GetHighPrice(i) >= p0.Value)
+                    break;
+                double low = bp.GetLowPrice(i);
+                if (low < minLow)
+                    minLow = low;
+            }
+            return minLow < double.MaxValue ? p0.Value - minLow : 0;
+        }
+
+        /// <summary>
         /// The D-CONVERGE measure <c>w(t1)/w(t4) − 1</c> of a signal's skeleton, exactly as
         /// the finder computes it (DIAGONAL.md §4.2).
         /// </summary>
@@ -224,6 +259,18 @@ namespace TradeKit.Tests
                 Assert.That(sgn * (p[5].Value - p[3].Value), Is.GreaterThan(0),
                     $"{at}: D-W5-BREAK — wave 5 did not break the end of wave 3.");
                 Assert.That(w5, Is.LessThan(w3), $"{at}: D-W5-CAP — |W5| >= |W3|.");
+
+                // D-INIT-END (§4.6) — when ending diagonals are allowed (RequireInitialDiagonal
+                // off), the correction ending at point 0 must retrace at least half the diagonal.
+                if (!requireInitialDiagonal)
+                {
+                    double diagonalHeight = Math.Abs(p[5].Value - p[0].Value);
+                    double depth = PrecedingCorrectionDepth(
+                        finder.BarsProvider, p[0], isUpDiagonal);
+                    Assert.That(depth, Is.GreaterThanOrEqualTo(0.5 * diagonalHeight - 1e-12),
+                        $"{at}: D-INIT-END — the correction ending at point 0 is shallower " +
+                        "than half the diagonal although ending diagonals are allowed.");
+                }
 
                 if (requireWave5Ratio)
                 {
