@@ -239,7 +239,9 @@ namespace TradeKit.CTrader.Diagonal
                 minWave4Wave2DurationRatio: MinWave4Wave2DurationRatio,
                 minWave3Wave1DurationRatio: MinWave3Wave1DurationRatio,
                 minWave2Wave1DurationRatio: MinWave2Wave1DurationRatio,
-                requireThickWaveEnds: RequireThickWaveEnds);
+                requireThickWaveEnds: RequireThickWaveEnds,
+                tradeViewManager: cTraderViewManager,
+                thinMarketGuard: GetThinMarketGuardParams());
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -250,6 +252,21 @@ namespace TradeKit.CTrader.Diagonal
         protected EWParams GetEWParams()
         {
             return new EWParams(Period, MinSizePercent, BarsCount);
+        }
+
+        /// <summary>
+        /// Joins the thin-market stop guard parameters into one record (DIAGONAL.md §4.7).
+        /// </summary>
+        protected ThinMarketGuardParams GetThinMarketGuardParams()
+        {
+            return new ThinMarketGuardParams(
+                GuardThinMarketStop,
+                ThinMarketPreCloseMinutes,
+                ThinMarketPostOpenMinutes,
+                ThinMarketSpreadBufferRatio,
+                ThinMarketRiskBufferRatio,
+                ThinMarketDailyBreakStart,
+                ThinMarketDailyBreakEnd);
         }
 
         #region Input parameters
@@ -269,7 +286,7 @@ namespace TradeKit.CTrader.Diagonal
         /// <summary>
         /// Gets or sets the bars count.
         /// </summary>
-        [Parameter(nameof(BarsCount), DefaultValue = Helper.MINIMUM_BARS_IN_IMPULSE, MinValue = 3, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter(nameof(BarsCount), DefaultValue = Helper.MINIMUM_BARS_IN_IMPULSE, MinValue = 3, MaxValue = 200, Group = Helper.TRADE_SETTINGS_NAME)]
         public int BarsCount { get; set; }
 
         /// <summary>
@@ -370,6 +387,55 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Thick market at wave ends", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
         public bool RequireThickWaveEnds { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether a signal inside a thin-market window is
+        /// refused (DIAGONAL.md §4.7) and the stop of an open setup is pulled away from the
+        /// entry for the duration of the window. The indicator has no positions, so here the
+        /// guard only shows the entries the robot would skip.
+        /// </summary>
+        [Parameter("Thin market stop guard", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
+        public bool GuardThinMarketStop { get; set; }
+
+        /// <summary>
+        /// Gets or sets how many minutes before the trading stops the market is already thin.
+        /// </summary>
+        [Parameter("Thin window: min before close", DefaultValue = ThinMarketCalendar.DEFAULT_PRE_CLOSE_MINUTES, MinValue = 0, MaxValue = 480, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int ThinMarketPreCloseMinutes { get; set; }
+
+        /// <summary>
+        /// Gets or sets how many minutes after the trading resumes the market is still thin.
+        /// </summary>
+        [Parameter("Thin window: min after open", DefaultValue = ThinMarketCalendar.DEFAULT_POST_OPEN_MINUTES, MinValue = 0, MaxValue = 480, Group = Helper.TRADE_SETTINGS_NAME)]
+        public int ThinMarketPostOpenMinutes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the stop buffer as a multiple of the current spread.
+        /// </summary>
+        [Parameter("Thin window: buffer x spread", DefaultValue = ThinMarketStopGuard.DEFAULT_SPREAD_BUFFER_RATIO, MinValue = 0, MaxValue = 50, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double ThinMarketSpreadBufferRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the stop buffer as a share of the planned risk |entry − SL| — the
+        /// scale-free half of the buffer, used when the spread alone is not enough.
+        /// </summary>
+        [Parameter("Thin window: buffer x risk", DefaultValue = ThinMarketStopGuard.DEFAULT_RISK_BUFFER_RATIO, MinValue = 0, MaxValue = 5, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double ThinMarketRiskBufferRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the daily rollover break start, HH:mm in UTC. Empty — the instrument has
+        /// no daily break and only the sessions the broker reports are used. Broker-specific:
+        /// a GMT+2/+3 server pauses around 22:00 UTC in winter and around 21:00 UTC in summer.
+        /// </summary>
+        [Parameter("Daily break start (UTC)", DefaultValue = ThinMarketStopGuard.DEFAULT_DAILY_BREAK_START, Group = Helper.TRADE_SETTINGS_NAME)]
+        public string ThinMarketDailyBreakStart { get; set; }
+
+        /// <summary>
+        /// Gets or sets the daily rollover break end, HH:mm in UTC. Empty — the break is a
+        /// single instant.
+        /// </summary>
+        [Parameter("Daily break end (UTC)", DefaultValue = ThinMarketStopGuard.DEFAULT_DAILY_BREAK_END, Group = Helper.TRADE_SETTINGS_NAME)]
+        public string ThinMarketDailyBreakEnd { get; set; }
 
         /// <summary>
         /// Gets or sets how hard the trendlines 1-3 and 2-4 must converge: 0 — parallel,

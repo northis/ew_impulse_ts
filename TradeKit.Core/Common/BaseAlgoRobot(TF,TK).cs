@@ -305,8 +305,11 @@ namespace TradeKit.Core.Common
                     }
                 }
 
-                if (!isSl && !isTp) // We don't want ot handle usual closing, just manual or securing ones
-                    sf.NotifyManualClose(signalEventArgs, args);
+                // The broker knows how the position was really closed - the finder only
+                // simulates it over the bars, which know nothing of the spread. Reporting the
+                // fact back keeps the finder, the message and the attached report in agreement
+                // (DIAGONAL.md §6.7).
+                sf.NotifyPositionClosed(signalEventArgs, args, args.ClosePrice);
             }
 
             if (isSl)
@@ -400,11 +403,13 @@ namespace TradeKit.Core.Common
         private void OnManualClose(object sender, LevelEventArgs e)
         {
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
-            string resultChartPath = OnPositionClose(sender, setupId, positionId, true);
+            string resultChartPath = OnPositionClose(
+                sender, setupId, positionId, true, out ClosedPositionEventArgs closedPosition);
             if (!TelegramReporter.IsReady)
                 return;
 
-            TelegramReporter.ReportManualClose(positionId, e.Level.Value, resultChartPath);
+            TelegramReporter.ReportManualClose(
+                positionId, GetClosePrice(closedPosition, e), resultChartPath);
         }
 
         /// <summary>
@@ -471,15 +476,18 @@ namespace TradeKit.Core.Common
         /// <param name="setupId">The setup identifier.</param>
         /// <param name="positionId">The position identifier.</param>
         /// <param name="successTrade">if set to <c>true</c> we close the trade with success.</param>
+        /// <param name="closedPosition">The broker's record of the close, when we trade; <c>null</c> otherwise.</param>
         /// <returns>Path to the final report or chart result image file.</returns>
-        private string OnPositionClose(object sender, string setupId, string positionId, bool successTrade)
+        private string OnPositionClose(
+            object sender, string setupId, string positionId, bool successTrade,
+            out ClosedPositionEventArgs closedPosition)
         {
+            closedPosition = null;
             ModifySymbolPositions(setupId, positionId);
-            ClosedPositionEventArgs closedArgs = null;
             if (m_RobotParams.AllowToTrade || m_IsBackTesting)
             {
                 Logger.Write($"SetupId {setupId} - handle position {positionId}");
-                m_ClosedPositionMap.Remove(positionId, out closedArgs);
+                m_ClosedPositionMap.Remove(positionId, out closedPosition);
             }
 
             if (sender is not TF sf ||
@@ -489,14 +497,14 @@ namespace TradeKit.Core.Common
                 return null;
             }
 
-            if (closedArgs == null)
+            if (closedPosition == null)
             {
                 Logger.Write($"SetupId {setupId} is not found");
                 TradeManager.CancelOrder(positionId);
             }
 
-            string resultChartPath = m_GenerateReport && closedArgs != null
-                ? GenerateReportFile(closedArgs, sf.TimeFrame.ShortName)
+            string resultChartPath = m_GenerateReport && closedPosition != null
+                ? GenerateReportFile(closedPosition, sf.TimeFrame.ShortName)
                 : ShowResultChart(sf, signalEventArgs, successTrade);
 
             return resultChartPath;
@@ -507,12 +515,26 @@ namespace TradeKit.Core.Common
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
             m_StopCount++;
             Logger.Write($"SL hit! ({positionId})");
-            string resultChartPath = OnPositionClose(sender, setupId, positionId, false);
+            string resultChartPath = OnPositionClose(
+                sender, setupId, positionId, false, out ClosedPositionEventArgs closedPosition);
 
             if (!TelegramReporter.IsReady)
                 return;
 
-            TelegramReporter.ReportStopLoss(positionId, resultChartPath);
+            TelegramReporter.ReportStopLoss(
+                positionId, GetClosePrice(closedPosition, e), resultChartPath);
+        }
+
+        /// <summary>
+        /// The price the position was really closed at — the broker's fill when we trade (it
+        /// carries the slippage, so a swept stop is counted as more than one risk), the level
+        /// the finder reported otherwise.
+        /// </summary>
+        /// <param name="closedPosition">The broker's record of the close.</param>
+        /// <param name="e">The level event the finder raised.</param>
+        private static double GetClosePrice(ClosedPositionEventArgs closedPosition, LevelEventArgs e)
+        {
+            return closedPosition?.ClosePrice > 0 ? closedPosition.ClosePrice : e.Level.Value;
         }
 
         /// <summary>
@@ -546,12 +568,14 @@ namespace TradeKit.Core.Common
             HandleOrderEvent(sender, e, out string price, out string setupId, out string positionId);
             m_TakeCount++;
             Logger.Write($"TP hit! ({positionId})");
-            string resultChartPath = OnPositionClose(sender, setupId, positionId, true);
+            string resultChartPath = OnPositionClose(
+                sender, setupId, positionId, true, out ClosedPositionEventArgs closedPosition);
 
             if (!TelegramReporter.IsReady)
                 return;
 
-            TelegramReporter.ReportTakeProfit(positionId, resultChartPath);
+            TelegramReporter.ReportTakeProfit(
+                positionId, GetClosePrice(closedPosition, e), resultChartPath);
         }
 
         /// <summary>

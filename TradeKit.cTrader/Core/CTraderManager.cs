@@ -52,7 +52,36 @@ namespace TradeKit.CTrader.Core
                 return;
             
             PositionClosedState reason = m_ReasonMapper[obj.Reason];
-            PositionClosed?.Invoke(this, new ClosedPositionEventArgs(reason, ToIPosition(obj.Position)));
+            IPosition position = ToIPosition(obj.Position);
+            PositionClosed?.Invoke(this,
+                new ClosedPositionEventArgs(reason, position, GetClosingPrice(obj.Position)));
+        }
+
+        /// <summary>
+        /// The price the position was really filled at. The stop level is not enough: a wide
+        /// spread or a gap closes the position with slippage, and the result is counted in
+        /// risks — so a stop-out at 1.5 stops has to be reported as −1.5R (DIAGONAL.md §6.7).
+        /// The history trade is the source of truth; the last price of the position is the
+        /// fallback for when the trade is not in the history yet.
+        /// </summary>
+        /// <param name="position">The position that has just been closed.</param>
+        private double? GetClosingPrice(Position position)
+        {
+            try
+            {
+                HistoricalTrade trade = m_Robot.History
+                    .Where(a => a.PositionId == position.Id)
+                    .OrderBy(a => a.ClosingTime)
+                    .LastOrDefault();
+                if (trade != null)
+                    return trade.ClosingPrice;
+            }
+            catch (Exception ex)
+            {
+                Logger.Write($"{nameof(GetClosingPrice)}: {ex.Message}");
+            }
+
+            return position.CurrentPrice;
         }
 
         public IPosition[] GetPositions()

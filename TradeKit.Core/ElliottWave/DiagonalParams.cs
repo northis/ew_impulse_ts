@@ -1,3 +1,5 @@
+using TradeKit.Core.Common;
+
 namespace TradeKit.Core.ElliottWave
 {
     /// <summary>
@@ -26,7 +28,8 @@ namespace TradeKit.Core.ElliottWave
         double MinWave4Wave2DurationRatio,
         double MinWave3Wave1DurationRatio,
         double MinWave2Wave1DurationRatio,
-        bool RequireThickWaveEnds)
+        bool RequireThickWaveEnds,
+        ThinMarketGuardParams ThinMarketGuard)
     {
     }
 }

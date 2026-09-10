@@ -189,6 +189,38 @@ namespace TradeKit.Core.Common
         }
 
         /// <summary>
+        /// Notifies the setup finder how the position behind its setup was <b>really</b> closed
+        /// (DIAGONAL.md §6.7). The broker is the source of truth: the finder simulates the exit
+        /// over the bars, which know nothing of the spread, so on a thin market a short can be
+        /// stopped out by the ask while the bid bars go on to the target. Without this hook the
+        /// finder later reports a take profit on a position that no longer exists — the message
+        /// says TP while the attached report says SL.
+        /// <para>
+        /// The base implementation keeps the historical behaviour: only a close that is neither a
+        /// stop nor a target is passed on, as a manual close. A finder that tracks its open setup
+        /// itself overrides this and ends the setup with the reported state, at
+        /// <paramref name="closePrice"/>.
+        /// </para>
+        /// </summary>
+        /// <param name="signalEventArgs">The signal args of the setup the position was opened for.</param>
+        /// <param name="args">The closing arguments.</param>
+        /// <param name="closePrice">The price the position was really closed at; <c>0</c> — unknown.</param>
+        public virtual void NotifyPositionClosed(
+            T signalEventArgs, ClosedPositionEventArgs args, double closePrice)
+        {
+            if (args == null)
+                return;
+
+            // Exactly the condition BaseAlgoRobot used to apply itself: a close by the stop or
+            // by the target is the finder's own business, anything else (a manual close, a stop
+            // out) is reported to it as one.
+            bool isSl = args.State == PositionClosedState.STOP_LOSS;
+            bool isTp = args.State == PositionClosedState.TAKE_PROFIT;
+            if (!isSl && !isTp)
+                NotifyManualClose(signalEventArgs, args);
+        }
+
+        /// <summary>
         /// Checks the bar for specific conditions based on its opening date and time.
         /// </summary>
         /// <param name="openDateTime">The open datetime of the bar to be checked.</param>

@@ -198,6 +198,13 @@ namespace TradeKit.Core.ElliottWave
         private bool m_BreakevenArmed;
 
         /// <summary>
+        /// Whether the stop of the open setup is currently sent to the broker widened by the
+        /// thin-market guard (§4.7) — so that the restore is sent even when the buffer happens
+        /// to be zero by then, and no redundant modification is sent when it never moved.
+        /// </summary>
+        private bool m_StopGuardMoved;
+
+        /// <summary>
         /// Per-bar cache of chronological pivot tails: cross-scale assembly reads the lists
         /// of several rungs per event and must not re-sort each of them repeatedly.
         /// </summary>
@@ -222,6 +229,14 @@ namespace TradeKit.Core.ElliottWave
         /// thin-market segment. <c>null</c> when <see cref="RequireThickWaveEnds"/> is off.
         /// </summary>
         private readonly ThinMarketFilter m_ThinFilter;
+
+        /// <summary>
+        /// Thin-market stop guard (DIAGONAL.md §4.7): the scheduled counterpart of
+        /// <see cref="m_ThinFilter"/> — it knows the session breaks <b>in advance</b>, so it
+        /// refuses to enter inside a thin window and pulls the stop of an open setup away from
+        /// the entry while the window lasts. <c>null</c> when the guard is off.
+        /// </summary>
+        private readonly ThinMarketStopGuard m_ThinStopGuard;
 
         /// <summary>
         /// Diagnostic hook: invoked with (point0, gateKey) for every candidate outcome.
@@ -435,6 +450,12 @@ namespace TradeKit.Core.ElliottWave
         public ThinMarketFilter ThinFilter => m_ThinFilter;
 
         /// <summary>
+        /// Gets the thin-market stop guard (DIAGONAL.md §4.7), or <c>null</c> when it is off.
+        /// Exposed so tests can recompute the window and the buffer by hand.
+        /// </summary>
+        public ThinMarketStopGuard ThinStopGuard => m_ThinStopGuard;
+
+        /// <summary>
         /// The currently open setup, or <c>null</c>. Public because TradeKit.Core has no
         /// InternalsVisibleTo to the test project.
         /// </summary>
@@ -478,6 +499,15 @@ namespace TradeKit.Core.ElliottWave
         /// provider. <c>null</c> — a default instance, i.e. the filter is enabled; pass a
         /// filter with <c>maxSpikeBars ≤ 0</c> to disable.
         /// </param>
+        /// <param name="tradeViewManager">
+        /// The read-only trade manager (DIAGONAL.md §4.7): the trading sessions of the symbol
+        /// and the live spread the thin-market stop guard is built from. <c>null</c> — the guard
+        /// has no schedule to follow and stays off.
+        /// </param>
+        /// <param name="thinMarketGuard">
+        /// The thin-market stop guard settings (DIAGONAL.md §4.7); <c>null</c> or
+        /// <c>Enabled == false</c> — the guard is off and the behaviour is unchanged.
+        /// </param>
         public DiagonalSetupFinder(
             IBarsProvider mainBarsProvider,
             ISymbol symbol,
@@ -506,13 +536,16 @@ namespace TradeKit.Core.ElliottWave
             double minWave3Wave1DurationRatio = 0,
             double minWave2Wave1DurationRatio = 0,
             bool requireThickWaveEnds = false,
-            IsolatedPrintFilter isolatedPrintFilter = null)
+            IsolatedPrintFilter isolatedPrintFilter = null,
+            ITradeViewManager tradeViewManager = null,
+            ThinMarketGuardParams thinMarketGuard = null)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
             m_PrintFilter = isolatedPrintFilter ?? new IsolatedPrintFilter(BarsProvider);
             if (requireThickWaveEnds)
                 m_ThinFilter = new ThinMarketFilter(BarsProvider);
+            m_ThinStopGuard = CreateThinStopGuard(symbol, tradeViewManager, thinMarketGuard);
             TakeProfitRatio = takeProfitRatio;
             RequireWave5Ratio = requireWave5Ratio;
             RequireWave4Ratio = requireWave4Ratio;
@@ -566,6 +599,31 @@ namespace TradeKit.Core.ElliottWave
             return result;
         }
 
+        /// <summary>
+        /// Builds the thin-market stop guard (DIAGONAL.md §4.7) from the trading sessions of the
+        /// symbol and the daily rollover break. Returns <c>null</c> when the guard is off or has
+        /// no schedule to follow — a context without a trade manager (an archive replay) keeps
+        /// the previous behaviour.
+        /// </summary>
+        private static ThinMarketStopGuard CreateThinStopGuard(
+            ISymbol symbol, ITradeViewManager tradeViewManager, ThinMarketGuardParams parameters)
+        {
+            if (parameters == null || !parameters.Enabled || tradeViewManager == null)
+                return null;
+
+            var calendar = new ThinMarketCalendar(
+                tradeViewManager.GetTradingHours(symbol),
+                TimeSpan.FromMinutes(Math.Max(0, parameters.PreCloseMinutes)),
+                TimeSpan.FromMinutes(Math.Max(0, parameters.PostOpenMinutes)),
+                ThinMarketCalendar.ParseTimeOfDay(parameters.DailyBreakStartUtc),
+                ThinMarketCalendar.ParseTimeOfDay(parameters.DailyBreakEndUtc));
+
+            return calendar.IsEnabled
+                ? new ThinMarketStopGuard(tradeViewManager, symbol, calendar,
+                    parameters.SpreadBufferRatio, parameters.RiskBufferRatio)
+                : null;
+        }
+
         private void Bump(string key, BarPoint point0)
         {
             Diag.TryGetValue(key, out int count);
@@ -617,6 +675,10 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         private bool HandleOpenSetup(int index)
         {
+            // The guard goes first: the stop pulled away from the entry for a thin window has
+            // to be in place before this bar is judged against it (DIAGONAL.md §4.7).
+            UpdateStopGuard(BarCloseTime(index));
+
             double low = BarsProvider.GetLowPrice(index);
             double high = BarsProvider.GetHighPrice(index);
             bool isUpSetup = CurrentSignalEventArgs.TakeProfit > CurrentSignalEventArgs.StopLoss;
@@ -626,6 +688,7 @@ namespace TradeKit.Core.ElliottWave
             if (isProfitHit)
             {
                 IsInSetup = false;
+                ReleaseStopGuard();
                 OnTakeProfitInvoke(new LevelEventArgs(
                     CurrentSignalEventArgs.TakeProfit.WithIndex(index, BarsProvider),
                     CurrentSignalEventArgs.Level, false, CurrentSignalEventArgs.Comment));
@@ -634,13 +697,15 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
-            bool isStopHit = isUpSetup && low <= CurrentSignalEventArgs.StopLoss.Value
-                             || !isUpSetup && high >= CurrentSignalEventArgs.StopLoss.Value;
+            double stopLoss = EffectiveStopLoss;
+            bool isStopHit = isUpSetup && low <= stopLoss
+                             || !isUpSetup && high >= stopLoss;
             if (isStopHit)
             {
                 IsInSetup = false;
+                ReleaseStopGuard();
                 OnStopLossInvoke(new LevelEventArgs(
-                    CurrentSignalEventArgs.StopLoss.WithIndex(index, BarsProvider),
+                    CurrentSignalEventArgs.StopLoss.WithIndex(index, BarsProvider).WithPrice(stopLoss),
                     CurrentSignalEventArgs.Level, false, CurrentSignalEventArgs.Comment));
                 CurrentSignalEventArgs = null;
                 m_ActiveCandidate = null;
@@ -662,11 +727,75 @@ namespace TradeKit.Core.ElliottWave
             if (index < 0)
                 return;
 
+            // A tick is finer than a bar, so the guard is advanced here too: the stop has to be
+            // widened when the window opens, not when the next candle closes (DIAGONAL.md §4.7).
+            if (m_ThinStopGuard != null)
+            {
+                m_ThinStopGuard.RecordSpread(tick.Ask - tick.Bid);
+                UpdateStopGuard(tick.Time);
+            }
+
             // A long is closed at the bid and a short at the ask, so both the adverse and the
             // favorable price of a trade come from the same side of the spread.
             bool isUpSetup = CurrentSignalEventArgs.TakeProfit > CurrentSignalEventArgs.StopLoss;
             double price = isUpSetup ? tick.Bid : tick.Ask;
             ManageOpenSetup(price, price, index);
+        }
+
+        /// <summary>
+        /// Corrects the finder with the fact the broker reports (DIAGONAL.md §6.7): the position
+        /// behind the open setup is gone, closed at <paramref name="closePrice"/>, whatever the
+        /// bars say. Without this the finder goes on simulating the setup and later announces a
+        /// take profit on a position that was stopped out by the spread — the message says TP
+        /// while the attached report says SL, and the statistics count a win instead of a loss.
+        /// <para>
+        /// The exit is reported at the real fill, so the slippage of a swept stop is counted as
+        /// more than one risk. A setup this finder has already closed itself is ignored: the
+        /// close of the position then is the consequence, not the cause.
+        /// </para>
+        /// </summary>
+        /// <param name="signalEventArgs">The signal the position was opened for.</param>
+        /// <param name="args">The broker's closing arguments.</param>
+        /// <param name="closePrice">The price the position was really closed at; <c>0</c> — unknown.</param>
+        public override void NotifyPositionClosed(
+            ElliottWaveSignalEventArgs signalEventArgs, ClosedPositionEventArgs args,
+            double closePrice)
+        {
+            if (args == null || !IsInSetup || CurrentSignalEventArgs == null)
+                return;
+
+            if (signalEventArgs != null && !ReferenceEquals(signalEventArgs, CurrentSignalEventArgs))
+                return;
+
+            ElliottWaveSignalEventArgs setup = CurrentSignalEventArgs;
+            bool hasBreakeven = m_BreakevenArmed;
+            double price = closePrice > 0 ? closePrice : setup.StopLoss.Value;
+            int index = BarsProvider.Count - 1;
+            var level = index >= 0
+                ? new BarPoint(price, index, BarsProvider)
+                : setup.StopLoss.WithPrice(price);
+
+            IsInSetup = false;
+            ReleaseStopGuard();
+            CurrentSignalEventArgs = null;
+            m_ActiveCandidate = null;
+            m_BreakevenArmed = false;
+            m_RetraceActionFired = false;
+
+            var levelArgs = new LevelEventArgs(level, setup.Level, hasBreakeven, setup.Comment);
+            switch (args.State)
+            {
+                case PositionClosedState.TAKE_PROFIT:
+                    OnTakeProfitInvoke(levelArgs);
+                    break;
+                case PositionClosedState.STOP_LOSS:
+                case PositionClosedState.STOP_OUT:
+                    OnStopLossInvoke(levelArgs);
+                    break;
+                default:
+                    OnManualCloseInvoke(levelArgs);
+                    break;
+            }
         }
 
         /// <summary>
@@ -685,10 +814,17 @@ namespace TradeKit.Core.ElliottWave
 
             // The stop has been moved to the entry, so the setup ends at 0R rather than at the
             // original stop — otherwise the option would look like a loss in the statistics.
-            if (m_BreakevenArmed && (isUpSetup ? adverse <= entry : adverse >= entry))
+            // Inside a thin window the breakeven is widened by the same buffer as the stop: a
+            // spread alone must not knock the position out at the entry either (DIAGONAL.md §4.7).
+            if (m_BreakevenArmed)
             {
-                CloseSetup(new BarPoint(entry, index, BarsProvider));
-                return false;
+                double buffer = m_ThinStopGuard?.Buffer ?? 0;
+                double breakeven = isUpSetup ? entry - buffer : entry + buffer;
+                if (isUpSetup ? adverse <= breakeven : adverse >= breakeven)
+                {
+                    CloseSetup(new BarPoint(breakeven, index, BarsProvider));
+                    return false;
+                }
             }
 
             if (RetraceAction == DiagonalRetraceAction.NONE || m_RetraceActionFired ||
@@ -737,11 +873,119 @@ namespace TradeKit.Core.ElliottWave
         private void CloseSetup(BarPoint level)
         {
             IsInSetup = false;
+            ReleaseStopGuard();
             OnManualCloseInvoke(new LevelEventArgs(level, CurrentSignalEventArgs.Level,
                 m_BreakevenArmed, CurrentSignalEventArgs.Comment));
             CurrentSignalEventArgs = null;
             m_ActiveCandidate = null;
         }
+
+        #region Thin-market stop guard (DIAGONAL.md §4.7)
+
+        /// <summary>
+        /// The stop the open setup is currently judged against: the stop of the signal pulled
+        /// away from the entry by the guard buffer while a thin-market window lasts, the plain
+        /// stop otherwise. Rounded away from the entry, so the rounding never narrows the
+        /// protection.
+        /// </summary>
+        private double EffectiveStopLoss
+        {
+            get
+            {
+                double stopLoss = CurrentSignalEventArgs.StopLoss.Value;
+                double buffer = m_ThinStopGuard?.Buffer ?? 0;
+                if (buffer <= 0)
+                    return stopLoss;
+
+                bool isUpSetup =
+                    CurrentSignalEventArgs.TakeProfit > CurrentSignalEventArgs.StopLoss;
+                return isUpSetup
+                    ? Math.Round(stopLoss - buffer, Symbol.Digits, MidpointRounding.ToZero)
+                    : Math.Round(stopLoss + buffer, Symbol.Digits,
+                        MidpointRounding.ToPositiveInfinity);
+            }
+        }
+
+        /// <summary>
+        /// Whether <paramref name="time"/> falls inside a thin-market window — the scheduled
+        /// stretch around a session break where the book is empty and the spread is wide
+        /// (DIAGONAL.md §4.7).
+        /// </summary>
+        private bool IsThinMarketWindow(DateTime time)
+        {
+            return m_ThinStopGuard != null && m_ThinStopGuard.Calendar.IsThinMarket(time);
+        }
+
+        /// <summary>
+        /// Drops the guard state — the setup it protected is closed, so there is nothing to
+        /// restore anymore.
+        /// </summary>
+        private void ReleaseStopGuard()
+        {
+            m_ThinStopGuard?.Reset();
+            m_StopGuardMoved = false;
+        }
+
+        /// <summary>
+        /// Advances the guard and, when the buffer changed, moves the stop of the position
+        /// through <see cref="OnEdit"/>. The signal args themselves are never mutated: the result
+        /// is counted in the risks planned at the entry, so the statistics keep measuring R
+        /// against the original stop and a widened one shows up as a loss bigger than −1R.
+        /// </summary>
+        /// <param name="time">The current moment — a bar close time or a tick time.</param>
+        private void UpdateStopGuard(DateTime time)
+        {
+            if (m_ThinStopGuard == null || CurrentSignalEventArgs == null)
+                return;
+
+            double planned = CurrentSignalEventArgs.StopLoss.Value;
+            double risk = Math.Abs(CurrentSignalEventArgs.Level.Value - planned);
+            if (!m_ThinStopGuard.Update(time, risk))
+                return;
+
+            double stopLoss = EffectiveStopLoss;
+            bool moved = Math.Abs(stopLoss - planned) > 0;
+            if (!moved && !m_StopGuardMoved)
+                return; // nothing to widen and nothing to restore
+
+            m_StopGuardMoved = moved;
+            string action = moved
+                ? "thin market ahead, the stop is widened to"
+                : "thin market over, the stop is restored to";
+            Logger.Write(
+                $"{Symbol.Name} {TimeFrame.ShortName}: {action} " +
+                $"{Helper.PriceFormat(stopLoss, Symbol.Digits)}");
+            OnEditInvoke(WithStopLoss(stopLoss));
+        }
+
+        /// <summary>
+        /// A copy of the open signal with another stop — the guard moves the position, not the
+        /// setup the signal was reported with.
+        /// </summary>
+        private ElliottWaveSignalEventArgs WithStopLoss(double stopLoss)
+        {
+            ElliottWaveSignalEventArgs source = CurrentSignalEventArgs;
+            return new ElliottWaveSignalEventArgs(
+                source.Level,
+                source.TakeProfit,
+                source.StopLoss.WithPrice(stopLoss),
+                source.WavePoints,
+                source.StartViewBarTime,
+                source.Comment);
+        }
+
+        /// <summary>
+        /// The close time of a bar — the moment the entry of a signal on it really happens.
+        /// </summary>
+        private DateTime BarCloseTime(int index)
+        {
+            DateTime openTime = BarsProvider.GetOpenTime(index);
+            return TimeFrameHelper.TimeFrames.TryGetValue(TimeFrame.Name, out TimeFrameInfo info)
+                ? openTime.Add(info.TimeSpan)
+                : openTime;
+        }
+
+        #endregion
 
         #region Skeleton assembly (pivot-driven)
 
@@ -1453,8 +1697,11 @@ namespace TradeKit.Core.ElliottWave
                 // A candidate parked by the R:R gate (§6.5) is re-checked on every closed
                 // candle: both the entry (the close) and the target (the fresh extreme of
                 // wave 5) move, so the ratio it was rejected for can become acceptable.
+                // The same holds for a candidate parked by a thin-market window (§4.7).
                 bool fireNow = triggerable &&
-                               (!candidate.WasTriggerable || candidate.IsWaitingForRatio);
+                               (!candidate.WasTriggerable ||
+                                candidate.IsWaitingForRatio ||
+                                candidate.IsWaitingForThickMarket);
                 candidate.WasTriggerable = triggerable;
 
                 if (fireNow)
@@ -1488,6 +1735,20 @@ namespace TradeKit.Core.ElliottWave
                     Bump("duplicateSkeleton", pair.Value.Point0);
                     continue;
                 }
+
+                // No entry inside a thin-market window (DIAGONAL.md §4.7): a break of V(3) next
+                // to a session close is made on an empty book, and the stop of such a setup is
+                // swept by the spread alone before the price goes to the target. The candidate
+                // is parked rather than dropped — the model stays valid and the entry is taken
+                // once the market is thick again.
+                if (IsThinMarketWindow(BarCloseTime(index)))
+                {
+                    Bump("thinMarketWindow", pair.Value.Point0);
+                    pair.Value.IsWaitingForThickMarket = true;
+                    continue;
+                }
+
+                pair.Value.IsWaitingForThickMarket = false;
 
                 // While the R:R wait is on, every rejection is provisional (DIAGONAL.md
                 // §6.5): the candidate stays parked and is re-tried on the next candle
@@ -1793,6 +2054,7 @@ namespace TradeKit.Core.ElliottWave
             m_ActiveCandidate = candidate;
             m_RetraceActionFired = false;
             m_BreakevenArmed = false;
+            m_StopGuardMoved = false;
 
             m_SignaledPoint0.Add(p0.OpenTime);
             m_SignaledSkeletons.Add(SkeletonOf(candidate));
@@ -1867,6 +2129,13 @@ namespace TradeKit.Core.ElliottWave
             /// has to be re-checked on every closed candle rather than only on the first one.
             /// </summary>
             public bool IsWaitingForRatio { get; set; }
+
+            /// <summary>
+            /// Whether the candidate is triggerable but parked by a thin-market window (§4.7):
+            /// the model is valid, only the moment is not, so it is re-checked on every closed
+            /// candle until the market is thick again.
+            /// </summary>
+            public bool IsWaitingForThickMarket { get; set; }
 
             public double W5Length => Math.Abs(W5Extreme - P4.Value);
         }

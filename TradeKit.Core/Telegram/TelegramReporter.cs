@@ -72,37 +72,81 @@ namespace TradeKit.Core.Telegram
         /// Reports the stop loss.
         /// </summary>
         /// <param name="posId">The position identifier.</param>
+        /// <param name="closePrice">
+        /// The price the position was really closed at. A stop is filled with slippage on a thin
+        /// market, and the result is counted in risks, so the loss is reported as −1.5R rather
+        /// than −1R (DIAGONAL.md §6.7). <c>0</c> — unknown, the stop level is used.
+        /// </param>
         /// <param name="closeImagePath">The close image path.</param>
-        public void ReportStopLoss(string posId, string closeImagePath = null)
+        public void ReportStopLoss(string posId, double closePrice = 0, string closeImagePath = null)
         {
             if (!m_ReportClose) return;
 
             string stat = string.Empty;
             if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
             {
-                stat = GetStatistic(args, args.SignalEventArgs.StopLoss.Value, -1);
+                stat = GetStatistic(args, ExitPrice(closePrice, args.SignalEventArgs.StopLoss.Value));
             }
 
             ReportPositionInfo(posId, $"SL hit{stat}", closeImagePath);//TODO for breakeven this is not right
             RemoveSignal(posId);
         }
 
-        private string GetStatistic(SignalArgs args, double targetLevel, int k = 1)
+        /// <summary>
+        /// The exit price to count the result by: the real fill when it is known, the planned
+        /// level otherwise.
+        /// </summary>
+        private static double ExitPrice(double closePrice, double plannedLevel)
         {
-            double wholeRisk = Math.Abs(args.SignalEventArgs.Level.Value - args.SignalEventArgs.StopLoss.Value);
+            return closePrice > 0 ? closePrice : plannedLevel;
+        }
+
+        /// <summary>
+        /// The result of a setup in R — multiples of the risk planned at the entry
+        /// (<c>|entry − SL|</c>), counted by the price the position was <b>really</b> closed at.
+        /// A stop swept with slippage gives less than −1, a part closed early (see
+        /// <see cref="ReportPartialClose"/>) is already realized and only the rest of the
+        /// position rides to this exit.
+        /// </summary>
+        /// <param name="args">The signal the position was opened for.</param>
+        /// <param name="exitPrice">The price the position was closed at.</param>
+        public static double GetSetupResult(SignalArgs args, double exitPrice)
+        {
+            double entry = args.SignalEventArgs.Level.Value;
+            double wholeRisk = Math.Abs(entry - args.SignalEventArgs.StopLoss.Value);
+            if (wholeRisk <= 0)
+                return 0;
+
+            double direction = args.SignalEventArgs.StopLoss.Value <
+                               args.SignalEventArgs.TakeProfit.Value
+                ? 1
+                : -1;
+
+            return args.ClosedResult + (1 - args.ClosedPart) * direction * (exitPrice - entry) / wholeRisk;
+        }
+
+        private string GetStatistic(SignalArgs args, double exitPrice)
+        {
+            double entry = args.SignalEventArgs.Level.Value;
+            double wholeRisk = Math.Abs(entry - args.SignalEventArgs.StopLoss.Value);
             if (wholeRisk <= 0) 
                 return string.Empty;
 
-            double diff = k * Math.Abs(args.SignalEventArgs.Level.Value - targetLevel);
-            double diffP = diff / args.PipSize;
+            double direction = args.SignalEventArgs.StopLoss.Value <
+                               args.SignalEventArgs.TakeProfit.Value
+                ? 1
+                : -1;
 
-            // The part closed early (see ReportPartialClose) is already realized, only the rest
-            // of the position rides to this exit.
-            double toVal = args.ClosedResult + (1 - args.ClosedPart) * diff / wholeRisk;
+            double toVal = GetSetupResult(args, exitPrice);
+            double diffP = direction * (exitPrice - entry) / args.PipSize;
             StatisticItem res = m_StorageManager.AddSetupResult(toVal);
-            string sign = k > 0 ? "+" : string.Empty;
+
+            // The two signs are independent: with a part of the position closed early the
+            // realized result and this exit can be on different sides of the entry.
+            string resultSign = toVal > 0 ? "+" : string.Empty;
+            string pipsSign = diffP > 0 ? "+" : string.Empty;
             string resStr =
-                $": {sign}{Helper.PriceFormat(toVal, 2)}, {sign}{diffP:N0} pips; Σ={Helper.PriceFormat(res.ResultValue, 2)} ({res.SetupsCount:N0}).";
+                $": {resultSign}{Helper.PriceFormat(toVal, 2)}, {pipsSign}{diffP:N0} pips; Σ={Helper.PriceFormat(res.ResultValue, 2)} ({res.SetupsCount:N0}).";
             return resStr;
         }
 
@@ -143,15 +187,19 @@ namespace TradeKit.Core.Telegram
         /// Reports the take profit.
         /// </summary>
         /// <param name="posId">The position identifier.</param>
+        /// <param name="closePrice">
+        /// The price the position was really closed at; <c>0</c> — unknown, the target level is
+        /// used. See <see cref="ReportStopLoss"/>.
+        /// </param>
         /// <param name="closeImagePath">The close image path.</param>
-        public void ReportTakeProfit(string posId, string closeImagePath = null)
+        public void ReportTakeProfit(string posId, double closePrice = 0, string closeImagePath = null)
         {
             if (!m_ReportClose) return;
 
             string stat = string.Empty;
             if (m_SignalEventArgsMap.TryGetValue(posId, out SignalArgs args))
             {
-                stat = GetStatistic(args, args.SignalEventArgs.TakeProfit.Value);
+                stat = GetStatistic(args, ExitPrice(closePrice, args.SignalEventArgs.TakeProfit.Value));
             }
 
             ReportPositionInfo(posId, $"TP hit{stat}", closeImagePath);

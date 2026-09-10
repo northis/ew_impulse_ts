@@ -38,6 +38,15 @@
     "MaxWaveDurationRatio": "8",
     "RequireWave5Ratio": "False",
     "RequireWave4Ratio": "False",
-    "RequireInitialDiagonal": "False"
+    "RequireInitialDiagonal": "False",
+    "RequireThickWaveEnds": "False",
+
+    "GuardThinMarketStop": "False",
+    "ThinMarketPreCloseMinutes": "15",
+    "ThinMarketPostOpenMinutes": "15",
+    "ThinMarketSpreadBufferRatio": "2.0",
+    "ThinMarketRiskBufferRatio": "0.25",
+    "ThinMarketDailyBreakStart": "21:00",
+    "ThinMarketDailyBreakEnd": "22:00"
   }
 }
