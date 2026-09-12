@@ -24,6 +24,7 @@ namespace TradeKit.Core.ElliottWave
         bool RequireWave4Shorter,
         bool RequireWave2Shorter,
         double MinWave2Retrace,
+        double MaxWave2Retrace,
         double MaxWave5SpillRatio,
         double MinWave4Wave2DurationRatio,
         double MinWave3Wave1DurationRatio,

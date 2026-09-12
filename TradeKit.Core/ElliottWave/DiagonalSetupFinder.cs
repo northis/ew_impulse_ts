@@ -418,6 +418,14 @@ namespace TradeKit.Core.ElliottWave
         public double MinWave2Retrace { get; }
 
         /// <summary>
+        /// Gets the maximum retracement of wave 1 by wave 2 as a share of |W1| (D-W2-RET-MAX):
+        /// a diagonal whose first pullback eats more than ~80% of wave 1 is not a coiling
+        /// wedge — deep second waves do not occur in diagonals. <c>0</c> — off
+        /// (DIAGONAL.md §4).
+        /// </summary>
+        public double MaxWave2Retrace { get; }
+
+        /// <summary>
         /// Gets the D-TIME bound: how many times longer (in bars) one wave may be than its
         /// same-character sibling — W3 vs W1 and W4 vs W2 (DIAGONAL.md §4).
         /// </summary>
@@ -486,6 +494,7 @@ namespace TradeKit.Core.ElliottWave
         /// <param name="requireWave4Shorter">Require wave 4 to last fewer bars than wave 2 (D-TIME-24).</param>
         /// <param name="requireWave2Shorter">Require wave 2 to last fewer bars than wave 1 (D-TIME-12).</param>
         /// <param name="minWave2Retrace">Minimum retracement of wave 1 by wave 2, share of |W1|; 0 — off.</param>
+        /// <param name="maxWave2Retrace">Maximum retracement of wave 1 by wave 2, share of |W1|; 0 — off.</param>
         /// <param name="maxWave5SpillRatio">Tolerated spill area over the span of wave 5; 0 — off.</param>
         /// <param name="minWave4Wave2DurationRatio">Minimum bars(W4)/bars(W2) (D-TIME-24-MIN); 0 — off.</param>
         /// <param name="minWave3Wave1DurationRatio">Minimum bars(W3)/bars(W1) (D-TIME-31-MIN); 0 — off.</param>
@@ -531,6 +540,7 @@ namespace TradeKit.Core.ElliottWave
             bool requireWave4Shorter = true,
             bool requireWave2Shorter = false,
             double minWave2Retrace = 0,
+            double maxWave2Retrace = 0,
             double maxWave5SpillRatio = 0,
             double minWave4Wave2DurationRatio = 0,
             double minWave3Wave1DurationRatio = 0,
@@ -558,6 +568,7 @@ namespace TradeKit.Core.ElliottWave
             RequireWave4Shorter = requireWave4Shorter;
             RequireWave2Shorter = requireWave2Shorter;
             MinWave2Retrace = Math.Max(0, minWave2Retrace);
+            MaxWave2Retrace = Math.Max(0, maxWave2Retrace);
             MinWave4Wave2DurationRatio = Math.Max(0, minWave4Wave2DurationRatio);
             MinWave3Wave1DurationRatio = Math.Max(0, minWave3Wave1DurationRatio);
             MinWave2Wave1DurationRatio = Math.Max(0, minWave2Wave1DurationRatio);
@@ -1327,6 +1338,14 @@ namespace TradeKit.Core.ElliottWave
             if (MinWave2Retrace > 0 && w2 < MinWave2Retrace * w1)
             {
                 Bump("w2RetraceTooShallow", p0);
+                return;
+            }
+
+            // D-W2-RET-MAX (optional): wave 2 gives back no more than this share of wave 1 —
+            // diagonals never show deep second waves.
+            if (MaxWave2Retrace > 0 && w2 > MaxWave2Retrace * w1)
+            {
+                Bump("w2RetraceTooDeep", p0);
                 return;
             }
 

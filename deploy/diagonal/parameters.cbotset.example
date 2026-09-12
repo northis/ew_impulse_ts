@@ -35,6 +35,7 @@
     "RequireWave4Shorter": "True",
     "RequireWave2Shorter": "False",
     "MinWave2Retrace": "0",
+    "MaxWave2Retrace": "0",
     "MaxWaveDurationRatio": "8",
     "RequireWave5Ratio": "False",
     "RequireWave4Ratio": "False",

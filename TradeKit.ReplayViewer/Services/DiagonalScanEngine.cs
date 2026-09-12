@@ -59,6 +59,7 @@ public sealed class DiagonalScanEngine
             req.MaxWaveDurationRatio,
             requireWave2Shorter: req.RequireWave2Shorter,
             minWave2Retrace: req.MinWave2Retrace,
+            maxWave2Retrace: req.MaxWave2Retrace,
             maxWave5SpillRatio: req.MaxWave5SpillRatio);
 
         var setups = new List<TriangleSetupDto>();
@@ -202,4 +203,5 @@ public sealed record DiagonalScanRequest(
     double MaxWaveDurationRatio = 8.0,
     bool RequireWave2Shorter = false,
     double MinWave2Retrace = 0,
+    double MaxWave2Retrace = 0,
     double MaxWave5SpillRatio = 0);

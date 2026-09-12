@@ -35,7 +35,7 @@ namespace TradeKit.CTrader.Diagonal
                 RequireWave5Ratio, RequireWave4Ratio, RequireInitialDiagonal,
                 MinWave3Penetration, MaxWaveDurationRatio, RetraceAction, MinRiskRewardRatio,
                 Wave3RetraceRatio, MinWave4Wave2Level, RequireWave4Shorter,
-                RequireWave2Shorter, MinWave2Retrace, MaxWave5SpillRatio,
+                RequireWave2Shorter, MinWave2Retrace, MaxWave2Retrace, MaxWave5SpillRatio,
                 MinWave4Wave2DurationRatio, MinWave3Wave1DurationRatio,
                 MinWave2Wave1DurationRatio, RequireThickWaveEnds,
                 GetThinMarketGuardParams());
@@ -138,6 +138,14 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min W2 retrace of W1", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinWave2Retrace { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum retracement of wave 1 by wave 2 as a share of |W1|
+        /// (D-W2-RET-MAX, DIAGONAL.md §4): deep second waves do not occur in diagonals.
+        /// 0 — no limit.
+        /// </summary>
+        [Parameter("Max W2 retrace of W1", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxWave2Retrace { get; set; }
 
         /// <summary>
         /// Gets or sets the tolerated spill area over the span of wave 5 (D-INSIDE-5,

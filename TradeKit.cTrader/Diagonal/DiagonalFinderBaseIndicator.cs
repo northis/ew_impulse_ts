@@ -235,6 +235,7 @@ namespace TradeKit.CTrader.Diagonal
                 requireWave4Shorter: RequireWave4Shorter,
                 requireWave2Shorter: RequireWave2Shorter,
                 minWave2Retrace: MinWave2Retrace,
+                maxWave2Retrace: MaxWave2Retrace,
                 maxWave5SpillRatio: MaxWave5SpillRatio,
                 minWave4Wave2DurationRatio: MinWave4Wave2DurationRatio,
                 minWave3Wave1DurationRatio: MinWave3Wave1DurationRatio,
@@ -351,6 +352,14 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min W2 retrace of W1", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinWave2Retrace { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum retracement of wave 1 by wave 2 as a share of |W1|
+        /// (D-W2-RET-MAX, DIAGONAL.md §4): deep second waves do not occur in diagonals.
+        /// 0 — no limit.
+        /// </summary>
+        [Parameter("Max W2 retrace of W1", DefaultValue = 0.0, MinValue = 0, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MaxWave2Retrace { get; set; }
 
         /// <summary>
         /// Gets or sets the tolerated spill area over the span of wave 5 (D-INSIDE-5,
