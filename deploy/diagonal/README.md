@@ -14,7 +14,8 @@
 | `entrypoint.sh` | переключение live/backtest по `MODE` |
 | `.env.example` | шаблон авторизации и секретов (cTID/счёт/symbol/period/Telegram) → скопируй в `.env` |
 | `parameters.cbotset.example` | шаблон параметров бота → скопируй в `parameters.cbotset` |
-| `build-algo.ps1` | собирает `.algo` из исходников и кладёт в `./algo/` |
+| `build-algo.ps1` | собирает `.algo` из исходников и кладёт в `./algo/` (+ метаданные параметров) |
+| `sync-params.ps1` | сверяет `parameters.cbotset` с параметрами собранного `.algo` (`-Fix` — актуализировать) |
 | `algo/` *(gitignored)* | собранный `DiagonalSignalerBot.algo` |
 | `secrets/ctrader-cli.pwd` *(gitignored)* | пароль cTID (одна строка) |
 | `reports/` *(gitignored)* | вывод бектеста (`report.html`, `report.json`, `Backtesting/`) |
@@ -134,6 +135,17 @@ docker compose up -d
 | `ThinMarketRiskBufferRatio` | `0.25` | буфер стопа как доля риска `\|entry − SL\|` — безразмерная половина `max()`, работает и там, где спреда не видно |
 | `ThinMarketDailyBreakStart` / `ThinMarketDailyBreakEnd` | `21:00` / `22:00` | дневной ролловер-перерыв в UTC (`HH:mm`), **под своего брокера**: сервер GMT+2/+3 стоит на паузе около 22:00 UTC зимой и 21:00 UTC летом. Пусто = перерыва нет, окно строится только по сессиям символа (выходные/праздники) |
 | `MinSizePercent`, `Period`, `BarsCount` | — | параметры зигзага/диагонали |
+| `MinConvergence` | `0` | насколько сильно линии 1-3 и 2-4 должны сходиться (DIAGONAL.md §4.2): `0` — параллельность и любое схождение, `+1` — к точке 4 клин минимум вдвое уже, `-1` — фильтр выключен |
+| `MaxConvergence` | `0` | верхняя граница схождения тех же линий: `0` — потолка нет, `+1` — к точке 4 клин может быть не более чем вдвое уже, `+2` — не более чем втрое |
+| `RequireInsideWedge` | `True` | требовать, чтобы бары сетапа оставались внутри клина 1-3/2-4 |
+| `MaxSpillAreaRatio` | `0.005` | допуск на «выплёскивание» цены за линии клина, доля площади диагонали |
+| `MinWave3Penetration` | `0.03` | насколько волна 3 должна заходить за точку 1 (в долях диагонали) |
+| `MaxWaveDurationRatio` | `8` | максимальное отношение длительности волны к средней длительности диагонали |
+| `RequireWave5Ratio` / `RequireWave4Ratio` | `False` | требовать, чтобы W5 (W4) составляла ≥ 78.6% от W3 (W2) |
+| `RequireInitialDiagonal` | `False` | требовать «заходности» диагонали: перед точкой 0 должна быть коррекция, покрывающая всю диагональ (D-INIT) |
+| `MinWave2Retrace` / `MaxWave2Retrace` | `0` | границы отката W2 от W1 (`0` — граница выключена) |
+| `MaxWave5SpillRatio` | `0` | максимальный выброс W5 за линию 1-3 (`0` — выключено) |
+| `MinWave4Wave2DurationRatio`, `MinWave3Wave1DurationRatio`, `MinWave2Wave1DurationRatio` | `0` | минимальные отношения длительностей пар волн (`0` — выключено) |
 
 Любой параметр можно убрать из файла — тогда бот возьмёт свой скомпилированный
 дефолт. Полный список с дефолтами:
@@ -146,6 +158,34 @@ docker run --rm -v "$(pwd)/algo:/mnt/algo:ro" \
 Значения в `.cbotset` — **строки**: булевы `"True"`/`"False"`, числа `"1.0"`.
 Desktop-версия cTrader сохраняет файл с блоком `"Chart"` (Symbol/Period) — CLI его
 игнорирует, потому что `--symbol`/`--period` задаются флагами.
+
+### 5.1. Актуализация бота после изменения кода
+
+Ключи `.cbotset` — это **имена свойств C#** с атрибутом `[Parameter]`, а не подписи
+из UI (в метаданных это `PropertyName` против `FriendlyName`). Когда код cBot
+меняется, файл параметров рассинхронизируется, и CLI ведёт себя по-разному:
+
+* в файле есть ключ, которого в боте уже нет → контейнер падает на старте:
+  `Error: Unknown cBot parameters found: MaxConvergence`;
+* в боте есть параметр, которого нет в файле → **тихо** берётся скомпилированный
+  дефолт, и бот работает не с теми настройками, что написаны в файле.
+
+Поэтому после `git pull` или правок кода:
+
+```powershell
+cd deploy/diagonal
+powershell -File .\build-algo.ps1        # пересобрать .algo из текущих исходников
+powershell -File .\sync-params.ps1       # проверить parameters.cbotset (exit 1 при расхождении)
+powershell -File .\sync-params.ps1 -Fix  # актуализировать файл параметров
+docker compose restart                   # .algo и .cbotset — bind-mount'ы, образ пересобирать не нужно
+```
+
+`build-algo.ps1` кладёт рядом с `.algo` файл `DiagonalSignalerBot.algo.metadata` и в
+конце сам прогоняет проверку, так что расхождение видно ещё до запуска контейнера.
+`sync-params.ps1 -Fix` сохраняет выставленные значения (тюнинг не теряется), удаляет
+неизвестные ключи и дописывает недостающие параметры с их скомпилированными
+дефолтами. Значения вне `MinValue`/`MaxValue` и невалидные булевы он не правит, а
+показывает списком.
 
 ## 6. Шрифты SVG-отчёта
 
@@ -241,3 +281,8 @@ docker run --rm -v "$(pwd)/secrets:/mnt/secrets:ro" \
 - `parameters.cbotset` монтируется как bind-mount — файл **должен существовать** до
   `docker compose up` (иначе Docker создаст на его месте пустую папку). Сделай
   `Copy-Item parameters.cbotset.example parameters.cbotset` (шаг 3.3).
+- В `./algo/` кроме `.algo` лежит `DiagonalSignalerBot.algo.metadata` — снимок
+  параметров собранного бота. Его использует `sync-params.ps1`; папка gitignored,
+  поэтому метаданные всегда соответствуют тому `.algo`, который смонтирован.
+- Ошибка `Unknown cBot parameters found: <Name>` означает, что `.cbotset` новее
+  `.algo` (или наоборот): сначала `build-algo.ps1`, потом `sync-params.ps1 -Fix`.
