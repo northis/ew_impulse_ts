@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
@@ -17,9 +18,19 @@ public sealed class DiagonalScanEngine
     /// <summary>Extra bars shown to the right of the outcome on the chart.</summary>
     private const int RIGHT_PADDING_BARS = 6;
 
+    /// <summary>
+    /// Bars of history replayed before the requested window. The finder is causal and needs
+    /// a zigzag/candidate warm-up; replaying the whole 2017 history for a 2026 window made
+    /// the panel look frozen. 2,000 bars covers the auto period and the scale ladder; a
+    /// manually larger period gets a proportional warm-up.
+    /// </summary>
+    private const int MIN_WARMUP_BARS = 2000;
+
     /// <summary>Runs a scan over the requested file and date range.</summary>
     public TriangleScanResult Scan(string csvPath, DiagonalScanRequest req)
     {
+        var totalWatch = Stopwatch.StartNew();
+
         // ── 1. Resolve symbol/timeframe and load candles (with correct price digits) ──
         ITimeFrame tf = ResolveTimeFrame(csvPath);
 
@@ -43,11 +54,15 @@ public sealed class DiagonalScanEngine
         if (endBar <= 0 || endBar >= n) endBar = n - 1;
         if (startBar < 0) startBar = 0;
 
+        // Replay only a bounded warm-up before the requested window. A full-range scan
+        // still starts at bar 0; a 2026 window on a 2017 file no longer replays 2017-2025.
+        int warmupBars = Math.Max(MIN_WARMUP_BARS, Math.Max(0, req.Period) * 20);
+        int warmupStart = Math.Max(0, startBar - warmupBars);
+
         // ── 2. Build the finder from the page inputs ──
         var ewParams = new EWParams(req.Period, req.MinSizePercent, req.BarsCount);
-        // The panel is a session-specific research view: only the exact corridor and the
-        // TP/SL handles that were calibrated in this session are exposed. Every other gate
-        // keeps the value the exact archive replay used.
+        // The panel exposes the exact corridor, the TP/SL handles, the leading/ending
+        // policy and the wave-5 spill / hard R:R gates (DIAGONAL.md §9.36–§9.37).
         var finder = new DiagonalSetupFinder(
             provider, symbol, ewParams,
             takeProfitRatio: 1.0,
@@ -70,7 +85,15 @@ public sealed class DiagonalScanEngine
             maxWave2Retrace: 0,
             maxWave5SpillRatio: 0,
             takeProfitRetraceRatio: req.TakeProfitRetraceRatio,
-            stopWave3Ratio: req.StopWave3Ratio);
+            stopWave3Ratio: req.StopWave3Ratio,
+            wave5SpillMode: req.Wave5SpillMode,
+            wave5SpillThreshold: req.Wave5SpillThreshold,
+            minSignalRiskRewardRatio: req.MinSignalRiskRewardRatio,
+            initialMode: req.InitialMode);
+
+        Console.WriteLine(
+            $"[diagonal] init {totalWatch.Elapsed.TotalSeconds:F1}s " +
+            $"(bars {n}, window {startBar}..{endBar}, warmup {warmupStart})");
 
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
@@ -78,7 +101,8 @@ public sealed class DiagonalScanEngine
 
         finder.OnEnter += (_, args) =>
         {
-            enterCount++;
+            if (args.Level.BarIndex >= startBar)
+                enterCount++;
             bool isUp = args.TakeProfit.Value > args.StopLoss.Value;
             var wavePoints = args.WavePoints
                 .Select(p => new TriangleWavePointDto { Bar = p.BarIndex, Price = p.Value })
@@ -114,14 +138,19 @@ public sealed class DiagonalScanEngine
 
         finder.MarkAsInitialized();
 
-        // ── 3. Drive the finder bar-by-bar (causal). Warm up from bar 0 so the
-        //       zigzag has history; stop once past the window with no open trade. ──
-        for (int bar = 0; bar < n; bar++)
+        // ── 3. Drive the finder bar-by-bar (causal) from the bounded warm-up start;
+        //       stop once past the window with no open trade. ──
+        var replayWatch = Stopwatch.StartNew();
+        for (int bar = warmupStart; bar < n; bar++)
         {
             if (bar > endBar && !finder.IsInSetup)
                 break;
             finder.CheckBar(provider.GetOpenTime(bar));
         }
+
+        Console.WriteLine(
+            $"[diagonal] replay {replayWatch.Elapsed.TotalSeconds:F1}s " +
+            $"(bars {n - warmupStart})");
 
         // ── 4. Keep only resolved (TP/SL) setups whose entry is inside the window ──
         var kept = setups
@@ -149,6 +178,10 @@ public sealed class DiagonalScanEngine
                 .Skip(minBar).Take(maxBar - minBar + 1).ToList();
         }
 
+        Console.WriteLine(
+            $"[diagonal] done {totalWatch.Elapsed.TotalSeconds:F1}s " +
+            $"(kept {kept.Count}, resolved {setups.Count}, candles {candles.Count})");
+
         return new TriangleScanResult
         {
             Symbol = symbolName,
@@ -161,7 +194,7 @@ public sealed class DiagonalScanEngine
             Candles = candles,
             Setups = kept,
             EnterCount = enterCount,
-            ResolvedCount = setups.Count,
+            ResolvedCount = kept.Count,
             BarCount = n
         };
     }
@@ -217,4 +250,8 @@ public sealed record DiagonalScanRequest(
     double MaxWave5SpillRatio = 0,
     double TakeProfitRetraceRatio = 0.236,
     double StopWave3Ratio = 1.0,
-    double MaxWave4RetraceW3 = 0.382);
+    double MaxWave4RetraceW3 = 0.382,
+    DiagonalInitialMode InitialMode = DiagonalInitialMode.ALL,
+    DiagonalWave5SpillMode Wave5SpillMode = DiagonalWave5SpillMode.ALL,
+    double Wave5SpillThreshold = 0.005,
+    double MinSignalRiskRewardRatio = 0);

@@ -20,6 +20,14 @@ ReplayEngine? engine = null;
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
+// The diagonal panel sends the new three-way modes (InitialMode, Wave5SpillMode) as
+// strings; minimal APIs need an explicit converter to bind them to the enums.
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+{
+    options.SerializerOptions.Converters.Add(
+        new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
+
 WebApplication app = builder.Build();
 app.UseCors();
 app.UseDefaultFiles();

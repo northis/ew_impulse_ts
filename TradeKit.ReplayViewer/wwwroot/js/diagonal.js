@@ -35,6 +35,7 @@ window.addEventListener('resize', () => {
 
 // ── State ──
 let scan = null;              // last scan result
+let scanTimer = null;         // elapsed-time ticker for long scans
 let candleByBar = new Map();  // absolute barIndex → candle DTO
 let currentFileInfo = null;   // { firstBarTime, lastBarTime, barCount }
 let idx = -1;                 // current setup index
@@ -228,6 +229,9 @@ function renderGeometry(s) {
     $('gPeriod').textContent = scan && scan.usedPeriod != null ? scan.usedPeriod : '—';
     $('gTpRetrace').textContent = numVal('pTpRetraceRatio', 0.236).toFixed(3);
     $('gStopW3').textContent = numVal('pStopW3', 1.0).toFixed(2);
+    $('gInitialMode').textContent = $('pInitialMode').value;
+    $('gWave5SpillMode').textContent = $('pWave5SpillMode').value;
+    $('gMinSignalRr').textContent = numVal('pMinSignalRr', 0).toFixed(2);
 }
 
 function renderQuestion(s) {
@@ -349,7 +353,15 @@ async function runScan() {
     if (!file || file.startsWith('--')) { $('status').textContent = 'Выберите файл'; return; }
 
     $('btnScan').disabled = true;
+    const scanStartedAt = Date.now();
     $('status').textContent = 'Сканирование...';
+    if (scanTimer) clearInterval(scanTimer);
+    scanTimer = setInterval(() => {
+        const seconds = Math.floor((Date.now() - scanStartedAt) / 1000);
+        $('status').textContent = seconds < 10
+            ? 'Сканирование...'
+            : `Сканирование... ${seconds} с (большой файл — подождите)`;
+    }, 500);
 
     const body = {
         file,
@@ -361,7 +373,11 @@ async function runScan() {
         takeProfitRetraceRatio: numVal('pTpRetraceRatio', 0.236),
         stopWave3Ratio: numVal('pStopW3', 1.0),
         minWave2Retrace: numVal('pW2Retrace', 0.5),
-        maxWave4RetraceW3: numVal('pMaxW4W3', 0.382)
+        maxWave4RetraceW3: numVal('pMaxW4W3', 0.382),
+        initialMode: $('pInitialMode').value,
+        wave5SpillMode: $('pWave5SpillMode').value,
+        wave5SpillThreshold: numVal('pWave5SpillThreshold', 0.005),
+        minSignalRiskRewardRatio: numVal('pMinSignalRr', 0)
     };
 
     try {
@@ -375,10 +391,13 @@ async function runScan() {
             throw new Error(err.title || err.error || res.statusText);
         }
         scan = await res.json();
+        if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
         onScanLoaded();
     } catch (e) {
+        if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
         $('status').textContent = 'Ошибка: ' + e.message;
     } finally {
+        if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
         $('btnScan').disabled = false;
     }
 }
@@ -496,6 +515,9 @@ async function onFileSelected() {
             $('inpToDate').value = isoToDateValue(info.lastBarTime);
             $('inpFromDate').min = $('inpToDate').min = isoToDateValue(info.firstBarTime);
             $('inpFromDate').max = $('inpToDate').max = isoToDateValue(info.lastBarTime);
+            $('status').textContent = info.barCount > 50000
+                ? `Большой файл (${info.barCount} баров): выберите дату начала — полный скан может занять минуты`
+                : 'Готов';
         } else {
             $('rangeInfo').textContent = '';
         }
@@ -521,7 +543,8 @@ $('btnRandom').addEventListener('click', randomStartDate);
 // ── Sliders and presets ──
 const PARAM_IDS = [
     'pPeriod', 'pMinSize', 'pBars', 'pTpRetraceRatio',
-    'pStopW3', 'pW2Retrace', 'pMaxW4W3'
+    'pStopW3', 'pW2Retrace', 'pMaxW4W3',
+    'pWave5SpillThreshold', 'pMinSignalRr'
 ];
 
 function syncParamReadouts() {
@@ -533,6 +556,10 @@ function syncParamReadouts() {
     $('vStopW3').textContent = numVal('pStopW3', 1.0).toFixed(1);
     $('vW2Retrace').textContent = numVal('pW2Retrace', 0.5).toFixed(2);
     $('vMaxW4W3').textContent = numVal('pMaxW4W3', 0.382).toFixed(3);
+    $('vWave5SpillThreshold').textContent = numVal('pWave5SpillThreshold', 0.005).toFixed(3);
+    $('vMinSignalRr').textContent = numVal('pMinSignalRr', 0).toFixed(2);
+    $('vInitialMode').textContent = $('pInitialMode').value;
+    $('vWave5SpillMode').textContent = $('pWave5SpillMode').value;
 
     if (scan && idx >= 0 && idx < scan.setups.length)
         renderGeometry(scan.setups[idx]);
@@ -540,6 +567,9 @@ function syncParamReadouts() {
 
 for (const id of PARAM_IDS)
     $(id).addEventListener('input', syncParamReadouts);
+
+for (const id of ['pInitialMode', 'pWave5SpillMode'])
+    $(id).addEventListener('change', syncParamReadouts);
 
 document.querySelectorAll('.preset').forEach(btn => {
     btn.addEventListener('click', () => {

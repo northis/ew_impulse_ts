@@ -137,6 +137,12 @@
 #btnPanelClose:hover { color: #d1d5db; }
 
 .param-slider { margin-bottom: 10px; }
+.param-select { margin-bottom: 10px; }
+.param-select select {
+  width: 100%; background: #1a1d23; color: #d1d5db;
+  border: 1px solid #444a55; border-radius: 4px;
+  padding: 4px 8px; font-size: 12px; cursor: pointer;
+}
 .param-details { margin-bottom: 10px; }
 .param-details summary {
   cursor: pointer; color: #8892a0; font-size: 12px; padding: 4px 0;

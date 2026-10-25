@@ -1221,9 +1221,13 @@ DiagonalCandidate {
   (`TriangleScanResult` / `TriangleSetupDto`, 6 wave-точек 0–5); запрос —
    `DiagonalScanRequest { File, FromDate, ToDate, Period, MinSizePercent,
    BarsCount, TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio,
-   RequireInitialDiagonal, TakeProfitAtRetrace, MinConvergence, MaxConvergence,
+   InitialMode, TakeProfitAtRetrace, MinConvergence, MaxConvergence,
    RequireInsideWedge, MaxSpillAreaRatio, MinWave2Retrace, MaxWave2Retrace,
-   MaxWave5SpillRatio }`.
+   MaxWave5SpillRatio, TakeProfitRetraceRatio, StopWave3Ratio,
+   MaxWave4RetraceW3, Wave5SpillMode, Wave5SpillThreshold,
+   MinSignalRiskRewardRatio }`. Строковые enum-значения (`ALL`, `LEADING`,
+   `ENDING`, `ONLY_SPILL`, `EXCLUDE_SPILL`) биндятся через
+   `JsonStringEnumConverter`, добавленный в `Program.cs`.
 - **`POST /api/diagonal/scan`** в [Program.cs](TradeKit.ReplayViewer/Program.cs) —
   по образцу `/api/rtriangle/scan` (имя файла нормализуется
   `Path.GetFileName`, чтобы запрос не вышел за `dataDir`).
@@ -1231,11 +1235,19 @@ DiagonalCandidate {
   [diagonal.js](TradeKit.ReplayViewer/wwwroot/js/diagonal.js)** — quiz-UI:
   зигзаг 0-1-2-3-4-5, трендлинии 1-3 и 2-4 (сходящийся клин), уровни
   W3/entry/TP/SL, маркеры волн; пользователь угадывает исход (TP/SL),
-  статистика ответов. Параметры: Период (0=авто), Размер %, Баров,
-   R:R, числовое поле «Сходимость» (0 по умолчанию) и поле «Сходимость макс»
-   (0 по умолчанию — порог отключён), чекбокс «Бары в клине»
-   с полем «Выброс», «Выброс W5», «Откат W2», «Откат W2 макс», «W5 ≥ 78%»,
-   «W4 ≥ 78%», «Заходность диагонали» и «TP 23.6%».
+  статистика ответов. Параметры панели: Период (0=авто), Размер %, Баров,
+   TP retrace, SL × |W3|, W2 retrace, W4/W3 max, **Initial diagonal**
+   (`ALL` / `LEADING` / `ENDING`), **W5 spill mode** (`ALL` / `ONLY_SPILL` /
+   `EXCLUDE_SPILL`), **W5 spill threshold** и **Min R:R to take**.
+   Текущие значения также выводятся в блоке геометрии сетапа.
+- **Производительность.** `DiagonalScanEngine` прогревает финдер только
+  `max(2000, 20×Period)` баров **до** выбранной даты начала, а не с начала
+  файла. На 209k-баровом m15 окно 2026 года теперь занимает ~11–16 с вместо
+  ~238 с (полный прогон 2017–2026 всё равно ~238 с: финдер обязан проиграть
+  всю историю). h1-файл 2017–2026 — ~66 с. В UI после 10 с показывается
+  счётчик `Сканирование... N с`, в лог пишутся
+  `[diagonal] init/replay/done` с таймингами. Для больших файлов лучше
+  выбирать диапазон, а не сканировать всю историю.
 - Ссылка «◺ Диагонали» добавлена в навигацию index/impulse/triangle/rtriangle.
 
 ### 9.3. Критерии приёмки самотеста

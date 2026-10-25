@@ -87,6 +87,36 @@
           <div class="param-range"><span>0</span><span>1.0</span></div>
         </div>
 
+        <div class="param-select">
+          <div class="param-slider-head"><label for="pInitialMode">Initial diagonal</label><span id="vInitialMode">ALL</span></div>
+          <select id="pInitialMode">
+            <option value="ALL" selected>ALL — все</option>
+            <option value="LEADING">LEADING — только начальные</option>
+            <option value="ENDING">ENDING — только конечные</option>
+          </select>
+        </div>
+
+        <div class="param-select">
+          <div class="param-slider-head"><label for="pWave5SpillMode">W5 spill mode</label><span id="vWave5SpillMode">ALL</span></div>
+          <select id="pWave5SpillMode">
+            <option value="ALL" selected>ALL — без фильтра</option>
+            <option value="ONLY_SPILL">ONLY_SPILL — только throw-over</option>
+            <option value="EXCLUDE_SPILL">EXCLUDE_SPILL — только чистый клин</option>
+          </select>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pWave5SpillThreshold">W5 spill threshold</label><span id="vWave5SpillThreshold">0.005</span></div>
+          <input type="range" id="pWave5SpillThreshold" min="0" max="0.2" step="0.001" value="0.005">
+          <div class="param-range"><span>0</span><span>0.20</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pMinSignalRr">Min R:R to take</label><span id="vMinSignalRr">0.00</span></div>
+          <input type="range" id="pMinSignalRr" min="0" max="2" step="0.05" value="0">
+          <div class="param-range"><span>0 (off)</span><span>2.0</span></div>
+        </div>
+
         <div class="preset-row">
           <button type="button" class="preset" data-retrace="0.236" data-stop="1.0">База 0.236 / 1.0</button>
           <button type="button" class="preset" data-retrace="0.5" data-stop="2.0">Регион 0.5 / 2.0</button>
@@ -128,6 +158,9 @@
             <div class="geo-row"><span>Период</span><span id="gPeriod">—</span></div>
             <div class="geo-row"><span>TP retrace</span><span id="gTpRetrace">—</span></div>
             <div class="geo-row"><span>SL × |W3|</span><span id="gStopW3">—</span></div>
+            <div class="geo-row"><span>Initial mode</span><span id="gInitialMode">—</span></div>
+            <div class="geo-row"><span>W5 spill mode</span><span id="gWave5SpillMode">—</span></div>
+            <div class="geo-row"><span>Min R:R</span><span id="gMinSignalRr">—</span></div>
           </div>
 
           <div class="decide-btns">
