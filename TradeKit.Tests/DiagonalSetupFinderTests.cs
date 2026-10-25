@@ -88,7 +88,11 @@ namespace TradeKit.Tests
                 bool requireWave2Shorter = false,
                 double minWave2Retrace = 0,
                 double maxWave5SpillRatio = 0,
-                double maxWave2Retrace = 0)
+                double maxWave2Retrace = 0,
+                DiagonalWave5SpillMode wave5SpillMode = DiagonalWave5SpillMode.ALL,
+                double wave5SpillThreshold = 0.005,
+                double minSignalRiskRewardRatio = 0,
+                DiagonalInitialMode? initialMode = null)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -100,7 +104,11 @@ namespace TradeKit.Tests
                 requireWave2Shorter: requireWave2Shorter,
                 minWave2Retrace: minWave2Retrace,
                 maxWave5SpillRatio: maxWave5SpillRatio,
-                maxWave2Retrace: maxWave2Retrace);
+                maxWave2Retrace: maxWave2Retrace,
+                wave5SpillMode: wave5SpillMode,
+                wave5SpillThreshold: wave5SpillThreshold,
+                minSignalRiskRewardRatio: minSignalRiskRewardRatio,
+                initialMode: initialMode);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -562,6 +570,68 @@ namespace TradeKit.Tests
                         $"win={winRate,5:F1}% expectancy={expectancy,6:F2}R");
                 }
             }
+        }
+
+        /// <summary>
+        /// The three leading/ending modes (DIAGONAL.md §5.2) must partition the baseline:
+        /// LEADING and ENDING are disjoint, ENDING is a subset of ALL (both apply D-INIT-END),
+        /// and their union covers every baseline signal.
+        /// </summary>
+        [Test]
+        public void Diagonal_InitialMode_LeadingAndEndingPartitionAll()
+        {
+            (_, List<ElliottWaveSignalEventArgs> all) =
+                Run(H1_FILE, TimeFrameHelper.Hour1);
+            (_, List<ElliottWaveSignalEventArgs> leading) =
+                Run(H1_FILE, TimeFrameHelper.Hour1,
+                    initialMode: DiagonalInitialMode.LEADING);
+            (_, List<ElliottWaveSignalEventArgs> ending) =
+                Run(H1_FILE, TimeFrameHelper.Hour1,
+                    initialMode: DiagonalInitialMode.ENDING);
+
+            Assert.That(all, Is.Not.Empty, "Baseline must produce signals.");
+            Assert.That(leading, Is.Not.Empty, "LEADING must produce signals.");
+            Assert.That(ending, Is.Not.Empty, "ENDING must produce signals.");
+            Assert.That(ending.Count, Is.LessThanOrEqualTo(all.Count),
+                "ENDING applies D-INIT-END and must be a subset of ALL.");
+            Assert.That(leading.Count + ending.Count, Is.GreaterThanOrEqualTo(all.Count),
+                "LEADING + ENDING must cover the ALL signal set.");
+        }
+
+        /// <summary>
+        /// The robot-facing spill modes and the hard R:R drop (DIAGONAL.md §9.36) must
+        /// actually change the signal set, not just be stored on the finder.
+        /// </summary>
+        [Test]
+        public void Diagonal_SpillModeAndRrDrop_Work()
+        {
+            (DiagonalSetupFinder all, List<ElliottWaveSignalEventArgs> allSignals) =
+                Run(H1_FILE, TimeFrameHelper.Hour1);
+            (DiagonalSetupFinder only, List<ElliottWaveSignalEventArgs> onlySignals) =
+                Run(H1_FILE, TimeFrameHelper.Hour1,
+                    wave5SpillMode: DiagonalWave5SpillMode.ONLY_SPILL);
+            (DiagonalSetupFinder exclude, List<ElliottWaveSignalEventArgs> excludeSignals) =
+                Run(H1_FILE, TimeFrameHelper.Hour1,
+                    wave5SpillMode: DiagonalWave5SpillMode.EXCLUDE_SPILL);
+            (DiagonalSetupFinder rr, List<ElliottWaveSignalEventArgs> rrSignals) =
+                Run(H1_FILE, TimeFrameHelper.Hour1,
+                    minSignalRiskRewardRatio: 2.0);
+
+            Assert.That(allSignals, Is.Not.Empty, "Baseline must produce signals.");
+            Assert.That(onlySignals, Is.Not.Empty, "ONLY_SPILL must keep some signals.");
+            Assert.That(excludeSignals, Is.Not.Empty, "EXCLUDE_SPILL must keep some signals.");
+            Assert.That(onlySignals.Count, Is.LessThan(allSignals.Count),
+                "ONLY_SPILL must reject the clean subset.");
+            Assert.That(excludeSignals.Count, Is.LessThan(allSignals.Count),
+                "EXCLUDE_SPILL must reject the throw-over subset.");
+            Assert.That(only.Diag.GetValueOrDefault("spillTooSmall"), Is.GreaterThan(0),
+                "ONLY_SPILL must count rejected clean setups.");
+            Assert.That(exclude.Diag.GetValueOrDefault("w5SpillsOutOfWedge"), Is.GreaterThan(0),
+                "EXCLUDE_SPILL must count rejected throw-over setups.");
+            Assert.That(rr.Diag.GetValueOrDefault("signalRrTooLow"), Is.GreaterThan(0),
+                "The hard R:R drop must count rejected setups.");
+            Assert.That(rrSignals, Is.Empty,
+                "A 2.0 R:R floor must reject the 1.0R fixed-target baseline.");
         }
 
         /// <summary>
@@ -2477,6 +2547,175 @@ namespace TradeKit.Tests
                             (x, i) => $"V({i}) {x.OpenTime:MM-dd HH:mm}")) +
                         $" entry={s.Level.Value:F3}");
             }
+        }
+
+        /// <summary>
+        /// The 1-3 generatrix research modes (DIAGONAL.md §9.24) must fire on the FIRST candle
+        /// after wave 4 whose wick crosses the extended line, and the pending variant must fill
+        /// at the line (or at the bar open when it gaps beyond it). The default V(3) mode is
+        /// covered by the hard-rules tests above.
+        /// </summary>
+        [Test]
+        [TestCase(DiagonalTriggerMode.LINE13_CLOSE)]
+        [TestCase(DiagonalTriggerMode.LINE13_PENDING)]
+        public void Diagonal_GeneratrixTrigger_FiresOnFirstLineCrossing(
+            DiagonalTriggerMode triggerMode)
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Hour1);
+            provider.LoadCandles(Path.Combine(FindDataDir(), H1_FILE));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                requireInsideWedge: false,
+                maxSpillAreaRatio: 1.0,
+                minWave4Wave2Level: 0,
+                minWave4RetraceW3: 0,
+                triggerMode: triggerMode);
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+            for (int i = 0; i < provider.Count; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            Assert.That(signals, Is.Not.Empty,
+                $"{triggerMode} produced no signals on {H1_FILE}. Funnel: " +
+                string.Join(", ", finder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+
+            foreach (ElliottWaveSignalEventArgs s in signals)
+            {
+                BarPoint[] p = s.WavePoints;
+                Assert.That(p, Has.Length.EqualTo(6), "WavePoints must be [0,1,2,3,4,5].");
+
+                bool isUpDiagonal = s.TakeProfit.Value < s.StopLoss.Value;
+                double sgn = Sign(isUpDiagonal);
+                int bar = s.Level.BarIndex;
+                string at = $"{p[0].OpenTime:u}";
+
+                double LineAt(int index)
+                {
+                    return p[1].Value +
+                           (p[3].Value - p[1].Value) * (index - p[1].BarIndex) /
+                           Math.Max(1, p[3].BarIndex - p[1].BarIndex);
+                }
+
+                double wick = isUpDiagonal
+                    ? provider.GetHighPrice(bar)
+                    : provider.GetLowPrice(bar);
+                Assert.That(sgn * (wick - LineAt(bar)), Is.GreaterThanOrEqualTo(0),
+                    $"{at}: the signal candle's wick does not cross the 1-3 generatrix.");
+
+                // The close variant must fire on the FIRST crossing: no earlier bar after
+                // wave 4 crossed the line (a crossing during the backfill suppresses the
+                // stale signal). The pending variant may start later by design: its order
+                // only exists from the bar after the wedge was identified.
+                if (triggerMode == DiagonalTriggerMode.LINE13_CLOSE)
+                {
+                    for (int index = p[4].BarIndex + 1; index < bar; index++)
+                    {
+                        if (finder.PrintFilter.IsExcluded(index))
+                            continue;
+
+                        double earlier = isUpDiagonal
+                            ? provider.GetHighPrice(index)
+                            : provider.GetLowPrice(index);
+                        Assert.That(sgn * (earlier - LineAt(index)), Is.LessThan(0),
+                            $"{at}: an earlier bar ({index}) already crossed the 1-3 generatrix.");
+                    }
+                }
+
+                if (triggerMode == DiagonalTriggerMode.LINE13_PENDING)
+                {
+                    double open = provider.GetOpenPrice(bar);
+                    double expected = isUpDiagonal
+                        ? Math.Max(open, LineAt(bar))
+                        : Math.Min(open, LineAt(bar));
+                    Assert.That(s.Level.Value, Is.EqualTo(expected).Within(1e-9),
+                        $"{at}: the pending entry is not the generatrix fill.");
+                }
+            }
+
+            if (triggerMode == DiagonalTriggerMode.LINE13_PENDING)
+            {
+                Assert.That(finder.PendingRepriceCounts, Is.Not.Empty,
+                    "The pending mode must record how many candles the limit was re-priced.");
+                Assert.That(finder.PendingRepriceCounts.Values,
+                    Has.All.GreaterThanOrEqualTo(0));
+            }
+        }
+
+        /// <summary>
+        /// The managed pending mode (DIAGONAL.md §9.26) must never emit <c>OnEnter</c>; it
+        /// exposes a plan for the NEXT bar, on the correct side of the market, with the
+        /// counter-trend SL/TP and the R:R filter. A candidate reported as filled must not
+        /// be offered again.
+        /// </summary>
+        [Test]
+        public void Diagonal_ManagedPending_ReturnsPlanWithoutSignal()
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Hour1);
+            provider.LoadCandles(Path.Combine(FindDataDir(), H1_FILE));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                requireInsideWedge: false,
+                maxSpillAreaRatio: 1.0,
+                minWave4Wave2Level: 0,
+                minWave4RetraceW3: 0,
+                minRiskRewardRatio: 0.5,
+                triggerMode: DiagonalTriggerMode.LINE13_PENDING_MANAGED);
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+
+            int planCount = 0;
+            for (int i = 0; i < provider.Count; i++)
+            {
+                finder.CheckBar(provider.GetOpenTime(i));
+                if (!finder.TryGetPendingOrder(
+                        i, null, out DiagonalPendingOrder plan))
+                {
+                    continue;
+                }
+
+                planCount++;
+                Assert.That(plan.EntryBarIndex, Is.EqualTo(i + 1),
+                    "The plan must target the next candle.");
+                Assert.That(plan.RiskReward, Is.GreaterThanOrEqualTo(0.5).Within(1e-9),
+                    "The plan must pass the MinRiskRewardRatio gate.");
+
+                double close = provider.GetClosePrice(i);
+                if (plan.IsLong)
+                {
+                    Assert.That(plan.Entry, Is.LessThanOrEqualTo(close),
+                        "A buy limit must be below the market.");
+                    Assert.That(plan.StopLoss, Is.LessThan(plan.Entry));
+                    Assert.That(plan.TakeProfit, Is.GreaterThan(plan.Entry));
+                }
+                else
+                {
+                    Assert.That(plan.Entry, Is.GreaterThanOrEqualTo(close),
+                        "A sell limit must be above the market.");
+                    Assert.That(plan.StopLoss, Is.GreaterThan(plan.Entry));
+                    Assert.That(plan.TakeProfit, Is.LessThan(plan.Entry));
+                }
+
+                finder.MarkPendingOrderFilled(plan.CandidateId);
+                if (finder.TryGetPendingOrder(i, null, out DiagonalPendingOrder next))
+                {
+                    Assert.That(next.CandidateId, Is.Not.EqualTo(plan.CandidateId),
+                        "A filled candidate must not be offered again.");
+                }
+            }
+
+            Assert.That(signals, Is.Empty,
+                "The managed pending mode must not emit OnEnter.");
+            Assert.That(planCount, Is.GreaterThan(0),
+                "The managed pending mode produced no plans.");
         }
 
         /// <summary>

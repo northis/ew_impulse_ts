@@ -186,6 +186,50 @@ function parseComment(comment) {
     };
 }
 
+/** The D-CONVERGE measure w(t1)/w(t4) - 1, the same formula as the finder. */
+function convergenceRatio(p1, p2, p3, p4, sgn) {
+    const ceilSlope = (p3.price - p1.price) / Math.max(1, p3.bar - p1.bar);
+    const floorSlope = (p4.price - p2.price) / Math.max(1, p4.bar - p2.bar);
+    const widthAt1 = sgn * (p1.price - (p2.price + floorSlope * (p1.bar - p2.bar)));
+    const widthAt4 = sgn * ((p1.price + ceilSlope * (p4.bar - p1.bar)) - p4.price);
+    return widthAt1 / Math.max(1e-12, widthAt4) - 1;
+}
+
+function fmtRatio(v) {
+    return isFinite(v) ? v.toFixed(3) : '—';
+}
+
+/** Fills the per-diagonal geometry block from the wave points and the current sliders. */
+function renderGeometry(s) {
+    const wp = s && s.wavePoints ? s.wavePoints : [];
+    if (wp.length < 6) return;
+
+    const [p0, p1, p2, p3, p4, p5] = wp;
+    const w1 = Math.abs(p1.price - p0.price);
+    const w2 = Math.abs(p2.price - p1.price);
+    const w3 = Math.abs(p3.price - p2.price);
+    const w4 = Math.abs(p4.price - p3.price);
+    const w5 = Math.abs(p5.price - p4.price);
+    const sgn = p5.price > p0.price ? 1 : -1;
+    const c = convergenceRatio(p1, p2, p3, p4, sgn);
+    const sizePct = Math.abs(p5.price - p0.price) / Math.max(1e-12, p0.price) * 100;
+
+    $('gW2W1').textContent = fmtRatio(w2 / w1);
+    $('gW4W3').textContent = fmtRatio(w4 / w3);
+    $('gW5W3').textContent = fmtRatio(w5 / w3);
+    $('gW3W1').textContent = fmtRatio(w3 / w1);
+    $('gW4W2').textContent = fmtRatio(w4 / w2);
+    $('gConv').textContent = isFinite(c) ? c.toFixed(2) : '—';
+    $('gBars').textContent = [
+        p1.bar - p0.bar, p2.bar - p1.bar, p3.bar - p2.bar,
+        p4.bar - p3.bar, p5.bar - p4.bar
+    ].join(' / ');
+    $('gSize').textContent = sizePct.toFixed(2) + ' %';
+    $('gPeriod').textContent = scan && scan.usedPeriod != null ? scan.usedPeriod : '—';
+    $('gTpRetrace').textContent = numVal('pTpRetraceRatio', 0.236).toFixed(3);
+    $('gStopW3').textContent = numVal('pStopW3', 1.0).toFixed(2);
+}
+
 function renderQuestion(s) {
     phase = 'question';
     drawSetupBase(s);
@@ -198,13 +242,11 @@ function renderQuestion(s) {
     badge.className = 'dir-badge ' + (s.isUp ? 'up' : 'down');
 
     const rr = Math.abs(s.takeProfit - s.entryPrice) / Math.abs(s.entryPrice - s.stopLoss);
-    const info = parseComment(s.comment);
     $('qTp').textContent = fmtPrice(s.takeProfit);
     $('qEntry').textContent = fmtPrice(s.entryPrice);
     $('qSl').textContent = fmtPrice(s.stopLoss);
     $('qRr').textContent = isFinite(rr) ? rr.toFixed(2) : '—';
-    $('qModel').textContent = info.model;
-    $('qW5').textContent = info.w5;
+    renderGeometry(s);
 
     $('phaseQuestion').style.display = '';
     $('phaseAnswer').style.display = 'none';
@@ -316,21 +358,10 @@ async function runScan() {
         period: numVal('pPeriod', 0),
         minSizePercent: numVal('pMinSize', 0.1),
         barsCount: numVal('pBars', 10),
-        takeProfitRatio: numVal('pRr', 1.0),
-        requireWave5Ratio: $('pW5Ratio').checked,
-        requireWave4Ratio: $('pW4Ratio').checked,
-        requireWave2Shorter: $('pW2Time').checked,
-        requireInitialDiagonal: $('pInitDiagonal').checked,
-        takeProfitAtRetrace: $('pTpRetrace').checked,
-        minConvergence: parseFloat($('pConverge').value) || 0,
-        maxConvergence: parseFloat($('pMaxConverge').value) || 0,
-        requireInsideWedge: $('pInside').checked,
-        maxSpillAreaRatio: parseFloat($('pSpill').value) || 0.005,
-        minWave3Penetration: numVal('pPen', 0.03),
-        maxWaveDurationRatio: numVal('pDur', 8.0),
-        minWave2Retrace: numVal('pW2Retrace', 0),
-        maxWave2Retrace: numVal('pW2RetraceMax', 0),
-        maxWave5SpillRatio: numVal('pW5Spill', 0)
+        takeProfitRetraceRatio: numVal('pTpRetraceRatio', 0.236),
+        stopWave3Ratio: numVal('pStopW3', 1.0),
+        minWave2Retrace: numVal('pW2Retrace', 0.5),
+        maxWave4RetraceW3: numVal('pMaxW4W3', 0.382)
     };
 
     try {
@@ -487,4 +518,49 @@ function randomStartDate() {
 $('selFile').addEventListener('change', onFileSelected);
 $('btnRandom').addEventListener('click', randomStartDate);
 
+// ── Sliders and presets ──
+const PARAM_IDS = [
+    'pPeriod', 'pMinSize', 'pBars', 'pTpRetraceRatio',
+    'pStopW3', 'pW2Retrace', 'pMaxW4W3'
+];
+
+function syncParamReadouts() {
+    const period = numVal('pPeriod', 0);
+    $('vPeriod').textContent = period === 0 ? '0 (авто)' : String(period);
+    $('vMinSize').textContent = numVal('pMinSize', 0.1).toFixed(2) + ' %';
+    $('vBars').textContent = String(Math.round(numVal('pBars', 10)));
+    $('vTpRetrace').textContent = numVal('pTpRetraceRatio', 0.236).toFixed(3);
+    $('vStopW3').textContent = numVal('pStopW3', 1.0).toFixed(1);
+    $('vW2Retrace').textContent = numVal('pW2Retrace', 0.5).toFixed(2);
+    $('vMaxW4W3').textContent = numVal('pMaxW4W3', 0.382).toFixed(3);
+
+    if (scan && idx >= 0 && idx < scan.setups.length)
+        renderGeometry(scan.setups[idx]);
+}
+
+for (const id of PARAM_IDS)
+    $(id).addEventListener('input', syncParamReadouts);
+
+document.querySelectorAll('.preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+        $('pTpRetraceRatio').value = btn.dataset.retrace;
+        $('pStopW3').value = btn.dataset.stop;
+        syncParamReadouts();
+    });
+});
+
+// ── Collapsible right panel ──
+function setPanelOpen(open) {
+    const panel = $('gamePanel');
+    panel.classList.toggle('collapsed', !open);
+    $('btnPanelToggle').textContent = open ? '⚙ Параметры' : '▸ Параметры';
+}
+
+$('btnPanelToggle').addEventListener('click', () => {
+    setPanelOpen($('gamePanel').classList.contains('collapsed'));
+});
+$('btnPanelClose').addEventListener('click', () => setPanelOpen(false));
+$('btnScanPanel').addEventListener('click', runScan);
+
+syncParamReadouts();
 loadFiles();

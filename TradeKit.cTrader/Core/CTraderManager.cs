@@ -93,6 +93,47 @@ namespace TradeKit.CTrader.Core
             return positions;
         }
 
+        public IPosition[] GetPendingOrders(ISymbol symbol)
+        {
+            IPosition[] orders = m_Robot.PendingOrders
+                .Where(a => a.Label == m_BotName && a.SymbolName == symbol.Name)
+                .Select(ToIPosition)
+                .ToArray();
+            return orders;
+        }
+
+        public OrderResult ModifyPendingOrder(
+            IPosition pendingOrder,
+            double targetPrice,
+            double? stopLossPrice,
+            double? takeProfitPrice)
+        {
+            PendingOrder order = m_Robot.PendingOrders.FirstOrDefault(a =>
+                a.Id == pendingOrder.Id && a.Label == m_BotName);
+            if (order == null)
+                return null;
+
+            TradeResult targetResult = order.ModifyTargetPrice(targetPrice);
+            if (!targetResult.IsSuccessful)
+                return new OrderResult(false, ToIPosition(order));
+
+            if (stopLossPrice.HasValue)
+            {
+                TradeResult slResult = order.ModifyStopLossPrice(stopLossPrice);
+                if (!slResult.IsSuccessful)
+                    return new OrderResult(false, ToIPosition(order));
+            }
+
+            if (takeProfitPrice.HasValue)
+            {
+                TradeResult tpResult = order.ModifyTakeProfitPrice(takeProfitPrice);
+                if (!tpResult.IsSuccessful)
+                    return new OrderResult(false, ToIPosition(order));
+            }
+
+            return new OrderResult(true, ToIPosition(order));
+        }
+
         public void SetBotName(string name)
         {
             m_BotName = name;
@@ -141,8 +182,8 @@ namespace TradeKit.CTrader.Core
                 GetSymbol(pendingOrder.SymbolName),
                 pendingOrder.VolumeInUnits,
                 pendingOrder.TradeType == TradeType.Buy ? PositionType.BUY : PositionType.SELL,
+                pendingOrder.Label,
                 pendingOrder.Comment,
-                m_BotName,
                 m_Robot.Time,
                 null,
                 pendingOrder.StopLoss,

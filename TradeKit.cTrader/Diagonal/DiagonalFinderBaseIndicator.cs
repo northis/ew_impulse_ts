@@ -223,7 +223,7 @@ namespace TradeKit.CTrader.Diagonal
 
             m_SetupFinder = new DiagonalSetupFinder(
                 m_BarsProvider, Symbol.ToISymbol(), GetEWParams(),
-                TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio, RequireInitialDiagonal,
+                TakeProfitRatio, RequireWave5Ratio, RequireWave4Ratio, false,
                 TakeProfitAtRetrace
                     ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
                     : DiagonalTakeProfitMode.RISK_RATIO,
@@ -242,7 +242,13 @@ namespace TradeKit.CTrader.Diagonal
                 minWave2Wave1DurationRatio: MinWave2Wave1DurationRatio,
                 requireThickWaveEnds: RequireThickWaveEnds,
                 tradeViewManager: cTraderViewManager,
-                thinMarketGuard: GetThinMarketGuardParams());
+                thinMarketGuard: GetThinMarketGuardParams(),
+                takeProfitRetraceRatio: TakeProfitRetraceRatio,
+                stopWave3Ratio: StopWave3Ratio,
+                wave5SpillMode: Wave5SpillMode,
+                wave5SpillThreshold: Wave5SpillThreshold,
+                minSignalRiskRewardRatio: MinSignalRiskRewardRatio,
+                initialMode: InitialMode);
             Subscribe(m_SetupFinder);
             m_SetupFinder.MarkAsInitialized();
         }
@@ -304,6 +310,21 @@ namespace TradeKit.CTrader.Diagonal
         public bool TakeProfitAtRetrace { get; set; }
 
         /// <summary>
+        /// Gets or sets the share of the whole diagonal the retrace target gives back when
+        /// <see cref="TakeProfitAtRetrace"/> is on. 0.236 is the original D-TP-236; the
+        /// archive research region is 0.5–0.618 with a 1.5–2.0×|W3| stop.
+        /// </summary>
+        [Parameter("TP retrace of diagonal", DefaultValue = 0.236, MinValue = 0.01, MaxValue = 1, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double TakeProfitRetraceRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the stop multiplier: <c>SL = V(4) ± k·|W3|</c>. 1.0 is the
+        /// theoretical ceiling of wave 5; the research region uses 1.5–2.0.
+        /// </summary>
+        [Parameter("SL x |W3|", DefaultValue = 1.0, MinValue = 0.1, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double StopWave3Ratio { get; set; }
+
+        /// <summary>
         /// Gets or sets what is logged when the recomputed 23.6% retrace level of the diagonal
         /// is reached while the trade is in profit (DIAGONAL.md §6.4).
         /// </summary>
@@ -317,6 +338,13 @@ namespace TradeKit.CTrader.Diagonal
         /// </summary>
         [Parameter("Min R:R (retrace TP)", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MinRiskRewardRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the hard R:R floor: a setup below it is dropped immediately instead of
+        /// waiting for wave 5 to improve the target (DIAGONAL.md §9.35). 0 — off.
+        /// </summary>
+        [Parameter("Min R:R to take (drop)", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double MinSignalRiskRewardRatio { get; set; }
 
         /// <summary>
         /// Gets or sets the target as a retrace of |W3| from the extreme of wave 5
@@ -365,8 +393,24 @@ namespace TradeKit.CTrader.Diagonal
         /// Gets or sets the tolerated spill area over the span of wave 5 (D-INSIDE-5,
         /// DIAGONAL.md §4.3). 0 — off.
         /// </summary>
-        [Parameter("Max W5 spill", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        [Parameter("Max W5 spill (legacy)", DefaultValue = 0.0, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
         public double MaxWave5SpillRatio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the wave-5 spill policy (DIAGONAL.md §9.35): <c>ALL</c> — no new gate,
+        /// <c>ONLY_SPILL</c> — trade only throw-over setups, <c>EXCLUDE_SPILL</c> — trade only
+        /// clean wedges. The legacy <see cref="MaxWave5SpillRatio"/> applies only in
+        /// <c>ALL</c>.
+        /// </summary>
+        [Parameter("W5 spill mode", DefaultValue = DiagonalWave5SpillMode.ALL, Group = Helper.TRADE_SETTINGS_NAME)]
+        public DiagonalWave5SpillMode Wave5SpillMode { get; set; }
+
+        /// <summary>
+        /// Gets or sets the spill threshold used by <see cref="Wave5SpillMode"/>: the minimum
+        /// for <c>ONLY_SPILL</c>, the maximum for <c>EXCLUDE_SPILL</c> (D-INSIDE-5 scale).
+        /// </summary>
+        [Parameter("W5 spill threshold", DefaultValue = 0.005, MinValue = 0, MaxValue = 10, Group = Helper.TRADE_SETTINGS_NAME)]
+        public double Wave5SpillThreshold { get; set; }
 
         /// <summary>
         /// Gets or sets the minimum duration ratio bars(W4)/bars(W2) (D-TIME-24-MIN,
@@ -506,8 +550,8 @@ namespace TradeKit.CTrader.Diagonal
         /// Gets or sets a value indicating whether the whole diagonal, up to the signal bar,
         /// must stay inside the preceding counter-move (DIAGONAL.md §5.2).
         /// </summary>
-        [Parameter("Initial diagonal", DefaultValue = false, Group = Helper.TRADE_SETTINGS_NAME)]
-        public bool RequireInitialDiagonal { get; set; }
+        [Parameter("Initial diagonal", DefaultValue = DiagonalInitialMode.ALL, Group = Helper.TRADE_SETTINGS_NAME)]
+        public DiagonalInitialMode InitialMode { get; set; }
 
         /// <summary>
         /// Gets or sets the folder where JSON markup files of the diagonals found on the

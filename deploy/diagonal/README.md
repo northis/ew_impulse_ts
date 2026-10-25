@@ -14,6 +14,7 @@
 | `entrypoint.sh` | переключение live/backtest по `MODE` |
 | `.env.example` | шаблон авторизации и секретов (cTID/счёт/symbol/period/Telegram) → скопируй в `.env` |
 | `parameters.cbotset.example` | шаблон параметров бота → скопируй в `parameters.cbotset` |
+| `parameters.pending-h1.cbotset.example` | пресет h1 + live-перестановка лимита (DIAGONAL.md §9.26) |
 | `build-algo.ps1` | собирает `.algo` из исходников и кладёт в `./algo/` (+ метаданные параметров) |
 | `sync-params.ps1` | сверяет `parameters.cbotset` с параметрами собранного `.algo` (`-Fix` — актуализировать) |
 | `algo/` *(gitignored)* | собранный `DiagonalSignalerBot.algo` |
@@ -123,6 +124,8 @@ docker compose up -d
 | `TakeProfitRatio` | `1.0` | R:R диагонали |
 | `RetraceAction` | `NONE` | что делать при достижении пересчитанного уровня 23.6% в прибыли (DIAGONAL.md §6.4): `NONE`, `BREAKEVEN`, `BREAKEVEN_AND_HALF`, `HALF`, `CLOSE` |
 | `MinRiskRewardRatio` | `0` | мин. R:R для режима TP «23.6% диагонали» (DIAGONAL.md §6.5): если на пробое сетап невыгоден, бот не входит, а ждёт на закрытиях свечей, пересчитывая TP по свежему экстремуму волны 5. `0` = выключено |
+| `TriggerMode` | `WAVE3_BREAK` | триггер входа (DIAGONAL.md §9.24–§9.26): `WAVE3_BREAK` — пробой V(3) по закрытию; `LINE13_CLOSE` / `LINE13_PENDING` — исследовательские режимы по образующей 1-3; `LINE13_PENDING_MANAGED` — live-петля: бот ставит и переставляет лимит на 1-3 каждую свечу |
+| `MinWave4RetraceW3` / `MaxWave4RetraceW3` | `0.382` / `0` | границы отката W4 от W3 (D-W4-38); `0` у верхней — выключено |
 | `Wave3RetraceRatio` | `0` | TP на уровне отката от волны 3 (DIAGONAL.md §6.6): `TP = W5 ∓ доля·|W3|`, например `0.382`. Перекрывает `TakeProfitRatio` и `TakeProfitAtRetrace`; `0` = выключено |
 | `MinWave4Wave2Level` | `0.236` | насколько глубоко волна 4 должна зайти в диапазон волны 2 (D-W4-24, DIAGONAL.md §4); меньше — мягче фильтр, `0` — остаётся только D-OVERLAP |
 | `RequireWave4Shorter` | `True` | требовать, чтобы волна 4 была короче волны 2 по числу баров (D-TIME-24). `False` пропускает и многодневные клины |
@@ -142,10 +145,19 @@ docker compose up -d
 | `MinWave3Penetration` | `0.03` | насколько волна 3 должна заходить за точку 1 (в долях диагонали) |
 | `MaxWaveDurationRatio` | `8` | максимальное отношение длительности волны к средней длительности диагонали |
 | `RequireWave5Ratio` / `RequireWave4Ratio` | `False` | требовать, чтобы W5 (W4) составляла ≥ 78.6% от W3 (W2) |
-| `RequireInitialDiagonal` | `False` | требовать «заходности» диагонали: перед точкой 0 должна быть коррекция, покрывающая всю диагональ (D-INIT) |
+| `InitialMode` | `ALL` | `ALL` — все диагонали, `LEADING` — только начальные (D-INIT), `ENDING` — только конечные (не-D-INIT + D-INIT-END) |
+| `Wave5SpillMode` | `ALL` | `ALL` — без нового гейта, `ONLY_SPILL` — только throw-over (spill ≥ порога), `EXCLUDE_SPILL` — только чистый клин |
+| `Wave5SpillThreshold` | `0.005` | порог `Wave5SpillMode` в шкале D-INSIDE-5 |
+| `MinSignalRiskRewardRatio` | `0` | жёсткий пол R:R: ниже — сетап сразу отбрасывается (`0` — выключено) |
 | `MinWave2Retrace` / `MaxWave2Retrace` | `0` | границы отката W2 от W1 (`0` — граница выключена) |
-| `MaxWave5SpillRatio` | `0` | максимальный выброс W5 за линию 1-3 (`0` — выключено) |
+| `MaxWave5SpillRatio` | `0` | легаси-порог выброса W5; действует только при `Wave5SpillMode = ALL` (`0` — выключено) |
 | `MinWave4Wave2DurationRatio`, `MinWave3Wave1DurationRatio`, `MinWave2Wave1DurationRatio` | `0` | минимальные отношения длительностей пар волн (`0` — выключено) |
+
+Готовый пресет для проверки live-петли перестановки лимита:
+`parameters.pending-h1.cbotset.example` (h1, 16 пар, exact-коридор,
+цель 23.6%, `MinRiskRewardRatio = 0.5`,
+`TriggerMode = LINE13_PENDING_MANAGED`). Скопируй его в `parameters.cbotset`
+и подставь свои Telegram/символы. Детали — DIAGONAL.md §9.26.
 
 Любой параметр можно убрать из файла — тогда бот возьмёт свой скомпилированный
 дефолт. Полный список с дефолтами:

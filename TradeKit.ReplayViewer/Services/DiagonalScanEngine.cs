@@ -45,22 +45,32 @@ public sealed class DiagonalScanEngine
 
         // ── 2. Build the finder from the page inputs ──
         var ewParams = new EWParams(req.Period, req.MinSizePercent, req.BarsCount);
+        // The panel is a session-specific research view: only the exact corridor and the
+        // TP/SL handles that were calibrated in this session are exposed. Every other gate
+        // keeps the value the exact archive replay used.
         var finder = new DiagonalSetupFinder(
-            provider, symbol, ewParams, req.TakeProfitRatio,
-            req.RequireWave5Ratio, req.RequireWave4Ratio, req.RequireInitialDiagonal,
-            req.TakeProfitAtRetrace
-                ? DiagonalTakeProfitMode.DIAGONAL_RETRACE
-                : DiagonalTakeProfitMode.RISK_RATIO,
-            req.MinConvergence,
-            req.MaxConvergence,
-            req.RequireInsideWedge,
-            req.MaxSpillAreaRatio,
-            req.MinWave3Penetration,
-            req.MaxWaveDurationRatio,
-            requireWave2Shorter: req.RequireWave2Shorter,
+            provider, symbol, ewParams,
+            takeProfitRatio: 1.0,
+            requireWave5Ratio: false,
+            requireWave4Ratio: false,
+            requireInitialDiagonal: false,
+            takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+            minConvergence: 0,
+            maxConvergence: 0,
+            requireInsideWedge: false,
+            maxSpillAreaRatio: 1.0,
+            minWave3Penetration: 0.03,
+            maxWaveDurationRatio: 8.0,
+            minWave4Wave2Level: 0,
+            minWave4RetraceW3: 0,
+            maxWave4RetraceW3: req.MaxWave4RetraceW3,
+            requireWave4Shorter: true,
+            requireWave2Shorter: false,
             minWave2Retrace: req.MinWave2Retrace,
-            maxWave2Retrace: req.MaxWave2Retrace,
-            maxWave5SpillRatio: req.MaxWave5SpillRatio);
+            maxWave2Retrace: 0,
+            maxWave5SpillRatio: 0,
+            takeProfitRetraceRatio: req.TakeProfitRetraceRatio,
+            stopWave3Ratio: req.StopWave3Ratio);
 
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
@@ -202,6 +212,9 @@ public sealed record DiagonalScanRequest(
     double MinWave3Penetration = 0.03,
     double MaxWaveDurationRatio = 8.0,
     bool RequireWave2Shorter = false,
-    double MinWave2Retrace = 0,
+    double MinWave2Retrace = 0.5,
     double MaxWave2Retrace = 0,
-    double MaxWave5SpillRatio = 0);
+    double MaxWave5SpillRatio = 0,
+    double TakeProfitRetraceRatio = 0.236,
+    double StopWave3Ratio = 1.0,
+    double MaxWave4RetraceW3 = 0.382);

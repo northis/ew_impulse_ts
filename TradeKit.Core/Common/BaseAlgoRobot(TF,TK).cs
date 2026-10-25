@@ -210,6 +210,15 @@ namespace TradeKit.Core.Common
             }
         }
 
+        /// <summary>Max allowed volume in lots.</summary>
+        protected double MaxVolumeLots => m_RobotParams.MaxVolumeLots;
+
+        /// <summary>Max money per setup; 0 disables the limit.</summary>
+        protected double MaxMoneyPerSetup => m_RobotParams.MaxMoneyPerSetup;
+
+        /// <summary>Base risk percent from the deposit.</summary>
+        protected double RiskPercentFromDeposit => m_RobotParams.RiskPercentFromDeposit;
+
         /// <summary>
         /// Ups the risk.
         /// </summary>
@@ -350,6 +359,7 @@ namespace TradeKit.Core.Common
                 {
                     //Logger.Write($"{nameof(BarOpened)}: {barsProvider.BarSymbol} {barsProvider.TimeFrame}");
                     sf.CheckBar(barsProvider.GetOpenTime(index));
+                    OnBarClosed(sf, index);
                     return;
                 }
 
@@ -371,6 +381,7 @@ namespace TradeKit.Core.Common
                 //sf.IsInSetup = false; //TODO
                 m_BarsInitMap[sf.Id] = true;
                 sf.MarkAsInitialized();
+                OnBarClosed(sf, index);
                 Logger.Write($"Pair initialized - {barsProvider.BarSymbol.Name} {barsProvider.TimeFrame.ShortName}");
             }
             catch (Exception ex)
@@ -697,6 +708,14 @@ namespace TradeKit.Core.Common
         protected virtual bool IsOvernightTrade(TK signal, TF setupFinder)
         {
             return false;
+        }
+
+        /// <summary>
+        /// Called after a closed bar has been processed by the finder. Override to manage
+        /// pending orders or other per-bar state (DIAGONAL.md §9.26).
+        /// </summary>
+        protected virtual void OnBarClosed(TF setupFinder, int closedBarIndex)
+        {
         }
 
         private void OnEnter(object sender, TK e)

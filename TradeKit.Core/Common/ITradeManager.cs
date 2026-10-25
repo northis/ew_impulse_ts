@@ -13,6 +13,25 @@ namespace TradeKit.Core.Common
         IPosition[] GetPositions();
 
         /// <summary>
+        /// Gets the pending orders of this bot for the specified symbol.
+        /// </summary>
+        /// <param name="symbol">The symbol.</param>
+        IPosition[] GetPendingOrders(ISymbol symbol);
+
+        /// <summary>
+        /// Modifies a pending order's target price, stop loss and take profit.
+        /// </summary>
+        /// <param name="pendingOrder">The pending order (as returned by <see cref="GetPendingOrders"/>).</param>
+        /// <param name="targetPrice">The new target (limit/stop) price.</param>
+        /// <param name="stopLossPrice">The new absolute stop loss, or <c>null</c>.</param>
+        /// <param name="takeProfitPrice">The new absolute take profit, or <c>null</c>.</param>
+        OrderResult ModifyPendingOrder(
+            IPosition pendingOrder,
+            double targetPrice,
+            double? stopLossPrice,
+            double? takeProfitPrice);
+
+        /// <summary>
         /// Sets the name of the bot associated with this trade manager to filter positions.
         /// </summary>
         /// <param name="name">The name.</param>

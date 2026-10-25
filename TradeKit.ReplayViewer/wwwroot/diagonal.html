@@ -10,7 +10,7 @@
 </head>
 <body>
 <div id="app">
-  <!-- Top bar -->
+  <!-- Top bar: file, dates, scan and the panel toggle -->
   <div id="topbar">
     <a class="navlink" href="/index.html" title="Разметка волн Эллиотта">↩ Разметка</a>
     <a class="navlink" href="/impulse.html" title="Тренажёр входов по импульсам">⚡ Импульсы</a>
@@ -25,45 +25,8 @@
     <input type="date" id="inpToDate" autocomplete="off">
     <button id="btnRandom" type="button" title="Случайная дата старта в пределах диапазона">🎲</button>
     <span id="rangeInfo"></span>
-
-    <!-- Diagonal filters -->
-    <span class="param"><label title="Период зигзага (0 = авто по волатильности)">Период</label>
-      <input type="number" id="pPeriod" value="0" step="1" min="0"></span>
-    <span class="param"><label title="Минимальный размер диагонали (0→3), % от цены">Размер %</label>
-      <input type="number" id="pMinSize" value="0.1" step="0.05" min="0"></span>
-    <span class="param"><label title="Минимальное количество баров в диагонали (1-4)">Баров</label>
-      <input type="number" id="pBars" value="10" step="1" min="3"></span>
-    <span class="param"><label title="Тейк-профит как множитель расстояния вход→стоп">R:R</label>
-      <input type="number" id="pRr" value="1.5" step="0.1" min="0.1"></span>
-    <span class="param"><label title="Требовать, чтобы волна 5 была не короче 78.6% волны 3">W5 ≥ 78%</label>
-      <input type="checkbox" id="pW5Ratio"></span>
-    <span class="param"><label title="Насколько сходятся образующие: 0 = параллельны, −1 = расходятся, +1 = клин вдвое уже, +5 = вшестеро">Сходимость</label>
-      <input type="number" id="pConverge" value="0" step="0.5" min="-1"></span>
-    <span class="param"><label title="Верхний порог сходимости образующих: 0 = без ограничения, +1 = клин не уже чем вдвое в точке 4">Сходимость макс</label>
-      <input type="number" id="pMaxConverge" value="0" step="0.5" min="0"></span>
-    <span class="param"><label title="Бары волн 2-4 не должны надолго выходить за образующие">Бары в клине</label>
-      <input type="checkbox" id="pInside" checked></span>
-    <span class="param"><label title="Допустимая площадь выброса за образующие как доля площади клина">Выброс</label>
-      <input type="number" id="pSpill" value="0.005" step="0.001" min="0.001"></span>
-    <span class="param"><label title="Минимальный пробой волны 3 за конец волны 1, доля |W1|">Пробой W3</label>
-      <input type="number" id="pPen" value="0.03" step="0.01" min="0"></span>
-    <span class="param"><label title="D-TIME: во сколько раз могут отличаться длительности однотипных волн (W3↔W1, W4↔W2)">Длительность</label>
-      <input type="number" id="pDur" value="8" step="1" min="1"></span>
-    <span class="param"><label title="Требовать, чтобы волна 4 была не короче 78.6% волны 2">W4 ≥ 78%</label>
-      <input type="checkbox" id="pW4Ratio"></span>
-    <span class="param"><label title="Допустимая площадь выброса за образующие на участке волны 5; 0 — без ограничения">Выброс W5</label>
-      <input type="number" id="pW5Spill" value="0" step="0.05" min="0"></span>
-    <span class="param"><label title="Минимальный откат волны 2 от волны 1, доля |W1|; 0 — без ограничения">Откат W2</label>
-      <input type="number" id="pW2Retrace" value="0" step="0.05" min="0" max="1"></span>
-    <span class="param"><label title="Максимальный откат волны 2 от волны 1, доля |W1|; 0 — без ограничения; глубоких вторых волн в диагоналях не бывает">Откат W2 макс</label>
-      <input type="number" id="pW2RetraceMax" value="0" step="0.05" min="0" max="1"></span>
-    <span class="param"><label title="Требовать, чтобы волна 2 была короче волны 1 по числу баров (D-TIME-12)">W2 короче W1</label>
-      <input type="checkbox" id="pW2Time"></span>
-    <span class="param"><label title="Требовать, чтобы вся диагональ вместе с волной 5 шла внутри предыдущего контр-движения">Заходность диагонали</label>
-      <input type="checkbox" id="pInitDiagonal"></span>
-    <span class="param"><label title="TP на уровне 23.6% коррекции всей диагонали вместо фиксированного R:R">TP 23.6%</label>
-      <input type="checkbox" id="pTpRetrace"></span>
-
+    <span class="ctrl-sep"></span>
+    <button id="btnPanelToggle" type="button" title="Показать/скрыть панель параметров">⚙ Параметры</button>
     <button id="btnScan">🔍 Сканировать</button>
     <span id="status">Готов</span>
   </div>
@@ -73,6 +36,67 @@
     <div id="chartContainer"></div>
 
     <div id="gamePanel">
+      <div class="panel-head">
+        <h4>Параметры</h4>
+        <button id="btnPanelClose" type="button" title="Скрыть панель">×</button>
+      </div>
+
+      <!-- Significant search parameters: sliders with a live readout -->
+      <details class="param-details" open>
+        <summary>Настройки поиска</summary>
+        <div id="paramPanel">
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pPeriod">Период</label><span id="vPeriod">0 (авто)</span></div>
+          <input type="range" id="pPeriod" min="0" max="200" step="1" value="0">
+          <div class="param-range"><span>0 (авто)</span><span>200</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pMinSize">Размер</label><span id="vMinSize">0.10 %</span></div>
+          <input type="range" id="pMinSize" min="0.01" max="10" step="0.01" value="0.1">
+          <div class="param-range"><span>0.01 %</span><span>10 %</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pBars">Баров</label><span id="vBars">10</span></div>
+          <input type="range" id="pBars" min="3" max="200" step="1" value="10">
+          <div class="param-range"><span>3</span><span>200</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pTpRetraceRatio">TP retrace</label><span id="vTpRetrace">0.236</span></div>
+          <input type="range" id="pTpRetraceRatio" min="0.01" max="1" step="0.001" value="0.236">
+          <div class="param-range"><span>0.01</span><span>1.00</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pStopW3">SL × |W3|</label><span id="vStopW3">1.0</span></div>
+          <input type="range" id="pStopW3" min="0.1" max="10" step="0.1" value="1.0">
+          <div class="param-range"><span>0.1</span><span>10.0</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pW2Retrace">W2 retrace</label><span id="vW2Retrace">0.50</span></div>
+          <input type="range" id="pW2Retrace" min="0" max="1" step="0.05" value="0.5">
+          <div class="param-range"><span>0</span><span>1.0</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pMaxW4W3">W4/W3 max</label><span id="vMaxW4W3">0.382</span></div>
+          <input type="range" id="pMaxW4W3" min="0" max="1" step="0.001" value="0.382">
+          <div class="param-range"><span>0</span><span>1.0</span></div>
+        </div>
+
+        <div class="preset-row">
+          <button type="button" class="preset" data-retrace="0.236" data-stop="1.0">База 0.236 / 1.0</button>
+          <button type="button" class="preset" data-retrace="0.5" data-stop="2.0">Регион 0.5 / 2.0</button>
+          <button type="button" class="preset" data-retrace="0.618" data-stop="2.0">Регион 0.618 / 2.0</button>
+        </div>
+
+        <button id="btnScanPanel" type="button" class="btn-panel-scan">🔍 Сканировать</button>
+        </div>
+      </details>
+
       <div id="gameEmpty"><em>Выберите файл и диапазон, затем «Сканировать»</em></div>
 
       <div id="gameCard" style="display:none">
@@ -90,9 +114,22 @@
             <div><span class="lvl-name entry">Вход</span><span id="qEntry">—</span></div>
             <div><span class="lvl-name sl">Стоп</span><span id="qSl">—</span></div>
             <div><span class="lvl-name rr">R:R</span><span id="qRr">—</span></div>
-            <div><span class="lvl-name stat">Модель</span><span id="qModel">—</span></div>
-            <div><span class="lvl-name stat">W5/W3</span><span id="qW5">—</span></div>
           </div>
+
+          <div class="geometry">
+            <div class="geo-row"><span>W2 retrace</span><span id="gW2W1">—</span></div>
+            <div class="geo-row"><span>W4/W3</span><span id="gW4W3">—</span></div>
+            <div class="geo-row"><span>W5/W3</span><span id="gW5W3">—</span></div>
+            <div class="geo-row"><span>W3/W1</span><span id="gW3W1">—</span></div>
+            <div class="geo-row"><span>W4/W2</span><span id="gW4W2">—</span></div>
+            <div class="geo-row"><span>Сходимость</span><span id="gConv">—</span></div>
+            <div class="geo-row"><span>Бары W1–W5</span><span id="gBars">—</span></div>
+            <div class="geo-row"><span>Размер</span><span id="gSize">—</span></div>
+            <div class="geo-row"><span>Период</span><span id="gPeriod">—</span></div>
+            <div class="geo-row"><span>TP retrace</span><span id="gTpRetrace">—</span></div>
+            <div class="geo-row"><span>SL × |W3|</span><span id="gStopW3">—</span></div>
+          </div>
+
           <div class="decide-btns">
             <button id="btnEnter" class="btn-enter">✔ Войти</button>
             <button id="btnSkip" class="btn-skip">✘ Пропустить</button>
