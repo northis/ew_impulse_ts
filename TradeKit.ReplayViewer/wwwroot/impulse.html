@@ -16,6 +16,8 @@
     <a class="navlink" href="/triangle.html" title="Тренажёр входов по треугольникам">🔺 Треугольники</a>
     <a class="navlink" href="/rtriangle.html" title="Тренажёр входов по бегущим треугольникам">🏳️ Бегущие</a>
     <a class="navlink" href="/diagonal.html" title="Тренажёр входов по диагоналям">◺ Диагонали</a>
+    <a class="navlink" href="/diagonal-impulse.html" title="Диагональ → импульс A-B-C">◺→⚡ Импульс после диагонали</a>
+    <a class="navlink" href="/diagonal-continuation.html" title="Диагональ как заходной импульс">◺→ Продолжение по диагонали</a>
     <span class="ctrl-sep"></span>
     <label>CSV:</label>
     <select id="selFile"><option>-- загрузка файлов... --</option></select>
@@ -26,22 +28,6 @@
     <button id="btnRandom" type="button" title="Случайная дата старта в пределах диапазона">🎲</button>
     <span id="rangeInfo"></span>
 
-    <!-- Main impulse filters -->
-    <span class="param"><label title="Минимальный размер импульса, % от канала">Размер %</label>
-      <input type="number" id="pMinSize" value="0.1" step="0.01" min="0"></span>
-    <span class="param"><label title="Максимальная глубина перекрытия волн, %">Перекр. %</label>
-      <input type="number" id="pOverlap" value="35" step="1" min="0"></span>
-    <span class="param"><label title="Максимальная дистанция (изломанность), %">Дист. %</label>
-      <input type="number" id="pDistance" value="35" step="1" min="0"></span>
-    <span class="param"><label title="Максимальная площадь отклонения, %">Площ. %</label>
-      <input type="number" id="pArea" value="35" step="1" min="0"></span>
-    <span class="param"><label title="Минимальное количество баров в импульсе">Баров</label>
-      <input type="number" id="pBars" value="30" step="1" min="1"></span>
-    <span class="param"><label title="Макс. отношение баров коррекции к барам импульса, % (может быть >100%)">Корр. %</label>
-      <input type="number" id="pCorr" value="50" step="1" min="1"></span>
-    <span class="param"><label title="Глубина коррекции для входа (0..1)">Вход</label>
-      <input type="number" id="pEnter" value="0.5" step="0.05" min="0.05" max="1"></span>
-
     <button id="btnScan">🔍 Сканировать</button>
     <span id="status">Готов</span>
   </div>
@@ -51,6 +37,50 @@
     <div id="chartContainer"></div>
 
     <div id="gamePanel">
+      <div class="filter-head">Фильтры сканирования</div>
+      <details class="param-details" open>
+        <summary>Диапазоны метрик</summary>
+        <div id="filterPanel">
+          <div class="range-row">
+            <span class="range-label" title="Оценка зигзага импульса: чем ниже, тем чище движение">Зигзаг, %</span>
+            <input type="number" id="pZigzagMin" value="0" step="1" min="0" max="100" title="min">
+            <span class="range-dash">—</span>
+            <input type="number" id="pZigzagMax" value="100" step="1" min="0" max="100" title="max, 0 = без предела">
+          </div>
+          <div class="range-row">
+            <span class="range-label" title="Площадь конверта импульса: чем ниже, тем плотнее свечи">Площадь, %</span>
+            <input type="number" id="pAreaMin" value="0" step="1" min="0" max="100" title="min">
+            <span class="range-dash">—</span>
+            <input type="number" id="pAreaMax" value="100" step="1" min="0" max="100" title="max, 0 = без предела">
+          </div>
+          <div class="range-row">
+            <span class="range-label" title="Степень перекрытия свечей импульса">Перекрытие, %</span>
+            <input type="number" id="pOverlapMin" value="0" step="1" min="0" max="100" title="min">
+            <span class="range-dash">—</span>
+            <input type="number" id="pOverlapMax" value="100" step="1" min="0" max="100" title="max, 0 = без предела">
+          </div>
+          <div class="range-row">
+            <span class="range-label" title="Бары коррекции / бары импульса, % (может быть >100 %)">Коррекция, %</span>
+            <input type="number" id="pCorrMin" value="0" step="5" min="0" max="1000" title="min">
+            <span class="range-dash">—</span>
+            <input type="number" id="pCorrMax" value="100" step="5" min="0" max="1000" title="max, 0 = без предела">
+          </div>
+          <div class="range-row">
+            <span class="range-label" title="Бары импульса">Баров</span>
+            <input type="number" id="pBarsMin" value="15" step="1" min="1" title="min">
+            <span class="range-dash">—</span>
+            <input type="number" id="pBarsMax" value="0" step="1" min="0" title="max, 0 = без предела">
+          </div>
+          <div class="range-row">
+            <span class="range-label" title="Размер импульса, % от цены">Размер, %</span>
+            <input type="number" id="pSizeMin" value="0.1" step="0.01" min="0" title="min">
+            <span class="range-dash">—</span>
+            <input type="number" id="pSizeMax" value="0" step="0.01" min="0" title="max, 0 = без предела">
+          </div>
+          <div class="range-hint">Max = 0 — без верхнего предела.</div>
+        </div>
+      </details>
+
       <div id="gameEmpty"><em>Выберите файл и диапазон, затем «Сканировать»</em></div>
 
       <div id="gameCard" style="display:none">
@@ -113,14 +143,12 @@
     <div id="advParams">
       <span class="param"><label title="Период зигзага (0 = авто по волатильности)">Период</label>
         <input type="number" id="pPeriod" value="0" step="1" min="0"></span>
+      <span class="param"><label title="Глубина коррекции для входа (0..1)">Вход</label>
+        <input type="number" id="pEnter" value="0.5" step="0.05" min="0.05" max="1"></span>
       <span class="param"><label title="Множитель тейк-профита от длины импульса">Тейк</label>
         <input type="number" id="pTake" value="1" step="0.1" min="0.1"></span>
       <span class="param"><label title="Брейк-ивен (0 = выкл)">Б/У</label>
         <input type="number" id="pBreakEven" value="0" step="0.1" min="0" max="1"></span>
-      <span class="param"><label title="Макс. зигзаг, % (для статистики)">Зигзаг %</label>
-        <input type="number" id="pZigzag" value="40" step="1" min="0"></span>
-      <span class="param"><label title="Макс. неоднородность">Гетер.</label>
-        <input type="number" id="pHetero" value="40" step="1" min="0"></span>
     </div>
     <span class="ctrl-sep"></span>
     <button id="btnFit" type="button" title="Автоформат: подогнать график под данные">Автоформат</button>

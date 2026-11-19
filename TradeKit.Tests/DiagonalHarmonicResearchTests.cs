@@ -205,7 +205,12 @@ namespace TradeKit.Tests
                 maxWave5SpillRatio: 0,
                 minRiskRewardRatio: config.MinRiskRewardRatio,
                 triggerMode: config.TriggerMode,
-                recordSkeletons: recordSkeletons);
+                recordSkeletons: recordSkeletons,
+                wave5SpillMode: config.Wave5SpillMode,
+                wave5SpillThreshold: config.Wave5SpillThreshold,
+                initialMode: config.InitialMode,
+                takeProfitRetraceRatio: config.TakeProfitRetraceRatio,
+                stopWave3Ratio: config.StopWave3Ratio);
 
             var records = new List<SignalRecord>();
             SignalRecord? pending = null;
@@ -1037,7 +1042,12 @@ namespace TradeKit.Tests
             double MinWave4Wave2Level,
             double MinWave4RetraceW3,
             double MinRiskRewardRatio,
-            DiagonalTriggerMode TriggerMode = DiagonalTriggerMode.WAVE3_BREAK);
+            DiagonalTriggerMode TriggerMode = DiagonalTriggerMode.WAVE3_BREAK,
+            DiagonalInitialMode InitialMode = DiagonalInitialMode.ALL,
+            DiagonalWave5SpillMode Wave5SpillMode = DiagonalWave5SpillMode.ALL,
+            double Wave5SpillThreshold = 0.005d,
+            double TakeProfitRetraceRatio = 0.236d,
+            double StopWave3Ratio = 1.0d);
 
         private sealed record HarmPattern(
             HarmonicPatternType Type,

@@ -100,7 +100,9 @@ namespace TradeKit.Core.ElliottWave
         /// <summary>Only leading diagonals: the whole diagonal is inside the prior counter-move (D-INIT).</summary>
         LEADING,
 
-        /// <summary>Only ending diagonals: the diagonal is not initial, and D-INIT-END applies.</summary>
+        /// <summary>Only ending diagonals: the diagonal is not initial, no earlier point 0
+        /// of the same 1-2-3-4 frame turns it initial (D-INIT-SHIFT, §4.8), and D-INIT-END
+        /// applies.</summary>
         ENDING
     }
 
@@ -164,6 +166,21 @@ namespace TradeKit.Core.ElliottWave
         BarPoint StopLoss,
         int SignalBar,
         int P4Bar);
+
+    /// <summary>
+    /// Causal wave-5 state of one diagonal skeleton: the 0-1-2-3-4 points and the running
+    /// (still re-placeable) wave-5 extreme. Used by the continuation finder to keep the
+    /// diagonal valid while it waits for the impulse against it (DIAGONAL.md §9.44).
+    /// </summary>
+    public sealed record DiagonalWave5State(
+        BarPoint Point0,
+        BarPoint P1,
+        BarPoint P2,
+        BarPoint P3,
+        BarPoint P4,
+        bool IsUp,
+        double W5,
+        int W5Bar);
 
     /// <summary>
     /// Finds <b>contracting diagonals</b> (leading and ending alike, see DIAGONAL.md §1)
@@ -447,6 +464,29 @@ namespace TradeKit.Core.ElliottWave
         public double Wave3RetraceRatio { get; }
 
         /// <summary>
+        /// Gets the wave-5 maturity threshold (D-W5-78):
+        /// <c>|W5| ≥ Wave5MinRatio·|W3|</c> on the signal. <c>0</c> — off; the legacy
+        /// "require wave 5 ratio" flag maps to the 0.786 default.
+        /// </summary>
+        public double Wave5MinRatio { get; }
+
+        /// <summary>
+        /// Gets the minimum <c>|W3|/|W1|</c> ratio: with D-CONTRACT-3 (<c>|W3| &lt; |W1|</c>)
+        /// it gives the corridor <c>ratio ≤ |W3|/|W1| &lt; 1</c>. A third wave that falls far
+        /// short of the first collapses instead of coiling; <c>0</c> — off.
+        /// </summary>
+        public double MinWave3Wave1Ratio { get; }
+
+        /// <summary>
+        /// Gets the share of <c>|W3|</c> at which wave 5 is considered "reached" for the
+        /// retrace target: when positive, the 23.6% target in
+        /// <see cref="DiagonalTakeProfitMode.DIAGONAL_RETRACE"/> mode is measured from the
+        /// level <c>V(4) ± ratio·|W3|</c> instead of the running extreme of wave 5.
+        /// <c>0</c> — off (the extreme of wave 5 is used).
+        /// </summary>
+        public double RetraceBaseWave3Ratio { get; }
+
+        /// <summary>
         /// Gets the minimum R:R a setup with a geometric target (§6.3 / §6.6) has to offer
         /// (DIAGONAL.md §6.5). A signal whose target is closer than this waits: the candidate
         /// stays alive and is re-checked on every closed candle with the target recomputed
@@ -466,7 +506,8 @@ namespace TradeKit.Core.ElliottWave
 
         /// <summary>
         /// When set, a signal additionally requires a "mature" wave 5:
-        /// <c>|W5| ≥ 0.786·|W3|</c> (DIAGONAL.md §6.1).
+        /// <c>|W5| ≥ 0.786·|W3|</c> (DIAGONAL.md §6.1). Derived from
+        /// <see cref="Wave5MinRatio"/>.
         /// </summary>
         public bool RequireWave5Ratio { get; }
 
@@ -792,7 +833,10 @@ namespace TradeKit.Core.ElliottWave
             DiagonalWave5SpillMode wave5SpillMode = DiagonalWave5SpillMode.ALL,
             double wave5SpillThreshold = 0.005,
             double minSignalRiskRewardRatio = 0,
-            DiagonalInitialMode? initialMode = null)
+            DiagonalInitialMode? initialMode = null,
+            double wave5MinRatio = 0,
+            double minWave3Wave1Ratio = 0,
+            double retraceBaseWave3Ratio = 0)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -801,7 +845,12 @@ namespace TradeKit.Core.ElliottWave
                 m_ThinFilter = new ThinMarketFilter(BarsProvider);
             m_ThinStopGuard = CreateThinStopGuard(symbol, tradeViewManager, thinMarketGuard);
             TakeProfitRatio = takeProfitRatio;
-            RequireWave5Ratio = requireWave5Ratio;
+            Wave5MinRatio = wave5MinRatio > 0
+                ? wave5MinRatio
+                : requireWave5Ratio ? WAVE5_MIN_RATIO : 0;
+            RequireWave5Ratio = Wave5MinRatio > 0;
+            MinWave3Wave1Ratio = Math.Max(0, minWave3Wave1Ratio);
+            RetraceBaseWave3Ratio = Math.Max(0, retraceBaseWave3Ratio);
             RequireWave4Ratio = requireWave4Ratio;
             InitialMode = initialMode ??
                           (requireInitialDiagonal
@@ -1560,6 +1609,247 @@ namespace TradeKit.Core.ElliottWave
         }
 
         /// <summary>
+        /// The section 4 hard and configured gates of a 0-1-2-3-4 skeleton, without
+        /// registering it. Shared by <see cref="TryRegister"/> and the post-hoc re-mark
+        /// (DIAGONAL.md 9.46).
+        /// </summary>
+        private bool TryPassSkeletonRules(BarPoint p0, BarPoint p1, BarPoint p2,
+            BarPoint p3, BarPoint p4, bool isUp, int index)
+        {
+            int sgn = isUp ? 1 : -1;
+            double w1 = Math.Abs(p1.Value - p0.Value);
+            double w2 = Math.Abs(p2.Value - p1.Value);
+            double w3 = Math.Abs(p3.Value - p2.Value);
+            double w4 = Math.Abs(p4.Value - p3.Value);
+            if (w1 <= 0 || w2 <= 0 || w3 <= 0 || w4 <= 0)
+                return false;
+
+            Bump("assembled", p0);
+
+            // D-W2: wave 2 does not run past the start of wave 1.
+            if (sgn * (p2.Value - p0.Value) <= 0)
+            {
+                Bump("w2BeyondStart", p0);
+                return false;
+            }
+
+            // D-W2-RET (optional): wave 2 gives back at least this share of wave 1.
+            if (MinWave2Retrace > 0 && w2 < MinWave2Retrace * w1)
+            {
+                Bump("w2RetraceTooShallow", p0);
+                return false;
+            }
+
+            // D-W2-RET-MAX (optional): wave 2 gives back no more than this share of wave 1 —
+            // diagonals never show deep second waves.
+            if (MaxWave2Retrace > 0 && w2 > MaxWave2Retrace * w1)
+            {
+                Bump("w2RetraceTooDeep", p0);
+                return false;
+            }
+
+            // D-TIME-12 (optional): time contracts together with price — wave 2 must
+            // last fewer bars than wave 1.
+            if (RequireWave2Shorter &&
+                p2.BarIndex - p1.BarIndex >= p1.BarIndex - p0.BarIndex)
+            {
+                Bump("w2TimeNotContracting", p0);
+                return false;
+            }
+
+            // D-TIME-21-MIN (optional): wave 2 must last at least
+            // MinWave2Wave1DurationRatio · bars(W1). A pullback done in a couple of bars
+            // next to a lengthy wave 1 is a flash dip, not the first coiling correction.
+            if (MinWave2Wave1DurationRatio > 0 &&
+                p2.BarIndex - p1.BarIndex <
+                    MinWave2Wave1DurationRatio * (p1.BarIndex - p0.BarIndex))
+            {
+                Bump("w2TimeTooShort", p0);
+                return false;
+            }
+
+            // D-W3-PEN: wave 3 makes a new extreme beyond wave 1.
+            if (sgn * (p3.Value - p1.Value) < MinWave3Penetration * w1)
+            {
+                Bump("w3NoPenetration", p0);
+                return false;
+            }
+
+            // D-CONTRACT-3 / D-CONTRACT-4: the wedge contracts.
+            if (w3 >= w1)
+            {
+                Bump("w3NotContracting", p0);
+                return false;
+            }
+
+            // D-W3-78 (optional): wave 3 covers at least the configured share of wave 1 —
+            // with the hard rule above, |W3|/|W1| stays inside [ratio, 1).
+            if (MinWave3Wave1Ratio > 0 && w3 < MinWave3Wave1Ratio * w1)
+            {
+                Bump("w3TooShallowVsW1", p0);
+                return false;
+            }
+
+            // D-TIME-31-MIN (optional): wave 3 must last at least
+            // MinWave3Wave1DurationRatio · bars(W1). A wave 3 that races through in a few
+            // bars next to a lengthy wave 1 is a burst, not a coiling diagonal.
+            if (MinWave3Wave1DurationRatio > 0 &&
+                p3.BarIndex - p2.BarIndex <
+                    MinWave3Wave1DurationRatio * (p1.BarIndex - p0.BarIndex))
+            {
+                Bump("w3TimeTooShort", p0);
+                return false;
+            }
+
+            if (w4 >= w2)
+            {
+                Bump("w4NotContracting", p0);
+                return false;
+            }
+
+            // D-W4-78 (optional): the wedge contracts evenly rather than collapsing.
+            if (RequireWave4Ratio && w4 < WAVE4_MIN_RATIO * w2)
+            {
+                Bump("w4TooShallow", p0);
+                return false;
+            }
+
+            // D-W4-38 (hard): wave 4 retraces at least 38.2% of wave 3 — a pullback any
+            // shallower is impulse-like and does not belong to a wedge.
+            if (w4 < MinWave4RetraceW3 * w3)
+            {
+                Bump("w4RetraceTooShallow", p0);
+                return false;
+            }
+
+            // Optional upper bound on the same ratio. The Phase 1 holdout found that
+            // shallower wave 4s may be structurally stronger; the exact-run harness uses
+            // this to test W4/W3 <= 0.382 without changing the shipped lower bound.
+            if (MaxWave4RetraceW3 > 0 && w4 > MaxWave4RetraceW3 * w3)
+            {
+                Bump("w4RetraceTooDeep", p0);
+                return false;
+            }
+
+            // D-TIME-24: wave 2 must last longer than wave 4. A final pullback that drags on
+            // past wave 2's duration is drift, not a coiling wedge.
+            if (RequireWave4Shorter &&
+                p4.BarIndex - p3.BarIndex >= p2.BarIndex - p1.BarIndex)
+            {
+                Bump("w4TimeNotContracting", p0);
+                return false;
+            }
+
+            // D-TIME-24-MIN (optional): wave 4 must last at least
+            // MinWave4Wave2DurationRatio · bars(W2). A pullback that collapses into a few
+            // bars is a flash spill, not a coiling wedge.
+            if (MinWave4Wave2DurationRatio > 0 &&
+                p4.BarIndex - p3.BarIndex <
+                    MinWave4Wave2DurationRatio * (p2.BarIndex - p1.BarIndex))
+            {
+                Bump("w4TimeTooShort", p0);
+                return false;
+            }
+
+            // D-OVERLAP: the end of wave 4 enters the price zone of wave 1 — the very
+            // feature that tells a diagonal from an impulse.
+            if (sgn * (p4.Value - p1.Value) >= 0)
+            {
+                Bump("noOverlap", p0);
+                return false;
+            }
+
+            // D-W4-24 (hard): measured on wave 2's range (0 = end of W1, 1 = end of W2),
+            // wave 4 has to reach at least the 23.6% level — a shallower overlap does not
+            // coil the wedge.
+            if (sgn * (p1.Value - p4.Value) < MinWave4Wave2Level * w2)
+            {
+                Bump("w4ShallowIntoW2", p0);
+                return false;
+            }
+
+            // D-W4-2: wave 4 does not break the end of wave 2.
+            if (sgn * (p4.Value - p2.Value) <= 0)
+            {
+                Bump("w4BeyondW2", p0);
+                return false;
+            }
+
+            // D-CONVERGE: how hard the trendlines 1-3 and 2-4 close. In v-space the 1-3 line
+            // rises by |W3|−|W2| over its span and the 2-4 line by |W3|−|W4| over its own, so
+            // this weighs the durations as well and is a genuinely different test from
+            // |W4| < |W2| (DIAGONAL.md §4.2).
+            double convergence = ConvergenceRatio(p1, p2, p3, p4, sgn);
+            if (convergence < MinConvergence)
+            {
+                Bump("linesDiverge", p0);
+                return false;
+            }
+
+            // D-CONVERGE cap: how narrow the wedge may get at most (MaxConvergence,
+            // DIAGONAL.md §4.2). 0 disables the upper bound.
+            if (MaxConvergence > 0 && convergence > MaxConvergence)
+            {
+                Bump("linesOverConverge", p0);
+                return false;
+            }
+
+            // Soft fibo W3/W1 — disabled by default (DIAGONAL.md O-7).
+            if (USE_W3_TO_W1_FIBO)
+            {
+                double ratio = w3 / w1;
+                if (ratio < W3_TO_W1_MIN || ratio > W3_TO_W1_MAX)
+                {
+                    Bump("w3ToW1Fibo", p0);
+                    return false;
+                }
+            }
+
+            BarPoint[] skeleton = { p0, p1, p2, p3, p4 };
+
+            // D-TIME: no wave lasts disproportionally longer than its same-character sibling.
+            if (!AreWaveDurationsSane(skeleton))
+            {
+                Bump("durationInsane", p0);
+                return false;
+            }
+
+            // D-CONTAIN (I2): interior bars stay inside their own wave.
+            for (int w = 0; w + 1 < skeleton.Length; w++)
+            {
+                if (!IsWaveContained(skeleton[w], skeleton[w + 1]))
+                {
+                    Bump("notContained", p0);
+                    return false;
+                }
+            }
+
+            if (p4.BarIndex - p0.BarIndex < m_EwParams.BarsCount)
+            {
+                Bump("tooFewBars", p0);
+                return false;
+            }
+
+            double sizePercent = Math.Abs(p3.Value - p0.Value) /
+                                 Math.Max(1e-12, BarsProvider.GetClosePrice(index)) * 100;
+            if (sizePercent < m_EwParams.MinSizePercent)
+            {
+                Bump("tooSmall", p0);
+                return false;
+            }
+
+            // D-INSIDE: bars of waves 2-4 stay inside the wedge. Walks the whole skeleton
+            // span, so it goes after the cheap geometry.
+            if (RequireInsideWedge &&
+                SpillAreaRatio(p1, p2, p3, p4, sgn, p1.BarIndex, p4.BarIndex) > MaxSpillAreaRatio)
+            {
+                Bump("spillsOutOfWedge", p0);
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// Validates all non-wave-5 rules of DIAGONAL.md §4 and, on success, puts the
         /// skeleton into the live candidate pool with wave 5 back-filled up to (but not
         /// including) the current bar.
@@ -1580,228 +1870,8 @@ namespace TradeKit.Core.ElliottWave
                 return;
             }
 
-            int sgn = isUp ? 1 : -1;
-            double w1 = Math.Abs(p1.Value - p0.Value);
-            double w2 = Math.Abs(p2.Value - p1.Value);
-            double w3 = Math.Abs(p3.Value - p2.Value);
-            double w4 = Math.Abs(p4.Value - p3.Value);
-            if (w1 <= 0 || w2 <= 0 || w3 <= 0 || w4 <= 0)
+            if (!TryPassSkeletonRules(p0, p1, p2, p3, p4, isUp, index))
                 return;
-
-            Bump("assembled", p0);
-
-            // D-W2: wave 2 does not run past the start of wave 1.
-            if (sgn * (p2.Value - p0.Value) <= 0)
-            {
-                Bump("w2BeyondStart", p0);
-                return;
-            }
-
-            // D-W2-RET (optional): wave 2 gives back at least this share of wave 1.
-            if (MinWave2Retrace > 0 && w2 < MinWave2Retrace * w1)
-            {
-                Bump("w2RetraceTooShallow", p0);
-                return;
-            }
-
-            // D-W2-RET-MAX (optional): wave 2 gives back no more than this share of wave 1 —
-            // diagonals never show deep second waves.
-            if (MaxWave2Retrace > 0 && w2 > MaxWave2Retrace * w1)
-            {
-                Bump("w2RetraceTooDeep", p0);
-                return;
-            }
-
-            // D-TIME-12 (optional): time contracts together with price — wave 2 must
-            // last fewer bars than wave 1.
-            if (RequireWave2Shorter &&
-                p2.BarIndex - p1.BarIndex >= p1.BarIndex - p0.BarIndex)
-            {
-                Bump("w2TimeNotContracting", p0);
-                return;
-            }
-
-            // D-TIME-21-MIN (optional): wave 2 must last at least
-            // MinWave2Wave1DurationRatio · bars(W1). A pullback done in a couple of bars
-            // next to a lengthy wave 1 is a flash dip, not the first coiling correction.
-            if (MinWave2Wave1DurationRatio > 0 &&
-                p2.BarIndex - p1.BarIndex <
-                    MinWave2Wave1DurationRatio * (p1.BarIndex - p0.BarIndex))
-            {
-                Bump("w2TimeTooShort", p0);
-                return;
-            }
-
-            // D-W3-PEN: wave 3 makes a new extreme beyond wave 1.
-            if (sgn * (p3.Value - p1.Value) < MinWave3Penetration * w1)
-            {
-                Bump("w3NoPenetration", p0);
-                return;
-            }
-
-            // D-CONTRACT-3 / D-CONTRACT-4: the wedge contracts.
-            if (w3 >= w1)
-            {
-                Bump("w3NotContracting", p0);
-                return;
-            }
-
-            // D-TIME-31-MIN (optional): wave 3 must last at least
-            // MinWave3Wave1DurationRatio · bars(W1). A wave 3 that races through in a few
-            // bars next to a lengthy wave 1 is a burst, not a coiling diagonal.
-            if (MinWave3Wave1DurationRatio > 0 &&
-                p3.BarIndex - p2.BarIndex <
-                    MinWave3Wave1DurationRatio * (p1.BarIndex - p0.BarIndex))
-            {
-                Bump("w3TimeTooShort", p0);
-                return;
-            }
-
-            if (w4 >= w2)
-            {
-                Bump("w4NotContracting", p0);
-                return;
-            }
-
-            // D-W4-78 (optional): the wedge contracts evenly rather than collapsing.
-            if (RequireWave4Ratio && w4 < WAVE4_MIN_RATIO * w2)
-            {
-                Bump("w4TooShallow", p0);
-                return;
-            }
-
-            // D-W4-38 (hard): wave 4 retraces at least 38.2% of wave 3 — a pullback any
-            // shallower is impulse-like and does not belong to a wedge.
-            if (w4 < MinWave4RetraceW3 * w3)
-            {
-                Bump("w4RetraceTooShallow", p0);
-                return;
-            }
-
-            // Optional upper bound on the same ratio. The Phase 1 holdout found that
-            // shallower wave 4s may be structurally stronger; the exact-run harness uses
-            // this to test W4/W3 <= 0.382 without changing the shipped lower bound.
-            if (MaxWave4RetraceW3 > 0 && w4 > MaxWave4RetraceW3 * w3)
-            {
-                Bump("w4RetraceTooDeep", p0);
-                return;
-            }
-
-            // D-TIME-24: wave 2 must last longer than wave 4. A final pullback that drags on
-            // past wave 2's duration is drift, not a coiling wedge.
-            if (RequireWave4Shorter &&
-                p4.BarIndex - p3.BarIndex >= p2.BarIndex - p1.BarIndex)
-            {
-                Bump("w4TimeNotContracting", p0);
-                return;
-            }
-
-            // D-TIME-24-MIN (optional): wave 4 must last at least
-            // MinWave4Wave2DurationRatio · bars(W2). A pullback that collapses into a few
-            // bars is a flash spill, not a coiling wedge.
-            if (MinWave4Wave2DurationRatio > 0 &&
-                p4.BarIndex - p3.BarIndex <
-                    MinWave4Wave2DurationRatio * (p2.BarIndex - p1.BarIndex))
-            {
-                Bump("w4TimeTooShort", p0);
-                return;
-            }
-
-            // D-OVERLAP: the end of wave 4 enters the price zone of wave 1 — the very
-            // feature that tells a diagonal from an impulse.
-            if (sgn * (p4.Value - p1.Value) >= 0)
-            {
-                Bump("noOverlap", p0);
-                return;
-            }
-
-            // D-W4-24 (hard): measured on wave 2's range (0 = end of W1, 1 = end of W2),
-            // wave 4 has to reach at least the 23.6% level — a shallower overlap does not
-            // coil the wedge.
-            if (sgn * (p1.Value - p4.Value) < MinWave4Wave2Level * w2)
-            {
-                Bump("w4ShallowIntoW2", p0);
-                return;
-            }
-
-            // D-W4-2: wave 4 does not break the end of wave 2.
-            if (sgn * (p4.Value - p2.Value) <= 0)
-            {
-                Bump("w4BeyondW2", p0);
-                return;
-            }
-
-            // D-CONVERGE: how hard the trendlines 1-3 and 2-4 close. In v-space the 1-3 line
-            // rises by |W3|−|W2| over its span and the 2-4 line by |W3|−|W4| over its own, so
-            // this weighs the durations as well and is a genuinely different test from
-            // |W4| < |W2| (DIAGONAL.md §4.2).
-            double convergence = ConvergenceRatio(p1, p2, p3, p4, sgn);
-            if (convergence < MinConvergence)
-            {
-                Bump("linesDiverge", p0);
-                return;
-            }
-
-            // D-CONVERGE cap: how narrow the wedge may get at most (MaxConvergence,
-            // DIAGONAL.md §4.2). 0 disables the upper bound.
-            if (MaxConvergence > 0 && convergence > MaxConvergence)
-            {
-                Bump("linesOverConverge", p0);
-                return;
-            }
-
-            // Soft fibo W3/W1 — disabled by default (DIAGONAL.md O-7).
-            if (USE_W3_TO_W1_FIBO)
-            {
-                double ratio = w3 / w1;
-                if (ratio < W3_TO_W1_MIN || ratio > W3_TO_W1_MAX)
-                {
-                    Bump("w3ToW1Fibo", p0);
-                    return;
-                }
-            }
-
-            BarPoint[] skeleton = { p0, p1, p2, p3, p4 };
-
-            // D-TIME: no wave lasts disproportionally longer than its same-character sibling.
-            if (!AreWaveDurationsSane(skeleton))
-            {
-                Bump("durationInsane", p0);
-                return;
-            }
-
-            // D-CONTAIN (I2): interior bars stay inside their own wave.
-            for (int w = 0; w + 1 < skeleton.Length; w++)
-            {
-                if (!IsWaveContained(skeleton[w], skeleton[w + 1]))
-                {
-                    Bump("notContained", p0);
-                    return;
-                }
-            }
-
-            if (p4.BarIndex - p0.BarIndex < m_EwParams.BarsCount)
-            {
-                Bump("tooFewBars", p0);
-                return;
-            }
-
-            double sizePercent = Math.Abs(p3.Value - p0.Value) /
-                                 Math.Max(1e-12, BarsProvider.GetClosePrice(index)) * 100;
-            if (sizePercent < m_EwParams.MinSizePercent)
-            {
-                Bump("tooSmall", p0);
-                return;
-            }
-
-            // D-INSIDE: bars of waves 2-4 stay inside the wedge. Walks the whole skeleton
-            // span, so it goes after the cheap geometry.
-            if (RequireInsideWedge &&
-                SpillAreaRatio(p1, p2, p3, p4, sgn, p1.BarIndex, p4.BarIndex) > MaxSpillAreaRatio)
-            {
-                Bump("spillsOutOfWedge", p0);
-                return;
-            }
 
             var candidate = new DiagonalCandidate(p0, p1, p2, p3, p4, isUp);
 
@@ -2098,13 +2168,21 @@ namespace TradeKit.Core.ElliottWave
         /// </summary>
         private static double Line13Value(DiagonalCandidate candidate, int bar)
         {
-            int span = candidate.P3.BarIndex - candidate.P1.BarIndex;
-            if (span <= 0)
-                return candidate.P3.Value;
+            return Line13Value(candidate.P1, candidate.P3, bar);
+        }
 
-            return candidate.P1.Value +
-                   (candidate.P3.Value - candidate.P1.Value) *
-                   (bar - candidate.P1.BarIndex) / span;
+        /// <summary>
+        /// Value of the line through two wave ends at <paramref name="bar"/>. Used for the
+        /// pending 1-3 entry and for the 1-3-5 collinearity of the re-mark (D-REMARK,
+        /// DIAGONAL.md §9.46).
+        /// </summary>
+        private static double Line13Value(BarPoint p1, BarPoint p3, int bar)
+        {
+            int span = p3.BarIndex - p1.BarIndex;
+            if (span <= 0)
+                return p3.Value;
+
+            return p1.Value + (p3.Value - p1.Value) * (bar - p1.BarIndex) / span;
         }
 
         /// <summary>
@@ -2204,9 +2282,9 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
-            // D-W5-78 (optional).
-            return !RequireWave5Ratio ||
-                   candidate.W5Length >= WAVE5_MIN_RATIO * candidate.W3Length;
+            // D-W5-78 (optional): a mature wave 5.
+            return Wave5MinRatio <= 0 ||
+                   candidate.W5Length >= Wave5MinRatio * candidate.W3Length;
         }
 
         /// <summary>
@@ -2307,6 +2385,18 @@ namespace TradeKit.Core.ElliottWave
                 return false;
             }
 
+            // D-INIT-SHIFT (DIAGONAL.md §4.8, ENDING only): an "ending" reading whose point 0
+            // is just a low-rank micro-extreme is not an ending diagonal. If an earlier pivot
+            // can take point 0's place without touching waves 1-4 — and every point-0 rule
+            // still holds — and the diagonal then passes D-INIT, the very same wedge is a
+            // leading one, and the ending label is an artefact of the point-0 choice.
+            if (InitialMode == DiagonalInitialMode.ENDING &&
+                TryFindLeadingPoint0(candidate, barIndex))
+            {
+                Bump("endingHasLeadingPoint0", p0);
+                return false;
+            }
+
             // D-INIT-END (hardcoded, DIAGONAL.md §4.6): when leading diagonals are not the
             // only target (ALL or ENDING), point 0 must be the end of a real correction.
             if (InitialMode != DiagonalInitialMode.LEADING)
@@ -2359,6 +2449,121 @@ namespace TradeKit.Core.ElliottWave
         }
 
         /// <summary>
+        /// D-INIT-SHIFT (DIAGONAL.md §4.8): looks for an EARLIER pivot that can replace the
+        /// candidate's point 0 without touching waves 1-4. A replacement must be a
+        /// counter-extreme at least as deep as the current point 0, keep every point-0 rule
+        /// of §4 intact and turn the whole diagonal into an initial movement (D-INIT). Such a
+        /// pivot proves the current point 0 is a low-rank micro-extreme inside the preceding
+        /// counter-move — the wedge is leading, not ending, and the ENDING mode must not emit
+        /// it.
+        /// </summary>
+        /// <param name="candidate">The registered candidate.</param>
+        /// <param name="barIndex">Bar index of the signal attempt; bounds the pivot tails and
+        /// the D-INIT rewind (the method is causal).</param>
+        private bool TryFindLeadingPoint0(DiagonalCandidate candidate, int barIndex)
+        {
+            int sgn = candidate.IsUp ? 1 : -1;
+            BarPoint p0 = candidate.Point0;
+            BarPoint p1 = candidate.P1;
+            BarPoint p2 = candidate.P2;
+            BarPoint p3 = candidate.P3;
+            BarPoint p4 = candidate.P4;
+            double w2 = Math.Abs(p2.Value - p1.Value);
+            double w3 = Math.Abs(p3.Value - p2.Value);
+
+            // Every rung is probed: the true start of the wedge is often a more significant
+            // low that only a coarser zigzag resolves (the skeleton itself may live on a
+            // finer rung — DIAGONAL.md §5.3).
+            foreach (DeviationExtremumFinder finder in m_ExtremumFinders)
+            {
+                List<BarPoint> piv = CachedTailPivots(finder, barIndex);
+                for (int i = 0; i + 1 < piv.Count; i++)
+                {
+                    BarPoint q = piv[i];
+                    if (q.BarIndex >= p0.BarIndex)
+                        break;
+
+                    // Point 0 starts a move in the diagonal's direction: a low followed by a
+                    // high for an up diagonal. The replacement must be at least as deep as
+                    // the current one — a higher earlier low is undercut by the current
+                    // point 0 and cannot be the start of the same wedge.
+                    if (sgn * (piv[i + 1].Value - q.Value) <= 0 ||
+                        sgn * (p0.Value - q.Value) < 0)
+                        continue;
+
+                    if (!IsPoint0ValidForSkeleton(q, p1, p2, p3, p4, w2, w3, sgn))
+                        continue;
+
+                    if (!IsInitialMovement(q.Value, candidate.W5Extreme, q.BarIndex,
+                            BarsProvider, out _))
+                        continue;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The point-0-dependent rules of §4 for an alternative start of an already validated
+        /// 1-2-3-4 frame (DIAGONAL.md §4.8): D-W2, D-W2-RET/MAX, D-TIME-12/21-MIN, D-W3-PEN,
+        /// D-CONTRACT-3, D-TIME-31-MIN, D-CONTAIN of wave 1 and D-TIME. Waves 2-4 do not
+        /// depend on V(0), so their rules stay as they were at registration.
+        /// </summary>
+        private bool IsPoint0ValidForSkeleton(BarPoint p0, BarPoint p1, BarPoint p2,
+            BarPoint p3, BarPoint p4, double w2, double w3, int sgn)
+        {
+            double w1 = sgn * (p1.Value - p0.Value);
+            if (w1 <= 0)
+                return false;
+
+            // D-W2: wave 2 does not run past the start of wave 1.
+            if (sgn * (p2.Value - p0.Value) <= 0)
+                return false;
+
+            // D-W2-RET / D-W2-RET-MAX (optional): the share of wave 1 wave 2 gives back.
+            if (MinWave2Retrace > 0 && w2 < MinWave2Retrace * w1)
+                return false;
+            if (MaxWave2Retrace > 0 && w2 > MaxWave2Retrace * w1)
+                return false;
+
+            // D-TIME-12 / D-TIME-21-MIN (optional): wave 2 against wave 1 in bars.
+            if (RequireWave2Shorter &&
+                p2.BarIndex - p1.BarIndex >= p1.BarIndex - p0.BarIndex)
+                return false;
+            if (MinWave2Wave1DurationRatio > 0 &&
+                p2.BarIndex - p1.BarIndex <
+                    MinWave2Wave1DurationRatio * (p1.BarIndex - p0.BarIndex))
+                return false;
+
+            // D-W3-PEN: wave 3 makes a new extreme beyond wave 1 (relative to the new |W1|).
+            if (sgn * (p3.Value - p1.Value) < MinWave3Penetration * w1)
+                return false;
+
+            // D-CONTRACT-3: the wedge contracts.
+            if (w3 >= w1)
+                return false;
+
+            // D-W3-78 (optional): the same share of wave 1 as on the skeleton path.
+            if (MinWave3Wave1Ratio > 0 && w3 < MinWave3Wave1Ratio * w1)
+                return false;
+
+            // D-TIME-31-MIN (optional): wave 3 against wave 1 in bars.
+            if (MinWave3Wave1DurationRatio > 0 &&
+                p3.BarIndex - p2.BarIndex <
+                    MinWave3Wave1DurationRatio * (p1.BarIndex - p0.BarIndex))
+                return false;
+
+            // D-CONTAIN (I2): the interior of the new wave 1 stays inside its ends.
+            if (!IsWaveContained(p0, p1))
+                return false;
+
+            // D-TIME: the new wave 1 is not disproportionally longer than wave 3.
+            return AreWaveDurationsSane(new[] { p0, p1, p2, p3, p4 });
+        }
+
+        /// <summary>
         /// Builds the counter-trend SL/TP for a given entry, applying the same gates as the
         /// signal path. Shared by <see cref="TryEmit"/> and
         /// <see cref="TryGetPendingOrder"/> so the live limit and the simulation cannot
@@ -2382,12 +2587,21 @@ namespace TradeKit.Core.ElliottWave
             double slAllowance = Math.Abs(entry - slRaw) * Helper.PERCENT_ALLOWANCE_SL / 100;
 
             // D-TP-236: the target retraces the whole diagonal V(0) → W5, not the risk.
-            // D-TP-W3 (§6.6) measures the same pullback against |W3| instead.
+            // D-TP-W3 (§6.6) measures the same pullback against |W3| instead. The research
+            // option RetraceBaseWave3Ratio anchors the target at the level where wave 5
+            // reached its share of |W3| rather than at the running extreme of wave 5.
             bool isWave3Tp = Wave3RetraceRatio > 0;
+            double retraceBase = candidate.W5Extreme;
+            if (!isWave3Tp && RetraceBaseWave3Ratio > 0)
+            {
+                retraceBase = candidate.P4.Value +
+                              (candidate.IsUp ? 1 : -1) * RetraceBaseWave3Ratio * w3;
+            }
+
             double retraceDepth = isWave3Tp
                 ? Wave3RetraceRatio * w3
-                : TakeProfitRetraceRatio * Math.Abs(candidate.W5Extreme - candidate.Point0.Value);
-            double retraceRaw = candidate.W5Extreme +
+                : TakeProfitRetraceRatio * Math.Abs(retraceBase - candidate.Point0.Value);
+            double retraceRaw = retraceBase +
                                 (candidate.IsUp ? -1 : 1) * retraceDepth;
             bool isRetraceTp = isWave3Tp ||
                                TakeProfitMode == DiagonalTakeProfitMode.DIAGONAL_RETRACE;
@@ -2550,6 +2764,174 @@ namespace TradeKit.Core.ElliottWave
         private static string PendingCandidateId(DiagonalCandidate candidate)
         {
             return $"{candidate.Point0.OpenTime.Ticks:x}-{candidate.P4.OpenTime.Ticks:x}-{(candidate.IsUp ? 1 : 0)}";
+        }
+
+        /// <summary>
+        /// Pivots of the finest zigzag rung in chronological order. The ReplayViewer
+        /// post-hoc re-mark (DIAGONAL.md 9.46) reads them after the replay; the live finder
+        /// never does.
+        /// </summary>
+        public IReadOnlyList<BarPoint> GetRemarkPivots()
+        {
+            DeviationExtremumFinder baseRung =
+                m_ExtremumFinders.OrderBy(a => a.ScaleRate).First();
+            return baseRung.ToChronologicalExtremaList();
+        }
+
+        /// <summary>
+        /// Validates a 0-1-2-3-4 skeleton against the same gates the live finder applies,
+        /// without registering it (DIAGONAL.md 9.46).
+        /// </summary>
+        public bool TryValidateSkeleton(BarPoint p0, BarPoint p1, BarPoint p2,
+            BarPoint p3, BarPoint p4, bool isUp)
+        {
+            m_SuppressBumps = true;
+            try
+            {
+                return TryPassSkeletonRules(p0, p1, p2, p3, p4, isUp, p4.BarIndex);
+            }
+            finally
+            {
+                m_SuppressBumps = false;
+            }
+        }
+
+        /// <summary>
+        /// Post-hoc D-REMARK (DIAGONAL.md 9.46): finds later pivots for the ends of waves 3,
+        /// 4 and 5 such that 0-1-2-3-4 passes the same gates and 1-3-5 lie on one line within
+        /// <paramref name="tolerance"/> of |W3|. P1/P3/P5 run with the diagonal, P2/P4
+        /// against it. Returns the first valid triple after P2; nothing is registered in the
+        /// live pool.
+        /// </summary>
+        public bool TryRemarkWaves345(
+            IReadOnlyList<BarPoint> pivots,
+            BarPoint p0, BarPoint p1, BarPoint p2, bool isUp, double tolerance,
+            out BarPoint p3, out BarPoint p4, out BarPoint p5,
+            int afterBar = -1)
+        {
+            p3 = null;
+            p4 = null;
+            p5 = null;
+            if (pivots == null || pivots.Count == 0)
+                return false;
+
+            // Waves 3-5 may only move to the right of both P2 and the emitted wave-3 end.
+            int minBar = Math.Max(p2.BarIndex, afterBar);
+            int from = 0;
+            while (from < pivots.Count && pivots[from].BarIndex <= minBar)
+                from++;
+
+            for (int j3 = from; j3 < pivots.Count - 2; j3++)
+            {
+                if (!IsWaveEnd(pivots, j3, isUp, true))
+                    continue;
+
+                for (int j4 = j3 + 1; j4 < pivots.Count - 1; j4++)
+                {
+                    if (!IsWaveEnd(pivots, j4, isUp, false))
+                        continue;
+
+                    int j5 = -1;
+                    for (int j = j4 + 1; j < pivots.Count; j++)
+                    {
+                        if (!IsWaveEnd(pivots, j, isUp, true))
+                            continue;
+                        j5 = j;
+                        break;
+                    }
+
+                    if (j5 < 0)
+                        continue;
+
+                    double w3 = Math.Abs(pivots[j3].Value - p2.Value);
+                    if (w3 <= 1e-12)
+                        continue;
+
+                    double line = Line13Value(p1, pivots[j3], pivots[j5].BarIndex);
+                    if (Math.Abs(pivots[j5].Value - line) > tolerance * w3)
+                        continue;
+
+                    if (!TryValidateSkeleton(p0, p1, p2, pivots[j3], pivots[j4], isUp))
+                        continue;
+
+                    p3 = pivots[j3];
+                    p4 = pivots[j4];
+                    p5 = pivots[j5];
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Whether the pivot is a high (or a low) in the chronological list. P1/P3/P5 run
+        /// with the diagonal, P2/P4 against it, so the expected side is a function of both.
+        /// </summary>
+        private static bool IsWaveEnd(IReadOnlyList<BarPoint> piv, int i, bool isUp,
+            bool alongDiagonal)
+        {
+            bool isHigh = i == 0
+                ? piv[0].Value > piv[1].Value
+                : piv[i].Value > piv[i - 1].Value;
+            return isHigh == (isUp == alongDiagonal);
+        }
+
+        /// <summary>
+        /// Advances the wave-5 state of a diagonal skeleton by one bar using the same
+        /// D-W5-CAP, V(4)-break and wave-5 duration rules as the live finder. Returns
+        /// <c>false</c> when the diagonal is broken (wave 5 reached |W3|, price went past
+        /// V(4), or the wave-5 duration cap was hit). This is the causal "diagonal is still
+        /// valid" check used while waiting for the impulse A (DIAGONAL.md §9.44).
+        /// </summary>
+        public bool TryAdvanceWave5(
+            DiagonalWave5State state,
+            int bar,
+            out DiagonalWave5State next)
+        {
+            next = state;
+            if (state == null || bar < 0 || bar >= BarsProvider.Count)
+                return false;
+
+            var candidate = new DiagonalCandidate(
+                state.Point0, state.P1, state.P2, state.P3, state.P4, state.IsUp)
+            {
+                W5Extreme = state.W5,
+                W5ExtremeBar = state.W5Bar,
+                LastProcessedBar = bar - 1
+            };
+
+            m_SuppressBumps = true;
+            try
+            {
+                if (!AdvanceWave5(candidate, bar))
+                    return false;
+
+                next = state with
+                {
+                    W5 = candidate.W5Extreme,
+                    W5Bar = candidate.W5ExtremeBar
+                };
+                return true;
+            }
+            finally
+            {
+                m_SuppressBumps = false;
+            }
+        }
+
+        /// <summary>
+        /// D-INIT at an arbitrary wave-5 end: whether the completed diagonal still fits
+        /// inside the counter-move that precedes its point 0. The continuation setup is
+        /// judged at its entry, when the whole diagonal is already in the past, so a wedge
+        /// that was LEADING at the V(3) break can turn ENDING once wave 5 extends past that
+        /// counter-move (DIAGONAL.md §9.43).
+        /// </summary>
+        public bool IsLeadingMovement(BarPoint point0, double wave5End)
+        {
+            return point0 != null &&
+                   IsInitialMovement(point0.Value, wave5End, point0.BarIndex, BarsProvider,
+                       out _);
         }
 
         /// <summary>

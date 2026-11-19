@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Диагональ → импульс — тренажёр</title>
+  <link rel="stylesheet" href="/css/replay.css">
+  <link rel="stylesheet" href="/css/impulse.css">
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    #tradeListBox { margin-top: 10px; }
+    #tradeListBox summary { cursor: pointer; color: #8892a0; font-size: 13px; }
+    #tradeList { max-height: 260px; overflow: auto; margin-top: 6px; }
+    #tradeList table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    #tradeList th, #tradeList td { padding: 3px 4px; border-bottom: 1px solid #2a2e36; text-align: right; white-space: nowrap; }
+    #tradeList th { color: #8892a0; font-weight: 500; position: sticky; top: 0; background: #1a1d23; }
+    #tradeList td:first-child, #tradeList th:first-child { text-align: left; }
+    #tradeList tr { cursor: pointer; }
+    #tradeList tr:hover { background: #22262e; }
+    #tradeList tr.active { background: #2a3340; }
+    .tp2-row { display: none; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Top bar: file, dates, scan and the panel toggle -->
+  <div id="topbar">
+    <a class="navlink" href="/index.html" title="Разметка волн Эллиотта">↩ Разметка</a>
+    <a class="navlink" href="/impulse.html" title="Тренажёр входов по импульсам">⚡ Импульсы</a>
+    <a class="navlink" href="/triangle.html" title="Тренажёр входов по треугольникам">△ Треугольники</a>
+    <a class="navlink" href="/rtriangle.html" title="Тренажёр входов по бегущим треугольникам">▷ Бегущие</a>
+    <a class="navlink" href="/diagonal.html" title="Тренажёр входов против диагонали">◺ Диагонали</a>
+    <a class="navlink" href="/diagonal-impulse.html" title="Диагональ → импульс A-B-C">◺→⚡ Импульс после диагонали</a>
+    <a class="navlink" href="/diagonal-continuation.html" title="Диагональ как заходной импульс">◺→ Продолжение по диагонали</a>
+    <span class="ctrl-sep"></span>
+    <label>CSV:</label>
+    <select id="selFile"><option>-- загрузка файлов... --</option></select>
+    <label>С:</label>
+    <input type="date" id="inpFromDate" autocomplete="off">
+    <label>По:</label>
+    <input type="date" id="inpToDate" autocomplete="off">
+    <button id="btnRandom" type="button" title="Случайная дата старта в пределах диапазона">🎲</button>
+    <span id="rangeInfo"></span>
+    <span class="ctrl-sep"></span>
+    <button id="btnPanelToggle" type="button" title="Показать/скрыть панель параметров">⚙ Параметры</button>
+    <button id="btnScan">🔍 Сканировать</button>
+    <span id="status">Готов</span>
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+    <div id="chartContainer"></div>
+
+    <div id="gamePanel">
+      <div class="panel-head">
+        <h4>Параметры</h4>
+        <button id="btnPanelClose" type="button" title="Скрыть панель">×</button>
+      </div>
+
+      <details class="param-details" open>
+        <summary>Поиск диагонали</summary>
+        <div id="paramPanel">
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pPeriod">Период</label><span id="vPeriod">0 (авто)</span></div>
+            <input type="range" id="pPeriod" min="0" max="200" step="1" value="0">
+            <div class="param-range"><span>0 (авто)</span><span>200</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMinSize">Размер</label><span id="vMinSize">0.10 %</span></div>
+            <input type="range" id="pMinSize" min="0.01" max="10" step="0.01" value="0.1">
+            <div class="param-range"><span>0.01 %</span><span>10 %</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pBars">Баров</label><span id="vBars">10</span></div>
+            <input type="range" id="pBars" min="3" max="200" step="1" value="10">
+            <div class="param-range"><span>3</span><span>200</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pW2Retrace">W2 retrace min</label><span id="vW2Retrace">0.50</span></div>
+            <input type="range" id="pW2Retrace" min="0" max="1" step="0.05" value="0.5">
+            <div class="param-range"><span>0</span><span>1.0</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMaxW4W3">W4/W3 max</label><span id="vMaxW4W3">0.382</span></div>
+            <input type="range" id="pMaxW4W3" min="0" max="1" step="0.001" value="0.382">
+            <div class="param-range"><span>0</span><span>1.0</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pInitialMode">Initial diagonal</label><span id="vInitialMode">ALL</span></div>
+            <select id="pInitialMode">
+              <option value="ALL" selected>ALL — все</option>
+              <option value="LEADING">LEADING — только начальные</option>
+              <option value="ENDING">ENDING — только конечные</option>
+            </select>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pRsiDiv">Дивергенция RSI 3-5</label><span id="vRsiDiv">off</span></div>
+            <select id="pRsiDiv">
+              <option value="OFF" selected>off — без фильтра</option>
+              <option value="REQUIRE">require — только с дивергенцией</option>
+              <option value="EXCLUDE">exclude — только без дивергенции</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pRsiPeriod">RSI период</label><span id="vRsiPeriod">14</span></div>
+            <input type="range" id="pRsiPeriod" min="2" max="50" step="1" value="14">
+            <div class="param-range"><span>2</span><span>50</span></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="param-details" open>
+        <summary>Импульс A и коррекция B</summary>
+        <div id="impParamPanel">
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pEnterRatio">Коррекция B</label><span id="vEnterRatio">0.500</span></div>
+            <input type="range" id="pEnterRatio" min="0.236" max="0.786" step="0.001" value="0.5">
+            <div class="param-range"><span>23.6 % A</span><span>78.6 % A</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMinARatio">A / диагональ min</label><span id="vMinARatio">0.236</span></div>
+            <input type="range" id="pMinARatio" min="0.05" max="0.8" step="0.001" value="0.236">
+            <div class="param-range"><span>0.05</span><span>0.80</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMinABars">Баров A min</label><span id="vMinABars">10</span></div>
+            <input type="range" id="pMinABars" min="2" max="100" step="1" value="10">
+            <div class="param-range"><span>2</span><span>100</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMaxABars">Баров A max</label><span id="vMaxABars">0 (off)</span></div>
+            <input type="range" id="pMaxABars" min="0" max="60" step="1" value="0">
+            <div class="param-range"><span>0 (off)</span><span>60</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pRequireSmoothA">A — гладкий импульс</label><span id="vRequireSmoothA">off</span></div>
+            <select id="pRequireSmoothA">
+              <option value="0" selected>off — любой A</option>
+              <option value="1">on — SmoothImpulse по A</option>
+            </select>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pRequireAInsideP0">A не пробивает P0</label><span id="vRequireAInsideP0">on — заходной</span></div>
+            <select id="pRequireAInsideP0">
+              <option value="1" selected>on — пробой P0 отменяет сетап</option>
+              <option value="0">off — пробой P0 разрешён</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pAStartTol">Старт A допуск, % W3</label><span id="vAStartTol">10 %</span></div>
+            <input type="range" id="pAStartTol" min="1" max="30" step="1" value="10">
+            <div class="param-range"><span>1 %</span><span>30 %</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pStopBuffer">Буфер стопа × A</label><span id="vStopBuffer">0.00</span></div>
+            <input type="range" id="pStopBuffer" min="0" max="0.10" step="0.01" value="0">
+            <div class="param-range"><span>0</span><span>0.10</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pExecution">Исполнение входа</label><span id="vExecution">trigger</span></div>
+            <select id="pExecution">
+              <option value="TRIGGER" selected>trigger — лимит на коррекции</option>
+              <option value="CLOSE">close — закрытие бара коррекции</option>
+              <option value="NEXT_OPEN">nextopen — открытие следующего бара</option>
+            </select>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pLadder">Цели</label><span id="vLadder">TP1 100 % + TP2 127 %</span></div>
+            <select id="pLadder">
+              <option value="0">off — только TP1 (100 % A)</option>
+              <option value="1" selected>on — 50 % TP1 100 % + 50 % TP2 127 %</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pTarget1">TP1 × A (от старта A)</label><span id="vTarget1">1.000</span></div>
+            <input type="range" id="pTarget1" min="0.6" max="1.4" step="0.001" value="1.0">
+            <div class="param-range"><span>0.60</span><span>1.40</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pTarget2">TP2 × A (от старта A)</label><span id="vTarget2">1.272</span></div>
+            <input type="range" id="pTarget2" min="1.0" max="2.0" step="0.001" value="1.272">
+            <div class="param-range"><span>1.00</span><span>2.00</span></div>
+          </div>
+
+          <div class="preset-row">
+            <button type="button" class="preset" data-k="0.5" data-t1="1.0" data-t2="1.272" data-ladder="1">50 % / 100 + 127</button>
+            <button type="button" class="preset" data-k="0.5" data-t1="1.0" data-t2="1.0" data-ladder="0">50 % / только 100</button>
+            <button type="button" class="preset" data-k="0.382" data-t1="1.0" data-t2="1.272" data-ladder="1">38.2 % / 100 + 127</button>
+            <button type="button" class="preset" data-k="0.618" data-t1="1.0" data-t2="1.272" data-ladder="1">61.8 % / 100 + 127</button>
+          </div>
+
+          <button id="btnScanPanel" type="button" class="btn-panel-scan">🔍 Сканировать</button>
+        </div>
+      </details>
+
+      <div id="gameEmpty"><em>Выберите файл и диапазон, затем «Сканировать»</em></div>
+
+      <div id="gameCard" style="display:none">
+        <div class="setup-head">
+          <span id="setupCounter">0 / 0</span>
+          <span id="dirBadge" class="dir-badge"></span>
+        </div>
+
+        <!-- Question phase -->
+        <div id="phaseQuestion">
+          <p class="prompt">Диагональ завершена. Против неё прошёл импульс <b>A</b>, затем коррекция <b>B</b>.<br>
+            Входим в <b>C</b> по направлению A (против диагонали), если B дошла до уровня входа.<br>
+            Если C пробьёт конец A раньше — пропуск, позже не входим.</p>
+          <div class="levels">
+            <div><span class="lvl-name tp">TP1</span><span id="qTp1">—</span></div>
+            <div class="tp2-row"><span class="lvl-name tp">TP2</span><span id="qTp2">—</span></div>
+            <div><span class="lvl-name entry">Вход (B)</span><span id="qEntry">—</span></div>
+            <div><span class="lvl-name sl">Стоп (старт A)</span><span id="qSl">—</span></div>
+            <div><span class="lvl-name rr">R:R</span><span id="qRr">—</span></div>
+          </div>
+
+          <div class="geometry">
+            <div class="geo-row"><span>Диагональ / цена</span><span id="gD">—</span></div>
+            <div class="geo-row"><span>A / диагональ</span><span id="gARatio">—</span></div>
+            <div class="geo-row"><span>A / цена</span><span id="gASize">—</span></div>
+            <div class="geo-row"><span>Коррекция B (факт)</span><span id="gDepth">—</span></div>
+            <div class="geo-row"><span>Уровень входа</span><span id="gEntryLevel">—</span></div>
+            <div class="geo-row"><span>Баров A</span><span id="gBarsA">—</span></div>
+            <div class="geo-row"><span>Баров до входа</span><span id="gFill">—</span></div>
+            <div class="geo-row"><span>Цели</span><span id="gTarget">—</span></div>
+            <div class="geo-row"><span>Initial mode</span><span id="gInitialMode">—</span></div>
+            <div class="geo-row"><span>Период диагонали</span><span id="gPeriod">—</span></div>
+            <div class="geo-row"><span>Период импульса</span><span id="gImpulsePeriod">—</span></div>
+          </div>
+
+          <div class="decide-btns">
+            <button id="btnEnter" class="btn-enter">✔ Войти в C</button>
+            <button id="btnSkip" class="btn-skip">✘ Пропустить</button>
+          </div>
+        </div>
+
+        <!-- Answer phase -->
+        <div id="phaseAnswer" style="display:none">
+          <div id="verdict" class="verdict"></div>
+          <div class="answer-detail">
+            <div>Ваш выбор: <span id="aDecision">—</span></div>
+            <div>Результат: <span id="aOutcome">—</span></div>
+            <div>netR: <span id="aNetR">—</span></div>
+            <div>MFE / MAE: <span id="aMfeMae">—</span></div>
+          </div>
+          <button id="btnNext" class="btn-next">Следующий ▶</button>
+        </div>
+      </div>
+
+      <!-- Running statistics -->
+      <div id="statsBox">
+        <h4>📊 Статистика</h4>
+        <div class="stat-row"><span>Решений</span><span id="stTotal">0</span></div>
+        <div class="stat-row"><span>Точность</span><span id="stAcc">—</span></div>
+        <div class="stat-row good"><span>Вход → TP</span><span id="stWin">0</span></div>
+        <div class="stat-row bad"><span>Вход → SL</span><span id="stLoss">0</span></div>
+        <div class="stat-row good"><span>Пропуск → SL</span><span id="stGoodSkip">0</span></div>
+        <div class="stat-row bad"><span>Пропуск → TP</span><span id="stMissed">0</span></div>
+        <div class="stat-row"><span>Скан</span><span id="stScan">—</span></div>
+      </div>
+
+      <details id="tradeListBox">
+        <summary>Список сделок</summary>
+        <div id="tradeList"></div>
+      </details>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="playback">
+    <span id="stepCounter">0 / 0</span>
+    <progress id="progress" max="100" value="0"></progress>
+    <span id="barDate">—</span>
+    <span class="ctrl-sep"></span>
+    <button id="btnFit" type="button" title="Автоформат: подогнать график под данные">Автоформат</button>
+  </div>
+</div>
+
+<script src="/js/diagonal-impulse.js"></script>
+</body>
+</html>

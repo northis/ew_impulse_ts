@@ -232,6 +232,8 @@ function renderGeometry(s) {
     $('gInitialMode').textContent = $('pInitialMode').value;
     $('gWave5SpillMode').textContent = $('pWave5SpillMode').value;
     $('gMinSignalRr').textContent = numVal('pMinSignalRr', 0).toFixed(2);
+    const pa = s.priceActionPatterns || [];
+    $('gPriceAction').textContent = pa.length ? pa.join(', ') : '—';
 }
 
 function renderQuestion(s) {
@@ -374,10 +376,18 @@ async function runScan() {
         stopWave3Ratio: numVal('pStopW3', 1.0),
         minWave2Retrace: numVal('pW2Retrace', 0.5),
         maxWave4RetraceW3: numVal('pMaxW4W3', 0.382),
+        minWave4RetraceW3: numVal('pMinW4W3', 0),
+        minWave3Wave1Ratio: numVal('pMinW3W1', 0),
+        wave5MinRatio: numVal('pMinW5W3', 0),
+        retraceBaseWave3Ratio: numVal('pTpBaseW5W3', 0),
         initialMode: $('pInitialMode').value,
         wave5SpillMode: $('pWave5SpillMode').value,
         wave5SpillThreshold: numVal('pWave5SpillThreshold', 0.005),
-        minSignalRiskRewardRatio: numVal('pMinSignalRr', 0)
+        minSignalRiskRewardRatio: numVal('pMinSignalRr', 0),
+        rsiPeriod: Math.round(numVal('pRsiPeriod', 14)),
+        rsiDivergence: $('pRsiDiv').value,
+        priceActionPatterns: Array.from($('pPaPatterns').selectedOptions)
+            .map(o => o.value)
     };
 
     try {
@@ -444,6 +454,12 @@ function onScanLoaded() {
 function numVal(id, dflt) {
     const v = parseFloat($(id).value);
     return isFinite(v) ? v : dflt;
+}
+
+/** Ratio slider readout: 0 means the filter is off. */
+function ratioReadout(id) {
+    const v = numVal(id, 0);
+    return v > 0 ? v.toFixed(3) : '0 (off)';
 }
 
 // ── Date helpers (dd.mm.yyyy, day-first guaranteed) ──
@@ -543,8 +559,8 @@ $('btnRandom').addEventListener('click', randomStartDate);
 // ── Sliders and presets ──
 const PARAM_IDS = [
     'pPeriod', 'pMinSize', 'pBars', 'pTpRetraceRatio',
-    'pStopW3', 'pW2Retrace', 'pMaxW4W3',
-    'pWave5SpillThreshold', 'pMinSignalRr'
+    'pStopW3', 'pW2Retrace', 'pMaxW4W3', 'pMinW3W1', 'pMinW4W3', 'pMinW5W3',
+    'pTpBaseW5W3', 'pWave5SpillThreshold', 'pMinSignalRr', 'pRsiPeriod'
 ];
 
 function syncParamReadouts() {
@@ -556,10 +572,19 @@ function syncParamReadouts() {
     $('vStopW3').textContent = numVal('pStopW3', 1.0).toFixed(1);
     $('vW2Retrace').textContent = numVal('pW2Retrace', 0.5).toFixed(2);
     $('vMaxW4W3').textContent = numVal('pMaxW4W3', 0.382).toFixed(3);
+    $('vMinW3W1').textContent = ratioReadout('pMinW3W1');
+    $('vMinW4W3').textContent = ratioReadout('pMinW4W3');
+    $('vMinW5W3').textContent = ratioReadout('pMinW5W3');
+    $('vTpBaseW5W3').textContent = numVal('pTpBaseW5W3', 0) > 0
+        ? numVal('pTpBaseW5W3', 0).toFixed(3) : '0 (от W5)';
     $('vWave5SpillThreshold').textContent = numVal('pWave5SpillThreshold', 0.005).toFixed(3);
     $('vMinSignalRr').textContent = numVal('pMinSignalRr', 0).toFixed(2);
+    $('vRsiPeriod').textContent = String(Math.round(numVal('pRsiPeriod', 14)));
+    $('vRsiDiv').textContent = $('pRsiDiv').value.toLowerCase();
     $('vInitialMode').textContent = $('pInitialMode').value;
     $('vWave5SpillMode').textContent = $('pWave5SpillMode').value;
+    const paCount = $('pPaPatterns').selectedOptions.length;
+    $('vPaPatterns').textContent = paCount === 0 ? 'off' : `${paCount} шт.`;
 
     if (scan && idx >= 0 && idx < scan.setups.length)
         renderGeometry(scan.setups[idx]);
@@ -568,7 +593,7 @@ function syncParamReadouts() {
 for (const id of PARAM_IDS)
     $(id).addEventListener('input', syncParamReadouts);
 
-for (const id of ['pInitialMode', 'pWave5SpillMode'])
+for (const id of ['pInitialMode', 'pWave5SpillMode', 'pRsiDiv', 'pPaPatterns'])
     $(id).addEventListener('change', syncParamReadouts);
 
 document.querySelectorAll('.preset').forEach(btn => {

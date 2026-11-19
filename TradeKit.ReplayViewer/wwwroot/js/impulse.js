@@ -295,18 +295,26 @@ async function runScan() {
         file,
         fromDate: dateInputToIso($('inpFromDate').value),
         toDate: dateInputToIso($('inpToDate').value),
-        minSizePercent: numVal('pMinSize', 0.13),
-        maxOverlapseLengthPercent: numVal('pOverlap', 35),
-        maxDistance: numVal('pDistance', 35),
-        areaPercent: numVal('pArea', 35),
-        barsCount: numVal('pBars', 15),
-        maxCorrectionRatioPercent: numVal('pCorr', 50),
+        // Metric ranges: min..max, max = 0 means "no upper bound".
+        minZigzagPercent: numVal('pZigzagMin', 0),
+        maxZigzagPercent: numVal('pZigzagMax', 100),
+        minAreaPercent: numVal('pAreaMin', 0),
+        areaPercent: numVal('pAreaMax', 100),
+        minOverlapseLengthPercent: numVal('pOverlapMin', 0),
+        maxOverlapseLengthPercent: numVal('pOverlapMax', 100),
+        minCorrectionRatioPercent: numVal('pCorrMin', 0),
+        maxCorrectionRatioPercent: numVal('pCorrMax', 100),
+        barsCount: Math.round(numVal('pBarsMin', 15)),
+        maxBarsCount: Math.round(numVal('pBarsMax', 0)),
+        minSizePercent: numVal('pSizeMin', 0.13),
+        maxSizePercent: numVal('pSizeMax', 0),
+        // Fixed finder defaults (no matching page control).
+        maxDistance: 35,
+        heterogeneityMax: 20,
         enterRatio: numVal('pEnter', 0.35),
         takeRatio: numVal('pTake', 1.6),
         period: numVal('pPeriod', 0),
-        breakEvenRatio: numVal('pBreakEven', 0),
-        maxZigzagPercent: numVal('pZigzag', 20),
-        heterogeneityMax: numVal('pHetero', 20)
+        breakEvenRatio: numVal('pBreakEven', 0)
     };
 
     try {
@@ -351,7 +359,7 @@ function onScanLoaded() {
     const periodInfo = `период ${scan.usedPeriod} (bps ${(scan.medianBarBps || 0).toFixed(1)})`;
     $('status').textContent =
         `${scan.symbol} ${scan.timeframe}: сетапов — ${n} ` +
-        `(найдено импульсов ${scan.enterCount}, c исходом TP/SL ${scan.resolvedCount}) · ${periodInfo}`;
+        `(до диапазонов: импульсов ${scan.enterCount}, с исходом TP/SL ${scan.resolvedCount}) · ${periodInfo}`;
 
     if (n === 0) {
         $('gameEmpty').style.display = '';

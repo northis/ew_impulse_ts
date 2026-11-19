@@ -74,6 +74,8 @@
     <Compile Include="Diagonal\DiagonalFinderBaseIndicator.cs" />
     <Compile Include="Diagonal\DiagonalCTraderBaseRobot.cs" />
     <Compile Include="Diagonal\DiagonalSignalerAlgoRobot.cs" />
+    <Compile Include="DiagonalContinuation\DiagonalContinuationCTraderBaseRobot.cs" />
+    <Compile Include="DiagonalContinuation\DiagonalContinuationAlgoRobot.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TradeKit.Core\TradeKit.Core.csproj" />

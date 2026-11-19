@@ -4,6 +4,8 @@ using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
+using TradeKit.Core.Indicators;
+using TradeKit.Core.PriceAction;
 
 namespace TradeKit.ReplayViewer.Services;
 
@@ -77,7 +79,7 @@ public sealed class DiagonalScanEngine
             minWave3Penetration: 0.03,
             maxWaveDurationRatio: 8.0,
             minWave4Wave2Level: 0,
-            minWave4RetraceW3: 0,
+            minWave4RetraceW3: req.MinWave4RetraceW3,
             maxWave4RetraceW3: req.MaxWave4RetraceW3,
             requireWave4Shorter: true,
             requireWave2Shorter: false,
@@ -89,7 +91,10 @@ public sealed class DiagonalScanEngine
             wave5SpillMode: req.Wave5SpillMode,
             wave5SpillThreshold: req.Wave5SpillThreshold,
             minSignalRiskRewardRatio: req.MinSignalRiskRewardRatio,
-            initialMode: req.InitialMode);
+            initialMode: req.InitialMode,
+            wave5MinRatio: req.Wave5MinRatio,
+            minWave3Wave1Ratio: req.MinWave3Wave1Ratio,
+            retraceBaseWave3Ratio: req.RetraceBaseWave3Ratio);
 
         Console.WriteLine(
             $"[diagonal] init {totalWatch.Elapsed.TotalSeconds:F1}s " +
@@ -98,6 +103,9 @@ public sealed class DiagonalScanEngine
         var setups = new List<TriangleSetupDto>();
         TriangleSetupDto? pending = null;
         int enterCount = 0;
+        var rsi = new RelativeStrengthIndexFinder(
+            provider, Math.Max(2, req.RsiPeriod), useAutoCalculateEvent: false);
+        var patternFinder = new CandlePatternFinder(provider, false, null);
 
         finder.OnEnter += (_, args) =>
         {
@@ -107,6 +115,12 @@ public sealed class DiagonalScanEngine
             var wavePoints = args.WavePoints
                 .Select(p => new TriangleWavePointDto { Bar = p.BarIndex, Price = p.Value })
                 .ToList();
+
+            int rsiP3 = rsi.GetResultValue(args.WavePoints[3].BarIndex);
+            int rsiP5 = rsi.GetResultValue(args.WavePoints[5].BarIndex);
+            bool hasDivergence = isUp
+                ? args.WavePoints[5].Value > args.WavePoints[3].Value && rsiP5 < rsiP3
+                : args.WavePoints[5].Value < args.WavePoints[3].Value && rsiP5 > rsiP3;
 
             pending = new TriangleSetupDto
             {
@@ -119,7 +133,12 @@ public sealed class DiagonalScanEngine
                 ViewStartBar = wavePoints.Count > 0 ? wavePoints[0].Bar : args.Level.BarIndex,
                 EntryTime = args.Level.OpenTime.ToString("o"),
                 Comment = args.Comment ?? string.Empty,
-                Outcome = "NONE"
+                Outcome = "NONE",
+                RsiP3 = rsiP3,
+                RsiP5 = rsiP5,
+                HasDivergence = hasDivergence,
+                PriceActionPatterns = GetTradeDirectionPatterns(
+                    patternFinder, args.WavePoints[5].BarIndex, isUp)
             };
         };
 
@@ -145,6 +164,7 @@ public sealed class DiagonalScanEngine
         {
             if (bar > endBar && !finder.IsInSetup)
                 break;
+            rsi.OnCalculate(provider.GetOpenTime(bar));
             finder.CheckBar(provider.GetOpenTime(bar));
         }
 
@@ -156,6 +176,15 @@ public sealed class DiagonalScanEngine
         var kept = setups
             .Where(s => s.EntryBar >= startBar && s.EntryBar <= endBar)
             .Where(s => s.Outcome is "TP" or "SL")
+            .Where(s => req.RsiDivergence switch
+            {
+                RsiDivergenceFilter.REQUIRE => s.HasDivergence,
+                RsiDivergenceFilter.EXCLUDE => !s.HasDivergence,
+                _ => true
+            })
+            .Where(s => req.PriceActionPatterns is not { Length: > 0 } ||
+                        s.PriceActionPatterns.Any(p =>
+                            req.PriceActionPatterns.Contains(p, StringComparer.OrdinalIgnoreCase)))
             .OrderBy(s => s.EntryBar)
             .ToList();
 
@@ -194,12 +223,32 @@ public sealed class DiagonalScanEngine
             Candles = candles,
             Setups = kept,
             EnterCount = enterCount,
-            ResolvedCount = kept.Count,
+            ResolvedCount = setups.Count(s => s.Outcome is "TP" or "SL"),
+            DivergenceCount = kept.Count(s => s.HasDivergence),
             BarCount = n
         };
     }
 
     // ── helpers ──────────────────────────────────────────
+
+    /// <summary>
+    /// Price-action patterns on the last candle of wave 5 whose direction matches the trade
+    /// (a rejection candle at the diagonal's extreme). Empty when there is none.
+    /// </summary>
+    private static IReadOnlyList<string> GetTradeDirectionPatterns(
+        CandlePatternFinder finder, int bar, bool isLong)
+    {
+        List<CandlesResult> patterns = finder.GetCandlePatterns(bar);
+        if (patterns == null || patterns.Count == 0)
+            return Array.Empty<string>();
+
+        return patterns
+            .Where(p => p.IsBull == isLong)
+            .Select(p => p.Type.ToString())
+            .Distinct()
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToArray();
+    }
 
     private static string ResolveSymbolName(string csvPath)
     {
@@ -254,4 +303,11 @@ public sealed record DiagonalScanRequest(
     DiagonalInitialMode InitialMode = DiagonalInitialMode.ALL,
     DiagonalWave5SpillMode Wave5SpillMode = DiagonalWave5SpillMode.ALL,
     double Wave5SpillThreshold = 0.005,
-    double MinSignalRiskRewardRatio = 0);
+    double MinSignalRiskRewardRatio = 0,
+    int RsiPeriod = 14,
+    RsiDivergenceFilter RsiDivergence = RsiDivergenceFilter.OFF,
+    double MinWave4RetraceW3 = 0,
+    double MinWave3Wave1Ratio = 0,
+    double Wave5MinRatio = 0,
+    double RetraceBaseWave3Ratio = 0,
+    string[]? PriceActionPatterns = null);

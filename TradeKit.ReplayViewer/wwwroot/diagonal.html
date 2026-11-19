@@ -16,6 +16,8 @@
     <a class="navlink" href="/impulse.html" title="Тренажёр входов по импульсам">⚡ Импульсы</a>
     <a class="navlink" href="/triangle.html" title="Тренажёр входов по треугольникам">△ Треугольники</a>
     <a class="navlink" href="/rtriangle.html" title="Тренажёр входов по бегущим треугольникам">▷ Бегущие</a>
+    <a class="navlink" href="/diagonal-impulse.html" title="Диагональ → импульс A-B-C">◺→⚡ Импульс после диагонали</a>
+    <a class="navlink" href="/diagonal-continuation.html" title="Диагональ как заходной импульс">◺→ Продолжение по диагонали</a>
     <span class="ctrl-sep"></span>
     <label>CSV:</label>
     <select id="selFile"><option>-- загрузка файлов... --</option></select>
@@ -87,6 +89,30 @@
           <div class="param-range"><span>0</span><span>1.0</span></div>
         </div>
 
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pMinW3W1">W3/W1 min</label><span id="vMinW3W1">0</span></div>
+          <input type="range" id="pMinW3W1" min="0" max="1" step="0.001" value="0">
+          <div class="param-range"><span>0 (off)</span><span>1.0</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pMinW4W3">W4/W3 min</label><span id="vMinW4W3">0</span></div>
+          <input type="range" id="pMinW4W3" min="0" max="1" step="0.001" value="0">
+          <div class="param-range"><span>0 (off)</span><span>1.0</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pMinW5W3">W5/W3 min</label><span id="vMinW5W3">0</span></div>
+          <input type="range" id="pMinW5W3" min="0" max="1" step="0.001" value="0">
+          <div class="param-range"><span>0 (off)</span><span>1.0</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pTpBaseW5W3">TP base W5/W3</label><span id="vTpBaseW5W3">0 (от W5)</span></div>
+          <input type="range" id="pTpBaseW5W3" min="0" max="1" step="0.001" value="0">
+          <div class="param-range"><span>0 (от W5)</span><span>1.0</span></div>
+        </div>
+
         <div class="param-select">
           <div class="param-slider-head"><label for="pInitialMode">Initial diagonal</label><span id="vInitialMode">ALL</span></div>
           <select id="pInitialMode">
@@ -94,6 +120,21 @@
             <option value="LEADING">LEADING — только начальные</option>
             <option value="ENDING">ENDING — только конечные</option>
           </select>
+        </div>
+
+        <div class="param-select">
+          <div class="param-slider-head"><label for="pRsiDiv">Дивергенция RSI 3-5</label><span id="vRsiDiv">off</span></div>
+          <select id="pRsiDiv">
+            <option value="OFF" selected>off — без фильтра</option>
+            <option value="REQUIRE">require — только с дивергенцией</option>
+            <option value="EXCLUDE">exclude — только без дивергенции</option>
+          </select>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pRsiPeriod">RSI период</label><span id="vRsiPeriod">14</span></div>
+          <input type="range" id="pRsiPeriod" min="2" max="50" step="1" value="14">
+          <div class="param-range"><span>2</span><span>50</span></div>
         </div>
 
         <div class="param-select">
@@ -124,6 +165,46 @@
         </div>
 
         <button id="btnScanPanel" type="button" class="btn-panel-scan">🔍 Сканировать</button>
+        </div>
+      </details>
+
+      <details class="param-details">
+        <summary>PriceAction в конце W5</summary>
+        <div id="paPanel">
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pPaPatterns">Паттерны в сторону сделки</label><span id="vPaPatterns">off</span></div>
+            <select id="pPaPatterns" multiple size="12">
+              <option value="UP_PIN_BAR">UP_PIN_BAR — пинбар вверх</option>
+              <option value="DOWN_PIN_BAR">DOWN_PIN_BAR — пинбар вниз</option>
+              <option value="UP_HARAMI">UP_HARAMI</option>
+              <option value="DOWN_HARAMI">DOWN_HARAMI</option>
+              <option value="HAMMER">HAMMER</option>
+              <option value="INVERTED_HAMMER">INVERTED_HAMMER</option>
+              <option value="UP_OUTER_BAR">UP_OUTER_BAR</option>
+              <option value="DOWN_OUTER_BAR">DOWN_OUTER_BAR</option>
+              <option value="UP_OUTER_BAR_BODIES">UP_OUTER_BAR_BODIES</option>
+              <option value="DOWN_OUTER_BAR_BODIES">DOWN_OUTER_BAR_BODIES</option>
+              <option value="UP_INNER_BAR">UP_INNER_BAR</option>
+              <option value="DOWN_INNER_BAR">DOWN_INNER_BAR</option>
+              <option value="UP_DOJI">UP_DOJI</option>
+              <option value="DOWN_DOJI">DOWN_DOJI</option>
+              <option value="PIECING_LINE">PIECING_LINE</option>
+              <option value="DARK_CLOUD">DARK_CLOUD</option>
+              <option value="UP_CPPR">UP_CPPR</option>
+              <option value="DOWN_CPPR">DOWN_CPPR</option>
+              <option value="UP_PPR">UP_PPR</option>
+              <option value="DOWN_PPR">DOWN_PPR</option>
+              <option value="UP_RAILS">UP_RAILS</option>
+              <option value="DOWN_RAILS">DOWN_RAILS</option>
+              <option value="UP_PIN_BAR_TRIO">UP_PIN_BAR_TRIO</option>
+              <option value="DOWN_PIN_BAR_TRIO">DOWN_PIN_BAR_TRIO</option>
+              <option value="UP_DOUBLE_INNER_BAR">UP_DOUBLE_INNER_BAR</option>
+              <option value="DOWN_DOUBLE_INNER_BAR">DOWN_DOUBLE_INNER_BAR</option>
+              <option value="UP_PPR_IB">UP_PPR_IB</option>
+              <option value="DOWN_PPR_IB">DOWN_PPR_IB</option>
+            </select>
+            <div class="param-range"><span>Ctrl+клик — несколько; ничего = без фильтра</span><span></span></div>
+          </div>
         </div>
       </details>
 
@@ -161,6 +242,7 @@
             <div class="geo-row"><span>Initial mode</span><span id="gInitialMode">—</span></div>
             <div class="geo-row"><span>W5 spill mode</span><span id="gWave5SpillMode">—</span></div>
             <div class="geo-row"><span>Min R:R</span><span id="gMinSignalRr">—</span></div>
+            <div class="geo-row"><span>PA в конце W5</span><span id="gPriceAction">—</span></div>
           </div>
 
           <div class="decide-btns">

@@ -92,7 +92,11 @@ namespace TradeKit.Tests
                 DiagonalWave5SpillMode wave5SpillMode = DiagonalWave5SpillMode.ALL,
                 double wave5SpillThreshold = 0.005,
                 double minSignalRiskRewardRatio = 0,
-                DiagonalInitialMode? initialMode = null)
+                DiagonalInitialMode? initialMode = null,
+                double minWave3Wave1Ratio = 0,
+                double minWave4RetraceW3 = 0,
+                double wave5MinRatio = 0,
+                double retraceBaseWave3Ratio = 0)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -108,7 +112,11 @@ namespace TradeKit.Tests
                 wave5SpillMode: wave5SpillMode,
                 wave5SpillThreshold: wave5SpillThreshold,
                 minSignalRiskRewardRatio: minSignalRiskRewardRatio,
-                initialMode: initialMode);
+                initialMode: initialMode,
+                minWave3Wave1Ratio: minWave3Wave1Ratio,
+                minWave4RetraceW3: minWave4RetraceW3,
+                wave5MinRatio: wave5MinRatio,
+                retraceBaseWave3Ratio: retraceBaseWave3Ratio);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -400,6 +408,107 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
+        /// The fibo-ratio corridor of the wedge (W3/W1, W4/W3, W5/W3): a negligible threshold
+        /// keeps the sample, a threshold above every observed ratio rejects it and hits the
+        /// gates, and the requested 78% corridor never emits a setup that breaks it.
+        /// </summary>
+        [Test]
+        public void Diagonal_WaveRatioFilters_NarrowTheSampleToTheCorridor()
+        {
+            (DiagonalSetupFinder baselineFinder, List<ElliottWaveSignalEventArgs> baseline) =
+                Run(H1_FILE, TimeFrameHelper.Hour1);
+            Assert.That(baseline, Is.Not.Empty, "No diagonal setups detected. Funnel: " +
+                string.Join(", ", baselineFinder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+
+            static (double W3W1, double W4W3, double W5W3) Ratios(ElliottWaveSignalEventArgs s)
+            {
+                BarPoint[] p = s.WavePoints;
+                double w1 = Math.Abs(p[1].Value - p[0].Value);
+                double w3 = Math.Abs(p[3].Value - p[2].Value);
+                return (w3 / w1,
+                    Math.Abs(p[4].Value - p[3].Value) / w3,
+                    Math.Abs(p[5].Value - p[4].Value) / w3);
+            }
+
+            (_, List<ElliottWaveSignalEventArgs> loose) = Run(H1_FILE, TimeFrameHelper.Hour1,
+                minWave3Wave1Ratio: 1e-4, minWave4RetraceW3: 1e-4, wave5MinRatio: 1e-4);
+            Assert.That(loose.Count, Is.EqualTo(baseline.Count),
+                "A negligible ratio must not drop a setup.");
+
+            var ratios = baseline.Select(Ratios).ToArray();
+            double aboveW3W1 = ratios.Max(r => r.W3W1) * 1.01 + 1e-6;
+            double aboveW4W3 = ratios.Max(r => r.W4W3) * 1.01 + 1e-6;
+
+            (DiagonalSetupFinder w3Finder, List<ElliottWaveSignalEventArgs> w3Filtered) =
+                Run(H1_FILE, TimeFrameHelper.Hour1, minWave3Wave1Ratio: aboveW3W1);
+            Assert.That(w3Filtered, Is.Empty,
+                $"A wave 3 shallower than {aboveW3W1:F3}·|W1| must never emit.");
+            Assert.That(w3Finder.Diag.GetValueOrDefault("w3TooShallowVsW1"), Is.GreaterThan(0),
+                "The rejection must come from the D-W3-78 gate.");
+
+            (DiagonalSetupFinder w4Finder, List<ElliottWaveSignalEventArgs> w4Filtered) =
+                Run(H1_FILE, TimeFrameHelper.Hour1, minWave4RetraceW3: aboveW4W3);
+            Assert.That(w4Filtered, Is.Empty,
+                $"A wave 4 shallower than {aboveW4W3:F3}·|W3| must never emit.");
+            Assert.That(w4Finder.Diag.GetValueOrDefault("w4RetraceTooShallow"), Is.GreaterThan(0),
+                "The rejection must come from the D-W4-38 gate.");
+
+            (_, List<ElliottWaveSignalEventArgs> w5Filtered) =
+                Run(H1_FILE, TimeFrameHelper.Hour1, wave5MinRatio: 1.01);
+            Assert.That(w5Filtered, Is.Empty,
+                "A wave 5 can never cover 101% of |W3|: D-W5-CAP invalidates the model first.");
+
+            (_, List<ElliottWaveSignalEventArgs> strict) = Run(H1_FILE, TimeFrameHelper.Hour1,
+                minWave3Wave1Ratio: 0.78, minWave4RetraceW3: 0.78, wave5MinRatio: 0.78);
+            TestContext.Out.WriteLine(
+                $"W3/W1,W4/W3,W5/W3 >= 0.78: {strict.Count} signal(s) vs {baseline.Count} baseline.");
+            foreach (ElliottWaveSignalEventArgs s in strict)
+            {
+                (double w3W1, double w4W3, double w5W3) = Ratios(s);
+                string at = $"{s.WavePoints[0].OpenTime:u}";
+                Assert.That(w3W1, Is.GreaterThanOrEqualTo(0.78 - 1e-9),
+                    $"{at}: W3/W1 is below the requested corridor.");
+                Assert.That(w4W3, Is.GreaterThanOrEqualTo(0.78 - 1e-9),
+                    $"{at}: W4/W3 is below the requested corridor.");
+                Assert.That(w5W3, Is.GreaterThanOrEqualTo(0.78 - 1e-9),
+                    $"{at}: W5/W3 is below the requested corridor.");
+            }
+        }
+
+        /// <summary>
+        /// Research option <see cref="DiagonalSetupFinder.RetraceBaseWave3Ratio"/>: the retrace
+        /// target is measured from the level where wave 5 reached its share of |W3| instead of
+        /// from the running extreme of wave 5.
+        /// </summary>
+        [Test]
+        public void Diagonal_RetraceBaseAtWave5RatioLevel_PlacesTarget()
+        {
+            const double baseRatio = 0.78;
+            (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) = Run(
+                H1_FILE, TimeFrameHelper.Hour1,
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                retraceBaseWave3Ratio: baseRatio);
+
+            Assert.That(signals, Is.Not.Empty, "No diagonal setups detected. Funnel: " +
+                string.Join(", ", finder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+
+            foreach (ElliottWaveSignalEventArgs s in signals)
+            {
+                BarPoint[] p = s.WavePoints;
+                double sgn = Sign(s.TakeProfit.Value < s.StopLoss.Value);
+                double w3 = Math.Abs(p[3].Value - p[2].Value);
+                double basePrice = p[4].Value + sgn * baseRatio * w3;
+                double expected = basePrice - sgn * finder.TakeProfitRetraceRatio *
+                                  Math.Abs(basePrice - p[0].Value);
+                Assert.That(s.TakeProfit.Value, Is.EqualTo(expected)
+                        .Within(2 * s.TakeProfit.Value * 1e-4),
+                    $"{p[0].OpenTime:u}: TP is not the retrace of the (5):(3) level.");
+            }
+        }
+
+        /// <summary>
         /// Funnel diagnostics: where do assembled diagonal candidates die? Writes
         /// <c>reports/diagonal_rejections.md</c> (DIAGONAL.md §9.1). Research-only.
         /// </summary>
@@ -573,9 +682,11 @@ namespace TradeKit.Tests
         }
 
         /// <summary>
-        /// The three leading/ending modes (DIAGONAL.md §5.2) must partition the baseline:
-        /// LEADING and ENDING are disjoint, ENDING is a subset of ALL (both apply D-INIT-END),
-        /// and their union covers every baseline signal.
+        /// The three leading/ending modes (DIAGONAL.md §5.2) stay comparable to the baseline:
+        /// LEADING and ENDING never share a signal, and ENDING does not grow beyond ALL. They
+        /// no longer cover ALL: a wedge whose point 0 can be moved left into a leading reading
+        /// (D-INIT-SHIFT, §4.8) is emitted by ALL but by neither LEADING (its own point 0 is
+        /// not initial) nor ENDING (it is not ending).
         /// </summary>
         [Test]
         public void Diagonal_InitialMode_LeadingAndEndingPartitionAll()
@@ -593,9 +704,170 @@ namespace TradeKit.Tests
             Assert.That(leading, Is.Not.Empty, "LEADING must produce signals.");
             Assert.That(ending, Is.Not.Empty, "ENDING must produce signals.");
             Assert.That(ending.Count, Is.LessThanOrEqualTo(all.Count),
-                "ENDING applies D-INIT-END and must be a subset of ALL.");
-            Assert.That(leading.Count + ending.Count, Is.GreaterThanOrEqualTo(all.Count),
-                "LEADING + ENDING must cover the ALL signal set.");
+                "ENDING applies D-INIT-END and D-INIT-SHIFT and stays a subset of ALL.");
+            Assert.That(
+                ending.Select(s => s.Level.OpenTime)
+                    .Intersect(leading.Select(s => s.Level.OpenTime)),
+                Is.Empty, "LEADING and ENDING must be disjoint.");
+        }
+
+        /// <summary>
+        /// D-INIT-SHIFT (DIAGONAL.md §4.8). AUDUSD m15, the 2022-02-07 07:00 setup from the
+        /// ReplayViewer: the emitted ENDING reading starts at a low-rank micro-low
+        /// (02-04 15:45, 0.70520), while the more significant low of the very same 1-2-3-4
+        /// frame (02-04 14:00, 0.70518) turns the wedge into a leading one. ENDING must not
+        /// label that setup ending; ALL keeps it unchanged.
+        /// </summary>
+        [Test]
+        public void Diagonal_EndingMode_Point0ShiftableToLeading_NotEnding()
+        {
+            (DiagonalSetupFinder allFinder, List<ElliottWaveSignalEventArgs> all) =
+                RunReplayCase(DiagonalInitialMode.ALL);
+            (DiagonalSetupFinder endingFinder, List<ElliottWaveSignalEventArgs> ending) =
+                RunReplayCase(DiagonalInitialMode.ENDING);
+
+            var entryTime = new DateTime(2022, 2, 7, 7, 0, 0, DateTimeKind.Utc);
+            ElliottWaveSignalEventArgs baseline =
+                all.SingleOrDefault(s => s.Level.OpenTime == entryTime);
+            Assert.That(baseline, Is.Not.Null,
+                "The ALL baseline must still emit the 2022-02-07 07:00 setup.");
+            Assert.That(baseline.WavePoints[0].OpenTime,
+                Is.EqualTo(new DateTime(2022, 2, 4, 15, 45, 0, DateTimeKind.Utc)),
+                "The baseline point 0 is the micro-low the assembly picked.");
+
+            Assert.That(ending.Select(s => s.Level.OpenTime), Has.No.Member(entryTime),
+                "ENDING must not emit a wedge whose point 0 can be shifted into a leading one.");
+            Assert.That(endingFinder.Diag.GetValueOrDefault("endingHasLeadingPoint0"),
+                Is.GreaterThan(0), "The D-INIT-SHIFT gate must be the reason it is gone.");
+            Assert.That(allFinder.Diag.GetValueOrDefault("endingHasLeadingPoint0"), Is.Zero,
+                "The shift probe is an ENDING-mode rule and must not run in ALL.");
+        }
+
+        /// <summary>
+        /// D-INIT at the completed end (DIAGONAL.md §9.43). The continuation setup is judged
+        /// after the correction, so the LEADING test uses the actual wave-5 end: the same
+        /// wedge is leading while its end stays inside the prior counter-move, and ending
+        /// once wave 5 leaves it.
+        /// </summary>
+        [Test]
+        public void Diagonal_LeadingMovement_FlipsToEndingAtTheCompletedEnd()
+        {
+            var start = new DateTime(2019, 7, 19, 18, 15, 0, DateTimeKind.Utc);
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
+            // The counter-move before point 0 tops at 1.12 and never trades at/below 1.00.
+            for (int i = 0; i < 20; i++)
+            {
+                double low = 1.005 + i * 0.0005;
+                provider.AddCandle(new Candle(low, 1.12, low, low + 0.001, Index: i),
+                    start.AddMinutes(15 * i));
+            }
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10));
+            var p0 = new BarPoint(1.0, start.AddMinutes(300), TimeFrameHelper.Minute15, 20);
+
+            Assert.That(finder.IsLeadingMovement(p0, 1.05), Is.True,
+                "An end below the prior high is still inside the counter-move.");
+            Assert.That(finder.IsLeadingMovement(p0, 1.15), Is.False,
+                "Once wave 5 leaves the prior high the completed diagonal is ending.");
+        }
+
+        /// <summary>
+        /// Post-hoc D-REMARK (DIAGONAL.md 9.46) on the XAUUSD case: 0-1-2-3-4-5 from
+        /// 25.01.2018 06:30 to 30.01.2018 02:15 is already collinear, and the later-pivot
+        /// search returns a skeleton that passes the same gates with W4 &lt; W2.
+        /// </summary>
+        [Test]
+        public void Diagonal_Remark345_FindsAValidCollinearSkeleton()
+        {
+            const string file =
+                "XAUUSD_m15_2017-12-27T18-00-00_2026-05-31T23-00-00.csv";
+            string path = Path.Combine(FindDataDir(), file);
+            if (!File.Exists(path))
+                Assert.Ignore($"{file} is not in the archive");
+
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
+            provider.LoadCandles(path);
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                requireInsideWedge: false,
+                minWave4Wave2Level: 0,
+                minWave4RetraceW3: 0);
+
+            finder.MarkAsInitialized();
+            int upTo = Math.Min(provider.Count, 2100);
+            for (int i = 0; i < upTo; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            BarPoint Point(int bar, double price) =>
+                new(price, provider.GetOpenTime(bar), TimeFrameHelper.Minute15, bar);
+
+            BarPoint p0 = Point(1778, 1366.08);
+            BarPoint p1 = Point(1831, 1342.58);
+            BarPoint p2 = Point(1875, 1357.12);
+
+            bool found = finder.TryRemarkWaves345(
+                finder.GetRemarkPivots(), p0, p1, p2, isUp: false, tolerance: 0.1,
+                out BarPoint p3, out BarPoint p4, out BarPoint p5);
+
+            Assert.That(found, Is.True, "A later valid skeleton must be found.");
+            Assert.That(p3.BarIndex, Is.GreaterThan(p2.BarIndex));
+            Assert.That(p4.BarIndex, Is.GreaterThan(p3.BarIndex));
+            Assert.That(p5.BarIndex, Is.GreaterThan(p4.BarIndex));
+
+            // The same hard rules as the live finder: W4 is shorter than W2.
+            Assert.That(Math.Abs(p4.Value - p3.Value),
+                Is.LessThan(Math.Abs(p2.Value - p1.Value)));
+
+            // And 1-3-5 are on one line within the tolerance of |W3|.
+            double w3 = Math.Abs(p3.Value - p2.Value);
+            double line = p1.Value + (p3.Value - p1.Value) *
+                          (p5.BarIndex - p1.BarIndex) / (p3.BarIndex - p1.BarIndex);
+            Assert.That(Math.Abs(p5.Value - line), Is.LessThanOrEqualTo(0.1 * w3));
+        }
+
+        /// <summary>
+        /// Runs the ReplayViewer "diagonal" page configuration (§9.2) for the leading/ending
+        /// regression: exact corridor, 23.6% target, throw-over-only wave 5 and the hard R:R
+        /// floor. Loads from 2021-11 so the replay stays short; the auto period is estimated
+        /// from the last bars of the file either way.
+        /// </summary>
+        private static (DiagonalSetupFinder Finder, List<ElliottWaveSignalEventArgs> Signals)
+            RunReplayCase(DiagonalInitialMode mode)
+        {
+            var provider = new TestBarsProvider(TimeFrameHelper.Minute15);
+            provider.LoadCandles(Path.Combine(FindDataDir(), M15_FILE),
+                from: new DateTime(2021, 11, 1, 0, 0, 0, DateTimeKind.Utc));
+
+            var finder = new DiagonalSetupFinder(
+                provider, provider.BarSymbol, new EWParams(0, 0.1, 10),
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                requireInsideWedge: false,
+                maxSpillAreaRatio: 1.0,
+                minWave4Wave2Level: 0,
+                minWave4RetraceW3: 0,
+                maxWave4RetraceW3: 0.382,
+                requireWave4Shorter: true,
+                minWave2Retrace: 0.5,
+                takeProfitRetraceRatio: 0.236,
+                stopWave3Ratio: 1.0,
+                wave5SpillMode: DiagonalWave5SpillMode.ONLY_SPILL,
+                wave5SpillThreshold: 0.005,
+                minSignalRiskRewardRatio: 0.5,
+                initialMode: mode);
+
+            var signals = new List<ElliottWaveSignalEventArgs>();
+            finder.OnEnter += (_, a) => signals.Add(a);
+            finder.MarkAsInitialized();
+
+            // Stop shortly after the case: the auto period still comes from the tail of the
+            // whole file (the provider is loaded to its end), only the replay is bounded.
+            var replayEnd = new DateTime(2022, 3, 1, 0, 0, 0, DateTimeKind.Utc);
+            for (int i = 0; i < provider.Count && provider.GetOpenTime(i) < replayEnd; i++)
+                finder.CheckBar(provider.GetOpenTime(i));
+
+            return (finder, signals);
         }
 
         /// <summary>

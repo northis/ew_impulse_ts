@@ -211,6 +211,17 @@ public sealed class TriangleSetupDto
     public string Outcome { get; set; } = "NONE";
     public int OutcomeBar { get; set; }
     public double OutcomePrice { get; set; }
+
+    public int RsiP3 { get; set; }
+    public int RsiP5 { get; set; }
+    public bool HasDivergence { get; set; }
+
+    /// <summary>
+    /// Price-action patterns found on the last candle of wave 5, in the trade direction
+    /// (DIAGONAL.md §9.48). Empty when there is none.
+    /// </summary>
+    public IReadOnlyList<string> PriceActionPatterns { get; set; } =
+        Array.Empty<string>();
 }
 
 /// <summary>Full result of a triangle scan: metadata, candles and the detected setups.</summary>
@@ -234,5 +245,6 @@ public sealed class TriangleScanResult
     // Diagnostics.
     public int EnterCount { get; set; }
     public int ResolvedCount { get; set; }
+    public int DivergenceCount { get; set; }
     public int BarCount { get; set; }
 }

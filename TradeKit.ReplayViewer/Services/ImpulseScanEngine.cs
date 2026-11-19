@@ -123,10 +123,32 @@ public sealed class ImpulseScanEngine
             finder.CheckBar(provider.GetOpenTime(bar));
         }
 
-        // ── 4. Keep only resolved (TP/SL) setups whose entry is inside the window ──
+        // ── 4. Keep only resolved (TP/SL) setups inside the window and inside the
+        //       requested metric ranges. The scores are 0..1; the page edits them as %.
+        //       A max of 0 (or less) means "no upper bound". ──
+        static bool InRange(double value, double min, double max)
+        {
+            return value >= min && (max <= 0 || value <= max);
+        }
+
         var kept = setups
             .Where(s => s.EntryBar >= startBar && s.EntryBar <= endBar)
             .Where(s => s.Outcome is "TP" or "SL")
+            .Where(s =>
+            {
+                double size = Math.Abs(s.ImpulseEndPrice - s.ImpulseStartPrice) /
+                              Math.Max(double.Epsilon,
+                                  Math.Min(s.ImpulseStartPrice, s.ImpulseEndPrice)) * 100;
+                int bars = s.ImpulseEndBar - s.ImpulseStartBar;
+                return InRange(s.RatioZigzag * 100, req.MinZigzagPercent, req.MaxZigzagPercent) &&
+                       InRange(s.Area * 100, req.MinAreaPercent, req.AreaPercent) &&
+                       InRange(s.OverlapDegree * 100,
+                           req.MinOverlapseLengthPercent, req.MaxOverlapseLengthPercent) &&
+                       InRange(s.CorrectionRatio * 100,
+                           req.MinCorrectionRatioPercent, req.MaxCorrectionRatioPercent) &&
+                       InRange(size, req.MinSizePercent, req.MaxSizePercent) &&
+                       InRange(bars, req.BarsCount, req.MaxBarsCount);
+            })
             .OrderBy(s => s.EntryBar)
             .ToList();
 
@@ -205,10 +227,14 @@ public sealed record ImpulseScanRequest(
     string? ToDate = null,
     // ── IsSmoothImpulse (uncommented) filters ──
     double MinSizePercent = 0.13,
+    double MaxSizePercent = 0,
     double MaxOverlapseLengthPercent = 35,
+    double MinOverlapseLengthPercent = 0,
     double MaxDistance = 35,
     double AreaPercent = 35,
+    double MinAreaPercent = 0,
     int BarsCount = 15,
+    int MaxBarsCount = 0,
     // ── entry / outcome geometry ──
     double EnterRatio = 0.35,
     double TakeRatio = 1.6,
@@ -216,8 +242,10 @@ public sealed record ImpulseScanRequest(
     int Period = 0,
     double BreakEvenRatio = 0,
     double MaxZigzagPercent = 20,
+    double MinZigzagPercent = 0,
     double HeterogeneityMax = 20,
-    double MaxCorrectionRatioPercent = 50);
+    double MaxCorrectionRatioPercent = 50,
+    double MinCorrectionRatioPercent = 0);
 
 /// <summary>A single detected impulse setup with its resolved TP/SL outcome.</summary>
 public sealed class ImpulseSetupDto

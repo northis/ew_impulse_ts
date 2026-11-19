@@ -190,3 +190,17 @@
 @media (max-width: 900px) {
   #gamePanel { width: 100%; border-left: none; }
 }
+
+/* ── Impulse scan filter ranges (right panel) ── */
+.filter-head {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+  color: #6a7280; margin-bottom: 8px;
+}
+.range-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.range-row .range-label { flex: 1; font-size: 12px; color: #c2c8d0; white-space: nowrap; }
+.range-row input[type=number] {
+  width: 64px; background: #1a1d23; color: #d1d5db; border: 1px solid #3a3f49;
+  border-radius: 4px; padding: 3px 5px; font-size: 12px;
+}
+.range-row .range-dash { color: #555d6b; font-size: 11px; }
+.range-hint { font-size: 10px; color: #555d6b; margin-top: -2px; }

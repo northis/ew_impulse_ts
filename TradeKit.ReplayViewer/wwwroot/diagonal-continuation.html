@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Диагональ → продолжение — тренажёр</title>
+  <link rel="stylesheet" href="/css/replay.css">
+  <link rel="stylesheet" href="/css/impulse.css">
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    #tradeListBox { margin-top: 10px; }
+    #tradeListBox summary { cursor: pointer; color: #8892a0; font-size: 13px; }
+    #tradeList { max-height: 260px; overflow: auto; margin-top: 6px; }
+    #tradeList table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    #tradeList th, #tradeList td { padding: 3px 4px; border-bottom: 1px solid #2a2e36; text-align: right; white-space: nowrap; }
+    #tradeList th { color: #8892a0; font-weight: 500; position: sticky; top: 0; background: #1a1d23; }
+    #tradeList td:first-child, #tradeList th:first-child { text-align: left; }
+    #tradeList tr { cursor: pointer; }
+    #tradeList tr:hover { background: #22262e; }
+    #tradeList tr.active { background: #2a3340; }
+    .tp2-row { display: none; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Top bar: file, dates, scan and the panel toggle -->
+  <div id="topbar">
+    <a class="navlink" href="/index.html" title="Разметка волн Эллиотта">↩ Разметка</a>
+    <a class="navlink" href="/impulse.html" title="Тренажёр входов по импульсам">⚡ Импульсы</a>
+    <a class="navlink" href="/triangle.html" title="Тренажёр входов по треугольникам">△ Треугольники</a>
+    <a class="navlink" href="/rtriangle.html" title="Тренажёр входов по бегущим треугольникам">▷ Бегущие</a>
+    <a class="navlink" href="/diagonal.html" title="Тренажёр входов против диагонали">◺ Диагонали</a>
+    <a class="navlink" href="/diagonal-impulse.html" title="Диагональ → импульс A-B-C">◺→⚡ Импульс после диагонали</a>
+    <a class="navlink" href="/diagonal-continuation.html" title="Диагональ как заходной импульс">◺→ Продолжение по диагонали</a>
+    <span class="ctrl-sep"></span>
+    <label>CSV:</label>
+    <select id="selFile"><option>-- загрузка файлов... --</option></select>
+    <label>С:</label>
+    <input type="date" id="inpFromDate" autocomplete="off">
+    <label>По:</label>
+    <input type="date" id="inpToDate" autocomplete="off">
+    <button id="btnRandom" type="button" title="Случайная дата старта в пределах диапазона">🎲</button>
+    <span id="rangeInfo"></span>
+    <span class="ctrl-sep"></span>
+    <button id="btnPanelToggle" type="button" title="Показать/скрыть панель параметров">⚙ Параметры</button>
+    <button id="btnScan">🔍 Сканировать</button>
+    <span id="status">Готов</span>
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+    <div id="chartContainer"></div>
+
+    <div id="gamePanel">
+      <div class="panel-head">
+        <h4>Параметры</h4>
+        <button id="btnPanelClose" type="button" title="Скрыть панель">×</button>
+      </div>
+
+      <details class="param-details" open>
+        <summary>Поиск диагонали</summary>
+        <div id="paramPanel">
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pPeriod">Период</label><span id="vPeriod">0 (авто)</span></div>
+            <input type="range" id="pPeriod" min="0" max="200" step="1" value="0">
+            <div class="param-range"><span>0 (авто)</span><span>200</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMinSize">Размер</label><span id="vMinSize">0.10 %</span></div>
+            <input type="range" id="pMinSize" min="0.01" max="10" step="0.01" value="0.1">
+            <div class="param-range"><span>0.01 %</span><span>10 %</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pBars">Баров</label><span id="vBars">10</span></div>
+            <input type="range" id="pBars" min="3" max="200" step="1" value="10">
+            <div class="param-range"><span>3</span><span>200</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pW2Retrace">W2 retrace min</label><span id="vW2Retrace">0.50</span></div>
+            <input type="range" id="pW2Retrace" min="0" max="1" step="0.05" value="0.5">
+            <div class="param-range"><span>0</span><span>1.0</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMinW4W3">W4/W3 min</label><span id="vMinW4W3">0.000</span></div>
+            <input type="range" id="pMinW4W3" min="0" max="1" step="0.001" value="0">
+            <div class="param-range"><span>0</span><span>1.0</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pMaxW4W3">W4/W3 max</label><span id="vMaxW4W3">0.382</span></div>
+            <input type="range" id="pMaxW4W3" min="0" max="1" step="0.001" value="0.382">
+            <div class="param-range"><span>0</span><span>1.0</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pInitialMode">Initial diagonal</label><span id="vInitialMode">LEADING</span></div>
+            <select id="pInitialMode">
+              <option value="LEADING" selected>LEADING — только начальные</option>
+              <option value="ALL">ALL — все</option>
+              <option value="ENDING">ENDING — только конечные</option>
+            </select>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pRemark345">Переразметка 3-5</label><span id="vRemark345">off</span></div>
+            <select id="pRemark345">
+              <option value="0" selected>off — оригинальная разметка</option>
+              <option value="1">on — сдвиг 3-5 по линии 1-3-5</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pRemarkTol">Допуск 1-3-5 × W3</label><span id="vRemarkTol">0.10</span></div>
+            <input type="range" id="pRemarkTol" min="0.01" max="0.3" step="0.005" value="0.1">
+            <div class="param-range"><span>0.01</span><span>0.30</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pRsiDiv">Дивергенция RSI 3-5</label><span id="vRsiDiv">off</span></div>
+            <select id="pRsiDiv">
+              <option value="OFF" selected>off — без фильтра</option>
+              <option value="REQUIRE">require — только с дивергенцией</option>
+              <option value="EXCLUDE">exclude — только без дивергенции</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pRsiPeriod">RSI период</label><span id="vRsiPeriod">14</span></div>
+            <input type="range" id="pRsiPeriod" min="2" max="50" step="1" value="14">
+            <div class="param-range"><span>2</span><span>50</span></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="param-details" open>
+        <summary>Откат и вход по диагонали</summary>
+        <div id="impParamPanel">
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pVariant">Вариант входа</label><span id="vVariant">V3 dynamic</span></div>
+            <select id="pVariant">
+              <option value="DYNAMIC_REPRICE" selected>V3 — лимит переставляется каждый бар</option>
+              <option value="CONFIRMED_END">V2 — конец после подтверждения 10 %</option>
+              <option value="SIGNAL_ANCHOR">V1 — конец = P5 на сигнале</option>
+              <option value="CORRECTION_END">V4 — вход на первой коррекции</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pEnterRatio">Откат входа k</label><span id="vEnterRatio">0.500</span></div>
+            <input type="range" id="pEnterRatio" min="0.236" max="0.786" step="0.001" value="0.5">
+            <div class="param-range"><span>23.6 % D</span><span>78.6 % D</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pConfirmRatio">Подтверждение конца c</label><span id="vConfirmRatio">0.100</span></div>
+            <input type="range" id="pConfirmRatio" min="0.05" max="0.3" step="0.005" value="0.1">
+            <div class="param-range"><span>5 % D</span><span>30 % D</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pTargetKind">Якорь цели</label><span id="vTargetKind">от P0</span></div>
+            <select id="pTargetKind">
+              <option value="DIAGONAL_START" selected>от P0 — P0 + f·D</option>
+              <option value="DIAGONAL_END">от конца — end + g·D</option>
+              <option value="ENTRY">от входа — entry + f·D</option>
+              <option value="CORRECTION_END">от конца коррекции (V4)</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pTarget">TP1 × D</label><span id="vTarget">1.000</span></div>
+            <input type="range" id="pTarget" min="0.5" max="2.618" step="0.001" value="1.0">
+            <div class="param-range"><span>0.50</span><span>2.62</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pLadder">Лестница</label><span id="vLadder">off — только TP1</span></div>
+            <select id="pLadder">
+              <option value="0" selected>off — только TP1</option>
+              <option value="1">on — 50 % TP1 + 50 % TP2</option>
+            </select>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pTarget2">TP2 × D (от P0)</label><span id="vTarget2">1.618</span></div>
+            <input type="range" id="pTarget2" min="1.0" max="2.618" step="0.001" value="1.618">
+            <div class="param-range"><span>1.00</span><span>2.62</span></div>
+          </div>
+
+          <div class="param-slider">
+            <div class="param-slider-head"><label for="pStopBuffer">Буфер стопа × D</label><span id="vStopBuffer">0.00</span></div>
+            <input type="range" id="pStopBuffer" min="0" max="0.10" step="0.01" value="0">
+            <div class="param-range"><span>0</span><span>0.10</span></div>
+          </div>
+
+          <div class="param-select">
+            <div class="param-slider-head"><label for="pEntryNextOpen">V4: исполнение входа</label><span id="vEntryNextOpen">close бара</span></div>
+            <select id="pEntryNextOpen">
+              <option value="0" selected>close — закрытие бара коррекции</option>
+              <option value="1">nextopen — открытие следующего бара</option>
+            </select>
+          </div>
+
+          <div class="preset-row">
+            <button type="button" class="preset" data-k="0.5" data-t="1.0" data-ladder="0">50 % → конец</button>
+            <button type="button" class="preset" data-k="0.5" data-t="1.272" data-ladder="0">50 % → 127 %</button>
+            <button type="button" class="preset" data-k="0.382" data-t="1.0" data-ladder="0">38.2 % → конец</button>
+            <button type="button" class="preset" data-k="0.618" data-t="1.0" data-ladder="0">61.8 % → конец</button>
+          </div>
+
+          <button id="btnScanPanel" type="button" class="btn-panel-scan">🔍 Сканировать</button>
+        </div>
+      </details>
+
+      <div id="gameEmpty"><em>Выберите файл и диапазон, затем «Сканировать»</em></div>
+
+      <div id="gameCard" style="display:none">
+        <div class="setup-head">
+          <span id="setupCounter">0 / 0</span>
+          <span id="dirBadge" class="dir-badge"></span>
+        </div>
+
+        <!-- Question phase -->
+        <div id="phaseQuestion">
+          <p class="prompt">Начальная диагональ — заходной импульс. Ждём откат <b>k</b> от высоты D,
+            затем входим <b>по направлению диагонали</b> в расчёте на волну C или 3.<br>
+            Стоп — начало диагонали P0, цель — измеренное движение от P0.</p>
+          <div class="levels">
+            <div><span class="lvl-name tp">TP1</span><span id="qTp1">—</span></div>
+            <div class="tp2-row"><span class="lvl-name tp">TP2</span><span id="qTp2">—</span></div>
+            <div><span class="lvl-name entry">Вход (откат)</span><span id="qEntry">—</span></div>
+            <div><span class="lvl-name sl">Стоп (P0)</span><span id="qSl">—</span></div>
+            <div><span class="lvl-name rr">R:R</span><span id="qRr">—</span></div>
+          </div>
+
+          <div class="geometry">
+            <div class="geo-row"><span>Диагональ / цена</span><span id="gD">—</span></div>
+            <div class="geo-row"><span>W5 / W3 (кап 1.0)</span><span id="gW5W3">—</span></div>
+            <div class="geo-row"><span>1-3-5 err × W3</span><span id="gLine135">—</span></div>
+            <div class="geo-row"><span>RSI P3 / P5</span><span id="gRsi">—</span></div>
+            <div class="geo-row"><span>Дивергенция 3-5</span><span id="gDiv">—</span></div>
+            <div class="geo-row"><span>Переразметка</span><span id="gRemarked">—</span></div>
+            <div class="geo-row"><span>MODE на конце</span><span id="gModeAtEnd">—</span></div>
+            <div class="geo-row"><span>Откат входа (факт)</span><span id="gEntryDepth">—</span></div>
+            <div class="geo-row"><span>Reanchors</span><span id="gReanchors">—</span></div>
+            <div class="geo-row"><span>Баров до входа</span><span id="gFill">—</span></div>
+            <div class="geo-row"><span>Баров до конца</span><span id="gBarsEnd">—</span></div>
+            <div class="geo-row"><span>Цели</span><span id="gTarget">—</span></div>
+            <div class="geo-row"><span>Вариант</span><span id="gVariant">—</span></div>
+            <div class="geo-row"><span>Initial mode</span><span id="gInitialMode">—</span></div>
+            <div class="geo-row"><span>Период диагонали</span><span id="gPeriod">—</span></div>
+            <div class="geo-row"><span>Медианный бар</span><span id="gMedian">—</span></div>
+          </div>
+
+          <div class="decide-btns">
+            <button id="btnEnter" class="btn-enter">✔ Войти по диагонали</button>
+            <button id="btnSkip" class="btn-skip">✘ Пропустить</button>
+          </div>
+        </div>
+
+        <!-- Answer phase -->
+        <div id="phaseAnswer" style="display:none">
+          <div id="verdict" class="verdict"></div>
+          <div class="answer-detail">
+            <div>Ваш выбор: <span id="aDecision">—</span></div>
+            <div>Результат: <span id="aOutcome">—</span></div>
+            <div>netR: <span id="aNetR">—</span></div>
+            <div>MFE / MAE: <span id="aMfeMae">—</span></div>
+          </div>
+          <button id="btnNext" class="btn-next">Следующий ▶</button>
+        </div>
+      </div>
+
+      <!-- Running statistics -->
+      <div id="statsBox">
+        <h4>📊 Статистика</h4>
+        <div class="stat-row"><span>Решений</span><span id="stTotal">0</span></div>
+        <div class="stat-row"><span>Точность</span><span id="stAcc">—</span></div>
+        <div class="stat-row good"><span>Вход → TP</span><span id="stWin">0</span></div>
+        <div class="stat-row bad"><span>Вход → SL</span><span id="stLoss">0</span></div>
+        <div class="stat-row good"><span>Пропуск → SL</span><span id="stGoodSkip">0</span></div>
+        <div class="stat-row bad"><span>Пропуск → TP</span><span id="stMissed">0</span></div>
+        <div class="stat-row"><span>Скан</span><span id="stScan">—</span></div>
+      </div>
+
+      <details id="tradeListBox">
+        <summary>Список сделок</summary>
+        <div id="tradeList"></div>
+      </details>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="playback">
+    <span id="stepCounter">0 / 0</span>
+    <progress id="progress" max="100" value="0"></progress>
+    <span id="barDate">—</span>
+    <span class="ctrl-sep"></span>
+    <button id="btnFit" type="button" title="Автоформат: подогнать график под данные">Автоформат</button>
+  </div>
+</div>
+
+<script src="/js/diagonal-continuation.js"></script>
+</body>
+</html>

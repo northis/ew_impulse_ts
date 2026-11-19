@@ -324,6 +324,62 @@ app.MapPost("/api/diagonal/scan", (DiagonalScanRequest req) =>
     }
 });
 
+// ── Diagonal → reversal impulse training game ────────
+// Scans a file/date-range for the corrected setup: a completed 0-1-2-3-4-5 diagonal,
+// then an impulse A AGAINST it, then a correction B of EnterRatio of A. The second
+// impulse C is traded in the direction of A, the stop is behind the start of A (the
+// diagonal end) and the targets are 1.0 (end of A) and 1.272 of A (see DIAGONAL.md §9.44).
+var diagonalImpulseScanEngine = new DiagonalImpulseScanEngine();
+app.MapPost("/api/diagonal-impulse/scan", (DiagonalImpulseScanRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.File))
+        return Results.BadRequest(new { error = "File name is required" });
+
+    string fileName = Path.GetFileName(req.File);
+    string path = Path.Combine(dataDir, fileName);
+    if (!File.Exists(path))
+        return Results.NotFound(new { error = "File not found" });
+
+    try
+    {
+        DiagonalImpulseScanResult result =
+            diagonalImpulseScanEngine.Scan(path, req);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString(), statusCode: 500, title: ex.Message);
+    }
+});
+
+// ── Diagonal → continuation training game ────────────
+// Scans a file/date-range for the "diagonal as the entry impulse" setup: a completed
+// 0-1-2-3-4-5 leading diagonal, then a correction of EnterRatio of its height and an entry
+// in the diagonal's direction. The stop is P0 and the target is a measured move of the
+// diagonal height (see DIAGONAL.md §9.43).
+var diagonalContinuationScanEngine = new DiagonalContinuationScanEngine();
+app.MapPost("/api/diagonal-continuation/scan", (DiagonalContinuationScanRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.File))
+        return Results.BadRequest(new { error = "File name is required" });
+
+    string fileName = Path.GetFileName(req.File);
+    string path = Path.Combine(dataDir, fileName);
+    if (!File.Exists(path))
+        return Results.NotFound(new { error = "File not found" });
+
+    try
+    {
+        DiagonalContinuationScanResult result =
+            diagonalContinuationScanEngine.Scan(path, req);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString(), statusCode: 500, title: ex.Message);
+    }
+});
+
 app.Run();
 
 // ── helpers ──────────────────────────────────────────
