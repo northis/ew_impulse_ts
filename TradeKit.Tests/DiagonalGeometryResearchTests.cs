@@ -117,8 +117,10 @@ namespace TradeKit.Tests
         /// <summary>
         /// Replays one file with the permissive geometry baseline: only the structural
         /// Elliott rules and the duration sanity remain, every beauty gate is off.
+        /// <paramref name="loosest"/> additionally turns off the optional penetration floor
+        /// and the W4-shorter-than-W2 time rule — the loosest configuration the finder has.
         /// </summary>
-        private static FileRun RunFile(string path, string fileName)
+        private static FileRun RunFile(string path, string fileName, bool loosest = false)
         {
             ITimeFrame timeFrame = fileName.Contains("_m15_")
                 ? TimeFrameHelper.Minute15
@@ -140,11 +142,11 @@ namespace TradeKit.Tests
                 maxConvergence: 0,
                 requireInsideWedge: false,
                 maxSpillAreaRatio: 1.0,
-                minWave3Penetration: 0.03,
+                minWave3Penetration: loosest ? 0 : 0.03,
                 maxWaveDurationRatio: 8.0,
                 minWave4Wave2Level: 0,
                 minWave4RetraceW3: 0,
-                requireWave4Shorter: true,
+                requireWave4Shorter: !loosest,
                 requireWave2Shorter: false,
                 minWave2Retrace: 0,
                 maxWave2Retrace: 0,

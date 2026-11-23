@@ -63,6 +63,19 @@ public sealed class DiagonalScanEngine
 
         // ── 2. Build the finder from the page inputs ──
         var ewParams = new EWParams(req.Period, req.MinSizePercent, req.BarsCount);
+        HashSet<CandlePatternType> priceActionPatterns = null;
+        if (req.PriceActionPatterns is { Length: > 0 })
+        {
+            priceActionPatterns = req.PriceActionPatterns
+                .Select(p => Enum.TryParse(p, true, out CandlePatternType type)
+                    ? type
+                    : (CandlePatternType?)null)
+                .Where(t => t.HasValue)
+                .Select(t => t!.Value)
+                .ToHashSet();
+            if (priceActionPatterns.Count == 0)
+                priceActionPatterns = null;
+        }
         // The panel exposes the exact corridor, the TP/SL handles, the leading/ending
         // policy and the wave-5 spill / hard R:R gates (DIAGONAL.md §9.36–§9.37).
         var finder = new DiagonalSetupFinder(
@@ -94,7 +107,10 @@ public sealed class DiagonalScanEngine
             initialMode: req.InitialMode,
             wave5MinRatio: req.Wave5MinRatio,
             minWave3Wave1Ratio: req.MinWave3Wave1Ratio,
-            retraceBaseWave3Ratio: req.RetraceBaseWave3Ratio);
+            retraceBaseWave3Ratio: req.RetraceBaseWave3Ratio,
+            minWave4Wave2Ratio: req.MinWave4Wave2Ratio,
+            maxWave4Wave2Ratio: req.MaxWave4Wave2Ratio,
+            priceActionPatterns: priceActionPatterns);
 
         Console.WriteLine(
             $"[diagonal] init {totalWatch.Elapsed.TotalSeconds:F1}s " +
@@ -138,7 +154,7 @@ public sealed class DiagonalScanEngine
                 RsiP5 = rsiP5,
                 HasDivergence = hasDivergence,
                 PriceActionPatterns = GetTradeDirectionPatterns(
-                    patternFinder, args.WavePoints[5].BarIndex, isUp)
+                    patternFinder, args.Level.BarIndex, isUp)
             };
         };
 
@@ -182,9 +198,6 @@ public sealed class DiagonalScanEngine
                 RsiDivergenceFilter.EXCLUDE => !s.HasDivergence,
                 _ => true
             })
-            .Where(s => req.PriceActionPatterns is not { Length: > 0 } ||
-                        s.PriceActionPatterns.Any(p =>
-                            req.PriceActionPatterns.Contains(p, StringComparer.OrdinalIgnoreCase)))
             .OrderBy(s => s.EntryBar)
             .ToList();
 
@@ -232,8 +245,8 @@ public sealed class DiagonalScanEngine
     // ── helpers ──────────────────────────────────────────
 
     /// <summary>
-    /// Price-action patterns on the last candle of wave 5 whose direction matches the trade
-    /// (a rejection candle at the diagonal's extreme). Empty when there is none.
+    /// Price-action patterns on the signal candle in the trade direction — the confirmation
+    /// the finder waited for. Empty when there is none.
     /// </summary>
     private static IReadOnlyList<string> GetTradeDirectionPatterns(
         CandlePatternFinder finder, int bar, bool isLong)
@@ -310,4 +323,6 @@ public sealed record DiagonalScanRequest(
     double MinWave3Wave1Ratio = 0,
     double Wave5MinRatio = 0,
     double RetraceBaseWave3Ratio = 0,
+    double MinWave4Wave2Ratio = 0,
+    double MaxWave4Wave2Ratio = 0,
     string[]? PriceActionPatterns = null);

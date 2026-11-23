@@ -96,6 +96,18 @@
         </div>
 
         <div class="param-slider">
+          <div class="param-slider-head"><label for="pMinW4W2">W4/W2 min</label><span id="vMinW4W2">0</span></div>
+          <input type="range" id="pMinW4W2" min="0" max="1" step="0.001" value="0">
+          <div class="param-range"><span>0 (off)</span><span>1.0</span></div>
+        </div>
+
+        <div class="param-slider">
+          <div class="param-slider-head"><label for="pMaxW4W2">W4/W2 max</label><span id="vMaxW4W2">0</span></div>
+          <input type="range" id="pMaxW4W2" min="0" max="1" step="0.001" value="0">
+          <div class="param-range"><span>0 (off)</span><span>1.0</span></div>
+        </div>
+
+        <div class="param-slider">
           <div class="param-slider-head"><label for="pMinW4W3">W4/W3 min</label><span id="vMinW4W3">0</span></div>
           <input type="range" id="pMinW4W3" min="0" max="1" step="0.001" value="0">
           <div class="param-range"><span>0 (off)</span><span>1.0</span></div>
@@ -169,7 +181,7 @@
       </details>
 
       <details class="param-details">
-        <summary>PriceAction в конце W5</summary>
+        <summary>PriceAction-подтверждение (ждать паттерн)</summary>
         <div id="paPanel">
           <div class="param-select">
             <div class="param-slider-head"><label for="pPaPatterns">Паттерны в сторону сделки</label><span id="vPaPatterns">off</span></div>
@@ -190,8 +202,6 @@
               <option value="DOWN_DOJI">DOWN_DOJI</option>
               <option value="PIECING_LINE">PIECING_LINE</option>
               <option value="DARK_CLOUD">DARK_CLOUD</option>
-              <option value="UP_CPPR">UP_CPPR</option>
-              <option value="DOWN_CPPR">DOWN_CPPR</option>
               <option value="UP_PPR">UP_PPR</option>
               <option value="DOWN_PPR">DOWN_PPR</option>
               <option value="UP_RAILS">UP_RAILS</option>
@@ -200,10 +210,8 @@
               <option value="DOWN_PIN_BAR_TRIO">DOWN_PIN_BAR_TRIO</option>
               <option value="UP_DOUBLE_INNER_BAR">UP_DOUBLE_INNER_BAR</option>
               <option value="DOWN_DOUBLE_INNER_BAR">DOWN_DOUBLE_INNER_BAR</option>
-              <option value="UP_PPR_IB">UP_PPR_IB</option>
-              <option value="DOWN_PPR_IB">DOWN_PPR_IB</option>
             </select>
-            <div class="param-range"><span>Ctrl+клик — несколько; ничего = без фильтра</span><span></span></div>
+            <div class="param-range"><span>Ctrl+клик — несколько; ничего = без подтверждения</span><span></span></div>
           </div>
         </div>
       </details>
@@ -242,7 +250,7 @@
             <div class="geo-row"><span>Initial mode</span><span id="gInitialMode">—</span></div>
             <div class="geo-row"><span>W5 spill mode</span><span id="gWave5SpillMode">—</span></div>
             <div class="geo-row"><span>Min R:R</span><span id="gMinSignalRr">—</span></div>
-            <div class="geo-row"><span>PA в конце W5</span><span id="gPriceAction">—</span></div>
+            <div class="geo-row"><span>PA на сигнале</span><span id="gPriceAction">—</span></div>
           </div>
 
           <div class="decide-btns">
@@ -258,6 +266,7 @@
             <div>Ваш выбор: <span id="aDecision">—</span></div>
             <div>Результат: <span id="aOutcome">—</span></div>
           </div>
+          <button id="btnAsk" class="btn-next" style="display:none">↩ К вопросу</button>
           <button id="btnNext" class="btn-next">Следующий ▶</button>
         </div>
       </div>
@@ -272,6 +281,17 @@
         <div class="stat-row good"><span>Пропуск → Стоп</span><span id="stGoodSkip">0</span></div>
         <div class="stat-row bad"><span>Пропуск → Тейк</span><span id="stMissed">0</span></div>
       </div>
+
+      <!-- Optional: browse every setup with its TP/SL outcome -->
+      <details id="resultBox">
+        <summary>Результаты <span id="resultCounts"></span></summary>
+        <div id="resultFilter">
+          <button type="button" data-f="ALL">Все</button>
+          <button type="button" data-f="TP">TP</button>
+          <button type="button" data-f="SL">SL</button>
+        </div>
+        <div id="resultList"></div>
+      </details>
     </div>
   </div>
 
@@ -285,6 +305,7 @@
   </div>
 </div>
 
+<script src="/js/params.js"></script>
 <script src="/js/diagonal.js"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ using TradeKit.Core.AlgoBase;
 using TradeKit.Core.Common;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.PriceAction;
 
 namespace TradeKit.Core.ElliottWave
 {
@@ -424,6 +425,40 @@ namespace TradeKit.Core.ElliottWave
         public double TakeProfitRatio { get; }
 
         /// <summary>
+        /// Gets the optional price-action confirmation (DIAGONAL.md §6.8): a completed candle
+        /// pattern in the trade direction (against the diagonal) is required on the signal
+        /// candle, so a wedge that broke V(3) waits for the pattern instead of being dropped.
+        /// Empty — the confirmation is off.
+        /// </summary>
+        public IReadOnlyCollection<CandlePatternType> PriceActionPatterns { get; }
+
+        private readonly CandlePatternFinder m_PriceActionFinder;
+
+        /// <summary>Per-bar cache of the raw candle patterns for the confirmation gate.</summary>
+        private int m_PriceActionBar = -1;
+        private List<CandlesResult> m_PriceActionCache;
+
+        /// <summary>
+        /// Whether a completed candle pattern in the trade direction exists on the given
+        /// closed bar. The trade is counter to the diagonal, so an up diagonal needs a
+        /// bearish pattern. Always true when the confirmation is off.
+        /// </summary>
+        private bool HasTradeDirectionPriceAction(int barIndex, bool isUpDiagonal)
+        {
+            if (m_PriceActionFinder == null)
+                return true;
+
+            if (m_PriceActionBar != barIndex)
+            {
+                m_PriceActionBar = barIndex;
+                m_PriceActionCache = m_PriceActionFinder.GetCandlePatterns(barIndex);
+            }
+
+            return m_PriceActionCache != null &&
+                   m_PriceActionCache.Any(p => p.IsBull != isUpDiagonal);
+        }
+
+        /// <summary>
         /// Gets the way the target is placed (DIAGONAL.md §6.3).
         /// </summary>
         public DiagonalTakeProfitMode TakeProfitMode { get; }
@@ -512,8 +547,23 @@ namespace TradeKit.Core.ElliottWave
         public bool RequireWave5Ratio { get; }
 
         /// <summary>
+        /// Gets the minimum <c>|W4|/|W2|</c> ratio: with D-CONTRACT-4 (<c>|W4| &lt; |W2|</c>)
+        /// it gives the corridor <c>min ≤ |W4|/|W2| &lt; 1</c>. A final pullback much shorter
+        /// than the first one collapses the coil instead of contracting it evenly;
+        /// <c>0</c> — off (the legacy "require wave 4 ratio" flag maps to 0.786).
+        /// </summary>
+        public double MinWave4Wave2Ratio { get; }
+
+        /// <summary>
+        /// Gets the optional upper bound of <c>|W4|/|W2|</c>; <c>0</c> — off. Useful to test
+        /// a narrow band around a fibo level (for example 0.78) without pinning it exactly.
+        /// </summary>
+        public double MaxWave4Wave2Ratio { get; }
+
+        /// <summary>
         /// When set, the wedge additionally has to contract evenly:
-        /// <c>0.786·|W2| ≤ |W4| &lt; |W2|</c> (DIAGONAL.md §4.1).
+        /// <c>0.786·|W2| ≤ |W4| &lt; |W2|</c> (DIAGONAL.md §4.1). Derived from
+        /// <see cref="MinWave4Wave2Ratio"/>.
         /// </summary>
         public bool RequireWave4Ratio { get; }
 
@@ -836,7 +886,10 @@ namespace TradeKit.Core.ElliottWave
             DiagonalInitialMode? initialMode = null,
             double wave5MinRatio = 0,
             double minWave3Wave1Ratio = 0,
-            double retraceBaseWave3Ratio = 0)
+            double retraceBaseWave3Ratio = 0,
+            double minWave4Wave2Ratio = 0,
+            double maxWave4Wave2Ratio = 0,
+            HashSet<CandlePatternType> priceActionPatterns = null)
             : base(mainBarsProvider, symbol)
         {
             m_EwParams = ewParams;
@@ -851,6 +904,19 @@ namespace TradeKit.Core.ElliottWave
             RequireWave5Ratio = Wave5MinRatio > 0;
             MinWave3Wave1Ratio = Math.Max(0, minWave3Wave1Ratio);
             RetraceBaseWave3Ratio = Math.Max(0, retraceBaseWave3Ratio);
+            MinWave4Wave2Ratio = minWave4Wave2Ratio > 0
+                ? minWave4Wave2Ratio
+                : requireWave4Ratio ? WAVE4_MIN_RATIO : 0;
+            MaxWave4Wave2Ratio = Math.Max(0, maxWave4Wave2Ratio);
+            RequireWave4Ratio = MinWave4Wave2Ratio > 0;
+            PriceActionPatterns = priceActionPatterns is { Count: > 0 }
+                ? priceActionPatterns
+                : null;
+            if (PriceActionPatterns != null)
+            {
+                m_PriceActionFinder = new CandlePatternFinder(
+                    BarsProvider, false, new HashSet<CandlePatternType>(priceActionPatterns));
+            }
             RequireWave4Ratio = requireWave4Ratio;
             InitialMode = initialMode ??
                           (requireInitialDiagonal
@@ -1708,9 +1774,15 @@ namespace TradeKit.Core.ElliottWave
             }
 
             // D-W4-78 (optional): the wedge contracts evenly rather than collapsing.
-            if (RequireWave4Ratio && w4 < WAVE4_MIN_RATIO * w2)
+            if (MinWave4Wave2Ratio > 0 && w4 < MinWave4Wave2Ratio * w2)
             {
                 Bump("w4TooShallow", p0);
+                return false;
+            }
+
+            if (MaxWave4Wave2Ratio > 0 && w4 > MaxWave4Wave2Ratio * w2)
+            {
+                Bump("w4TooDeepVsW2", p0);
                 return false;
             }
 
@@ -1898,7 +1970,7 @@ namespace TradeKit.Core.ElliottWave
             }
 
             candidate.LastProcessedBar = index - 1;
-            candidate.WasTriggerable = IsTriggerable(candidate);
+            candidate.WasTriggerable = IsTriggerable(candidate, index - 1);
 
             if (m_Candidates.Count >= MAX_CANDIDATES)
             {
@@ -2075,7 +2147,7 @@ namespace TradeKit.Core.ElliottWave
                 if (TriggerMode == DiagonalTriggerMode.LINE13_PENDING_MANAGED)
                     continue;
 
-                bool triggerable = IsTriggerable(candidate);
+                bool triggerable = IsTriggerable(candidate, index);
 
                 // A candidate parked by the R:R gate (§6.5) is re-checked on every closed
                 // candle: both the entry (the close) and the target (the fresh extreme of
@@ -2266,7 +2338,7 @@ namespace TradeKit.Core.ElliottWave
             return true;
         }
 
-        private bool IsTriggerable(DiagonalCandidate candidate)
+        private bool IsTriggerable(DiagonalCandidate candidate, int barIndex)
         {
             int sgn = candidate.IsUp ? 1 : -1;
 
@@ -2283,8 +2355,16 @@ namespace TradeKit.Core.ElliottWave
             }
 
             // D-W5-78 (optional): a mature wave 5.
-            return Wave5MinRatio <= 0 ||
-                   candidate.W5Length >= Wave5MinRatio * candidate.W3Length;
+            if (Wave5MinRatio > 0 &&
+                candidate.W5Length < Wave5MinRatio * candidate.W3Length)
+            {
+                return false;
+            }
+
+            // PA-CONF (optional, §6.8): the diagonal may be ready bars before the candle
+            // pattern completes, so the candidate waits and the entry lands on the pattern's
+            // last candle. The pattern must point in the trade direction.
+            return HasTradeDirectionPriceAction(barIndex, candidate.IsUp);
         }
 
         /// <summary>
@@ -2966,7 +3046,7 @@ namespace TradeKit.Core.ElliottWave
                         return false;
                 }
 
-                if (IsTriggerable(candidate))
+                if (IsTriggerable(candidate, firstBar - 1))
                     return false;
 
                 int lastBar = Math.Min(BarsProvider.Count, firstBar + MAX_SKELETON_WALK_BARS);
@@ -2975,7 +3055,7 @@ namespace TradeKit.Core.ElliottWave
                     if (bar > candidate.LastProcessedBar && !AdvanceWave5(candidate, bar))
                         return false;
 
-                    if (IsTriggerable(candidate))
+                    if (IsTriggerable(candidate, bar))
                         return TryBuildShadowSignal(candidate, bar, out signal);
                 }
 

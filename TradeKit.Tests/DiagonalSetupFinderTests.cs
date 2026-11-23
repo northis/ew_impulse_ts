@@ -5,6 +5,7 @@ using TradeKit.Core.Common;
 using TradeKit.Core.ElliottWave;
 using TradeKit.Core.EventArgs;
 using TradeKit.Core.Indicators;
+using TradeKit.Core.PriceAction;
 using TradeKit.Tests.Mocks;
 
 namespace TradeKit.Tests
@@ -96,7 +97,10 @@ namespace TradeKit.Tests
                 double minWave3Wave1Ratio = 0,
                 double minWave4RetraceW3 = 0,
                 double wave5MinRatio = 0,
-                double retraceBaseWave3Ratio = 0)
+                double retraceBaseWave3Ratio = 0,
+                double minWave4Wave2Ratio = 0,
+                double maxWave4Wave2Ratio = 0,
+                HashSet<CandlePatternType> priceActionPatterns = null)
         {
             var provider = new TestBarsProvider(timeFrame);
             provider.LoadCandles(Path.Combine(FindDataDir(), file));
@@ -116,7 +120,10 @@ namespace TradeKit.Tests
                 minWave3Wave1Ratio: minWave3Wave1Ratio,
                 minWave4RetraceW3: minWave4RetraceW3,
                 wave5MinRatio: wave5MinRatio,
-                retraceBaseWave3Ratio: retraceBaseWave3Ratio);
+                retraceBaseWave3Ratio: retraceBaseWave3Ratio,
+                minWave4Wave2Ratio: minWave4Wave2Ratio,
+                maxWave4Wave2Ratio: maxWave4Wave2Ratio,
+                priceActionPatterns: priceActionPatterns);
 
             var signals = new List<ElliottWaveSignalEventArgs>();
             finder.OnEnter += (_, a) => signals.Add(a);
@@ -421,14 +428,15 @@ namespace TradeKit.Tests
                 string.Join(", ", baselineFinder.Diag.OrderByDescending(x => x.Value)
                     .Select(x => $"{x.Key}={x.Value}")));
 
-            static (double W3W1, double W4W3, double W5W3) Ratios(ElliottWaveSignalEventArgs s)
+            static (double W3W1, double W4W3, double W5W3, double W4W2) Ratios(
+                ElliottWaveSignalEventArgs s)
             {
                 BarPoint[] p = s.WavePoints;
                 double w1 = Math.Abs(p[1].Value - p[0].Value);
+                double w2 = Math.Abs(p[2].Value - p[1].Value);
                 double w3 = Math.Abs(p[3].Value - p[2].Value);
-                return (w3 / w1,
-                    Math.Abs(p[4].Value - p[3].Value) / w3,
-                    Math.Abs(p[5].Value - p[4].Value) / w3);
+                double w4 = Math.Abs(p[4].Value - p[3].Value);
+                return (w3 / w1, w4 / w3, Math.Abs(p[5].Value - p[4].Value) / w3, w4 / w2);
             }
 
             (_, List<ElliottWaveSignalEventArgs> loose) = Run(H1_FILE, TimeFrameHelper.Hour1,
@@ -439,6 +447,8 @@ namespace TradeKit.Tests
             var ratios = baseline.Select(Ratios).ToArray();
             double aboveW3W1 = ratios.Max(r => r.W3W1) * 1.01 + 1e-6;
             double aboveW4W3 = ratios.Max(r => r.W4W3) * 1.01 + 1e-6;
+            double aboveW4W2 = ratios.Max(r => r.W4W2) * 1.01 + 1e-6;
+            double belowW4W2 = ratios.Min(r => r.W4W2) * 0.99;
 
             (DiagonalSetupFinder w3Finder, List<ElliottWaveSignalEventArgs> w3Filtered) =
                 Run(H1_FILE, TimeFrameHelper.Hour1, minWave3Wave1Ratio: aboveW3W1);
@@ -459,13 +469,28 @@ namespace TradeKit.Tests
             Assert.That(w5Filtered, Is.Empty,
                 "A wave 5 can never cover 101% of |W3|: D-W5-CAP invalidates the model first.");
 
+            (DiagonalSetupFinder w42Finder, List<ElliottWaveSignalEventArgs> w42Filtered) =
+                Run(H1_FILE, TimeFrameHelper.Hour1, minWave4Wave2Ratio: aboveW4W2);
+            Assert.That(w42Filtered, Is.Empty,
+                $"A wave 4 shorter than {aboveW4W2:F3}·|W2| must never emit.");
+            Assert.That(w42Finder.Diag.GetValueOrDefault("w4TooShallow"), Is.GreaterThan(0),
+                "The rejection must come from the W4/W2 floor.");
+
+            (DiagonalSetupFinder w42MaxFinder, List<ElliottWaveSignalEventArgs> w42MaxFiltered) =
+                Run(H1_FILE, TimeFrameHelper.Hour1, maxWave4Wave2Ratio: belowW4W2);
+            Assert.That(w42MaxFiltered, Is.Empty,
+                $"A wave 4 longer than {belowW4W2:F3}·|W2| must never emit.");
+            Assert.That(w42MaxFinder.Diag.GetValueOrDefault("w4TooDeepVsW2"), Is.GreaterThan(0),
+                "The rejection must come from the W4/W2 cap.");
+
             (_, List<ElliottWaveSignalEventArgs> strict) = Run(H1_FILE, TimeFrameHelper.Hour1,
-                minWave3Wave1Ratio: 0.78, minWave4RetraceW3: 0.78, wave5MinRatio: 0.78);
+                minWave3Wave1Ratio: 0.78, minWave4RetraceW3: 0.78, wave5MinRatio: 0.78,
+                minWave4Wave2Ratio: 0.78);
             TestContext.Out.WriteLine(
-                $"W3/W1,W4/W3,W5/W3 >= 0.78: {strict.Count} signal(s) vs {baseline.Count} baseline.");
+                $"W3/W1,W4/W3,W5/W3,W4/W2 >= 0.78: {strict.Count} signal(s) vs {baseline.Count} baseline.");
             foreach (ElliottWaveSignalEventArgs s in strict)
             {
-                (double w3W1, double w4W3, double w5W3) = Ratios(s);
+                (double w3W1, double w4W3, double w5W3, double w4W2) = Ratios(s);
                 string at = $"{s.WavePoints[0].OpenTime:u}";
                 Assert.That(w3W1, Is.GreaterThanOrEqualTo(0.78 - 1e-9),
                     $"{at}: W3/W1 is below the requested corridor.");
@@ -473,6 +498,8 @@ namespace TradeKit.Tests
                     $"{at}: W4/W3 is below the requested corridor.");
                 Assert.That(w5W3, Is.GreaterThanOrEqualTo(0.78 - 1e-9),
                     $"{at}: W5/W3 is below the requested corridor.");
+                Assert.That(w4W2, Is.GreaterThanOrEqualTo(0.78 - 1e-9),
+                    $"{at}: W4/W2 is below the requested corridor.");
             }
         }
 
@@ -506,6 +533,81 @@ namespace TradeKit.Tests
                         .Within(2 * s.TakeProfit.Value * 1e-4),
                     $"{p[0].OpenTime:u}: TP is not the retrace of the (5):(3) level.");
             }
+        }
+
+        /// <summary>
+        /// PA-CONF (DIAGONAL.md §6.8): the diagonal may be ready several candles before the
+        /// candle pattern completes. The candidate then waits — it is not dropped — and the
+        /// entry lands on the pattern's last candle. Only patterns in the trade direction
+        /// count, and the 23.6 % target is measured from the wave-5 extreme that exists at
+        /// the signal, not from the one at the first V(3) break.
+        /// </summary>
+        [Test]
+        public void Diagonal_PriceActionConfirmation_WaitsForThePattern()
+        {
+            HashSet<CandlePatternType> patterns =
+                Enum.GetValues<CandlePatternType>().ToHashSet();
+            (DiagonalSetupFinder finder, List<ElliottWaveSignalEventArgs> signals) = Run(
+                H1_FILE, TimeFrameHelper.Hour1,
+                takeProfitMode: DiagonalTakeProfitMode.DIAGONAL_RETRACE,
+                priceActionPatterns: patterns);
+
+            Assert.That(signals, Is.Not.Empty, "No diagonal setups detected. Funnel: " +
+                string.Join(", ", finder.Diag.OrderByDescending(x => x.Value)
+                    .Select(x => $"{x.Key}={x.Value}")));
+
+            var patternFinder = new CandlePatternFinder(
+                finder.BarsProvider, false, new HashSet<CandlePatternType>(patterns));
+            int delayed = 0;
+
+            foreach (ElliottWaveSignalEventArgs s in signals)
+            {
+                BarPoint[] p = s.WavePoints;
+                bool isUpDiagonal = s.TakeProfit.Value < s.StopLoss.Value;
+                double sgn = Sign(isUpDiagonal);
+                string at = $"{p[0].OpenTime:u}";
+
+                // The confirmation must exist on the signal candle and point at the trade.
+                List<CandlesResult> atEntry =
+                    patternFinder.GetCandlePatterns(s.Level.BarIndex);
+                Assert.That(
+                    atEntry != null && atEntry.Any(x => x.IsBull != isUpDiagonal), Is.True,
+                    $"{at}: no trade-direction price action on the signal candle.");
+
+                // A delayed signal is the point of the option: the diagonal was ready earlier.
+                int breakBar = FirstV3BreakBar(
+                    finder.BarsProvider, p[3].Value, p[4].BarIndex, s.Level.BarIndex,
+                    isUpDiagonal);
+                if (breakBar >= 0 && s.Level.BarIndex > breakBar)
+                    delayed++;
+
+                // D-TP-236 from the REAL wave-5 end of this signal (may be past the break).
+                double diagonal = Math.Abs(p[5].Value - p[0].Value);
+                double expectedTp = p[5].Value - sgn * finder.TakeProfitRetraceRatio * diagonal;
+                Assert.That(s.TakeProfit.Value, Is.EqualTo(expectedTp)
+                        .Within(2 * s.TakeProfit.Value * 1e-4),
+                    $"{at}: TP is not the 23.6% retrace of the wave-5 end at the signal.");
+            }
+
+            Assert.That(delayed, Is.GreaterThan(0),
+                "The archive must contain at least one setup whose signal waited for the pattern.");
+        }
+
+        /// <summary>
+        /// First bar after the end of wave 4 whose extreme breaks V(3) — the bar the shipped
+        /// trigger would have fired on if the candle pattern had been there.
+        /// </summary>
+        private static int FirstV3BreakBar(IBarsProvider bp, double v3, int fromBar,
+            int toBar, bool isUpDiagonal)
+        {
+            for (int i = fromBar + 1; i <= toBar; i++)
+            {
+                double extreme = isUpDiagonal ? bp.GetHighPrice(i) : bp.GetLowPrice(i);
+                if (isUpDiagonal ? extreme > v3 : extreme < v3)
+                    return i;
+            }
+
+            return -1;
         }
 
         /// <summary>

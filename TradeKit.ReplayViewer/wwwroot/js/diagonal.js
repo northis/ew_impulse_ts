@@ -40,6 +40,8 @@ let candleByBar = new Map();  // absolute barIndex → candle DTO
 let currentFileInfo = null;   // { firstBarTime, lastBarTime, barCount }
 let idx = -1;                 // current setup index
 let phase = 'idle';           // 'question' | 'answer'
+let browse = false;           // true while browsing resolved setups from the list
+let resultFilter = 'ALL';     // 'ALL' | 'TP' | 'SL'
 const decided = new Set();
 const stats = { total: 0, win: 0, loss: 0, goodSkip: 0, missed: 0 };
 
@@ -236,16 +238,20 @@ function renderGeometry(s) {
     $('gPriceAction').textContent = pa.length ? pa.join(', ') : '—';
 }
 
-function renderQuestion(s) {
-    phase = 'question';
-    drawSetupBase(s);
-    showCandles(viewLeftBar(s), s.entryBar);
-
+function renderSetupHead(s) {
     $('setupCounter').textContent = `${idx + 1} / ${scan.setups.length}`;
     const badge = $('dirBadge');
     // isUp here is the direction of the TRADE (against the diagonal).
     badge.textContent = s.isUp ? '▲ ВВЕРХ' : '▼ ВНИЗ';
     badge.className = 'dir-badge ' + (s.isUp ? 'up' : 'down');
+}
+
+function renderQuestion(s) {
+    phase = 'question';
+    drawSetupBase(s);
+    showCandles(viewLeftBar(s), s.entryBar);
+
+    renderSetupHead(s);
 
     const rr = Math.abs(s.takeProfit - s.entryPrice) / Math.abs(s.entryPrice - s.stopLoss);
     $('qTp').textContent = fmtPrice(s.takeProfit);
@@ -264,19 +270,7 @@ function renderAnswer(s, decision) {
     phase = 'answer';
     drawSetupBase(s);
     showCandles(viewLeftBar(s), s.outcomeBar);
-
-    // Outcome marker (replaces the wave-label markers set by drawSetupBase)
-    const t = barTimeFor(s.outcomeBar);
-    if (t != null) {
-        const tp = s.outcome === 'TP';
-        candleSeries.setMarkers([{
-            time: t,
-            position: tp ? 'aboveBar' : 'belowBar',
-            color: tp ? '#34c77b' : '#ef6b69',
-            shape: tp ? 'arrowDown' : 'arrowUp',
-            text: tp ? 'TP' : 'SL'
-        }]);
-    }
+    drawOutcomeMarker(s);
 
     const correct = (decision === 'enter' && s.outcome === 'TP') ||
                     (decision === 'skip' && s.outcome === 'SL');
@@ -291,6 +285,7 @@ function renderAnswer(s, decision) {
 
     $('phaseQuestion').style.display = 'none';
     $('phaseAnswer').style.display = '';
+    $('btnAsk').style.display = 'none';
 
     if (!decided.has(s.id)) {
         decided.add(s.id);
@@ -299,6 +294,49 @@ function renderAnswer(s, decision) {
         else (s.outcome === 'SL' ? stats.goodSkip++ : stats.missed++);
         renderStats();
     }
+
+    updateProgress(s.outcomeBar, null);
+    renderResultList();
+}
+
+/** Marker at the bar where TP or SL was hit (replaces the wave labels). */
+function drawOutcomeMarker(s) {
+    const t = barTimeFor(s.outcomeBar);
+    if (t == null) return;
+    const tp = s.outcome === 'TP';
+    candleSeries.setMarkers([{
+        time: t,
+        position: tp ? 'aboveBar' : 'belowBar',
+        color: tp ? '#34c77b' : '#ef6b69',
+        shape: tp ? 'arrowDown' : 'arrowUp',
+        text: tp ? 'TP' : 'SL'
+    }]);
+}
+
+/**
+ * Browse mode: the setup as it resolved (candles up to the TP/SL bar) without
+ * asking for a decision, so the quiz stats stay untouched.
+ */
+function renderOutcomeView(s) {
+    phase = 'answer';
+    drawSetupBase(s);
+    showCandles(viewLeftBar(s), s.outcomeBar);
+    drawOutcomeMarker(s);
+    renderSetupHead(s);
+
+    const tp = s.outcome === 'TP';
+    const verdict = $('verdict');
+    verdict.textContent = tp ? '✔ TP' : '✘ SL';
+    verdict.className = 'verdict ' + (tp ? 'correct' : 'wrong');
+    $('aDecision').textContent = `сетап ${idx + 1} из ${scan.setups.length}`;
+    const oc = $('aOutcome');
+    oc.textContent = (tp ? 'Тейк-профит ' : 'Стоп-лосс ') +
+        fmtPrice(tp ? s.takeProfit : s.stopLoss);
+    oc.className = tp ? 'tp' : 'sl';
+
+    $('phaseQuestion').style.display = 'none';
+    $('phaseAnswer').style.display = '';
+    $('btnAsk').style.display = '';
 
     updateProgress(s.outcomeBar, null);
 }
@@ -326,8 +364,68 @@ function updateProgress(bar, isoTime) {
 function goTo(i) {
     if (!scan || i < 0 || i >= scan.setups.length) return;
     idx = i;
+    browse = false;
     renderQuestion(scan.setups[idx]);
+    renderResultList();
 }
+
+// ── Results browser: every setup with its TP/SL outcome ──
+function resultRows() {
+    return scan.setups
+        .map((s, i) => ({ s, i }))
+        .filter(x => resultFilter === 'ALL' || x.s.outcome === resultFilter);
+}
+
+function renderResultList() {
+    if (!scan) return;
+    const tp = scan.setups.filter(s => s.outcome === 'TP').length;
+    const sl = scan.setups.filter(s => s.outcome === 'SL').length;
+    $('resultCounts').textContent = `TP ${tp} · SL ${sl}`;
+    for (const b of document.querySelectorAll('#resultFilter button'))
+        b.classList.toggle('active', b.dataset.f === resultFilter);
+
+    const rows = resultRows();
+    $('resultList').innerHTML = rows.length === 0
+        ? '<em style="color:#666">Нет сетапов с таким исходом</em>'
+        : '<table><thead><tr><th>#</th><th>Дата</th><th>Сторона</th><th>R:R</th><th>Итог</th></tr></thead><tbody>' +
+          rows.map(({ s, i }) => {
+              const rr = Math.abs(s.takeProfit - s.entryPrice) /
+                  Math.abs(s.entryPrice - s.stopLoss);
+              const oc = s.outcome === 'TP' || s.outcome === 'SL' ? s.outcome : '—';
+              const cls = s.outcome === 'TP' ? 'tp' : s.outcome === 'SL' ? 'sl' : '';
+              return `<tr data-i="${i}"${i === idx ? ' class="active"' : ''}>
+                  <td>${i + 1}</td>
+                  <td>${formatDateTime(s.entryTime).slice(0, 10)}</td>
+                  <td>${s.isUp ? '▲' : '▼'}</td>
+                  <td>${isFinite(rr) ? rr.toFixed(2) : '—'}</td>
+                  <td class="${cls}">${oc}</td>
+              </tr>`;
+          }).join('') + '</tbody></table>';
+
+    for (const tr of $('resultList').querySelectorAll('tr[data-i]'))
+        tr.addEventListener('click', () => browseTo(parseInt(tr.dataset.i, 10)));
+}
+
+function browseTo(i) {
+    if (!scan || i < 0 || i >= scan.setups.length) return;
+    idx = i;
+    browse = true;
+    renderOutcomeView(scan.setups[idx]);
+    renderResultList();
+}
+
+function nextResult() {
+    const rows = resultRows();
+    const pos = rows.findIndex(x => x.i === idx);
+    if (pos >= 0 && pos + 1 < rows.length) browseTo(rows[pos + 1].i);
+    else $('status').textContent = 'Все сетапы списка пройдены';
+}
+
+for (const b of document.querySelectorAll('#resultFilter button'))
+    b.addEventListener('click', () => {
+        resultFilter = b.dataset.f;
+        renderResultList();
+    });
 
 // ── Decision handlers ──
 $('btnEnter').addEventListener('click', () => {
@@ -339,9 +437,12 @@ $('btnSkip').addEventListener('click', () => {
     renderAnswer(scan.setups[idx], 'skip');
 });
 $('btnNext').addEventListener('click', () => {
+    if (browse) { nextResult(); return; }
     if (idx + 1 < scan.setups.length) goTo(idx + 1);
     else $('status').textContent = 'Все сетапы пройдены';
 });
+// From a browsed result back to the quiz question for the same setup.
+$('btnAsk').addEventListener('click', () => goTo(idx));
 
 $('btnFit').addEventListener('click', () => {
     try { chart.timeScale().fitContent(); } catch (_) { /* ignore */ }
@@ -380,6 +481,8 @@ async function runScan() {
         minWave3Wave1Ratio: numVal('pMinW3W1', 0),
         wave5MinRatio: numVal('pMinW5W3', 0),
         retraceBaseWave3Ratio: numVal('pTpBaseW5W3', 0),
+        minWave4Wave2Ratio: numVal('pMinW4W2', 0),
+        maxWave4Wave2Ratio: numVal('pMaxW4W2', 0),
         initialMode: $('pInitialMode').value,
         wave5SpillMode: $('pWave5SpillMode').value,
         wave5SpillThreshold: numVal('pWave5SpillThreshold', 0.005),
@@ -425,9 +528,12 @@ function onScanLoaded() {
 
     idx = -1;
     phase = 'idle';
+    browse = false;
+    resultFilter = 'ALL';
     decided.clear();
     stats.total = stats.win = stats.loss = stats.goodSkip = stats.missed = 0;
     renderStats();
+    renderResultList();
 
     const n = scan.setups.length;
     const periodInfo = `период ${scan.usedPeriod} (bps ${(scan.medianBarBps || 0).toFixed(1)})`;

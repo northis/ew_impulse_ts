@@ -191,6 +191,34 @@
   #gamePanel { width: 100%; border-left: none; }
 }
 
+/* ── Setup results browser (diagonal.html) ── */
+#resultBox { margin-top: 14px; padding-top: 12px; border-top: 1px solid #333840; }
+#resultBox summary { cursor: pointer; color: #8892a0; font-size: 13px; list-style: none; }
+#resultBox summary::-webkit-details-marker { display: none; }
+#resultBox summary::before { content: '▸ '; color: #555d6b; }
+#resultBox[open] summary::before { content: '▾ '; }
+#resultBox summary:hover { color: #d1d5db; }
+#resultCounts { color: #6a7280; font-variant-numeric: tabular-nums; }
+#resultFilter { display: flex; gap: 4px; margin: 8px 0; }
+#resultFilter button {
+  flex: 1; background: #22262e; color: #8892a0; border: 1px solid #333840;
+  border-radius: 4px; padding: 3px 6px; font-size: 11px; cursor: pointer;
+}
+#resultFilter button.active { background: #2a3340; color: #d1d5db; border-color: #4a5260; }
+#resultList { max-height: 260px; overflow: auto; }
+#resultList table { width: 100%; border-collapse: collapse; font-size: 11px; }
+#resultList th, #resultList td {
+  padding: 3px 4px; border-bottom: 1px solid #2a2e36; text-align: right;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+#resultList th { color: #8892a0; font-weight: 500; position: sticky; top: 0; background: #1a1d23; }
+#resultList th:first-child, #resultList td:first-child { text-align: left; }
+#resultList tr[data-i] { cursor: pointer; }
+#resultList tr[data-i]:hover { background: #22262e; }
+#resultList tr.active { background: #2a3340; }
+#resultList td.tp { color: #34c77b; }
+#resultList td.sl { color: #ef6b69; }
+
 /* ── Impulse scan filter ranges (right panel) ── */
 .filter-head {
   font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
