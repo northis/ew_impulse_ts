@@ -371,6 +371,19 @@ namespace TradeKit.Core.ElliottWave
         private int m_TailCacheBar = -1;
 
         /// <summary>
+        /// (bar index, price bits) → index inside the rung's cached tail. Cross-scale assembly
+        /// looks a pivot up in every rung pair, and that linear scan dominated the whole scan.
+        /// </summary>
+        private readonly Dictionary<DeviationExtremumFinder, Dictionary<(int, long), int>>
+            m_TailIndex = new();
+
+        /// <summary>
+        /// <see cref="m_ExtremumFinders"/> ordered coarse → fine, fixed for the finder's
+        /// lifetime: <see cref="CheckSetup"/> used to re-sort it on every bar.
+        /// </summary>
+        private readonly List<DeviationExtremumFinder> m_ExtremumFindersByScale = new();
+
+        /// <summary>
         /// Diagnostic tally of how many candidates die at each validation gate (keyed by
         /// reason). Used by research tests to locate the dominant filter.
         /// </summary>
@@ -969,6 +982,9 @@ namespace TradeKit.Core.ElliottWave
 
             foreach (int period in BuildPeriodLadder(ZigzagPeriod))
                 m_ExtremumFinders.Add(new DeviationExtremumFinder(period, BarsProvider));
+
+            m_ExtremumFindersByScale.AddRange(
+                m_ExtremumFinders.OrderByDescending(a => a.ScaleRate));
         }
 
         private static List<int> BuildPeriodLadder(int basePeriod)
@@ -1033,8 +1049,7 @@ namespace TradeKit.Core.ElliottWave
             m_PrintFilter.OnCalculate(openDateTime);
             m_ThinFilter?.OnCalculate(openDateTime);
 
-            foreach (DeviationExtremumFinder finder in m_ExtremumFinders
-                         .OrderByDescending(a => a.ScaleRate))
+            foreach (DeviationExtremumFinder finder in m_ExtremumFindersByScale)
             {
                 finder.OnCalculate(openDateTime);
                 if (!IsInitialized)
@@ -1410,6 +1425,7 @@ namespace TradeKit.Core.ElliottWave
             if (m_TailCacheBar != index)
             {
                 m_TailCache.Clear();
+                m_TailIndex.Clear();
                 m_TailCacheBar = index;
             }
 
@@ -1426,6 +1442,30 @@ namespace TradeKit.Core.ElliottWave
 
             return tail;
         }
+
+        /// <summary>
+        /// Pivot lookup for the rung's cached tail: <c>(bar, price)</c> → position, built once
+        /// per rung per bar. Same first-match semantics as the old linear scan, O(1) per call.
+        /// </summary>
+        private Dictionary<(int, long), int> CachedTailIndex(
+            DeviationExtremumFinder finder, int index)
+        {
+            List<BarPoint> tail = CachedTailPivots(finder, index);
+            if (!m_TailIndex.TryGetValue(finder, out Dictionary<(int, long), int> map))
+            {
+                map = new Dictionary<(int, long), int>(tail.Count);
+                // TryAdd keeps the FIRST match, exactly like the linear scan did.
+                for (int i = 0; i < tail.Count; i++)
+                    map.TryAdd((tail[i].BarIndex, PriceBits(tail[i].Value)), i);
+                m_TailIndex[finder] = map;
+            }
+
+            return map;
+        }
+
+        /// <summary>Price bits for the pivot lookup; ±0.0 compare equal, as they did before.</summary>
+        private static long PriceBits(double value) =>
+            value == 0 ? 0L : BitConverter.DoubleToInt64Bits(value);
 
         private void AssembleCandidates(DeviationExtremumFinder finder, int index)
         {
@@ -1557,8 +1597,9 @@ namespace TradeKit.Core.ElliottWave
                     continue;
 
                 List<BarPoint> cpiv = CachedTailPivots(coarse, index);
+                Dictionary<(int, long), int> cIndex = CachedTailIndex(coarse, index);
                 BarPoint v1 = p1;
-                int c1 = FindPivot(cpiv, p1);
+                int c1 = FindPivot(cIndex, p1);
                 if (c1 < 0)
                 {
                     // The coarse rung does not resolve the event rung's wave-1 end. The
@@ -1566,7 +1607,7 @@ namespace TradeKit.Core.ElliottWave
                     // as the wave-1 extreme (the strict > in ExtendWave never moves to the
                     // equal second touch) while the coarse scale only resolves the second.
                     // Re-carve wave 1 from point 0 on the coarse rung and use that end.
-                    int c0 = FindPivot(cpiv, p0);
+                    int c0 = FindPivot(cIndex, p0);
                     if (c0 < 0)
                         continue;
 
@@ -1593,7 +1634,7 @@ namespace TradeKit.Core.ElliottWave
                 foreach (DeviationExtremumFinder medium in m_ExtremumFinders)
                 {
                     List<BarPoint> mpiv = CachedTailPivots(medium, index);
-                    int m2 = FindPivot(mpiv, v2);
+                    int m2 = FindPivot(CachedTailIndex(medium, index), v2);
                     if (m2 < 0)
                         continue;
 
@@ -1626,16 +1667,11 @@ namespace TradeKit.Core.ElliottWave
         /// extremum of a swing is the same bar/price on every rung that resolves it
         /// (OpenTime may differ by the collision shift, so it is not compared).
         /// </summary>
-        private static int FindPivot(IList<BarPoint> piv, BarPoint target)
+        private static int FindPivot(Dictionary<(int, long), int> index, BarPoint target)
         {
-            for (int i = 0; i < piv.Count; i++)
-            {
-                if (piv[i].BarIndex == target.BarIndex &&
-                    Math.Abs(piv[i].Value - target.Value) < double.Epsilon)
-                    return i;
-            }
-
-            return -1;
+            return index.TryGetValue((target.BarIndex, PriceBits(target.Value)), out int i)
+                ? i
+                : -1;
         }
 
         /// <summary>
